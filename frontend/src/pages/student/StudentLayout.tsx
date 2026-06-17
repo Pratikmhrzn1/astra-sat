@@ -1,0 +1,153 @@
+import React, { useState } from 'react';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useAuthStore } from '../../store/auth';
+
+const NAV = [
+  { path: '/student/dashboard', label: 'Dashboard', icon: (
+    <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/>
+      <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/>
+    </svg>
+  )},
+  { path: '/student/mock-test', label: 'Mock Test', icon: (
+    <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 3h6a2 2 0 0 1 2 2H7a2 2 0 0 1 2-2Z"/>
+      <rect x="4" y="4" width="16" height="17" rx="2.5"/>
+      <path d="M8.5 13l2 2 4-4.5"/>
+    </svg>
+  )},
+  { path: '/student/exams', label: 'Practice Tests', icon: (
+    <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="3" width="16" height="18" rx="2.5"/>
+      <path d="M8 8h8M8 12h8M8 16h4"/>
+    </svg>
+  )},
+  { path: '/student/results', label: 'History', icon: (
+    <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3.5 5.5A9 9 0 1 1 3 12"/>
+      <path d="M3 4v4h4"/>
+      <path d="M12 8v4.5l3 1.8"/>
+    </svg>
+  )},
+  { path: '/student/library', label: 'Library', icon: (
+    <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>
+    </svg>
+  )},
+  { path: '/student/settings', label: 'Settings', icon: (
+    <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="7" x2="20" y2="7"/>
+      <circle cx="9" cy="7" r="2.3" fill="#FAF9F6"/>
+      <line x1="4" y1="17" x2="20" y2="17"/>
+      <circle cx="15" cy="17" r="2.3" fill="#FAF9F6"/>
+    </svg>
+  )},
+];
+
+export default function StudentLayout() {
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [profileMenu, setProfileMenu] = useState(false);
+
+  const initials = user?.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('') ?? '?';
+
+  const isActive = (p: string) => location.pathname === p || location.pathname.startsWith(p + '/');
+
+  const handleSignOut = () => { logout(); navigate('/login', { replace: true }); };
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#FAF9F6' }} onClick={() => setProfileMenu(false)}>
+      {/* Nav Rail */}
+      <nav
+        className="nav-rail"
+        style={{ position: 'fixed', left: 0, top: 0, bottom: 0, background: '#fff', borderRight: '1px solid #E7E4DE', zIndex: 40, display: 'flex', flexDirection: 'column' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Logo */}
+        <div style={{ height: 72, display: 'flex', alignItems: 'center', padding: '0 27px', flexShrink: 0 }}>
+          <div style={{ width: 22, height: 22, borderRadius: 7, background: '#E2562B', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 9, height: 9, borderRadius: 2, background: '#fff' }} />
+          </div>
+          <span className="nav-label" style={{ marginLeft: 16, fontFamily: "'Instrument Serif', serif", fontSize: 22, color: '#0B0B0E' }}>
+            Score Studio
+          </span>
+        </div>
+        <div style={{ height: 1, background: '#EEEBE5', margin: '0 0 8px' }} />
+
+        {/* Items */}
+        <div style={{ flex: 1, paddingTop: 4 }}>
+          {NAV.map((item) => {
+            const active = isActive(item.path);
+            return (
+              <button
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 16, height: 46, padding: '0 27px',
+                  cursor: 'pointer', border: 'none', background: 'none', width: '100%', position: 'relative',
+                  textAlign: 'left', fontSize: 14, fontWeight: active ? 600 : 500, fontFamily: 'inherit',
+                  color: active ? '#E2562B' : '#8C8880', transition: 'color 0.18s, background 0.18s',
+                }}
+                onMouseEnter={(e) => { if (!active) { e.currentTarget.style.color = '#0B0B0E'; e.currentTarget.style.background = 'rgba(11,11,14,0.04)'; } }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = active ? '#E2562B' : '#8C8880'; e.currentTarget.style.background = 'none'; }}
+              >
+                {active && <span style={{ position: 'absolute', left: 0, top: 9, bottom: 9, width: 3, background: '#E2562B', borderRadius: '0 4px 4px 0' }} />}
+                <span style={{ flexShrink: 0 }}>{item.icon}</span>
+                <span className="nav-label">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Profile */}
+        <div style={{ borderTop: '1px solid #EEEBE5', padding: '10px 0', position: 'relative' }}>
+          {profileMenu && (
+            <div className="pop" style={{ position: 'absolute', left: 16, bottom: 64, width: 220, background: '#fff', border: '1px solid #E7E4DE', borderRadius: 14, boxShadow: '0 16px 48px rgba(11,11,14,0.16)', padding: 8, zIndex: 60 }}>
+              <div style={{ padding: '10px 12px 12px' }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{user?.name}</div>
+                <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.5)' }}>{user?.email}</div>
+              </div>
+              <div style={{ height: 1, background: '#EEEBE5', margin: '2px 0 6px' }} />
+              <button
+                onClick={() => { navigate('/student/settings'); setProfileMenu(false); }}
+                style={{ width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', background: 'none', borderRadius: 9, fontSize: 13.5, color: '#0B0B0E', cursor: 'pointer', fontFamily: 'inherit' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(11,11,14,0.05)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+              >Account settings</button>
+              <button
+                onClick={handleSignOut}
+                style={{ width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', background: 'none', borderRadius: 9, fontSize: 13.5, color: '#C0392B', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, fontFamily: 'inherit' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(192,57,43,0.07)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>
+                </svg>
+                Sign out
+              </button>
+            </div>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); setProfileMenu((p) => !p); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 16, height: 54, padding: '0 27px', cursor: 'pointer', border: 'none', background: 'none', width: '100%', fontFamily: 'inherit' }}
+          >
+            <div style={{ width: 32, height: 32, borderRadius: 9999, background: '#0B0B0E', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+              {initials}
+            </div>
+            <span className="nav-label" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: '#0B0B0E' }}>{user?.name}</span>
+              <span style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.45)' }}>View profile</span>
+            </span>
+          </button>
+        </div>
+      </nav>
+
+      {/* Main */}
+      <main className="scrollarea" style={{ marginLeft: 76, minHeight: '100vh', height: '100vh', overflowY: 'auto' }}>
+        <Outlet />
+      </main>
+    </div>
+  );
+}

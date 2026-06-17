@@ -1,0 +1,397 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { eq, and, desc } from 'drizzle-orm';
+import { db } from '../db';
+import { users, questionSets, questions, exams, examAnswers, feedback } from '../db/schema';
+import { requireAuth, requireRole } from '../middleware/auth';
+import { validateBody } from '../middleware/validate';
+
+const router = Router();
+router.use(requireAuth, requireRole(['teacher']));
+
+router.get('/students', async (req, res) => {
+  const teacherId = req.user!.sub;
+  try {
+    const students = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(and(eq(users.teacherId, teacherId), eq(users.role, 'student')));
+
+    return res.json(students);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/students/:studentId/exams', async (req, res) => {
+  const teacherId = req.user!.sub;
+  const { studentId } = req.params;
+  try {
+    const studentRows = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.id, studentId), eq(users.teacherId, teacherId)))
+      .limit(1);
+
+    if (studentRows.length === 0) {
+      return res.status(404).json({ error: 'Student not found or not assigned to you' });
+    }
+
+    const rows = await db
+      .select({
+        id: exams.id,
+        type: exams.type,
+        status: exams.status,
+        score: exams.score,
+        totalQuestions: exams.totalQuestions,
+        startedAt: exams.startedAt,
+        completedAt: exams.completedAt,
+        setTitle: questionSets.title,
+        subject: questionSets.subject,
+      })
+      .from(exams)
+      .innerJoin(questionSets, eq(exams.setId, questionSets.id))
+      .where(eq(exams.studentId, studentId))
+      .orderBy(desc(exams.startedAt));
+
+    return res.json(rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/students/:studentId/exams/:examId/results', async (req, res) => {
+  const teacherId = req.user!.sub;
+  const { studentId, examId } = req.params;
+  try {
+    const studentRows = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.id, studentId), eq(users.teacherId, teacherId)))
+      .limit(1);
+
+    if (studentRows.length === 0) {
+      return res.status(404).json({ error: 'Student not found or not assigned to you' });
+    }
+
+    const examRows = await db
+      .select()
+      .from(exams)
+      .where(and(eq(exams.id, examId), eq(exams.studentId, studentId)))
+      .limit(1);
+
+    if (examRows.length === 0) {
+      return res.status(404).json({ error: 'Exam not found' });
+    }
+
+    const exam = examRows[0];
+    const results = await db
+      .select({
+        questionId: questions.id,
+        questionText: questions.questionText,
+        optionA: questions.optionA,
+        optionB: questions.optionB,
+        optionC: questions.optionC,
+        optionD: questions.optionD,
+        correctAnswer: questions.correctAnswer,
+        explanation: questions.explanation,
+        selectedAnswer: examAnswers.selectedAnswer,
+        isCorrect: examAnswers.isCorrect,
+        orderIndex: questions.orderIndex,
+      })
+      .from(examAnswers)
+      .innerJoin(questions, eq(examAnswers.questionId, questions.id))
+      .where(eq(examAnswers.examId, exam.id))
+      .orderBy(questions.orderIndex);
+
+    const setRows = await db
+      .select({ title: questionSets.title, subject: questionSets.subject })
+      .from(questionSets)
+      .where(eq(questionSets.id, exam.setId))
+      .limit(1);
+
+    return res.json({ exam, set: setRows[0] || null, student: studentRows[0], results });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const sendFeedbackSchema = z.object({
+  studentId: z.string().uuid(),
+  examId: z.string().uuid().optional(),
+  content: z.string().min(1, 'Feedback content is required').max(5000),
+});
+
+router.post('/feedback', validateBody(sendFeedbackSchema), async (req, res) => {
+  const teacherId = req.user!.sub;
+  const { studentId, examId, content } = req.body;
+
+  try {
+    const studentRows = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.id, studentId), eq(users.teacherId, teacherId)))
+      .limit(1);
+
+    if (studentRows.length === 0) {
+      return res.status(403).json({ error: 'Student not assigned to you' });
+    }
+
+    const [fb] = await db
+      .insert(feedback)
+      .values({ teacherId, studentId, examId: examId || null, content })
+      .returning();
+
+    return res.status(201).json(fb);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/feedback', async (req, res) => {
+  const teacherId = req.user!.sub;
+  try {
+    const rows = await db
+      .select({
+        id: feedback.id,
+        content: feedback.content,
+        isRead: feedback.isRead,
+        createdAt: feedback.createdAt,
+        examId: feedback.examId,
+        studentName: users.name,
+        studentEmail: users.email,
+      })
+      .from(feedback)
+      .innerJoin(users, eq(feedback.studentId, users.id))
+      .where(eq(feedback.teacherId, teacherId))
+      .orderBy(desc(feedback.createdAt));
+
+    return res.json(rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/question-sets', async (req, res) => {
+  const teacherId = req.user!.sub;
+  try {
+    const rows = await db
+      .select()
+      .from(questionSets)
+      .where(eq(questionSets.createdBy, teacherId))
+      .orderBy(desc(questionSets.createdAt));
+
+    return res.json(rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const createSetSchema = z.object({
+  title: z.string().min(1).max(255),
+  subject: z.enum(['english', 'math']),
+  description: z.string().max(2000).optional().default(''),
+});
+
+router.post('/question-sets', validateBody(createSetSchema), async (req, res) => {
+  const teacherId = req.user!.sub;
+  const { title, subject, description } = req.body;
+  try {
+    const [set] = await db
+      .insert(questionSets)
+      .values({ title, subject, description, createdBy: teacherId })
+      .returning();
+
+    return res.status(201).json(set);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.put('/question-sets/:setId', validateBody(createSetSchema.partial()), async (req, res) => {
+  const teacherId = req.user!.sub;
+  const { setId } = req.params;
+  try {
+    const setRows = await db
+      .select()
+      .from(questionSets)
+      .where(and(eq(questionSets.id, setId), eq(questionSets.createdBy, teacherId)))
+      .limit(1);
+
+    if (setRows.length === 0) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    const [updated] = await db
+      .update(questionSets)
+      .set({ ...req.body, updatedAt: new Date() })
+      .where(eq(questionSets.id, setId))
+      .returning();
+
+    return res.json(updated);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/question-sets/:setId', async (req, res) => {
+  const teacherId = req.user!.sub;
+  const { setId } = req.params;
+  try {
+    const setRows = await db
+      .select()
+      .from(questionSets)
+      .where(and(eq(questionSets.id, setId), eq(questionSets.createdBy, teacherId)))
+      .limit(1);
+
+    if (setRows.length === 0) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    const examUsage = await db
+      .select({ id: exams.id })
+      .from(exams)
+      .where(eq(exams.setId, setId))
+      .limit(1);
+
+    if (examUsage.length > 0) {
+      return res.status(400).json({ error: 'Cannot delete a set that has been used in exams' });
+    }
+
+    await db.delete(questionSets).where(eq(questionSets.id, setId));
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/question-sets/:setId/questions', async (req, res) => {
+  const teacherId = req.user!.sub;
+  const { setId } = req.params;
+  try {
+    const setRows = await db
+      .select()
+      .from(questionSets)
+      .where(and(eq(questionSets.id, setId), eq(questionSets.createdBy, teacherId)))
+      .limit(1);
+
+    if (setRows.length === 0) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    const qs = await db
+      .select()
+      .from(questions)
+      .where(eq(questions.setId, setId))
+      .orderBy(questions.orderIndex);
+
+    return res.json(qs);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const createQuestionSchema = z.object({
+  questionText: z.string().min(1, 'Question text is required'),
+  optionA: z.string().min(1, 'Option A is required'),
+  optionB: z.string().min(1, 'Option B is required'),
+  optionC: z.string().min(1, 'Option C is required'),
+  optionD: z.string().min(1, 'Option D is required'),
+  correctAnswer: z.enum(['a', 'b', 'c', 'd']),
+  explanation: z.string().optional(),
+  orderIndex: z.number().int().min(0).default(0),
+});
+
+router.post('/question-sets/:setId/questions', validateBody(createQuestionSchema), async (req, res) => {
+  const teacherId = req.user!.sub;
+  const { setId } = req.params;
+  try {
+    const setRows = await db
+      .select()
+      .from(questionSets)
+      .where(and(eq(questionSets.id, setId), eq(questionSets.createdBy, teacherId)))
+      .limit(1);
+
+    if (setRows.length === 0) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    const [q] = await db
+      .insert(questions)
+      .values({ setId, ...req.body })
+      .returning();
+
+    return res.status(201).json(q);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.put('/questions/:questionId', validateBody(createQuestionSchema.partial()), async (req, res) => {
+  const teacherId = req.user!.sub;
+  const { questionId } = req.params;
+  try {
+    const qRows = await db
+      .select({ id: questions.id, createdBy: questionSets.createdBy })
+      .from(questions)
+      .innerJoin(questionSets, eq(questions.setId, questionSets.id))
+      .where(eq(questions.id, questionId))
+      .limit(1);
+
+    if (qRows.length === 0 || qRows[0].createdBy !== teacherId) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+
+    const [updated] = await db
+      .update(questions)
+      .set(req.body)
+      .where(eq(questions.id, questionId))
+      .returning();
+
+    return res.json(updated);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/questions/:questionId', async (req, res) => {
+  const teacherId = req.user!.sub;
+  const { questionId } = req.params;
+  try {
+    const qRows = await db
+      .select({ id: questions.id, createdBy: questionSets.createdBy })
+      .from(questions)
+      .innerJoin(questionSets, eq(questions.setId, questionSets.id))
+      .where(eq(questions.id, questionId))
+      .limit(1);
+
+    if (qRows.length === 0 || qRows[0].createdBy !== teacherId) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+
+    await db.delete(questions).where(eq(questions.id, questionId));
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+export default router;

@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: 'Satoshi', ui-sans-serif, system-ui, sans-serif;
+    color: #0B0B0E;
+    background: #FAF9F6;
+    -webkit-font-smoothing: antialiased;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  ::selection {
+    background: rgba(226, 86, 43, 0.18);
+  }
+  input, button, textarea, select {
+    font-family: inherit;
+  }
+}
+
+@layer components {
+  .scrollarea::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scrollarea::-webkit-scrollbar-thumb {
+    background: rgba(11,11,14,0.16);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+
+  /* Nav rail */
+  .nav-rail {
+    width: 76px;
+    transition: width 0.30s cubic-bezier(0.22,1,0.36,1);
+    overflow: hidden;
+  }
+  .nav-rail:hover {
+    width: 252px;
+    box-shadow: 0 4px 24px rgba(11,11,14,0.10);
+  }
+  .nav-label {
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    white-space: nowrap;
+  }
+  .nav-rail:hover .nav-label {
+    opacity: 1;
+  }
+
+  /* Lift hover effect */
+  .lift {
+    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  }
+
+  /* Screen animations */
+  @keyframes fadeUp {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+  @keyframes popIn {
+    0% { transform: scale(0.96); }
+    60% { transform: scale(1.01); }
+    100% { transform: scale(1); }
+  }
+  .screen-fade {
+    animation: fadeUp 0.4s cubic-bezier(0.22,1,0.36,1);
+  }
+  .pop {
+    animation: popIn 0.5s cubic-bezier(0.22,1,0.36,1);
+  }
+}
