@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: sat-prep-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false   # set in Render dashboard — paste Neon connection string
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false   # set in Render dashboard — your Cloudflare Pages URL
+      - key: PORT
+        value: 10000
