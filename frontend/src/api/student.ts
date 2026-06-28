@@ -11,18 +11,24 @@ export interface QuestionSet {
 
 export interface Question {
   id: string;
+  questionType: 'multiple_choice' | 'student_produced_response';
   questionText: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
+  optionA: string | null;
+  optionB: string | null;
+  optionC: string | null;
+  optionD: string | null;
+  passageId: string | null;
+  passageText: string | null;
+  passageTitle: string | null;
   orderIndex: number;
 }
 
 export interface QuestionWithAnswer extends Question {
-  correctAnswer: 'a' | 'b' | 'c' | 'd';
+  correctAnswer: 'a' | 'b' | 'c' | 'd' | null;
+  correctAnswerText: string | null;
   explanation: string | null;
   selectedAnswer: string | null;
+  selectedAnswerText: string | null;
   isCorrect: boolean | null;
 }
 
@@ -78,7 +84,7 @@ export async function startExam(setId: string): Promise<{ exam: Exam; questions:
 export async function getExam(examId: string): Promise<{
   exam: Exam;
   questions: Question[];
-  answers: { questionId: string; selectedAnswer: string | null }[];
+  answers: { questionId: string; selectedAnswer: string | null; selectedAnswerText: string | null }[];
 }> {
   const { data } = await apiClient.get(`/student/exams/${examId}`);
   return data;
@@ -86,7 +92,7 @@ export async function getExam(examId: string): Promise<{
 
 export async function saveAnswers(
   examId: string,
-  answers: { questionId: string; selectedAnswer: string | null }[],
+  answers: { questionId: string; selectedAnswer?: string | null; selectedAnswerText?: string | null }[],
   timeSpentSeconds?: number
 ): Promise<void> {
   await apiClient.put(`/student/exams/${examId}/answers`, { answers, timeSpentSeconds });

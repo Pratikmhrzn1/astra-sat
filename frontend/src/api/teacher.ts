@@ -17,15 +17,27 @@ export interface QuestionSet {
   updatedAt: string;
 }
 
+export interface Passage {
+  id: string;
+  setId: string;
+  title: string;
+  passageText: string;
+  orderIndex: number;
+  createdAt: string;
+}
+
 export interface Question {
   id: string;
   setId: string;
+  passageId: string | null;
+  questionType: 'multiple_choice' | 'student_produced_response';
   questionText: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  correctAnswer: 'a' | 'b' | 'c' | 'd';
+  optionA: string | null;
+  optionB: string | null;
+  optionC: string | null;
+  optionD: string | null;
+  correctAnswer: 'a' | 'b' | 'c' | 'd' | null;
+  correctAnswerText: string | null;
   explanation: string | null;
   orderIndex: number;
 }
@@ -45,33 +57,22 @@ export async function getStudents(): Promise<Student[]> {
   return data;
 }
 
-export async function getStudentExams(
-  studentId: string
-): Promise<(Exam & { setTitle: string; subject: string })[]> {
+export async function getStudentExams(studentId: string): Promise<(Exam & { setTitle: string; subject: string })[]> {
   const { data } = await apiClient.get(`/teacher/students/${studentId}/exams`);
   return data;
 }
 
-export async function getStudentExamResults(
-  studentId: string,
-  examId: string
-): Promise<{
+export async function getStudentExamResults(studentId: string, examId: string): Promise<{
   exam: Exam;
   set: { title: string; subject: string } | null;
   student: Student;
   results: QuestionWithAnswer[];
 }> {
-  const { data } = await apiClient.get(
-    `/teacher/students/${studentId}/exams/${examId}/results`
-  );
+  const { data } = await apiClient.get(`/teacher/students/${studentId}/exams/${examId}/results`);
   return data;
 }
 
-export async function sendFeedback(
-  studentId: string,
-  content: string,
-  examId?: string
-): Promise<void> {
+export async function sendFeedback(studentId: string, content: string, examId?: string): Promise<void> {
   await apiClient.post('/teacher/feedback', { studentId, content, examId });
 }
 
@@ -85,13 +86,32 @@ export async function getQuestionSets(): Promise<QuestionSet[]> {
   return data;
 }
 
-export async function createQuestionSet(payload: {
-  title: string;
-  subject: 'english' | 'math';
-  description: string;
-}): Promise<QuestionSet> {
+export async function createQuestionSet(payload: { title: string; subject: 'english' | 'math'; description: string }): Promise<QuestionSet> {
   const { data } = await apiClient.post<QuestionSet>('/teacher/question-sets', payload);
   return data;
+}
+
+export async function deleteQuestionSet(setId: string): Promise<void> {
+  await apiClient.delete(`/teacher/question-sets/${setId}`);
+}
+
+export async function getSetPassages(setId: string): Promise<Passage[]> {
+  const { data } = await apiClient.get<Passage[]>(`/teacher/question-sets/${setId}/passages`);
+  return data;
+}
+
+export async function createPassage(setId: string, payload: { title: string; passageText: string; orderIndex: number }): Promise<Passage> {
+  const { data } = await apiClient.post<Passage>(`/teacher/question-sets/${setId}/passages`, payload);
+  return data;
+}
+
+export async function updatePassage(passageId: string, payload: Partial<{ title: string; passageText: string }>): Promise<Passage> {
+  const { data } = await apiClient.put<Passage>(`/teacher/passages/${passageId}`, payload);
+  return data;
+}
+
+export async function deletePassage(passageId: string): Promise<void> {
+  await apiClient.delete(`/teacher/passages/${passageId}`);
 }
 
 export async function getSetQuestions(setId: string): Promise<Question[]> {
@@ -99,38 +119,11 @@ export async function getSetQuestions(setId: string): Promise<Question[]> {
   return data;
 }
 
-export async function addQuestion(
-  setId: string,
-  payload: {
-    questionText: string;
-    optionA: string;
-    optionB: string;
-    optionC: string;
-    optionD: string;
-    correctAnswer: 'a' | 'b' | 'c' | 'd';
-    explanation?: string;
-    orderIndex: number;
-  }
-): Promise<Question> {
-  const { data } = await apiClient.post<Question>(
-    `/teacher/question-sets/${setId}/questions`,
-    payload
-  );
-  return data;
-}
-
-export async function updateQuestion(
-  questionId: string,
-  payload: Partial<Omit<Question, 'id' | 'setId'>>
-): Promise<Question> {
-  const { data } = await apiClient.put<Question>(`/teacher/questions/${questionId}`, payload);
+export async function addQuestion(setId: string, payload: Omit<Question, 'id' | 'setId'>): Promise<Question> {
+  const { data } = await apiClient.post<Question>(`/teacher/question-sets/${setId}/questions`, payload);
   return data;
 }
 
 export async function deleteQuestion(questionId: string): Promise<void> {
   await apiClient.delete(`/teacher/questions/${questionId}`);
-}
-
-export async function deleteQuestionSet(setId: string): Promise<void> {
-  await apiClient.delete(`/teacher/question-sets/${setId}`);
 }

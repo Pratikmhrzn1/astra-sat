@@ -34,13 +34,20 @@ export default function TakeExam() {
         setTimeLeft(Math.max(0, 20 * 60 - saved.timeSpentSeconds));
       } else {
         const init: Record<string, string | null> = {};
-        data.answers.forEach((a) => { init[a.questionId] = a.selectedAnswer; });
+        data.answers.forEach((a) => { init[a.questionId] = a.selectedAnswerText ?? a.selectedAnswer; });
         setAnswers(init);
       }
     });
   }, [data, examId]);
 
-  const saveMutation = useMutation({ mutationFn: ({ ans, time }: { ans: typeof answers; time: number }) => saveAnswers(examId!, Object.entries(ans).map(([questionId, selectedAnswer]) => ({ questionId, selectedAnswer })), time) });
+  const saveMutation = useMutation({
+    mutationFn: ({ ans, time }: { ans: typeof answers; time: number }) =>
+      saveAnswers(examId!, Object.entries(ans).map(([questionId, value]) => {
+        const q = data?.questions.find((qq) => qq.id === questionId);
+        const isSPR = q?.questionType === 'student_produced_response';
+        return { questionId, selectedAnswer: isSPR ? null : (value as 'a' | 'b' | 'c' | 'd' | null), selectedAnswerText: isSPR ? value : null };
+      }), time),
+  });
   const submitMutation = useMutation({
     mutationFn: () => submitExam(examId!, 20 * 60 - timeLeft),
     onSuccess: async () => {
@@ -128,6 +135,7 @@ export default function TakeExam() {
     });
   };
 
+  const isSPR = q.questionType === 'student_produced_response';
   const LETTER = ['A', 'B', 'C', 'D'];
   const optKeys = ['a', 'b', 'c', 'd'];
   const optTexts = [q.optionA, q.optionB, q.optionC, q.optionD];
@@ -193,45 +201,63 @@ export default function TakeExam() {
 
       {/* Content */}
       <div className="scrollarea" style={{ flex: 1, overflowY: 'auto', background: '#FAF9F6' }}>
-        <div style={{ maxWidth: q.questionText && q.optionA ? 1080 : 720, margin: '0 auto', padding: '40px 40px 60px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40 }}>
-          {/* Passage (left side — optional) */}
-          <div style={{ paddingRight: 36, borderRight: '1px solid #EAE7E1' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 14 }}>Passage</div>
-            <p style={{ fontFamily: "'Instrument Serif', serif", fontSize: 21, lineHeight: 1.6, color: '#0B0B0E', margin: 0 }}>
-              {/* Placeholder — real passages would be in a question.passage field */}
-              Answer the question based on your knowledge of the subject.
-            </p>
-          </div>
+        <div style={{ maxWidth: q.passageText ? 1100 : 760, margin: '0 auto', padding: '40px 40px 60px', display: q.passageText ? 'grid' : 'block', gridTemplateColumns: '1fr 1fr', gap: 48 }}>
+          {/* Passage (left side) */}
+          {q.passageText && (
+            <div style={{ paddingRight: 40, borderRight: '1px solid #EAE7E1' }}>
+              {q.passageTitle && <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 10 }}>{q.passageTitle}</div>}
+              <p style={{ fontFamily: "'Instrument Serif', serif", fontSize: 19, lineHeight: 1.7, color: '#0B0B0E', margin: 0, whiteSpace: 'pre-wrap' }}>{q.passageText}</p>
+            </div>
+          )}
 
-          {/* Question (right side) */}
+          {/* Question */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <span style={{ width: 26, height: 26, borderRadius: 7, background: '#0B0B0E', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{index + 1}</span>
+              {isSPR && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'rgba(226,86,43,0.08)', color: '#E2562B' }}>Grid-in</span>}
             </div>
             <p style={{ fontSize: 16.5, lineHeight: 1.55, fontWeight: 500, color: '#0B0B0E', margin: '0 0 22px' }}>{q.questionText}</p>
 
-            <div>
-              {optKeys.map((key, oi) => {
-                const isSelected = selected === key;
-                const isElim = !!qElim[key];
-                return (
-                  <div key={key} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                    <button
-                      onClick={() => selectAnswer(key)}
-                      style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '15px 18px', borderRadius: 12, cursor: 'pointer', background: isSelected ? 'rgba(226,86,43,0.06)' : '#fff', border: isSelected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', opacity: isElim ? 0.4 : 1, transition: 'all 0.15s', fontFamily: 'inherit' }}
-                    >
-                      <span style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 9999, border: isSelected ? '1.5px solid #E2562B' : '1.5px solid #C8C4BC', background: isSelected ? '#E2562B' : 'transparent', color: isSelected ? '#fff' : '#8C8880', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{LETTER[oi]}</span>
-                      <span style={{ fontSize: 15, color: '#0B0B0E', lineHeight: 1.5, textDecoration: isElim ? 'line-through' : 'none' }}>{optTexts[oi]}</span>
-                    </button>
-                    <button
-                      title="Cross out"
-                      onClick={() => toggleElim(key)}
-                      style={{ width: 44, flexShrink: 0, borderRadius: 10, border: '1px solid #E7E4DE', background: isElim ? 'rgba(11,11,14,0.04)' : '#fff', color: isElim ? '#E2562B' : '#A8A49C', cursor: 'pointer', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', textDecoration: 'line-through', fontFamily: 'inherit' }}
-                    >ABC</button>
-                  </div>
-                );
-              })}
-            </div>
+            {/* SPR: text input */}
+            {isSPR && (
+              <div>
+                <input
+                  type="text"
+                  value={selected ?? ''}
+                  onChange={(e) => selectAnswer(e.target.value)}
+                  placeholder="Enter your answer…"
+                  style={{ width: '100%', maxWidth: 280, height: 52, padding: '0 16px', border: selected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', borderRadius: 12, fontSize: 18, fontFamily: "'JetBrains Mono', monospace", background: '#fff', color: '#0B0B0E', outline: 'none', boxSizing: 'border-box' }}
+                />
+                <p style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)', marginTop: 8 }}>Accepted formats: whole number, decimal (1.5), or fraction (3/4)</p>
+              </div>
+            )}
+
+            {/* MC: option buttons */}
+            {!isSPR && (
+              <div>
+                {optKeys.map((key, oi) => {
+                  if (!optTexts[oi]) return null;
+                  const isSelected = selected === key;
+                  const isElim = !!qElim[key];
+                  return (
+                    <div key={key} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+                      <button
+                        onClick={() => selectAnswer(key)}
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '15px 18px', borderRadius: 12, cursor: 'pointer', background: isSelected ? 'rgba(226,86,43,0.06)' : '#fff', border: isSelected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', opacity: isElim ? 0.4 : 1, transition: 'all 0.15s', fontFamily: 'inherit' }}
+                      >
+                        <span style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 9999, border: isSelected ? '1.5px solid #E2562B' : '1.5px solid #C8C4BC', background: isSelected ? '#E2562B' : 'transparent', color: isSelected ? '#fff' : '#8C8880', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{LETTER[oi]}</span>
+                        <span style={{ fontSize: 15, color: '#0B0B0E', lineHeight: 1.5, textDecoration: isElim ? 'line-through' : 'none' }}>{optTexts[oi]}</span>
+                      </button>
+                      <button
+                        title="Cross out"
+                        onClick={() => toggleElim(key)}
+                        style={{ width: 44, flexShrink: 0, borderRadius: 10, border: '1px solid #E7E4DE', background: isElim ? 'rgba(11,11,14,0.04)' : '#fff', color: isElim ? '#E2562B' : '#A8A49C', cursor: 'pointer', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', textDecoration: 'line-through', fontFamily: 'inherit' }}
+                      >ABC</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

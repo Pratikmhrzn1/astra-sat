@@ -1,15 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, CheckCircle2, WifiOff, BookOpen } from 'lucide-react';
+import { Plus, Trash2, BookOpen, ChevronLeft, WifiOff, CheckCircle2, FileText } from 'lucide-react';
 import {
-  getQuestionSets,
-  createQuestionSet,
-  getSetQuestions,
-  addQuestion,
-  deleteQuestion,
-  deleteQuestionSet,
+  getQuestionSets, createQuestionSet, deleteQuestionSet,
+  getSetPassages, createPassage, deletePassage,
+  getSetQuestions, addQuestion, deleteQuestion,
 } from '../../api/teacher';
+import type { QuestionSet, Passage, Question } from '../../api/teacher';
 import { saveTeacherDraft, loadTeacherDraft, clearTeacherDraft } from '../../lib/offline';
 import { Button } from '../../components/ui/Button';
 import { Input, Textarea } from '../../components/ui/Input';
@@ -18,29 +16,78 @@ import { ConfirmModal } from '../../components/ui/Modal';
 import { Spinner } from '../../components/ui/Spinner';
 import { getApiError } from '../../api/client';
 
-type Tab = 'create' | 'manage';
-type Subject = 'english' | 'math';
-type AnswerKey = 'a' | 'b' | 'c' | 'd';
+type EditorTab = 'questions' | 'passages';
+type QuestionType = 'multiple_choice' | 'student_produced_response';
 
-interface QuestionForm {
+interface MCForm {
+  questionType: 'multiple_choice';
+  passageId: string;
   questionText: string;
-  optionA: string;
-  optionB: string;
-  optionC: string;
-  optionD: string;
-  correctAnswer: AnswerKey;
+  optionA: string; optionB: string; optionC: string; optionD: string;
+  correctAnswer: 'a' | 'b' | 'c' | 'd';
   explanation: string;
 }
 
-const emptyForm: QuestionForm = { questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'a', explanation: '' };
+interface SPRForm {
+  questionType: 'student_produced_response';
+  passageId: string;
+  questionText: string;
+  correctAnswerText: string;
+  explanation: string;
+}
+
+type QuestionForm = MCForm | SPRForm;
+
+const emptyMC: MCForm = { questionType: 'multiple_choice', passageId: '', questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'a', explanation: '' };
+const emptySPR: SPRForm = { questionType: 'student_produced_response', passageId: '', questionText: '', correctAnswerText: '', explanation: '' };
+
+// ── Math Symbol Toolbar ──────────────────────────────────────────────────────
+
+const SYMBOL_GROUPS = [
+  { label: 'Sup', tip: 'Superscripts', symbols: ['²', '³', '¹', '⁰', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹', '⁻', '⁺', 'ⁿ'] },
+  { label: 'Sub', tip: 'Subscripts', symbols: ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉'] },
+  { label: 'Ops', tip: 'Operations', symbols: ['×', '÷', '±', '√', '∛', '∜', '∞', '·'] },
+  { label: 'Rel', tip: 'Relations', symbols: ['≤', '≥', '≠', '≈', '≡', '∝'] },
+  { label: 'Grk', tip: 'Greek letters', symbols: ['π', 'θ', 'α', 'β', 'γ', 'δ', 'λ', 'μ', 'σ', 'φ', 'ω'] },
+  { label: '…', tip: 'Other symbols', symbols: ['°', '∠', '△', '∑', '∫', '½', '⅓', '⅔', '¼', '¾'] },
+];
+
+function MathToolbar({ onInsert }: { onInsert: (s: string) => void }) {
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
+      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', alignSelf: 'center', marginRight: 4 }}>Math</span>
+      {SYMBOL_GROUPS.map((g) => (
+        <div key={g.label} style={{ position: 'relative' }}>
+          <button
+            type="button"
+            title={g.tip}
+            onClick={() => setOpen(open === g.label ? null : g.label)}
+            style={{ padding: '3px 8px', fontSize: 11, fontWeight: 600, border: '1px solid #E7E4DE', borderRadius: 6, background: open === g.label ? '#0B0B0E' : '#F2F0EC', color: open === g.label ? '#fff' : '#0B0B0E', cursor: 'pointer', fontFamily: 'inherit' }}
+          >{g.label} ▾</button>
+          {open === g.label && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: '#fff', border: '1px solid #E7E4DE', borderRadius: 10, padding: 8, zIndex: 50, display: 'flex', flexWrap: 'wrap', gap: 4, width: 200, boxShadow: '0 8px 24px rgba(11,11,14,0.12)' }}>
+              {g.symbols.map((sym) => (
+                <button
+                  key={sym}
+                  type="button"
+                  onClick={() => { onInsert(sym); setOpen(null); }}
+                  style={{ minWidth: 30, height: 30, padding: '0 6px', border: '1px solid #E7E4DE', borderRadius: 7, background: '#F8F7F4', color: '#0B0B0E', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >{sym}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function useOnlineStatus() {
   const [online, setOnline] = React.useState(navigator.onLine);
   React.useEffect(() => {
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener('online', on);
-    window.addEventListener('offline', off);
+    const on = () => setOnline(true); const off = () => setOnline(false);
+    window.addEventListener('online', on); window.addEventListener('offline', off);
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
   return online;
@@ -48,227 +95,517 @@ function useOnlineStatus() {
 
 const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)' };
 
-export default function AddContent() {
+// ── Main Component ───────────────────────────────────────────────────────────
+
+export default function ContentManager() {
   const queryClient = useQueryClient();
   const online = useOnlineStatus();
-  const [tab, setTab] = useState<Tab>('create');
-  const [setTitle, setSetTitle] = useState('');
-  const [setSubject, setSetSubject] = useState<Subject>('english');
-  const [setDescription, setSetDescription] = useState('');
-  const [activeSetId, setActiveSetId] = useState<string | null>(null);
-  const [qForm, setQForm] = useState<QuestionForm>({ ...emptyForm });
-  const [qErrors, setQErrors] = useState<Partial<QuestionForm>>({});
-  const [createError, setCreateError] = useState('');
+
+  // View state
+  const [activeSet, setActiveSet] = useState<QuestionSet | null>(null);
+  const [editorTab, setEditorTab] = useState<EditorTab>('questions');
+
+  // New set form
+  const [newSetTitle, setNewSetTitle] = useState('');
+  const [newSetSubject, setNewSetSubject] = useState<'english' | 'math'>('english');
+  const [newSetDesc, setNewSetDesc] = useState('');
+  const [setError, setSetError] = useState('');
+  const [showNewSet, setShowNewSet] = useState(false);
+
+  // Passage form
+  const [passageTitle, setPassageTitle] = useState('');
+  const [passageText, setPassageText] = useState('');
+  const [passageError, setPassageError] = useState('');
+
+  // Question form
+  const [qType, setQType] = useState<QuestionType>('multiple_choice');
+  const [qForm, setQForm] = useState<QuestionForm>({ ...emptyMC });
+  const [qErrors, setQErrors] = useState<Record<string, string>>({});
+  const [qError, setQError] = useState('');
   const [draftSaved, setDraftSaved] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'set' | 'question'; id: string } | null>(null);
 
+  // Delete confirm
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'set' | 'question' | 'passage'; id: string } | null>(null);
+
+  // Symbol insertion — track active textarea by field name
+  const [activeField, setActiveField] = useState<string | null>(null);
+  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+
+  const isMath = activeSet?.subject === 'math';
+
+  // Queries
   const { data: sets = [], isLoading: setsLoading } = useQuery({ queryKey: ['teacher', 'question-sets'], queryFn: getQuestionSets });
-  const { data: questions = [] } = useQuery({ queryKey: ['teacher', 'questions', activeSetId], queryFn: () => getSetQuestions(activeSetId!), enabled: !!activeSetId });
+  const { data: passages = [] } = useQuery({ queryKey: ['teacher', 'passages', activeSet?.id], queryFn: () => getSetPassages(activeSet!.id), enabled: !!activeSet });
+  const { data: questions = [] } = useQuery({ queryKey: ['teacher', 'questions', activeSet?.id], queryFn: () => getSetQuestions(activeSet!.id), enabled: !!activeSet });
 
-  useEffect(() => {
-    if (!activeSetId) return;
-    loadTeacherDraft(`q-draft-${activeSetId}`).then((saved) => { if (saved?.questionForm) setQForm(saved.questionForm as unknown as QuestionForm); });
-  }, [activeSetId]);
+  // Switch question type — keep shared fields
+  const switchQType = (t: QuestionType) => {
+    setQType(t);
+    if (t === 'multiple_choice') {
+      setQForm({ ...emptyMC, passageId: (qForm as any).passageId ?? '', questionText: qForm.questionText, explanation: qForm.explanation });
+    } else {
+      setQForm({ ...emptySPR, passageId: (qForm as any).passageId ?? '', questionText: qForm.questionText, explanation: qForm.explanation });
+    }
+    setQErrors({});
+  };
 
+  // Draft auto-save (question form)
   const saveDraft = useCallback(async () => {
-    if (!activeSetId) return;
-    await saveTeacherDraft(`q-draft-${activeSetId}`, activeSetId, qForm as unknown as Record<string, unknown>);
+    if (!activeSet) return;
+    await saveTeacherDraft(`q-draft-${activeSet.id}`, activeSet.id, qForm as unknown as Record<string, unknown>);
     setDraftSaved(true);
     setTimeout(() => setDraftSaved(false), 1500);
-  }, [activeSetId, qForm]);
+  }, [activeSet, qForm]);
 
-  useEffect(() => { const t = setTimeout(saveDraft, 800); return () => clearTimeout(t); }, [qForm, saveDraft]);
+  useEffect(() => { const t = setTimeout(saveDraft, 900); return () => clearTimeout(t); }, [qForm, saveDraft]);
 
+  useEffect(() => {
+    if (!activeSet) return;
+    loadTeacherDraft(`q-draft-${activeSet.id}`).then((saved) => {
+      if (saved?.questionForm?.questionText) setQForm(saved.questionForm as unknown as QuestionForm);
+    });
+  }, [activeSet?.id]);
+
+  // Symbol toolbar insertion
+  const handleSymbolInsert = useCallback((symbol: string) => {
+    if (!activeField) return;
+    const el = textareaRefs.current[activeField];
+    if (!el) return;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    const newCursorPos = start + symbol.length;
+    const newValue = el.value.substring(0, start) + symbol + el.value.substring(end);
+    setQForm((prev) => ({ ...prev, [activeField]: newValue } as QuestionForm));
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(newCursorPos, newCursorPos); });
+  }, [activeField]);
+
+  function registerRef(field: string) {
+    return (el: HTMLTextAreaElement | null) => { textareaRefs.current[field] = el; };
+  }
+
+  function focusField(field: string) {
+    return () => setActiveField(field);
+  }
+
+  function updateQ(field: string, value: string) {
+    setQForm((prev) => ({ ...prev, [field]: value } as QuestionForm));
+    setQErrors((e) => { const n = { ...e }; delete n[field]; return n; });
+  }
+
+  // Mutations — sets
   const createSetMutation = useMutation({
-    mutationFn: () => createQuestionSet({ title: setTitle.trim(), subject: setSubject, description: setDescription.trim() }),
-    onSuccess: (set) => { queryClient.invalidateQueries({ queryKey: ['teacher', 'question-sets'] }); setActiveSetId(set.id); setSetTitle(''); setSetDescription(''); },
-    onError: (err) => setCreateError(getApiError(err)),
-  });
-
-  const addQuestionMutation = useMutation({
-    mutationFn: () => addQuestion(activeSetId!, { questionText: qForm.questionText, optionA: qForm.optionA, optionB: qForm.optionB, optionC: qForm.optionC, optionD: qForm.optionD, correctAnswer: qForm.correctAnswer, explanation: qForm.explanation || undefined, orderIndex: questions.length }),
-    onSuccess: async () => { queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSetId] }); await clearTeacherDraft(`q-draft-${activeSetId}`); setQForm({ ...emptyForm }); },
-    onError: (err) => setCreateError(getApiError(err)),
-  });
-
-  const deleteQMutation = useMutation({
-    mutationFn: (qId: string) => deleteQuestion(qId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSetId] }),
+    mutationFn: () => createQuestionSet({ title: newSetTitle.trim(), subject: newSetSubject, description: newSetDesc.trim() }),
+    onSuccess: (set) => {
+      queryClient.invalidateQueries({ queryKey: ['teacher', 'question-sets'] });
+      setActiveSet(set); setNewSetTitle(''); setNewSetDesc(''); setShowNewSet(false); setSetError('');
+    },
+    onError: (err) => setSetError(getApiError(err)),
   });
 
   const deleteSetMutation = useMutation({
-    mutationFn: (setId: string) => deleteQuestionSet(setId),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['teacher', 'question-sets'] }); if (activeSetId === deleteConfirm?.id) setActiveSetId(null); setDeleteConfirm(null); },
-    onError: (err) => setCreateError(getApiError(err)),
+    mutationFn: (id: string) => deleteQuestionSet(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teacher', 'question-sets'] });
+      if (activeSet?.id === deleteTarget?.id) setActiveSet(null);
+      setDeleteTarget(null);
+    },
   });
 
-  const validateAndAdd = () => {
-    const errors: Partial<QuestionForm> = {};
+  // Mutations — passages
+  const createPassageMutation = useMutation({
+    mutationFn: () => createPassage(activeSet!.id, { title: passageTitle.trim(), passageText: passageText.trim(), orderIndex: passages.length }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teacher', 'passages', activeSet?.id] });
+      setPassageTitle(''); setPassageText(''); setPassageError('');
+    },
+    onError: (err) => setPassageError(getApiError(err)),
+  });
+
+  const deletePassageMutation = useMutation({
+    mutationFn: (id: string) => deletePassage(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['teacher', 'passages', activeSet?.id] }); setDeleteTarget(null); },
+  });
+
+  // Mutations — questions
+  const addQuestionMutation = useMutation({
+    mutationFn: () => {
+      const base = { passageId: (qForm as any).passageId || null, questionText: qForm.questionText, explanation: qForm.explanation || null, orderIndex: questions.length };
+      if (qForm.questionType === 'multiple_choice') {
+        const f = qForm as MCForm;
+        return addQuestion(activeSet!.id, { ...base, questionType: 'multiple_choice', optionA: f.optionA, optionB: f.optionB, optionC: f.optionC, optionD: f.optionD, correctAnswer: f.correctAnswer, correctAnswerText: null });
+      } else {
+        const f = qForm as SPRForm;
+        return addQuestion(activeSet!.id, { ...base, questionType: 'student_produced_response', optionA: null, optionB: null, optionC: null, optionD: null, correctAnswer: null, correctAnswerText: f.correctAnswerText });
+      }
+    },
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet?.id] });
+      if (activeSet) await clearTeacherDraft(`q-draft-${activeSet.id}`);
+      setQForm(qType === 'multiple_choice' ? { ...emptyMC } : { ...emptySPR });
+      setQErrors({}); setQError('');
+    },
+    onError: (err) => setQError(getApiError(err)),
+  });
+
+  const deleteQuestionMutation = useMutation({
+    mutationFn: (id: string) => deleteQuestion(id),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet?.id] }); setDeleteTarget(null); },
+  });
+
+  function validateAndAdd() {
+    const errors: Record<string, string> = {};
     if (!qForm.questionText.trim()) errors.questionText = 'Required';
-    if (!qForm.optionA.trim()) errors.optionA = 'Required';
-    if (!qForm.optionB.trim()) errors.optionB = 'Required';
-    if (!qForm.optionC.trim()) errors.optionC = 'Required';
-    if (!qForm.optionD.trim()) errors.optionD = 'Required';
+    if (qForm.questionType === 'multiple_choice') {
+      const f = qForm as MCForm;
+      if (!f.optionA.trim()) errors.optionA = 'Required';
+      if (!f.optionB.trim()) errors.optionB = 'Required';
+      if (!f.optionC.trim()) errors.optionC = 'Required';
+      if (!f.optionD.trim()) errors.optionD = 'Required';
+    } else {
+      const f = qForm as SPRForm;
+      if (!f.correctAnswerText.trim()) errors.correctAnswerText = 'Required';
+    }
     setQErrors(errors);
     if (Object.keys(errors).length === 0) addQuestionMutation.mutate();
-  };
+  }
 
-  const updateQForm = (field: keyof QuestionForm, value: string) => { setQForm((p) => ({ ...p, [field]: value })); setQErrors((p) => ({ ...p, [field]: undefined })); };
+  // ── Render: Sets list ────────────────────────────────────────────────────────
+  if (!activeSet) {
+    return (
+      <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E2562B', marginBottom: 6 }}>Teacher</div>
+            <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, margin: 0, letterSpacing: '-0.02em', color: '#0B0B0E' }}>Content Manager</h1>
+          </div>
+          <Button onClick={() => setShowNewSet(true)} style={{ alignSelf: 'center' }}><Plus size={15} style={{ marginRight: 7 }} />New Question Set</Button>
+        </div>
+
+        {showNewSet && (
+          <div style={{ ...CARD, marginBottom: 24, overflow: 'hidden' }}>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid #EEEBE5' }}>
+              <h3 style={{ fontSize: 16, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>Create Question Set</h3>
+            </div>
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <Input label="Title" value={newSetTitle} onChange={(e) => setNewSetTitle(e.target.value)} placeholder="e.g. SAT Reading Practice — Passage 1" />
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 8 }}>Subject</p>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {(['english', 'math'] as const).map((s) => (
+                    <button key={s} onClick={() => setNewSetSubject(s)}
+                      style={{ padding: '9px 22px', borderRadius: 9999, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: newSetSubject === s ? 'none' : '1px solid #E7E4DE', background: newSetSubject === s ? (s === 'english' ? '#2563A8' : '#B8893E') : '#F2F0EC', color: newSetSubject === s ? '#fff' : '#8C8880' }}
+                    >{s === 'english' ? '📖 Reading & Writing' : '∫ Math'}</button>
+                  ))}
+                </div>
+              </div>
+              <Textarea label="Description (optional)" value={newSetDesc} onChange={(e) => setNewSetDesc(e.target.value)} placeholder="Brief description…" rows={2} />
+              {setError && <p style={{ color: '#C0392B', fontSize: 13 }}>{setError}</p>}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <Button onClick={() => { setSetError(''); createSetMutation.mutate(); }} loading={createSetMutation.isPending} disabled={!newSetTitle.trim()}>Create & Add Questions</Button>
+                <Button variant="secondary" onClick={() => { setShowNewSet(false); setSetError(''); }}>Cancel</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {setsLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#E2562B]" /></div>
+        ) : sets.length === 0 && !showNewSet ? (
+          <div style={{ textAlign: 'center', paddingTop: 80 }}>
+            <BookOpen size={52} color="rgba(11,11,14,0.18)" style={{ margin: '0 auto 16px', display: 'block' }} />
+            <p style={{ color: 'rgba(11,11,14,0.4)', fontSize: 15, marginBottom: 20 }}>No question sets yet.</p>
+            <Button onClick={() => setShowNewSet(true)}><Plus size={15} style={{ marginRight: 7 }} />Create your first set</Button>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+            {sets.map((set) => (
+              <div key={set.id} style={{ ...CARD, padding: '20px 22px', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
+                onClick={() => { setActiveSet(set); setEditorTab('questions'); setQType('multiple_choice'); setQForm({ ...emptyMC }); }}
+                onMouseEnter={(e) => (e.currentTarget.style.boxShadow = '0 4px 16px rgba(11,11,14,0.1)')}
+                onMouseLeave={(e) => (e.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.05)')}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <SubjectBadge subject={set.subject} />
+                    <p style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', margin: '8px 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.title}</p>
+                    {set.description && <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.description}</p>}
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'set', id: set.id }); }}
+                    style={{ padding: 6, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.3)', flexShrink: 0 }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.3)'; }}
+                  ><Trash2 size={14} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <ConfirmModal isOpen={deleteTarget?.type === 'set'} onClose={() => setDeleteTarget(null)}
+          onConfirm={() => deleteSetMutation.mutate(deleteTarget!.id)} loading={deleteSetMutation.isPending}
+          title="Delete Question Set?" message="This will delete all questions and passages in this set. This cannot be undone." confirmLabel="Delete Set" />
+      </div>
+    );
+  }
+
+  // ── Render: Set Editor ────────────────────────────────────────────────────────
+  const passageOptions = passages;
 
   return (
-    <div className="screen-fade" style={{ padding: '36px 48px 64px', maxWidth: 900, margin: '0 auto' }}>
-      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, margin: '0 0 4px', letterSpacing: '-0.02em', color: '#0B0B0E' }}>Add Content</h1>
-      <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.55)', margin: '0 0 24px' }}>Create question sets and add questions</p>
+    <div className="screen-fade" style={{ padding: '36px 48px 64px', maxWidth: 960, margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
+        <button onClick={() => setActiveSet(null)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.5)', border: 'none', background: 'none', cursor: 'pointer', padding: '4px 0', fontFamily: 'inherit' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = '#0B0B0E')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(11,11,14,0.5)')}
+        ><ChevronLeft size={15} />All Sets</button>
+        <span style={{ color: 'rgba(11,11,14,0.2)' }}>/</span>
+        <SubjectBadge subject={activeSet.subject} />
+        <span style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeSet.title}</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+          {!online && <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#C0392B' }}><WifiOff size={13} />Offline</span>}
+          {draftSaved && <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#2E7D5A' }}><CheckCircle2 size={13} />Draft saved</span>}
+        </div>
+      </div>
+
+      <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.45)', marginBottom: 20 }}>
+        {questions.length} question{questions.length !== 1 ? 's' : ''} · {passages.length} passage{passages.length !== 1 ? 's' : ''}
+      </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #E7E4DE', marginBottom: 24 }}>
-        {(['create', 'manage'] as Tab[]).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            style={{ padding: '10px 20px', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: 'none', background: 'none', borderBottom: tab === t ? '2px solid #E2562B' : '2px solid transparent', color: tab === t ? '#E2562B' : 'rgba(11,11,14,0.5)', transition: 'color 0.15s', marginBottom: -1 }}
-          >
-            {t === 'create' ? 'Create Question Set' : 'Manage Sets'}
-          </button>
+        {(['questions', 'passages'] as EditorTab[]).map((t) => (
+          <button key={t} onClick={() => setEditorTab(t)}
+            style={{ padding: '10px 20px', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: 'none', background: 'none', borderBottom: editorTab === t ? '2px solid #E2562B' : '2px solid transparent', color: editorTab === t ? '#E2562B' : 'rgba(11,11,14,0.5)', marginBottom: -1 }}
+          >{t === 'questions' ? 'Questions' : 'Passages'}</button>
         ))}
       </div>
 
-      {tab === 'create' && (
+      {/* ── Passages tab ── */}
+      {editorTab === 'passages' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {!activeSetId ? (
+          {/* Add passage form */}
+          <div style={{ ...CARD, overflow: 'hidden' }}>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid #EEEBE5' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>Add Passage</h3>
+              <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', margin: '3px 0 0' }}>A passage can be shared by multiple questions in this set.</p>
+            </div>
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Input label="Passage title (optional)" value={passageTitle} onChange={(e) => setPassageTitle(e.target.value)} placeholder="e.g. The following passage is adapted from a 2022 scientific article…" />
+              <Textarea label="Passage text" value={passageText} onChange={(e) => setPassageText(e.target.value)} placeholder="Paste or type the reading passage here…" rows={8} />
+              {passageError && <p style={{ color: '#C0392B', fontSize: 13 }}>{passageError}</p>}
+              <Button onClick={() => { setPassageError(''); createPassageMutation.mutate(); }} loading={createPassageMutation.isPending} disabled={!passageText.trim()} style={{ alignSelf: 'flex-start' }}>
+                <Plus size={15} style={{ marginRight: 6 }} />Save Passage
+              </Button>
+            </div>
+          </div>
+
+          {/* Passage list */}
+          {passages.length > 0 && (
             <div style={{ ...CARD, overflow: 'hidden' }}>
-              <div style={{ padding: '18px 24px', borderBottom: '1px solid #EEEBE5' }}>
-                <h3 style={{ fontSize: 16, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>New Question Set</h3>
+              <div style={{ padding: '14px 22px', borderBottom: '1px solid #EEEBE5' }}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>Saved Passages ({passages.length})</h3>
               </div>
-              <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <Input label="Title" value={setTitle} onChange={(e) => setSetTitle(e.target.value)} placeholder="e.g. SAT English Practice Set 1" />
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 8 }}>Subject</p>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    {(['english', 'math'] as Subject[]).map((s) => (
-                      <button key={s} onClick={() => setSetSubject(s)}
-                        style={{ padding: '9px 22px', borderRadius: 9999, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: setSubject === s ? 'none' : '1px solid #E7E4DE', background: setSubject === s ? (s === 'english' ? '#2563A8' : '#B8893E') : '#F2F0EC', color: setSubject === s ? '#fff' : '#8C8880' }}
-                      >{s === 'english' ? 'English' : 'Math'}</button>
-                    ))}
+              {passages.map((p, i) => (
+                <div key={p.id} style={{ padding: '16px 22px', borderBottom: i < passages.length - 1 ? '1px solid #F2F0EC' : 'none', display: 'flex', gap: 14 }}>
+                  <FileText size={16} color="#B8893E" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {p.title && <p style={{ fontSize: 13, fontWeight: 600, color: '#0B0B0E', margin: '0 0 4px' }}>{p.title}</p>}
+                    <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.6)', margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.passageText}</p>
                   </div>
+                  <button onClick={() => setDeleteTarget({ type: 'passage', id: p.id })}
+                    style={{ padding: 6, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.3)', flexShrink: 0 }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.3)'; }}
+                  ><Trash2 size={14} /></button>
                 </div>
-                <Textarea label="Description (optional)" value={setDescription} onChange={(e) => setSetDescription(e.target.value)} placeholder="Brief description of this question set…" />
-                {createError && <p style={{ color: '#C0392B', fontSize: 13 }}>{createError}</p>}
-                <Button onClick={() => { setCreateError(''); createSetMutation.mutate(); }} loading={createSetMutation.isPending} disabled={!setTitle.trim()} style={{ alignSelf: 'flex-start' }}>
-                  Create Set & Add Questions
-                </Button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Questions tab ── */}
+      {editorTab === 'questions' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Question form */}
+          <div style={{ ...CARD, overflow: 'hidden' }}>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid #EEEBE5' }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', margin: '0 0 12px' }}>Add Question</h3>
+
+              {/* Question type selector */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => switchQType('multiple_choice')}
+                  style={{ padding: '7px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: qType === 'multiple_choice' ? '1.5px solid #0B0B0E' : '1px solid #E7E4DE', background: qType === 'multiple_choice' ? '#0B0B0E' : '#F2F0EC', color: qType === 'multiple_choice' ? '#fff' : '#8C8880' }}
+                >Multiple Choice</button>
+                {isMath && (
+                  <button onClick={() => switchQType('student_produced_response')}
+                    style={{ padding: '7px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: qType === 'student_produced_response' ? '1.5px solid #E2562B' : '1px solid #E7E4DE', background: qType === 'student_produced_response' ? 'rgba(226,86,43,0.08)' : '#F2F0EC', color: qType === 'student_produced_response' ? '#E2562B' : '#8C8880' }}
+                  >Student-Produced Response</button>
+                )}
+                <span style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.4)', alignSelf: 'center', marginLeft: 4 }}>
+                  {qType === 'student_produced_response' ? '— student types a numeric answer' : isMath ? '— 4 options A–D' : '— 4 options A–D'}
+                </span>
               </div>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <SubjectBadge subject={sets.find((s) => s.id === activeSetId)?.subject ?? 'english'} />
-                  <span style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E' }}>{sets.find((s) => s.id === activeSetId)?.title}</span>
-                  <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)' }}>{questions.length} question{questions.length !== 1 ? 's' : ''}</span>
+
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Passage selector */}
+              {passageOptions.length > 0 && (
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 6 }}>Associated Passage (optional)</label>
+                  <select
+                    value={(qForm as any).passageId ?? ''}
+                    onChange={(e) => updateQ('passageId', e.target.value)}
+                    style={{ width: '100%', height: 40, padding: '0 12px', border: '1px solid #E7E4DE', borderRadius: 10, background: '#fff', color: '#0B0B0E', fontSize: 14, fontFamily: 'inherit', outline: 'none' }}
+                  >
+                    <option value="">No passage</option>
+                    {passageOptions.map((p) => <option key={p.id} value={p.id}>{p.title || p.passageText.substring(0, 60) + '…'}</option>)}
+                  </select>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {!online && <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#C0392B' }}><WifiOff size={13} />Offline</span>}
-                  {draftSaved && <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#2E7D5A' }}><CheckCircle2 size={13} />Draft saved</span>}
-                  <Button variant="secondary" size="sm" onClick={() => setActiveSetId(null)}>Done</Button>
-                </div>
+              )}
+
+              {/* Question text */}
+              <div>
+                {isMath && <MathToolbar onInsert={handleSymbolInsert} />}
+                <Textarea
+                  label="Question text"
+                  value={qForm.questionText}
+                  onChange={(e) => updateQ('questionText', e.target.value)}
+                  error={qErrors.questionText}
+                  placeholder="Enter the question…"
+                  rows={3}
+                  ref={registerRef('questionText')}
+                  onFocus={focusField('questionText')}
+                />
               </div>
 
-              <div style={{ ...CARD, overflow: 'hidden' }}>
-                <div style={{ padding: '18px 24px', borderBottom: '1px solid #EEEBE5' }}>
-                  <h3 style={{ fontSize: 16, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>Add Question</h3>
-                </div>
-                <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <Textarea label="Question text" value={qForm.questionText} onChange={(e) => updateQForm('questionText', e.target.value)} error={qErrors.questionText} placeholder="Enter the question…" rows={3} />
+              {/* Multiple Choice options */}
+              {qForm.questionType === 'multiple_choice' && (
+                <>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     {(['A', 'B', 'C', 'D'] as const).map((letter) => {
-                      const key = `option${letter}` as keyof QuestionForm;
-                      return <Input key={letter} label={`Option ${letter}`} value={qForm[key] as string} onChange={(e) => updateQForm(key, e.target.value)} error={qErrors[key]} placeholder={`Enter option ${letter}…`} />;
+                      const key = `option${letter}` as 'optionA' | 'optionB' | 'optionC' | 'optionD';
+                      const field = key;
+                      return (
+                        <div key={letter}>
+                          {isMath && letter === 'A' && <MathToolbar onInsert={handleSymbolInsert} />}
+                          <Textarea
+                            label={`Option ${letter}`}
+                            value={(qForm as MCForm)[key] as string}
+                            onChange={(e) => updateQ(field, e.target.value)}
+                            error={qErrors[field]}
+                            placeholder={`Enter option ${letter}…`}
+                            rows={2}
+                            ref={registerRef(field)}
+                            onFocus={focusField(field)}
+                          />
+                        </div>
+                      );
                     })}
                   </div>
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 8 }}>Correct Answer</p>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      {(['a', 'b', 'c', 'd'] as AnswerKey[]).map((key) => (
-                        <button key={key} onClick={() => updateQForm('correctAnswer', key)}
-                          style={{ width: 42, height: 42, borderRadius: 10, fontWeight: 700, fontSize: 15, fontFamily: 'inherit', cursor: 'pointer', border: 'none', background: qForm.correctAnswer === key ? '#2E7D5A' : '#F2F0EC', color: qForm.correctAnswer === key ? '#fff' : '#8C8880', transition: 'all 0.15s' }}
-                        >{key.toUpperCase()}</button>
+                      {(['a', 'b', 'c', 'd'] as const).map((k) => (
+                        <button key={k} onClick={() => updateQ('correctAnswer', k)}
+                          style={{ width: 48, height: 48, borderRadius: 12, fontWeight: 700, fontSize: 16, fontFamily: 'inherit', cursor: 'pointer', border: 'none', background: (qForm as MCForm).correctAnswer === k ? '#2E7D5A' : '#F2F0EC', color: (qForm as MCForm).correctAnswer === k ? '#fff' : '#8C8880', transition: 'all 0.15s' }}
+                        >{k.toUpperCase()}</button>
                       ))}
                     </div>
                   </div>
-                  <Textarea label="Explanation (optional)" value={qForm.explanation} onChange={(e) => updateQForm('explanation', e.target.value)} placeholder="Explain why the correct answer is right…" rows={2} />
-                  {createError && <p style={{ color: '#C0392B', fontSize: 13 }}>{createError}</p>}
-                  <Button onClick={validateAndAdd} loading={addQuestionMutation.isPending} style={{ alignSelf: 'flex-start' }}>
-                    <Plus size={15} style={{ marginRight: 6 }} />Add Question
-                  </Button>
-                </div>
-              </div>
+                </>
+              )}
 
-              {questions.length > 0 && (
-                <div style={{ ...CARD, overflow: 'hidden' }}>
-                  <div style={{ padding: '14px 22px', borderBottom: '1px solid #EEEBE5' }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>Questions Added ({questions.length})</h3>
+              {/* SPR answer */}
+              {qForm.questionType === 'student_produced_response' && (
+                <div>
+                  <div style={{ background: 'rgba(226,86,43,0.05)', border: '1px solid rgba(226,86,43,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
+                    <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.6)', margin: 0, lineHeight: 1.5 }}>
+                      <strong style={{ color: '#E2562B' }}>SPR format:</strong> The student types their answer. Accept decimals (e.g. <code>1.5</code>), fractions (e.g. <code>3/4</code>), or whole numbers. The system matches numeric equivalents automatically.
+                    </p>
                   </div>
-                  {questions.map((q, i) => (
-                    <div key={q.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 22px', borderBottom: i < questions.length - 1 ? '1px solid #F2F0EC' : 'none' }}>
-                      <span style={{ width: 24, height: 24, borderRadius: 7, background: '#F2F0EC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: 'rgba(11,11,14,0.5)', flexShrink: 0, marginTop: 2 }}>{i + 1}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 13.5, color: '#0B0B0E', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.questionText}</p>
-                        <p style={{ fontSize: 12, color: '#2E7D5A', margin: 0, fontWeight: 600 }}>Correct: {q.correctAnswer.toUpperCase()}</p>
-                      </div>
-                      <button onClick={() => setDeleteConfirm({ type: 'question', id: q.id })}
-                        style={{ padding: 6, borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.3)', flexShrink: 0 }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.3)'; }}
-                      ><Trash2 size={14} /></button>
-                    </div>
-                  ))}
+                  {isMath && <MathToolbar onInsert={handleSymbolInsert} />}
+                  <Input
+                    label="Correct Answer"
+                    value={(qForm as SPRForm).correctAnswerText}
+                    onChange={(e) => updateQ('correctAnswerText', e.target.value)}
+                    error={qErrors.correctAnswerText}
+                    placeholder="e.g. 3/4 or 0.75 or 12"
+                  />
                 </div>
               )}
-            </div>
-          )}
-        </div>
-      )}
 
-      {tab === 'manage' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {setsLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#E2562B]" /></div>
-          ) : sets.length === 0 ? (
-            <div style={{ textAlign: 'center', paddingTop: 64 }}>
-              <BookOpen size={48} color="rgba(11,11,14,0.2)" style={{ margin: '0 auto 16px', display: 'block' }} />
-              <p style={{ color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>No question sets yet.</p>
+              {/* Explanation */}
+              <Textarea label="Explanation (optional)" value={qForm.explanation} onChange={(e) => updateQ('explanation', e.target.value)} placeholder="Why is the correct answer correct?" rows={2} />
+
+              {qError && <p style={{ color: '#C0392B', fontSize: 13 }}>{qError}</p>}
+              <Button onClick={validateAndAdd} loading={addQuestionMutation.isPending} style={{ alignSelf: 'flex-start' }}>
+                <Plus size={15} style={{ marginRight: 6 }} />Add Question
+              </Button>
             </div>
-          ) : (
-            sets.map((set) => (
-              <div key={set.id} style={{ ...CARD, padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                  <SubjectBadge subject={set.subject} />
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 14.5, fontWeight: 600, color: '#0B0B0E', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.title}</p>
-                    {set.description && <p style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.description}</p>}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-                  <Button variant="secondary" size="sm" onClick={() => { setActiveSetId(set.id); setTab('create'); }}>Edit</Button>
-                  <Button variant="danger" size="sm" onClick={() => setDeleteConfirm({ type: 'set', id: set.id })}><Trash2 size={14} /></Button>
-                </div>
+          </div>
+
+          {/* Question list */}
+          {questions.length > 0 && (
+            <div style={{ ...CARD, overflow: 'hidden' }}>
+              <div style={{ padding: '14px 22px', borderBottom: '1px solid #EEEBE5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ fontSize: 14, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>Questions Added ({questions.length})</h3>
               </div>
-            ))
+              {questions.map((q, i) => (
+                <QuestionRow key={q.id} q={q} index={i} isLast={i === questions.length - 1} passages={passages}
+                  onDelete={() => setDeleteTarget({ type: 'question', id: q.id })} />
+              ))}
+            </div>
           )}
         </div>
       )}
 
+      {/* Confirm modals */}
       <ConfirmModal
-        isOpen={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}
+        isOpen={!!deleteTarget && deleteTarget.type !== 'set'}
+        onClose={() => setDeleteTarget(null)}
         onConfirm={() => {
-          if (!deleteConfirm) return;
-          if (deleteConfirm.type === 'question') { deleteQMutation.mutate(deleteConfirm.id); setDeleteConfirm(null); }
-          else deleteSetMutation.mutate(deleteConfirm.id);
+          if (!deleteTarget) return;
+          if (deleteTarget.type === 'question') deleteQuestionMutation.mutate(deleteTarget.id);
+          else if (deleteTarget.type === 'passage') deletePassageMutation.mutate(deleteTarget.id);
         }}
-        loading={deleteQMutation.isPending || deleteSetMutation.isPending}
-        title={deleteConfirm?.type === 'question' ? 'Delete Question?' : 'Delete Question Set?'}
-        message={deleteConfirm?.type === 'question' ? 'This question will be permanently deleted.' : 'This will delete the entire question set. This action cannot be undone.'}
+        loading={deleteQuestionMutation.isPending || deletePassageMutation.isPending}
+        title={deleteTarget?.type === 'question' ? 'Delete Question?' : 'Delete Passage?'}
+        message={deleteTarget?.type === 'question' ? 'This question will be permanently deleted.' : 'Deleting this passage will unlink it from all questions that reference it.'}
         confirmLabel="Delete"
       />
+    </div>
+  );
+}
+
+// ── Question Row ──────────────────────────────────────────────────────────────
+
+function QuestionRow({ q, index, isLast, passages, onDelete }: { q: Question; index: number; isLast: boolean; passages: Passage[]; onDelete: () => void }) {
+  const isMC = q.questionType === 'multiple_choice';
+  const passage = passages.find((p) => p.id === q.passageId);
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 22px', borderBottom: isLast ? 'none' : '1px solid #F2F0EC' }}>
+      <span style={{ width: 24, height: 24, borderRadius: 7, background: '#F2F0EC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: 'rgba(11,11,14,0.5)', flexShrink: 0, marginTop: 2 }}>{index + 1}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '2px 7px', borderRadius: 5, background: isMC ? '#EEF2FB' : 'rgba(226,86,43,0.08)', color: isMC ? '#2563A8' : '#E2562B' }}>{isMC ? 'MC' : 'SPR'}</span>
+          {passage && <span style={{ fontSize: 11, color: '#B8893E', display: 'flex', alignItems: 'center', gap: 3 }}><FileText size={11} />{passage.title || 'Passage'}</span>}
+        </div>
+        <p style={{ fontSize: 13.5, color: '#0B0B0E', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.questionText}</p>
+        {isMC ? (
+          <p style={{ fontSize: 12, color: '#2E7D5A', margin: 0, fontWeight: 600 }}>Correct: {q.correctAnswer?.toUpperCase()}</p>
+        ) : (
+          <p style={{ fontSize: 12, color: '#E2562B', margin: 0, fontWeight: 600 }}>Answer: {q.correctAnswerText}</p>
+        )}
+      </div>
+      <button onClick={onDelete}
+        style={{ padding: 6, borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.3)', flexShrink: 0 }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.3)'; }}
+      ><Trash2 size={14} /></button>
     </div>
   );
 }

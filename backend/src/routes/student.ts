@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { eq, and, sql, desc, inArray } from 'drizzle-orm';
+import { eq, and, sql, desc } from 'drizzle-orm';
 import { db } from '../db';
-import { users, questionSets, questions, exams, examAnswers, mockTests, feedback } from '../db/schema';
+import { users, questionSets, questions, passages, exams, examAnswers, mockTests, feedback } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
@@ -10,7 +10,42 @@ import { validateBody } from '../middleware/validate';
 const router = Router();
 router.use(requireAuth, requireRole(['student']));
 
-router.get('/question-sets', async (req, res) => {
+// Parse a fraction or decimal string to a number for SPR comparison
+function parseSPRValue(s: string): number | null {
+  const t = s.trim();
+  const frac = t.match(/^(-?\d+)\/(\d+)$/);
+  if (frac) {
+    const den = parseInt(frac[2]);
+    return den === 0 ? null : parseInt(frac[1]) / den;
+  }
+  const n = parseFloat(t);
+  return isNaN(n) ? null : n;
+}
+
+function sprIsCorrect(student: string, correct: string): boolean {
+  if (student.trim().toLowerCase() === correct.trim().toLowerCase()) return true;
+  const sv = parseSPRValue(student);
+  const cv = parseSPRValue(correct);
+  if (sv !== null && cv !== null) return Math.abs(sv - cv) < 0.001;
+  return false;
+}
+
+// Question fields returned to the student (no correct answer revealed)
+const questionSelect = {
+  id: questions.id,
+  questionType: questions.questionType,
+  questionText: questions.questionText,
+  optionA: questions.optionA,
+  optionB: questions.optionB,
+  optionC: questions.optionC,
+  optionD: questions.optionD,
+  passageId: questions.passageId,
+  passageText: passages.passageText,
+  passageTitle: passages.title,
+  orderIndex: questions.orderIndex,
+};
+
+router.get('/question-sets', async (_req, res) => {
   try {
     const sets = await db
       .select({
@@ -23,7 +58,6 @@ router.get('/question-sets', async (req, res) => {
       })
       .from(questionSets)
       .orderBy(desc(questionSets.createdAt));
-
     return res.json(sets);
   } catch (err) {
     console.error(err);
@@ -33,30 +67,15 @@ router.get('/question-sets', async (req, res) => {
 
 router.get('/question-sets/:setId', async (req, res) => {
   try {
-    const setRows = await db
-      .select()
-      .from(questionSets)
-      .where(eq(questionSets.id, req.params.setId))
-      .limit(1);
-
-    if (setRows.length === 0) {
-      return res.status(404).json({ error: 'Question set not found' });
-    }
-
+    const setRows = await db.select().from(questionSets)
+      .where(eq(questionSets.id, req.params.setId)).limit(1);
+    if (setRows.length === 0) return res.status(404).json({ error: 'Question set not found' });
     const qs = await db
-      .select({
-        id: questions.id,
-        questionText: questions.questionText,
-        optionA: questions.optionA,
-        optionB: questions.optionB,
-        optionC: questions.optionC,
-        optionD: questions.optionD,
-        orderIndex: questions.orderIndex,
-      })
+      .select(questionSelect)
       .from(questions)
+      .leftJoin(passages, eq(questions.passageId, passages.id))
       .where(eq(questions.setId, req.params.setId))
       .orderBy(questions.orderIndex);
-
     return res.json({ ...setRows[0], questions: qs });
   } catch (err) {
     console.error(err);
@@ -72,45 +91,21 @@ const startExamSchema = z.object({
 router.post('/exams', validateBody(startExamSchema), async (req, res) => {
   const studentId = req.user!.sub;
   const { setId, type } = req.body;
-
   try {
-    const setRows = await db
-      .select()
-      .from(questionSets)
-      .where(eq(questionSets.id, setId))
-      .limit(1);
-
-    if (setRows.length === 0) {
-      return res.status(404).json({ error: 'Question set not found' });
-    }
+    const setRows = await db.select().from(questionSets).where(eq(questionSets.id, setId)).limit(1);
+    if (setRows.length === 0) return res.status(404).json({ error: 'Question set not found' });
 
     const qs = await db
-      .select({
-        id: questions.id,
-        questionText: questions.questionText,
-        optionA: questions.optionA,
-        optionB: questions.optionB,
-        optionC: questions.optionC,
-        optionD: questions.optionD,
-        orderIndex: questions.orderIndex,
-      })
+      .select(questionSelect)
       .from(questions)
+      .leftJoin(passages, eq(questions.passageId, passages.id))
       .where(eq(questions.setId, setId))
       .orderBy(questions.orderIndex);
 
-    if (qs.length === 0) {
-      return res.status(400).json({ error: 'This question set has no questions' });
-    }
+    if (qs.length === 0) return res.status(400).json({ error: 'This question set has no questions' });
 
-    const [exam] = await db
-      .insert(exams)
-      .values({ studentId, setId, type, totalQuestions: qs.length })
-      .returning();
-
-    await db.insert(examAnswers).values(
-      qs.map((q) => ({ examId: exam.id, questionId: q.id }))
-    );
-
+    const [exam] = await db.insert(exams).values({ studentId, setId, type, totalQuestions: qs.length }).returning();
+    await db.insert(examAnswers).values(qs.map((q) => ({ examId: exam.id, questionId: q.id })));
     return res.status(201).json({ exam, questions: qs });
   } catch (err) {
     console.error(err);
@@ -122,23 +117,9 @@ router.get('/exams', async (req, res) => {
   const studentId = req.user!.sub;
   try {
     const rows = await db
-      .select({
-        id: exams.id,
-        setId: exams.setId,
-        type: exams.type,
-        status: exams.status,
-        score: exams.score,
-        totalQuestions: exams.totalQuestions,
-        startedAt: exams.startedAt,
-        completedAt: exams.completedAt,
-        setTitle: questionSets.title,
-        subject: questionSets.subject,
-      })
-      .from(exams)
-      .innerJoin(questionSets, eq(exams.setId, questionSets.id))
-      .where(eq(exams.studentId, studentId))
-      .orderBy(desc(exams.startedAt));
-
+      .select({ id: exams.id, setId: exams.setId, type: exams.type, status: exams.status, score: exams.score, totalQuestions: exams.totalQuestions, startedAt: exams.startedAt, completedAt: exams.completedAt, setTitle: questionSets.title, subject: questionSets.subject })
+      .from(exams).innerJoin(questionSets, eq(exams.setId, questionSets.id))
+      .where(eq(exams.studentId, studentId)).orderBy(desc(exams.startedAt));
     return res.json(rows);
   } catch (err) {
     console.error(err);
@@ -149,40 +130,21 @@ router.get('/exams', async (req, res) => {
 router.get('/exams/:examId', async (req, res) => {
   const studentId = req.user!.sub;
   try {
-    const examRows = await db
-      .select()
-      .from(exams)
-      .where(and(eq(exams.id, req.params.examId), eq(exams.studentId, studentId)))
-      .limit(1);
-
-    if (examRows.length === 0) {
-      return res.status(404).json({ error: 'Exam not found' });
-    }
+    const examRows = await db.select().from(exams)
+      .where(and(eq(exams.id, req.params.examId), eq(exams.studentId, studentId))).limit(1);
+    if (examRows.length === 0) return res.status(404).json({ error: 'Exam not found' });
 
     const exam = examRows[0];
-
     const qs = await db
-      .select({
-        id: questions.id,
-        questionText: questions.questionText,
-        optionA: questions.optionA,
-        optionB: questions.optionB,
-        optionC: questions.optionC,
-        optionD: questions.optionD,
-        orderIndex: questions.orderIndex,
-      })
+      .select(questionSelect)
       .from(questions)
+      .leftJoin(passages, eq(questions.passageId, passages.id))
       .where(eq(questions.setId, exam.setId))
       .orderBy(questions.orderIndex);
 
     const answers = await db
-      .select({
-        questionId: examAnswers.questionId,
-        selectedAnswer: examAnswers.selectedAnswer,
-        answeredAt: examAnswers.answeredAt,
-      })
-      .from(examAnswers)
-      .where(eq(examAnswers.examId, exam.id));
+      .select({ questionId: examAnswers.questionId, selectedAnswer: examAnswers.selectedAnswer, selectedAnswerText: examAnswers.selectedAnswerText, answeredAt: examAnswers.answeredAt })
+      .from(examAnswers).where(eq(examAnswers.examId, exam.id));
 
     return res.json({ exam, questions: qs, answers });
   } catch (err) {
@@ -192,56 +154,35 @@ router.get('/exams/:examId', async (req, res) => {
 });
 
 const saveAnswersSchema = z.object({
-  answers: z.array(
-    z.object({
-      questionId: z.string().uuid(),
-      selectedAnswer: z.enum(['a', 'b', 'c', 'd']).nullable(),
-    })
-  ),
+  answers: z.array(z.object({
+    questionId: z.string().uuid(),
+    selectedAnswer: z.enum(['a', 'b', 'c', 'd']).nullable().optional(),
+    selectedAnswerText: z.string().max(200).nullable().optional(),
+  })),
   timeSpentSeconds: z.number().int().optional(),
 });
 
 router.put('/exams/:examId/answers', validateBody(saveAnswersSchema), async (req, res) => {
   const studentId = req.user!.sub;
   const { answers, timeSpentSeconds } = req.body;
-
   try {
-    const examRows = await db
-      .select()
-      .from(exams)
-      .where(and(eq(exams.id, req.params.examId), eq(exams.studentId, studentId)))
-      .limit(1);
-
-    if (examRows.length === 0) {
-      return res.status(404).json({ error: 'Exam not found' });
-    }
-
-    if (examRows[0].status === 'completed') {
-      return res.status(400).json({ error: 'Exam already completed' });
-    }
+    const examRows = await db.select().from(exams)
+      .where(and(eq(exams.id, req.params.examId), eq(exams.studentId, studentId))).limit(1);
+    if (examRows.length === 0) return res.status(404).json({ error: 'Exam not found' });
+    if (examRows[0].status === 'completed') return res.status(400).json({ error: 'Exam already completed' });
 
     for (const ans of answers) {
-      await db
-        .update(examAnswers)
-        .set({
-          selectedAnswer: ans.selectedAnswer,
-          answeredAt: ans.selectedAnswer ? new Date() : null,
-        })
-        .where(
-          and(
-            eq(examAnswers.examId, req.params.examId),
-            eq(examAnswers.questionId, ans.questionId)
-          )
-        );
+      const hasAnswer = ans.selectedAnswer != null || (ans.selectedAnswerText && ans.selectedAnswerText.trim() !== '');
+      await db.update(examAnswers).set({
+        selectedAnswer: ans.selectedAnswer ?? null,
+        selectedAnswerText: ans.selectedAnswerText ?? null,
+        answeredAt: hasAnswer ? new Date() : null,
+      }).where(and(eq(examAnswers.examId, req.params.examId), eq(examAnswers.questionId, ans.questionId)));
     }
 
     if (timeSpentSeconds !== undefined) {
-      await db
-        .update(exams)
-        .set({ timeSpentSeconds })
-        .where(eq(exams.id, req.params.examId));
+      await db.update(exams).set({ timeSpentSeconds }).where(eq(exams.id, req.params.examId));
     }
-
     return res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -249,37 +190,26 @@ router.put('/exams/:examId/answers', validateBody(saveAnswersSchema), async (req
   }
 });
 
-const submitSchema = z.object({
-  timeSpentSeconds: z.number().int().optional(),
-});
+const submitSchema = z.object({ timeSpentSeconds: z.number().int().optional() });
 
 router.post('/exams/:examId/submit', validateBody(submitSchema), async (req, res) => {
   const studentId = req.user!.sub;
   const { timeSpentSeconds } = req.body;
-
   try {
-    const examRows = await db
-      .select()
-      .from(exams)
-      .where(and(eq(exams.id, req.params.examId), eq(exams.studentId, studentId)))
-      .limit(1);
-
-    if (examRows.length === 0) {
-      return res.status(404).json({ error: 'Exam not found' });
-    }
-
+    const examRows = await db.select().from(exams)
+      .where(and(eq(exams.id, req.params.examId), eq(exams.studentId, studentId))).limit(1);
+    if (examRows.length === 0) return res.status(404).json({ error: 'Exam not found' });
     const exam = examRows[0];
-
-    if (exam.status === 'completed') {
-      return res.status(400).json({ error: 'Exam already completed' });
-    }
+    if (exam.status === 'completed') return res.status(400).json({ error: 'Exam already completed' });
 
     const answersWithQuestions = await db
       .select({
         answerId: examAnswers.id,
-        questionId: examAnswers.questionId,
+        questionType: questions.questionType,
         selectedAnswer: examAnswers.selectedAnswer,
+        selectedAnswerText: examAnswers.selectedAnswerText,
         correctAnswer: questions.correctAnswer,
+        correctAnswerText: questions.correctAnswerText,
       })
       .from(examAnswers)
       .innerJoin(questions, eq(examAnswers.questionId, questions.id))
@@ -287,33 +217,26 @@ router.post('/exams/:examId/submit', validateBody(submitSchema), async (req, res
 
     let score = 0;
     for (const row of answersWithQuestions) {
-      const isCorrect = row.selectedAnswer === row.correctAnswer;
+      let isCorrect: boolean;
+      if (row.questionType === 'student_produced_response') {
+        isCorrect = row.selectedAnswerText
+          ? sprIsCorrect(row.selectedAnswerText, row.correctAnswerText ?? '')
+          : false;
+      } else {
+        isCorrect = row.selectedAnswer !== null && row.selectedAnswer === row.correctAnswer;
+      }
       if (isCorrect) score++;
-      await db
-        .update(examAnswers)
-        .set({ isCorrect, answeredAt: row.selectedAnswer ? new Date() : null })
+      const hasAnswer = row.selectedAnswer != null || (row.selectedAnswerText && row.selectedAnswerText.trim() !== '');
+      await db.update(examAnswers).set({ isCorrect, answeredAt: hasAnswer ? new Date() : null })
         .where(eq(examAnswers.id, row.answerId));
     }
 
-    const [updated] = await db
-      .update(exams)
-      .set({
-        status: 'completed',
-        score,
-        completedAt: new Date(),
-        timeSpentSeconds: timeSpentSeconds ?? exam.timeSpentSeconds,
-      })
-      .where(eq(exams.id, exam.id))
-      .returning();
+    const [updated] = await db.update(exams).set({
+      status: 'completed', score, completedAt: new Date(),
+      timeSpentSeconds: timeSpentSeconds ?? exam.timeSpentSeconds,
+    }).where(eq(exams.id, exam.id)).returning();
 
-    const percentage = Math.round((score / exam.totalQuestions) * 100);
-
-    return res.json({
-      score,
-      total: exam.totalQuestions,
-      percentage,
-      exam: updated,
-    });
+    return res.json({ score, total: exam.totalQuestions, percentage: Math.round((score / exam.totalQuestions) * 100), exam: updated });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -323,33 +246,23 @@ router.post('/exams/:examId/submit', validateBody(submitSchema), async (req, res
 router.get('/exams/:examId/results', async (req, res) => {
   const studentId = req.user!.sub;
   try {
-    const examRows = await db
-      .select()
-      .from(exams)
-      .where(and(eq(exams.id, req.params.examId), eq(exams.studentId, studentId)))
-      .limit(1);
-
-    if (examRows.length === 0) {
-      return res.status(404).json({ error: 'Exam not found' });
-    }
-
+    const examRows = await db.select().from(exams)
+      .where(and(eq(exams.id, req.params.examId), eq(exams.studentId, studentId))).limit(1);
+    if (examRows.length === 0) return res.status(404).json({ error: 'Exam not found' });
     const exam = examRows[0];
-
-    if (exam.status !== 'completed') {
-      return res.status(400).json({ error: 'Exam not yet completed' });
-    }
+    if (exam.status !== 'completed') return res.status(400).json({ error: 'Exam not yet completed' });
 
     const results = await db
       .select({
         questionId: questions.id,
+        questionType: questions.questionType,
         questionText: questions.questionText,
-        optionA: questions.optionA,
-        optionB: questions.optionB,
-        optionC: questions.optionC,
-        optionD: questions.optionD,
+        optionA: questions.optionA, optionB: questions.optionB, optionC: questions.optionC, optionD: questions.optionD,
         correctAnswer: questions.correctAnswer,
+        correctAnswerText: questions.correctAnswerText,
         explanation: questions.explanation,
         selectedAnswer: examAnswers.selectedAnswer,
+        selectedAnswerText: examAnswers.selectedAnswerText,
         isCorrect: examAnswers.isCorrect,
         orderIndex: questions.orderIndex,
       })
@@ -358,11 +271,8 @@ router.get('/exams/:examId/results', async (req, res) => {
       .where(eq(examAnswers.examId, exam.id))
       .orderBy(questions.orderIndex);
 
-    const setRows = await db
-      .select({ title: questionSets.title, subject: questionSets.subject })
-      .from(questionSets)
-      .where(eq(questionSets.id, exam.setId))
-      .limit(1);
+    const setRows = await db.select({ title: questionSets.title, subject: questionSets.subject })
+      .from(questionSets).where(eq(questionSets.id, exam.setId)).limit(1);
 
     return res.json({ exam, set: setRows[0] || null, results });
   } catch (err) {
@@ -374,81 +284,28 @@ router.get('/exams/:examId/results', async (req, res) => {
 router.post('/mock-tests', async (req, res) => {
   const studentId = req.user!.sub;
   try {
-    const englishSetRows = await db.execute(
-      sql`SELECT id FROM question_sets WHERE subject = 'english' ORDER BY RANDOM() LIMIT 1`
-    );
-
-    const mathSetRows = await db.execute(
-      sql`SELECT id FROM question_sets WHERE subject = 'math' ORDER BY RANDOM() LIMIT 1`
-    );
-
-    if (englishSetRows.rows.length === 0) {
-      return res.status(400).json({ error: 'No English question sets available' });
-    }
-    if (mathSetRows.rows.length === 0) {
-      return res.status(400).json({ error: 'No Math question sets available' });
-    }
+    const englishSetRows = await db.execute(sql`SELECT id FROM question_sets WHERE subject = 'english' ORDER BY RANDOM() LIMIT 1`);
+    const mathSetRows = await db.execute(sql`SELECT id FROM question_sets WHERE subject = 'math' ORDER BY RANDOM() LIMIT 1`);
+    if (englishSetRows.rows.length === 0) return res.status(400).json({ error: 'No English question sets available' });
+    if (mathSetRows.rows.length === 0) return res.status(400).json({ error: 'No Math question sets available' });
 
     const englishSetId = (englishSetRows.rows[0] as any).id;
     const mathSetId = (mathSetRows.rows[0] as any).id;
 
-    const englishQs = await db
-      .select({
-        id: questions.id,
-        questionText: questions.questionText,
-        optionA: questions.optionA,
-        optionB: questions.optionB,
-        optionC: questions.optionC,
-        optionD: questions.optionD,
-        orderIndex: questions.orderIndex,
-      })
-      .from(questions)
-      .where(eq(questions.setId, englishSetId))
-      .orderBy(questions.orderIndex);
+    const englishQs = await db.select(questionSelect).from(questions)
+      .leftJoin(passages, eq(questions.passageId, passages.id))
+      .where(eq(questions.setId, englishSetId)).orderBy(questions.orderIndex);
+    const mathQs = await db.select(questionSelect).from(questions)
+      .leftJoin(passages, eq(questions.passageId, passages.id))
+      .where(eq(questions.setId, mathSetId)).orderBy(questions.orderIndex);
 
-    const mathQs = await db
-      .select({
-        id: questions.id,
-        questionText: questions.questionText,
-        optionA: questions.optionA,
-        optionB: questions.optionB,
-        optionC: questions.optionC,
-        optionD: questions.optionD,
-        orderIndex: questions.orderIndex,
-      })
-      .from(questions)
-      .where(eq(questions.setId, mathSetId))
-      .orderBy(questions.orderIndex);
+    const [englishExam] = await db.insert(exams).values({ studentId, setId: englishSetId, type: 'mock_english', totalQuestions: englishQs.length }).returning();
+    const [mathExam] = await db.insert(exams).values({ studentId, setId: mathSetId, type: 'mock_math', totalQuestions: mathQs.length }).returning();
+    if (englishQs.length > 0) await db.insert(examAnswers).values(englishQs.map((q) => ({ examId: englishExam.id, questionId: q.id })));
+    if (mathQs.length > 0) await db.insert(examAnswers).values(mathQs.map((q) => ({ examId: mathExam.id, questionId: q.id })));
 
-    const [englishExam] = await db
-      .insert(exams)
-      .values({ studentId, setId: englishSetId, type: 'mock_english', totalQuestions: englishQs.length })
-      .returning();
-
-    const [mathExam] = await db
-      .insert(exams)
-      .values({ studentId, setId: mathSetId, type: 'mock_math', totalQuestions: mathQs.length })
-      .returning();
-
-    if (englishQs.length > 0) {
-      await db.insert(examAnswers).values(englishQs.map((q) => ({ examId: englishExam.id, questionId: q.id })));
-    }
-    if (mathQs.length > 0) {
-      await db.insert(examAnswers).values(mathQs.map((q) => ({ examId: mathExam.id, questionId: q.id })));
-    }
-
-    const [mockTest] = await db
-      .insert(mockTests)
-      .values({ studentId, englishExamId: englishExam.id, mathExamId: mathExam.id })
-      .returning();
-
-    return res.status(201).json({
-      mockTest,
-      englishExam,
-      mathExam,
-      englishQuestions: englishQs,
-      mathQuestions: mathQs,
-    });
+    const [mockTest] = await db.insert(mockTests).values({ studentId, englishExamId: englishExam.id, mathExamId: mathExam.id }).returning();
+    return res.status(201).json({ mockTest, englishExam, mathExam, englishQuestions: englishQs, mathQuestions: mathQs });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -458,12 +315,7 @@ router.post('/mock-tests', async (req, res) => {
 router.get('/mock-tests', async (req, res) => {
   const studentId = req.user!.sub;
   try {
-    const rows = await db
-      .select()
-      .from(mockTests)
-      .where(eq(mockTests.studentId, studentId))
-      .orderBy(desc(mockTests.startedAt));
-
+    const rows = await db.select().from(mockTests).where(eq(mockTests.studentId, studentId)).orderBy(desc(mockTests.startedAt));
     return res.json(rows);
   } catch (err) {
     console.error(err);
@@ -474,31 +326,14 @@ router.get('/mock-tests', async (req, res) => {
 router.get('/mock-tests/:mockTestId', async (req, res) => {
   const studentId = req.user!.sub;
   try {
-    const mtRows = await db
-      .select()
-      .from(mockTests)
-      .where(and(eq(mockTests.id, req.params.mockTestId), eq(mockTests.studentId, studentId)))
-      .limit(1);
-
-    if (mtRows.length === 0) {
-      return res.status(404).json({ error: 'Mock test not found' });
-    }
-
+    const mtRows = await db.select().from(mockTests)
+      .where(and(eq(mockTests.id, req.params.mockTestId), eq(mockTests.studentId, studentId))).limit(1);
+    if (mtRows.length === 0) return res.status(404).json({ error: 'Mock test not found' });
     const mt = mtRows[0];
-
     let englishExam = null;
     let mathExam = null;
-
-    if (mt.englishExamId) {
-      const rows = await db.select().from(exams).where(eq(exams.id, mt.englishExamId)).limit(1);
-      englishExam = rows[0] || null;
-    }
-
-    if (mt.mathExamId) {
-      const rows = await db.select().from(exams).where(eq(exams.id, mt.mathExamId)).limit(1);
-      mathExam = rows[0] || null;
-    }
-
+    if (mt.englishExamId) { const r = await db.select().from(exams).where(eq(exams.id, mt.englishExamId)).limit(1); englishExam = r[0] || null; }
+    if (mt.mathExamId) { const r = await db.select().from(exams).where(eq(exams.id, mt.mathExamId)).limit(1); mathExam = r[0] || null; }
     return res.json({ mockTest: mt, englishExam, mathExam });
   } catch (err) {
     console.error(err);
@@ -510,21 +345,9 @@ router.get('/feedback', async (req, res) => {
   const studentId = req.user!.sub;
   try {
     const rows = await db
-      .select({
-        id: feedback.id,
-        content: feedback.content,
-        isRead: feedback.isRead,
-        createdAt: feedback.createdAt,
-        readAt: feedback.readAt,
-        examId: feedback.examId,
-        teacherName: users.name,
-        teacherEmail: users.email,
-      })
-      .from(feedback)
-      .innerJoin(users, eq(feedback.teacherId, users.id))
-      .where(eq(feedback.studentId, studentId))
-      .orderBy(desc(feedback.createdAt));
-
+      .select({ id: feedback.id, content: feedback.content, isRead: feedback.isRead, createdAt: feedback.createdAt, readAt: feedback.readAt, examId: feedback.examId, teacherName: users.name, teacherEmail: users.email })
+      .from(feedback).innerJoin(users, eq(feedback.teacherId, users.id))
+      .where(eq(feedback.studentId, studentId)).orderBy(desc(feedback.createdAt));
     return res.json(rows);
   } catch (err) {
     console.error(err);
@@ -535,16 +358,9 @@ router.get('/feedback', async (req, res) => {
 router.put('/feedback/:feedbackId/read', async (req, res) => {
   const studentId = req.user!.sub;
   try {
-    const rows = await db
-      .update(feedback)
-      .set({ isRead: true, readAt: new Date() })
-      .where(and(eq(feedback.id, req.params.feedbackId), eq(feedback.studentId, studentId)))
-      .returning();
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'Feedback not found' });
-    }
-
+    const rows = await db.update(feedback).set({ isRead: true, readAt: new Date() })
+      .where(and(eq(feedback.id, req.params.feedbackId), eq(feedback.studentId, studentId))).returning();
+    if (rows.length === 0) return res.status(404).json({ error: 'Feedback not found' });
     return res.json({ ok: true });
   } catch (err) {
     console.error(err);
