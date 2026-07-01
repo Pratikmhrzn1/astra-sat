@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { eq, sql, desc } from 'drizzle-orm';
+import { eq, sql, desc, isNull, and } from 'drizzle-orm';
 import { db, pool } from '../db';
 import {
   users,
@@ -9,6 +9,7 @@ import {
   questions,
   exams,
   examAnswers,
+  aiFeedback,
   mockTests,
   feedback,
 } from '../db/schema';
@@ -16,6 +17,7 @@ import { requireAuth, requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { hashPassword } from '../lib/password';
 import { runMigrations } from '../db/migrate';
+import { generateStructuredFeedback } from '../services/aiClient';
 
 const router = Router();
 router.use(requireAuth, requireRole(['admin']));
@@ -321,6 +323,138 @@ router.post('/migrate', async (_req, res) => {
   } catch (err) {
     console.error('Migration error:', err);
     return res.status(500).json({ error: 'Migration failed', details: String(err) });
+  }
+});
+
+// ── AI subSkill batch classification ─────────────────────────────────────────
+
+const VALID_SUB_SKILLS = ['grammar', 'inference', 'command_of_evidence', 'vocab_in_context', 'transitions'] as const;
+type ValidSubSkill = typeof VALID_SUB_SKILLS[number];
+
+const CLASSIFY_SYSTEM_PROMPT = `You classify SAT Reading and Writing questions by sub-skill. Respond ONLY with a JSON object containing a single "classification" field. No markdown, no explanation, no preamble.
+
+Valid classifications:
+- "grammar" — tests mechanics: punctuation, subject-verb agreement, pronoun agreement, parallel structure, verb tense, modifier placement
+- "inference" — tests comprehension: main idea, author purpose, tone, conclusions drawn from the passage
+- "command_of_evidence" — tests textual support: "which choice best supports", selecting evidence, evaluating claims against the text
+- "vocab_in_context" — tests word meaning: "as used in the passage X most nearly means", connotation, nuance
+- "transitions" — tests rhetorical choice and flow: transition words (however, therefore), sentence ordering, adding/deleting sentences for cohesion
+- "unclear" — genuinely does not fit any single category
+
+Example response: {"classification":"grammar"}`;
+
+function buildClassifyPrompt(q: { questionText: string; optionA: string | null; optionB: string | null; optionC: string | null; optionD: string | null; correctAnswer: string | null; explanation: string | null }): string {
+  let prompt = `Classify this SAT Reading and Writing question:\n\nQuestion: ${q.questionText}`;
+  if (q.optionA) {
+    prompt += `\n\nOptions:\nA) ${q.optionA}\nB) ${q.optionB}\nC) ${q.optionC}\nD) ${q.optionD}`;
+    if (q.correctAnswer) prompt += `\n\nCorrect answer: ${q.correctAnswer.toUpperCase()}`;
+  }
+  if (q.explanation) prompt += `\n\nExplanation: ${q.explanation}`;
+  return prompt;
+}
+
+router.post('/questions/auto-tag-subskill', async (_req, res) => {
+  const modelEnvKey = 'AI_MODEL_CLASSIFY';
+  if (!process.env[modelEnvKey]) {
+    return res.status(500).json({ error: `Missing env var: ${modelEnvKey}` });
+  }
+
+  try {
+    const untagged = await db
+      .select({
+        id: questions.id,
+        questionText: questions.questionText,
+        optionA: questions.optionA,
+        optionB: questions.optionB,
+        optionC: questions.optionC,
+        optionD: questions.optionD,
+        correctAnswer: questions.correctAnswer,
+        explanation: questions.explanation,
+      })
+      .from(questions)
+      .innerJoin(questionSets, eq(questions.setId, questionSets.id))
+      .where(and(eq(questionSets.subject, 'english'), isNull(questions.subSkill)));
+
+    const totalFound = untagged.length;
+    console.log(`[auto-tag] Found ${totalFound} untagged English questions`);
+
+    let tagged = 0;
+    let unclear = 0;
+    let errors = 0;
+
+    const BATCH_SIZE = 20;
+    const BATCH_DELAY_MS = 500;
+
+    for (let i = 0; i < untagged.length; i += BATCH_SIZE) {
+      const batch = untagged.slice(i, i + BATCH_SIZE);
+      console.log(`[auto-tag] Batch ${Math.floor(i / BATCH_SIZE) + 1}: processing questions ${i + 1}–${i + batch.length}`);
+
+      const results = await Promise.allSettled(
+        batch.map(async (q) => {
+          const userPrompt = buildClassifyPrompt(q);
+          const result = await generateStructuredFeedback(CLASSIFY_SYSTEM_PROMPT, userPrompt, modelEnvKey);
+          const classification = (result.parsed as Record<string, unknown>)?.classification;
+          if (typeof classification === 'string' && (VALID_SUB_SKILLS as readonly string[]).includes(classification)) {
+            await db
+              .update(questions)
+              .set({ subSkill: classification as ValidSubSkill, subSkillSource: 'ai_suggested' })
+              .where(eq(questions.id, q.id));
+            return 'tagged' as const;
+          }
+          return 'unclear' as const;
+        }),
+      );
+
+      for (const r of results) {
+        if (r.status === 'fulfilled') {
+          if (r.value === 'tagged') tagged++;
+          else unclear++;
+        } else {
+          errors++;
+          console.error('[auto-tag] Question failed:', r.reason);
+        }
+      }
+
+      if (i + BATCH_SIZE < untagged.length) {
+        await new Promise<void>((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+      }
+    }
+
+    console.log(`[auto-tag] Done — tagged: ${tagged}, unclear: ${unclear}, errors: ${errors}`);
+
+    const migrationSql = [
+      "-- Phase 1.5 migration SQL (run once against your Neon DB)",
+      "CREATE TYPE sub_skill_source AS ENUM ('ai_suggested', 'human_confirmed');",
+      "ALTER TABLE questions ADD COLUMN sub_skill_source sub_skill_source;",
+    ].join('\n');
+
+    return res.json({ totalFound, tagged, unclear, errors, migrationSql });
+  } catch (err) {
+    console.error('[auto-tag] Fatal error:', err);
+    return res.status(500).json({ error: 'Classification run failed', details: String(err) });
+  }
+});
+
+// ── AI model performance stats ────────────────────────────────────────────────
+
+router.get('/ai-model-stats', async (_req, res) => {
+  try {
+    const stats = await db
+      .select({
+        modelUsed: aiFeedback.modelUsed,
+        totalCalls: sql<number>`count(*)::int`,
+        avgLatencyMs: sql<number>`round(avg(${aiFeedback.latencyMs}))::int`,
+        avgCostUsd: sql<string>`round(avg(${aiFeedback.costUsd}::numeric), 6)::text`,
+        parseFailureRate: sql<number>`round(avg(CASE WHEN ${aiFeedback.parseFailed} THEN 1.0 ELSE 0.0 END)::numeric, 4)::float8`,
+      })
+      .from(aiFeedback)
+      .groupBy(aiFeedback.modelUsed)
+      .orderBy(desc(sql`count(*)`));
+
+    return res.json(stats);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 

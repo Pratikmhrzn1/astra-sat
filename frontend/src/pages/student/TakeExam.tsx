@@ -1,8 +1,57 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { getExam, saveAnswers, submitExam } from '../../api/student';
+import {
+  getExam,
+  saveAnswers,
+  submitExam,
+  confirmAnswer,
+  type ConfirmFeedbacks,
+  type ReasoningClassification,
+  type CommandOfEvidenceContent,
+  type TransitionsCoachContent,
+} from '../../api/student';
 import { saveExamProgress, loadExamProgress, clearExamProgress } from '../../lib/offline';
+
+// ── Reasoning feedback helpers ────────────────────────────────────────────────
+
+const CLASSIFICATION_META: Record<
+  ReasoningClassification,
+  { label: string; color: string; bg: string; border: string }
+> = {
+  correct_logic_correct_answer: {
+    label: 'Strong reasoning',
+    color: '#1A6B3C',
+    bg: 'rgba(46,125,90,0.07)',
+    border: 'rgba(46,125,90,0.25)',
+  },
+  correct_logic_wrong_answer: {
+    label: 'Sound logic — likely a misread',
+    color: '#B8893E',
+    bg: 'rgba(184,137,62,0.07)',
+    border: 'rgba(184,137,62,0.3)',
+  },
+  wrong_logic_correct_answer: {
+    label: 'Right answer — review your reasoning',
+    color: '#B8893E',
+    bg: 'rgba(184,137,62,0.07)',
+    border: 'rgba(184,137,62,0.3)',
+  },
+  wrong_logic_wrong_answer: {
+    label: 'Comprehension gap identified',
+    color: '#C0392B',
+    bg: 'rgba(192,57,43,0.07)',
+    border: 'rgba(192,57,43,0.2)',
+  },
+};
+
+const CONFIDENCE_CHIPS: { value: 'sure' | 'eliminated' | 'guessed'; label: string }[] = [
+  { value: 'sure', label: 'I was sure' },
+  { value: 'eliminated', label: 'Eliminated the wrong ones' },
+  { value: 'guessed', label: 'Guessed' },
+];
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function TakeExam() {
   const { examId } = useParams<{ examId: string }>();
@@ -17,6 +66,14 @@ export default function TakeExam() {
   const [calcOpen, setCalcOpen] = useState(false);
   const [calcExpr, setCalcExpr] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Practice-mode confirm state
+  const [confirmedMap, setConfirmedMap] = useState<
+    Record<string, { isCorrect: boolean; feedbacks: ConfirmFeedbacks }>
+  >({});
+  const [pendingConfidence, setPendingConfidence] = useState<'sure' | 'eliminated' | 'guessed' | null>(null);
+  const [pendingReasoning, setPendingReasoning] = useState('');
+
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -40,6 +97,12 @@ export default function TakeExam() {
     });
   }, [data, examId]);
 
+  // Reset confidence chip when navigating to a different question
+  useEffect(() => {
+    setPendingConfidence(null);
+    setPendingReasoning('');
+  }, [index]);
+
   const saveMutation = useMutation({
     mutationFn: ({ ans, time }: { ans: typeof answers; time: number }) =>
       saveAnswers(examId!, Object.entries(ans).map(([questionId, value]) => {
@@ -48,11 +111,36 @@ export default function TakeExam() {
         return { questionId, selectedAnswer: isSPR ? null : (value as 'a' | 'b' | 'c' | 'd' | null), selectedAnswerText: isSPR ? value : null };
       }), time),
   });
+
   const submitMutation = useMutation({
     mutationFn: () => submitExam(examId!, 20 * 60 - timeLeft),
     onSuccess: async () => {
       if (examId) await clearExamProgress(examId);
       navigate(`/student/results/${examId}`, { replace: true });
+    },
+  });
+
+  const confirmMutation = useMutation({
+    mutationFn: (payload: {
+      questionId: string;
+      selectedAnswer: string | null;
+      confidence: 'sure' | 'eliminated' | 'guessed';
+      reasoning?: string;
+      isSPR: boolean;
+    }) =>
+      confirmAnswer(examId!, payload.questionId, {
+        selectedAnswer: payload.isSPR ? null : (payload.selectedAnswer as 'a' | 'b' | 'c' | 'd' | null),
+        selectedAnswerText: payload.isSPR ? payload.selectedAnswer : null,
+        confidence: payload.confidence,
+        reasoning: payload.reasoning || undefined,
+      }),
+    onSuccess: (result, variables) => {
+      setConfirmedMap((m) => ({
+        ...m,
+        [variables.questionId]: { isCorrect: result.isCorrect, feedbacks: result.feedbacks },
+      }));
+      setPendingConfidence(null);
+      setPendingReasoning('');
     },
   });
 
@@ -100,6 +188,7 @@ export default function TakeExam() {
   }
 
   const { exam, questions } = data;
+  const isPractice = exam.type === 'individual';
   const isMath = exam.type === 'mock_math';
   const q = questions[index];
   const total = questions.length;
@@ -110,16 +199,34 @@ export default function TakeExam() {
   const flagged = flags[index];
   const isLast = index === total - 1;
   const qElim = elim[index] ?? {};
+  const isSPR = q.questionType === 'student_produced_response';
+  const confirmed = confirmedMap[q.id];
+  const LETTER = ['A', 'B', 'C', 'D'];
+  const optKeys = ['a', 'b', 'c', 'd'];
+  const optTexts = [q.optionA, q.optionB, q.optionC, q.optionD];
 
   const selectAnswer = (opt: string) => {
+    if (isPractice && confirmed) return; // locked after confirm
     setAnswers((a) => ({ ...a, [q.id]: opt }));
   };
 
   const toggleElim = (opt: string) => {
+    if (isPractice && confirmed) return;
     setElim((e) => {
       const row = { ...(e[index] ?? {}) };
       row[opt] = !row[opt];
       return { ...e, [index]: row };
+    });
+  };
+
+  const handleConfirm = () => {
+    if (!pendingConfidence || !selected || confirmMutation.isPending) return;
+    confirmMutation.mutate({
+      questionId: q.id,
+      selectedAnswer: selected,
+      confidence: pendingConfidence,
+      reasoning: pendingReasoning,
+      isSPR,
     });
   };
 
@@ -135,10 +242,76 @@ export default function TakeExam() {
     });
   };
 
-  const isSPR = q.questionType === 'student_produced_response';
-  const LETTER = ['A', 'B', 'C', 'D'];
-  const optKeys = ['a', 'b', 'c', 'd'];
-  const optTexts = [q.optionA, q.optionB, q.optionC, q.optionD];
+  // ── Bottom bar button logic ───────────────────────────────────────────────
+  // Practice: locked after confirm → Continue / Submit; answer selected → Confirm & Continue; no answer → Skip
+  // Mock: unchanged Next / Submit
+
+  const renderBottomAction = () => {
+    if (isPractice) {
+      if (confirmed) {
+        if (isLast) {
+          return (
+            <button
+              onClick={() => submitMutation.mutate()}
+              disabled={submitMutation.isPending}
+              style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+            >Submit test</button>
+          );
+        }
+        return (
+          <button
+            onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
+            style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+          >Continue →</button>
+        );
+      }
+      if (selected) {
+        const canConfirm = !!pendingConfidence && !confirmMutation.isPending;
+        return (
+          <button
+            onClick={handleConfirm}
+            disabled={!canConfirm}
+            style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: canConfirm ? '#0B0B0E' : '#C8C4BC', color: '#fff', fontSize: 14, fontWeight: 600, cursor: canConfirm ? 'pointer' : 'default', fontFamily: 'inherit' }}
+          >
+            {confirmMutation.isPending ? 'Checking…' : 'Confirm & Continue'}
+          </button>
+        );
+      }
+      // No answer selected — allow skipping
+      if (isLast) {
+        return (
+          <button
+            onClick={() => submitMutation.mutate()}
+            disabled={submitMutation.isPending}
+            style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+          >Submit test</button>
+        );
+      }
+      return (
+        <button
+          onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
+          style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: '1px solid #C8C4BC', background: '#fff', color: '#8C8880', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+        >Skip →</button>
+      );
+    }
+
+    // Mock mode — unchanged
+    if (isLast) {
+      return (
+        <button
+          onClick={() => submitMutation.mutate()}
+          disabled={submitMutation.isPending}
+          style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+        >Submit test</button>
+      );
+    }
+    return (
+      <button
+        onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
+        style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+      >Next →</button>
+    );
+  };
 
   return (
     <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: '#FAF9F6', zIndex: 30 }}>
@@ -152,6 +325,7 @@ export default function TakeExam() {
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>
               {isMath ? 'Math' : 'Reading & Writing'}
+              {isPractice && <span style={{ marginLeft: 8, color: '#2563A8' }}>· Practice</span>}
             </div>
             <div style={{ fontSize: 14.5, fontWeight: 600 }}>Question {index + 1} of {total}</div>
           </div>
@@ -215,6 +389,11 @@ export default function TakeExam() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <span style={{ width: 26, height: 26, borderRadius: 7, background: '#0B0B0E', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{index + 1}</span>
               {isSPR && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'rgba(226,86,43,0.08)', color: '#E2562B' }}>Grid-in</span>}
+              {isPractice && confirmed && (
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: confirmed.isCorrect ? 'rgba(46,125,90,0.08)' : 'rgba(192,57,43,0.08)', color: confirmed.isCorrect ? '#2E7D5A' : '#C0392B' }}>
+                  {confirmed.isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                </span>
+              )}
             </div>
             <p style={{ fontSize: 16.5, lineHeight: 1.55, fontWeight: 500, color: '#0B0B0E', margin: '0 0 22px' }}>{q.questionText}</p>
 
@@ -225,8 +404,9 @@ export default function TakeExam() {
                   type="text"
                   value={selected ?? ''}
                   onChange={(e) => selectAnswer(e.target.value)}
+                  disabled={isPractice && !!confirmed}
                   placeholder="Enter your answer…"
-                  style={{ width: '100%', maxWidth: 280, height: 52, padding: '0 16px', border: selected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', borderRadius: 12, fontSize: 18, fontFamily: "'JetBrains Mono', monospace", background: '#fff', color: '#0B0B0E', outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', maxWidth: 280, height: 52, padding: '0 16px', border: selected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', borderRadius: 12, fontSize: 18, fontFamily: "'JetBrains Mono', monospace", background: isPractice && confirmed ? '#F2F0EC' : '#fff', color: '#0B0B0E', outline: 'none', boxSizing: 'border-box', opacity: isPractice && confirmed ? 0.7 : 1 }}
                 />
                 <p style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)', marginTop: 8 }}>Accepted formats: whole number, decimal (1.5), or fraction (3/4)</p>
               </div>
@@ -239,23 +419,132 @@ export default function TakeExam() {
                   if (!optTexts[oi]) return null;
                   const isSelected = selected === key;
                   const isElim = !!qElim[key];
+                  const isLocked = isPractice && !!confirmed;
                   return (
                     <div key={key} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
                       <button
                         onClick={() => selectAnswer(key)}
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '15px 18px', borderRadius: 12, cursor: 'pointer', background: isSelected ? 'rgba(226,86,43,0.06)' : '#fff', border: isSelected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', opacity: isElim ? 0.4 : 1, transition: 'all 0.15s', fontFamily: 'inherit' }}
+                        disabled={isLocked}
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '15px 18px', borderRadius: 12, cursor: isLocked ? 'default' : 'pointer', background: isSelected ? 'rgba(226,86,43,0.06)' : '#fff', border: isSelected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', opacity: isElim ? 0.4 : 1, transition: 'all 0.15s', fontFamily: 'inherit' }}
                       >
                         <span style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 9999, border: isSelected ? '1.5px solid #E2562B' : '1.5px solid #C8C4BC', background: isSelected ? '#E2562B' : 'transparent', color: isSelected ? '#fff' : '#8C8880', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{LETTER[oi]}</span>
                         <span style={{ fontSize: 15, color: '#0B0B0E', lineHeight: 1.5, textDecoration: isElim ? 'line-through' : 'none' }}>{optTexts[oi]}</span>
                       </button>
-                      <button
-                        title="Cross out"
-                        onClick={() => toggleElim(key)}
-                        style={{ width: 44, flexShrink: 0, borderRadius: 10, border: '1px solid #E7E4DE', background: isElim ? 'rgba(11,11,14,0.04)' : '#fff', color: isElim ? '#E2562B' : '#A8A49C', cursor: 'pointer', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', textDecoration: 'line-through', fontFamily: 'inherit' }}
-                      >ABC</button>
+                      {!isLocked && (
+                        <button
+                          title="Cross out"
+                          onClick={() => toggleElim(key)}
+                          style={{ width: 44, flexShrink: 0, borderRadius: 10, border: '1px solid #E7E4DE', background: isElim ? 'rgba(11,11,14,0.04)' : '#fff', color: isElim ? '#E2562B' : '#A8A49C', cursor: 'pointer', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', textDecoration: 'line-through', fontFamily: 'inherit' }}
+                        >ABC</button>
+                      )}
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Practice mode: confidence chips (shown when answer selected, not yet confirmed) */}
+            {isPractice && !confirmed && selected && (
+              <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #EEEBE5' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 12 }}>
+                  How did you approach this?
+                </p>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+                  {CONFIDENCE_CHIPS.map((chip) => {
+                    const active = pendingConfidence === chip.value;
+                    return (
+                      <button
+                        key={chip.value}
+                        onClick={() => setPendingConfidence(chip.value)}
+                        style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: active ? '1.5px solid #0B0B0E' : '1px solid #C8C4BC', background: active ? '#0B0B0E' : '#fff', color: active ? '#fff' : '#8C8880', transition: 'all 0.15s' }}
+                      >
+                        {chip.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <input
+                  type="text"
+                  value={pendingReasoning}
+                  onChange={(e) => setPendingReasoning(e.target.value)}
+                  placeholder="Anything else? (optional)"
+                  style={{ width: '100%', height: 40, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 10, fontSize: 13.5, fontFamily: 'inherit', background: '#fff', color: '#0B0B0E', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+            )}
+
+            {/* Practice mode: AI feedback panel (shown after confirm) */}
+            {isPractice && confirmed && (
+              <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {/* Reasoning checkpoint — always fires; omit block silently if call failed */}
+                {confirmed.feedbacks.reasoning_checkpoint && (() => {
+                  const rc = confirmed.feedbacks.reasoning_checkpoint!;
+                  const meta = CLASSIFICATION_META[rc.classification as ReasoningClassification] ?? CLASSIFICATION_META.correct_logic_correct_answer;
+                  return (
+                    <div style={{ padding: '16px 18px', borderRadius: 12, background: meta.bg, border: `1px solid ${meta.border}` }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: meta.color, marginBottom: 8 }}>
+                        {meta.label}
+                      </div>
+                      <p style={{ fontSize: 14, lineHeight: 1.6, color: '#0B0B0E', margin: 0 }}>{rc.explanation}</p>
+                    </div>
+                  );
+                })()}
+
+                {/* Grammar diagnosis — only present when subSkill=grammar AND wrong */}
+                {confirmed.feedbacks.grammar_diagnosis && (
+                  <div style={{ padding: '12px 16px', borderRadius: 10, background: '#F0ECE4', border: '1px solid rgba(184,137,62,0.25)' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8A6020', marginBottom: 5 }}>
+                      Grammar rule: {confirmed.feedbacks.grammar_diagnosis.grammarRule}
+                    </div>
+                    <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: 0 }}>
+                      {confirmed.feedbacks.grammar_diagnosis.grammarFix}
+                    </p>
+                  </div>
+                )}
+
+                {/* Trap explainer — only present when English MC AND wrong */}
+                {confirmed.feedbacks.trap_explainer && (
+                  <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(11,11,14,0.03)', border: '1px solid #E7E4DE' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.45)', marginBottom: 5 }}>
+                      Trap: {confirmed.feedbacks.trap_explainer.trap}
+                    </div>
+                    <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: 0 }}>
+                      {confirmed.feedbacks.trap_explainer.explanation}
+                    </p>
+                  </div>
+                )}
+
+                {/* Command of evidence — only present when subSkill=command_of_evidence AND English MC AND wrong */}
+                {confirmed.feedbacks.command_of_evidence && (() => {
+                  const coe = confirmed.feedbacks.command_of_evidence as CommandOfEvidenceContent;
+                  return (
+                    <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.2)' }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#1D4ED8', marginBottom: 8 }}>
+                        Supporting evidence
+                      </div>
+                      <blockquote style={{ fontFamily: "'Instrument Serif', serif", fontSize: 14.5, lineHeight: 1.6, color: '#0B0B0E', margin: '0 0 10px', paddingLeft: 12, borderLeft: '2px solid rgba(37,99,235,0.35)', fontStyle: 'italic' }}>
+                        "{coe.supportingLine}"
+                      </blockquote>
+                      <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: '0 0 4px' }}>{coe.whyCorrect}</p>
+                      <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'rgba(11,11,14,0.6)', margin: 0 }}>{coe.whyStudentWrong}</p>
+                    </div>
+                  );
+                })()}
+
+                {/* Transitions coach — only present when subSkill=transitions AND wrong */}
+                {confirmed.feedbacks.transitions_coach && (() => {
+                  const tc = confirmed.feedbacks.transitions_coach as TransitionsCoachContent;
+                  return (
+                    <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(124,58,237,0.04)', border: '1px solid rgba(124,58,237,0.2)' }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6D28D9', marginBottom: 8 }}>
+                        Transition logic
+                      </div>
+                      <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: '0 0 6px' }}>{tc.logicalRelationship}</p>
+                      <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: '0 0 4px' }}>{tc.whyCorrect}</p>
+                      <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'rgba(11,11,14,0.6)', margin: 0 }}>{tc.whyStudentWrong}</p>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -325,18 +614,7 @@ export default function TakeExam() {
             disabled={index === 0}
             style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: '1px solid #C8C4BC', background: index === 0 ? '#EDEAE4' : '#fff', color: index === 0 ? '#B0ACA4' : '#0B0B0E', fontSize: 14, fontWeight: 600, cursor: index === 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
           >← Back</button>
-          {isLast ? (
-            <button
-              onClick={() => submitMutation.mutate()}
-              disabled={submitMutation.isPending}
-              style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-            >Submit test</button>
-          ) : (
-            <button
-              onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
-              style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-            >Next →</button>
-          )}
+          {renderBottomAction()}
         </div>
       </div>
     </div>

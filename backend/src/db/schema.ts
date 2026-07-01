@@ -7,6 +7,8 @@ import {
   integer,
   timestamp,
   pgEnum,
+  jsonb,
+  numeric,
 } from 'drizzle-orm/pg-core';
 
 export const roleEnum = pgEnum('role', ['student', 'teacher', 'admin']);
@@ -16,6 +18,9 @@ export const examStatusEnum = pgEnum('exam_status', ['in_progress', 'completed',
 export const mockStatusEnum = pgEnum('mock_status', ['in_progress', 'completed']);
 export const answerEnum = pgEnum('answer_choice', ['a', 'b', 'c', 'd']);
 export const questionTypeEnum = pgEnum('question_type', ['multiple_choice', 'student_produced_response']);
+export const subSkillEnum = pgEnum('sub_skill', ['grammar', 'inference', 'command_of_evidence', 'vocab_in_context', 'transitions']);
+export const subSkillSourceEnum = pgEnum('sub_skill_source', ['ai_suggested', 'human_confirmed']);
+export const feedbackTypeEnum = pgEnum('feedback_type', ['reasoning_checkpoint', 'grammar_diagnosis', 'trap_explainer', 'command_of_evidence', 'transitions_coach']);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -75,6 +80,10 @@ export const questions = pgTable('questions', {
   // For SPR: accepted answer text (decimal, fraction, or integer)
   correctAnswerText: text('correct_answer_text'),
   explanation: text('explanation'),
+  // SAT Reading & Writing sub-skill — drives Phase 2–6 AI features
+  subSkill: subSkillEnum('sub_skill'),
+  // Tracks origin of subSkill tag: null = teacher set before tracking existed, 'ai_suggested' = batch classifier, 'human_confirmed' = teacher confirmed/overrode
+  subSkillSource: subSkillSourceEnum('sub_skill_source'),
   orderIndex: integer('order_index').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
@@ -114,6 +123,22 @@ export const mockTests = pgTable('mock_tests', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+// AI-generated feedback, one row per (examAnswer, feedbackType).
+// Cache check: if a row exists for this pair, return it instead of re-calling the AI.
+export const aiFeedback = pgTable('ai_feedback', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  examAnswerId: uuid('exam_answer_id').notNull().references(() => examAnswers.id, { onDelete: 'cascade' }),
+  feedbackType: feedbackTypeEnum('feedback_type').notNull(),
+  content: jsonb('content').$type<Record<string, unknown>>().notNull(),
+  modelUsed: text('model_used').notNull(),
+  latencyMs: integer('latency_ms'),
+  promptTokens: integer('prompt_tokens'),
+  completionTokens: integer('completion_tokens'),
+  costUsd: numeric('cost_usd'),
+  parseFailed: boolean('parse_failed').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 export const feedback = pgTable('feedback', {
   id: uuid('id').primaryKey().defaultRandom(),
   teacherId: uuid('teacher_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -133,5 +158,6 @@ export type Passage = typeof passages.$inferSelect;
 export type Question = typeof questions.$inferSelect;
 export type Exam = typeof exams.$inferSelect;
 export type ExamAnswer = typeof examAnswers.$inferSelect;
+export type AiFeedback = typeof aiFeedback.$inferSelect;
 export type MockTest = typeof mockTests.$inferSelect;
 export type Feedback = typeof feedback.$inferSelect;

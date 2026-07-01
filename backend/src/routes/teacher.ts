@@ -275,10 +275,16 @@ router.get('/question-sets/:setId/questions', async (req, res) => {
   }
 });
 
+const subSkillField = z
+  .enum(['grammar', 'inference', 'command_of_evidence', 'vocab_in_context', 'transitions'])
+  .nullable()
+  .optional();
+
 const createQuestionSchema = z.discriminatedUnion('questionType', [
   z.object({
     questionType: z.literal('multiple_choice'),
     passageId: z.string().uuid().nullable().optional(),
+    subSkill: subSkillField,
     questionText: z.string().min(1, 'Question text is required'),
     optionA: z.string().min(1, 'Option A is required'),
     optionB: z.string().min(1, 'Option B is required'),
@@ -291,6 +297,7 @@ const createQuestionSchema = z.discriminatedUnion('questionType', [
   z.object({
     questionType: z.literal('student_produced_response'),
     passageId: z.string().uuid().nullable().optional(),
+    subSkill: subSkillField,
     questionText: z.string().min(1, 'Question text is required'),
     optionA: z.string().optional().nullable(),
     optionB: z.string().optional().nullable(),
@@ -308,7 +315,13 @@ router.post('/question-sets/:setId/questions', validateBody(createQuestionSchema
   const { setId } = req.params;
   try {
     if (!(await assertSetOwner(setId, teacherId, res))) return;
-    const [q] = await db.insert(questions).values({ setId, ...req.body }).returning();
+    const values = {
+      setId,
+      ...req.body,
+      // teacher-set tags are always human_confirmed
+      subSkillSource: req.body.subSkill ? 'human_confirmed' : null,
+    };
+    const [q] = await db.insert(questions).values(values).returning();
     return res.status(201).json(q);
   } catch (err) {
     console.error(err);
@@ -325,6 +338,32 @@ router.put('/questions/:questionId', async (req, res) => {
       .where(eq(questions.id, questionId)).limit(1);
     if (qRows.length === 0 || qRows[0].createdBy !== teacherId) return res.status(404).json({ error: 'Question not found' });
     const [updated] = await db.update(questions).set(req.body).where(eq(questions.id, questionId)).returning();
+    return res.json(updated);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const updateSubSkillSchema = z.object({
+  subSkill: z.enum(['grammar', 'inference', 'command_of_evidence', 'vocab_in_context', 'transitions']).nullable().optional(),
+  subSkillSource: z.enum(['ai_suggested', 'human_confirmed']),
+});
+
+router.put('/questions/:questionId/subskill', validateBody(updateSubSkillSchema), async (req, res) => {
+  const teacherId = req.user!.sub;
+  const { questionId } = req.params;
+  const { subSkill, subSkillSource } = req.body;
+  try {
+    const qRows = await db.select({ id: questions.id, createdBy: questionSets.createdBy })
+      .from(questions).innerJoin(questionSets, eq(questions.setId, questionSets.id))
+      .where(eq(questions.id, questionId)).limit(1);
+    if (qRows.length === 0 || qRows[0].createdBy !== teacherId) return res.status(404).json({ error: 'Question not found' });
+    const [updated] = await db
+      .update(questions)
+      .set({ subSkill: subSkill ?? null, subSkillSource })
+      .where(eq(questions.id, questionId))
+      .returning();
     return res.json(updated);
   } catch (err) {
     console.error(err);

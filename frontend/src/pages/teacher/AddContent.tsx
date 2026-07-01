@@ -5,9 +5,9 @@ import { Plus, Trash2, BookOpen, ChevronLeft, WifiOff, CheckCircle2, FileText } 
 import {
   getQuestionSets, createQuestionSet, deleteQuestionSet,
   getSetPassages, createPassage, deletePassage,
-  getSetQuestions, addQuestion, deleteQuestion,
+  getSetQuestions, addQuestion, deleteQuestion, updateQuestionSubSkill,
 } from '../../api/teacher';
-import type { QuestionSet, Passage, Question } from '../../api/teacher';
+import type { QuestionSet, Passage, Question, SubSkill } from '../../api/teacher';
 import { saveTeacherDraft, loadTeacherDraft, clearTeacherDraft } from '../../lib/offline';
 import { Button } from '../../components/ui/Button';
 import { Input, Textarea } from '../../components/ui/Input';
@@ -19,9 +19,18 @@ import { getApiError } from '../../api/client';
 type EditorTab = 'questions' | 'passages';
 type QuestionType = 'multiple_choice' | 'student_produced_response';
 
+const SUB_SKILL_OPTIONS: { value: SubSkill; label: string }[] = [
+  { value: 'grammar', label: 'Grammar' },
+  { value: 'inference', label: 'Inference / Main Idea' },
+  { value: 'command_of_evidence', label: 'Command of Evidence' },
+  { value: 'vocab_in_context', label: 'Vocabulary in Context' },
+  { value: 'transitions', label: 'Transitions / Rhetoric' },
+];
+
 interface MCForm {
   questionType: 'multiple_choice';
   passageId: string;
+  subSkill: SubSkill | '';
   questionText: string;
   optionA: string; optionB: string; optionC: string; optionD: string;
   correctAnswer: 'a' | 'b' | 'c' | 'd';
@@ -31,6 +40,7 @@ interface MCForm {
 interface SPRForm {
   questionType: 'student_produced_response';
   passageId: string;
+  subSkill: SubSkill | '';
   questionText: string;
   correctAnswerText: string;
   explanation: string;
@@ -38,8 +48,8 @@ interface SPRForm {
 
 type QuestionForm = MCForm | SPRForm;
 
-const emptyMC: MCForm = { questionType: 'multiple_choice', passageId: '', questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'a', explanation: '' };
-const emptySPR: SPRForm = { questionType: 'student_produced_response', passageId: '', questionText: '', correctAnswerText: '', explanation: '' };
+const emptyMC: MCForm = { questionType: 'multiple_choice', passageId: '', subSkill: '', questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'a', explanation: '' };
+const emptySPR: SPRForm = { questionType: 'student_produced_response', passageId: '', subSkill: '', questionText: '', correctAnswerText: '', explanation: '' };
 
 // ── Math Symbol Toolbar ──────────────────────────────────────────────────────
 
@@ -126,6 +136,10 @@ export default function ContentManager() {
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'set' | 'question' | 'passage'; id: string } | null>(null);
+
+  // Question list filter
+  type QFilter = 'all' | 'ai_suggested' | 'untagged';
+  const [qFilter, setQFilter] = useState<QFilter>('all');
 
   // Symbol insertion — track active textarea by field name
   const [activeField, setActiveField] = useState<string | null>(null);
@@ -229,7 +243,7 @@ export default function ContentManager() {
   // Mutations — questions
   const addQuestionMutation = useMutation({
     mutationFn: () => {
-      const base = { passageId: (qForm as any).passageId || null, questionText: qForm.questionText, explanation: qForm.explanation || null, orderIndex: questions.length };
+      const base = { passageId: (qForm as any).passageId || null, subSkill: (qForm.subSkill || null) as SubSkill | null, questionText: qForm.questionText, explanation: qForm.explanation || null, orderIndex: questions.length };
       if (qForm.questionType === 'multiple_choice') {
         const f = qForm as MCForm;
         return addQuestion(activeSet!.id, { ...base, questionType: 'multiple_choice', optionA: f.optionA, optionB: f.optionB, optionC: f.optionC, optionD: f.optionD, correctAnswer: f.correctAnswer, correctAnswerText: null });
@@ -250,6 +264,17 @@ export default function ContentManager() {
   const deleteQuestionMutation = useMutation({
     mutationFn: (id: string) => deleteQuestion(id),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet?.id] }); setDeleteTarget(null); },
+  });
+
+  const confirmSubSkillMutation = useMutation({
+    mutationFn: (questionId: string) => updateQuestionSubSkill(questionId, { subSkillSource: 'human_confirmed' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet?.id] }),
+  });
+
+  const overrideSubSkillMutation = useMutation({
+    mutationFn: ({ questionId, subSkill }: { questionId: string; subSkill: SubSkill }) =>
+      updateQuestionSubSkill(questionId, { subSkill, subSkillSource: 'human_confirmed' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet?.id] }),
   });
 
   function validateAndAdd() {
@@ -467,6 +492,22 @@ export default function ContentManager() {
                 </div>
               )}
 
+              {/* Sub-skill (Reading & Writing sets only) */}
+              {!isMath && (
+                <div>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 6 }}>Sub-skill (optional)</label>
+                  <select
+                    value={(qForm as any).subSkill ?? ''}
+                    onChange={(e) => updateQ('subSkill', e.target.value)}
+                    style={{ width: '100%', height: 40, padding: '0 12px', border: '1px solid #E7E4DE', borderRadius: 10, background: '#fff', color: '#0B0B0E', fontSize: 14, fontFamily: 'inherit', outline: 'none' }}
+                  >
+                    <option value="">— Untagged</option>
+                    {SUB_SKILL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                  <p style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.4)', margin: '5px 0 0' }}>Used by AI features (Phases 2–5) to target specific feedback.</p>
+                </div>
+              )}
+
               {/* Question text */}
               <div>
                 {isMath && <MathToolbar onInsert={handleSymbolInsert} />}
@@ -549,17 +590,46 @@ export default function ContentManager() {
           </div>
 
           {/* Question list */}
-          {questions.length > 0 && (
-            <div style={{ ...CARD, overflow: 'hidden' }}>
-              <div style={{ padding: '14px 22px', borderBottom: '1px solid #EEEBE5', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>Questions Added ({questions.length})</h3>
+          {questions.length > 0 && (() => {
+            const hasAiSuggested = questions.some((q) => q.subSkillSource === 'ai_suggested');
+            const hasUntagged = !isMath && questions.some((q) => !q.subSkill);
+            const showFilter = hasAiSuggested || hasUntagged;
+            const filtered = qFilter === 'ai_suggested'
+              ? questions.filter((q) => q.subSkillSource === 'ai_suggested')
+              : qFilter === 'untagged'
+              ? questions.filter((q) => !q.subSkill)
+              : questions;
+
+            return (
+              <div style={{ ...CARD, overflow: 'hidden' }}>
+                <div style={{ padding: '14px 22px', borderBottom: '1px solid #EEEBE5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>Questions Added ({questions.length})</h3>
+                  {showFilter && (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {(['all', ...(hasAiSuggested ? ['ai_suggested'] : []), ...(hasUntagged ? ['untagged'] : [])] as QFilter[]).map((f) => {
+                        const labels: Record<QFilter, string> = { all: 'All', ai_suggested: 'AI Review', untagged: 'Untagged' };
+                        const active = qFilter === f;
+                        return (
+                          <button key={f} onClick={() => setQFilter(f)}
+                            style={{ padding: '4px 12px', fontSize: 11.5, fontWeight: 600, borderRadius: 9999, border: active ? 'none' : '1px solid #E7E4DE', background: active ? (f === 'ai_suggested' ? '#B8893E' : '#0B0B0E') : '#F2F0EC', color: active ? '#fff' : '#8C8880', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            {f === 'ai_suggested' && '⚡ '}{labels[f]}
+                            {f === 'ai_suggested' && !active && <span style={{ marginLeft: 5, background: '#B8893E', color: '#fff', borderRadius: 9999, padding: '1px 5px', fontSize: 10 }}>{questions.filter((q) => q.subSkillSource === 'ai_suggested').length}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                {filtered.map((q, i) => (
+                  <QuestionRow key={q.id} q={q} index={questions.indexOf(q)} isLast={i === filtered.length - 1} passages={passages}
+                    onDelete={() => setDeleteTarget({ type: 'question', id: q.id })}
+                    onConfirm={q.subSkillSource === 'ai_suggested' ? () => confirmSubSkillMutation.mutate(q.id) : undefined}
+                    onOverride={q.subSkillSource === 'ai_suggested' ? (sk) => overrideSubSkillMutation.mutate({ questionId: q.id, subSkill: sk }) : undefined}
+                  />
+                ))}
               </div>
-              {questions.map((q, i) => (
-                <QuestionRow key={q.id} q={q} index={i} isLast={i === questions.length - 1} passages={passages}
-                  onDelete={() => setDeleteTarget({ type: 'question', id: q.id })} />
-              ))}
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
@@ -583,29 +653,64 @@ export default function ContentManager() {
 
 // ── Question Row ──────────────────────────────────────────────────────────────
 
-function QuestionRow({ q, index, isLast, passages, onDelete }: { q: Question; index: number; isLast: boolean; passages: Passage[]; onDelete: () => void }) {
+function QuestionRow({ q, index, isLast, passages, onDelete, onConfirm, onOverride }: {
+  q: Question; index: number; isLast: boolean; passages: Passage[];
+  onDelete: () => void;
+  onConfirm?: () => void;
+  onOverride?: (subSkill: SubSkill) => void;
+}) {
   const isMC = q.questionType === 'multiple_choice';
   const passage = passages.find((p) => p.id === q.passageId);
+  const isAiSuggested = q.subSkillSource === 'ai_suggested';
+
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 22px', borderBottom: isLast ? 'none' : '1px solid #F2F0EC' }}>
-      <span style={{ width: 24, height: 24, borderRadius: 7, background: '#F2F0EC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: 'rgba(11,11,14,0.5)', flexShrink: 0, marginTop: 2 }}>{index + 1}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '2px 7px', borderRadius: 5, background: isMC ? '#EEF2FB' : 'rgba(226,86,43,0.08)', color: isMC ? '#2563A8' : '#E2562B' }}>{isMC ? 'MC' : 'SPR'}</span>
-          {passage && <span style={{ fontSize: 11, color: '#B8893E', display: 'flex', alignItems: 'center', gap: 3 }}><FileText size={11} />{passage.title || 'Passage'}</span>}
+    <div style={{ borderBottom: isLast ? 'none' : '1px solid #F2F0EC', background: isAiSuggested ? 'rgba(184,137,62,0.03)' : undefined }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 22px' }}>
+        <span style={{ width: 24, height: 24, borderRadius: 7, background: '#F2F0EC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: 'rgba(11,11,14,0.5)', flexShrink: 0, marginTop: 2 }}>{index + 1}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '2px 7px', borderRadius: 5, background: isMC ? '#EEF2FB' : 'rgba(226,86,43,0.08)', color: isMC ? '#2563A8' : '#E2562B' }}>{isMC ? 'MC' : 'SPR'}</span>
+            {q.subSkill && (
+              <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.04em', padding: '2px 7px', borderRadius: 5, background: isAiSuggested ? 'rgba(184,137,62,0.12)' : '#F0ECE4', color: isAiSuggested ? '#8A6020' : '#6B5F4A', border: isAiSuggested ? '1px solid rgba(184,137,62,0.3)' : 'none' }}>
+                {isAiSuggested && '⚡ '}{q.subSkill.replace(/_/g, ' ')}
+              </span>
+            )}
+            {passage && <span style={{ fontSize: 11, color: '#B8893E', display: 'flex', alignItems: 'center', gap: 3 }}><FileText size={11} />{passage.title || 'Passage'}</span>}
+          </div>
+          <p style={{ fontSize: 13.5, color: '#0B0B0E', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.questionText}</p>
+          {isMC ? (
+            <p style={{ fontSize: 12, color: '#2E7D5A', margin: 0, fontWeight: 600 }}>Correct: {q.correctAnswer?.toUpperCase()}</p>
+          ) : (
+            <p style={{ fontSize: 12, color: '#E2562B', margin: 0, fontWeight: 600 }}>Answer: {q.correctAnswerText}</p>
+          )}
         </div>
-        <p style={{ fontSize: 13.5, color: '#0B0B0E', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{q.questionText}</p>
-        {isMC ? (
-          <p style={{ fontSize: 12, color: '#2E7D5A', margin: 0, fontWeight: 600 }}>Correct: {q.correctAnswer?.toUpperCase()}</p>
-        ) : (
-          <p style={{ fontSize: 12, color: '#E2562B', margin: 0, fontWeight: 600 }}>Answer: {q.correctAnswerText}</p>
-        )}
+        <button onClick={onDelete}
+          style={{ padding: 6, borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.3)', flexShrink: 0 }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.3)'; }}
+        ><Trash2 size={14} /></button>
       </div>
-      <button onClick={onDelete}
-        style={{ padding: 6, borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.3)', flexShrink: 0 }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.3)'; }}
-      ><Trash2 size={14} /></button>
+
+      {/* AI review bar — only for ai_suggested questions */}
+      {isAiSuggested && onConfirm && onOverride && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 22px 10px 60px', background: 'rgba(184,137,62,0.06)', borderTop: '1px solid rgba(184,137,62,0.12)' }}>
+          <span style={{ fontSize: 11, color: '#8A6020', fontWeight: 600 }}>⚡ AI-suggested — review needed:</span>
+          <button
+            onClick={onConfirm}
+            style={{ padding: '3px 12px', fontSize: 11.5, fontWeight: 600, borderRadius: 6, border: '1px solid rgba(46,125,90,0.4)', background: 'rgba(46,125,90,0.08)', color: '#2E7D5A', cursor: 'pointer', fontFamily: 'inherit' }}
+          >✓ Confirm</button>
+          <select
+            defaultValue=""
+            onChange={(e) => { if (e.target.value) onOverride(e.target.value as SubSkill); e.target.value = ''; }}
+            style={{ padding: '3px 8px', fontSize: 11.5, borderRadius: 6, border: '1px solid #E7E4DE', background: '#fff', color: '#0B0B0E', cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            <option value="" disabled>Override skill…</option>
+            {SUB_SKILL_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }

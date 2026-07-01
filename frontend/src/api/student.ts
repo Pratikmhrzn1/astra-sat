@@ -153,3 +153,61 @@ export async function getFeedback(): Promise<FeedbackItem[]> {
 export async function markFeedbackRead(feedbackId: string): Promise<void> {
   await apiClient.put(`/student/feedback/${feedbackId}/read`);
 }
+
+export type ReasoningClassification =
+  | 'correct_logic_correct_answer'
+  | 'correct_logic_wrong_answer'
+  | 'wrong_logic_correct_answer'
+  | 'wrong_logic_wrong_answer';
+
+export interface ReasoningCheckpointContent {
+  classification: ReasoningClassification;
+  explanation: string;
+}
+
+export interface GrammarDiagnosisContent {
+  grammarRule: string;
+  grammarFix: string;
+}
+
+export interface TrapExplainerContent {
+  trap: string;
+  explanation: string;
+}
+
+export interface CommandOfEvidenceContent {
+  supportingLine: string;
+  whyCorrect: string;
+  whyStudentWrong: string;
+}
+
+export interface TransitionsCoachContent {
+  logicalRelationship: string;
+  whyCorrect: string;
+  whyStudentWrong: string;
+}
+
+export interface ConfirmFeedbacks {
+  reasoning_checkpoint?: ReasoningCheckpointContent | null;
+  grammar_diagnosis?: GrammarDiagnosisContent | null;
+  trap_explainer?: TrapExplainerContent | null;
+  command_of_evidence?: CommandOfEvidenceContent | null;
+  transitions_coach?: TransitionsCoachContent | null;
+}
+
+export async function confirmAnswer(
+  examId: string,
+  questionId: string,
+  payload: {
+    selectedAnswer?: string | null;
+    selectedAnswerText?: string | null;
+    confidence: 'sure' | 'eliminated' | 'guessed';
+    reasoning?: string;
+  },
+): Promise<{ isCorrect: boolean; feedbacks: ConfirmFeedbacks }> {
+  const { data } = await apiClient.post(
+    `/student/exams/${examId}/questions/${questionId}/confirm`,
+    payload,
+  );
+  return data;
+}

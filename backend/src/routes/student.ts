@@ -2,10 +2,16 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import { db } from '../db';
-import { users, questionSets, questions, passages, exams, examAnswers, mockTests, feedback } from '../db/schema';
+import { users, questionSets, questions, passages, exams, examAnswers, aiFeedback, mockTests, feedback } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
+import {
+  FeedbackContext,
+  FeedbackType,
+  getApplicableFeedbackTypes,
+  orchestrateConfirmFeedback,
+} from '../services/aiClient';
 
 const router = Router();
 router.use(requireAuth, requireRole(['student']));
@@ -184,6 +190,151 @@ router.put('/exams/:examId/answers', validateBody(saveAnswersSchema), async (req
       await db.update(exams).set({ timeSpentSeconds }).where(eq(exams.id, req.params.examId));
     }
     return res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ── Practice mode: per-question confirm ──────────────────────────────────────
+
+const confirmSchema = z.object({
+  selectedAnswer: z.enum(['a', 'b', 'c', 'd']).nullable().optional(),
+  selectedAnswerText: z.string().max(200).nullable().optional(),
+  confidence: z.enum(['sure', 'eliminated', 'guessed']),
+  reasoning: z.string().max(1000).optional(),
+});
+
+router.post('/exams/:examId/questions/:questionId/confirm', validateBody(confirmSchema), async (req, res) => {
+  const studentId = req.user!.sub;
+  const { examId, questionId } = req.params;
+  const { selectedAnswer, selectedAnswerText, confidence, reasoning } = req.body;
+
+  try {
+    // Verify exam belongs to student and is practice mode only
+    const examRows = await db.select().from(exams)
+      .where(and(eq(exams.id, examId), eq(exams.studentId, studentId))).limit(1);
+    if (examRows.length === 0) return res.status(404).json({ error: 'Exam not found' });
+    const exam = examRows[0];
+    if (exam.status === 'completed') return res.status(400).json({ error: 'Exam already completed' });
+    if (exam.type !== 'individual') return res.status(400).json({ error: 'Confirm is only available in practice mode' });
+
+    // Fetch question with passage and set subject — both needed for trap_explainer routing
+    const qRows = await db
+      .select({
+        id: questions.id,
+        questionType: questions.questionType,
+        questionText: questions.questionText,
+        optionA: questions.optionA,
+        optionB: questions.optionB,
+        optionC: questions.optionC,
+        optionD: questions.optionD,
+        correctAnswer: questions.correctAnswer,
+        correctAnswerText: questions.correctAnswerText,
+        subSkill: questions.subSkill,
+        passageText: passages.passageText,
+        subject: questionSets.subject,
+      })
+      .from(questions)
+      .leftJoin(passages, eq(questions.passageId, passages.id))
+      .innerJoin(questionSets, eq(questions.setId, questionSets.id))
+      .where(and(eq(questions.id, questionId), eq(questions.setId, exam.setId)))
+      .limit(1);
+    if (qRows.length === 0) return res.status(404).json({ error: 'Question not found' });
+    const q = qRows[0];
+
+    // Get the examAnswer row
+    const answerRows = await db.select().from(examAnswers)
+      .where(and(eq(examAnswers.examId, examId), eq(examAnswers.questionId, questionId))).limit(1);
+    if (answerRows.length === 0) return res.status(404).json({ error: 'Answer record not found' });
+    const answerRow = answerRows[0];
+
+    // Write the answer (confirm is authoritative — overrides any autosave)
+    const hasAnswer = selectedAnswer != null || (selectedAnswerText && selectedAnswerText.trim() !== '');
+    await db.update(examAnswers).set({
+      selectedAnswer: selectedAnswer ?? null,
+      selectedAnswerText: selectedAnswerText ?? null,
+      answeredAt: hasAnswer ? new Date() : null,
+    }).where(eq(examAnswers.id, answerRow.id));
+
+    // Score immediately — same deterministic logic as final submit
+    let isCorrect: boolean;
+    if (q.questionType === 'student_produced_response') {
+      isCorrect = selectedAnswerText ? sprIsCorrect(selectedAnswerText, q.correctAnswerText ?? '') : false;
+    } else {
+      isCorrect = selectedAnswer != null && selectedAnswer === q.correctAnswer;
+    }
+    await db.update(examAnswers).set({ isCorrect }).where(eq(examAnswers.id, answerRow.id));
+
+    // Build the feedback context once — shared by all prompt builders
+    const ctx: FeedbackContext = {
+      questionText: q.questionText,
+      questionType: q.questionType,
+      subSkill: q.subSkill ?? null,
+      subject: q.subject,
+      optionA: q.optionA,
+      optionB: q.optionB,
+      optionC: q.optionC,
+      optionD: q.optionD,
+      correctAnswer: q.correctAnswer ?? null,
+      correctAnswerText: q.correctAnswerText ?? null,
+      selectedAnswer: selectedAnswer ?? null,
+      selectedAnswerText: selectedAnswerText ?? null,
+      isCorrect,
+      confidence,
+      reasoning: reasoning ?? null,
+      passageText: q.passageText ?? null,
+    };
+
+    // Determine which types apply for this question+answer combination
+    const applicableTypes = getApplicableFeedbackTypes(ctx);
+
+    // Check cache for all applicable types in one query
+    const cachedRows = await db
+      .select({ feedbackType: aiFeedback.feedbackType, content: aiFeedback.content })
+      .from(aiFeedback)
+      .where(eq(aiFeedback.examAnswerId, answerRow.id));
+    const cachedByType = new Map<string, unknown>(cachedRows.map((r) => [r.feedbackType, r.content]));
+
+    // Only fire AI for types not already in cache
+    const uncachedTypes = applicableTypes.filter((t) => !cachedByType.has(t)) as FeedbackType[];
+
+    if (uncachedTypes.length > 0) {
+      // All uncached calls run in parallel — Promise.all, not sequential awaits
+      const results = await orchestrateConfirmFeedback(ctx, uncachedTypes);
+
+      // Write each successful result independently; failures are already caught inside orchestrateConfirmFeedback
+      await Promise.all(
+        results
+          .filter((r) => r.aiResult !== null)
+          .map((r) =>
+            db.insert(aiFeedback).values({
+              examAnswerId: answerRow.id,
+              feedbackType: r.feedbackType as FeedbackType,
+              content: r.aiResult!.parsed as Record<string, unknown>,
+              modelUsed: r.aiResult!.modelUsed,
+              latencyMs: r.aiResult!.latencyMs,
+              promptTokens: r.aiResult!.promptTokens,
+              completionTokens: r.aiResult!.completionTokens,
+              costUsd: String(r.aiResult!.costUsd),
+              parseFailed: r.aiResult!.parseFailed,
+            }),
+          ),
+      );
+
+      // Merge new results into the cache map for response building
+      for (const r of results) {
+        if (r.aiResult) cachedByType.set(r.feedbackType, r.aiResult.parsed);
+      }
+    }
+
+    // Build response — only applicable types, null for any that failed
+    const feedbacks: Record<string, unknown> = {};
+    for (const t of applicableTypes) {
+      feedbacks[t] = cachedByType.get(t) ?? null;
+    }
+
+    return res.json({ isCorrect, feedbacks });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });

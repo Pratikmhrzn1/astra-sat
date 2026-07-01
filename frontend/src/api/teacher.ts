@@ -26,11 +26,17 @@ export interface Passage {
   createdAt: string;
 }
 
+export type SubSkill = 'grammar' | 'inference' | 'command_of_evidence' | 'vocab_in_context' | 'transitions';
+
+export type SubSkillSource = 'ai_suggested' | 'human_confirmed';
+
 export interface Question {
   id: string;
   setId: string;
   passageId: string | null;
   questionType: 'multiple_choice' | 'student_produced_response';
+  subSkill: SubSkill | null;
+  subSkillSource: SubSkillSource | null;
   questionText: string;
   optionA: string | null;
   optionB: string | null;
@@ -119,8 +125,16 @@ export async function getSetQuestions(setId: string): Promise<Question[]> {
   return data;
 }
 
-export async function addQuestion(setId: string, payload: Omit<Question, 'id' | 'setId'>): Promise<Question> {
+export async function addQuestion(setId: string, payload: Omit<Question, 'id' | 'setId' | 'subSkillSource'>): Promise<Question> {
   const { data } = await apiClient.post<Question>(`/teacher/question-sets/${setId}/questions`, payload);
+  return data;
+}
+
+export async function updateQuestionSubSkill(
+  questionId: string,
+  payload: { subSkill?: SubSkill | null; subSkillSource: SubSkillSource },
+): Promise<Question> {
+  const { data } = await apiClient.put<Question>(`/teacher/questions/${questionId}/subskill`, payload);
   return data;
 }
 

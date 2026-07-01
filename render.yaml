@@ -19,3 +19,11 @@ services:
         sync: false   # set in Render dashboard — your Cloudflare Pages URL
       - key: PORT
         value: 10000
+      - key: OPENROUTER_API_KEY
+        sync: false   # set in Render dashboard — get key from openrouter.ai
+      - key: AI_MODEL_FEEDBACK
+        value: anthropic/claude-haiku-4.5
+      - key: AI_MODEL_NARRATIVE
+        value: anthropic/claude-sonnet-4.6
+      - key: AI_MODEL_CLASSIFY
+        value: anthropic/claude-sonnet-4.6
