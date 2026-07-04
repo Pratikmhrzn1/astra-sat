@@ -1,11 +1,16 @@
 import OpenAI from 'openai';
 
 // Single AI client configured for OpenRouter (OpenAI-compatible).
-// All AI feature code must call generateStructuredFeedback — never call OpenRouter directly.
-const client = new OpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY ?? '',
-});
+// Lazy-initialized so a missing env var fails at request time, not server startup.
+let _client: OpenAI | null = null;
+function getClient(): OpenAI {
+  if (!_client) {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error('OPENROUTER_API_KEY environment variable is not set');
+    _client = new OpenAI({ baseURL: 'https://openrouter.ai/api/v1', apiKey });
+  }
+  return _client;
+}
 
 export class AIParseError extends Error {
   constructor(msg: string) {
@@ -61,7 +66,7 @@ export async function generateStructuredFeedback(
   const start = Date.now();
 
   // Pass usage: { include: true } so OpenRouter returns per-request cost.
-  const firstResponse = await (client.chat.completions.create as (
+  const firstResponse = await (getClient().chat.completions.create as (
     body: object,
   ) => Promise<OpenAI.ChatCompletion>)({ model, messages, usage: { include: true } });
 
@@ -86,7 +91,7 @@ export async function generateStructuredFeedback(
         content: 'Your last response was not valid JSON. Return ONLY the JSON object, nothing else.',
       },
     ];
-    const retryResponse = await (client.chat.completions.create as (
+    const retryResponse = await (getClient().chat.completions.create as (
       body: object,
     ) => Promise<OpenAI.ChatCompletion>)({ model, messages: retryMessages, usage: { include: true } });
     const retryText = retryResponse.choices[0]?.message?.content ?? '';
