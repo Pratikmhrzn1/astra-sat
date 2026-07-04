@@ -286,3 +286,25 @@ export async function reviewVocab(
   const { data } = await apiClient.post(`/student/vocab/${vocabId}/review`, { isCorrect });
   return data;
 }
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
+
+export async function sendChatMessage(params: {
+  sessionId?: string;
+  userMessage: string;
+  examId?: string;
+  questionId?: string;
+}): Promise<{ sessionId: string; assistantMessage: string }> {
+  const { data } = await apiClient.post('/student/chat', params);
+  return data;
+}
+
+export async function getChatMessages(sessionId: string): Promise<ChatMessage[]> {
+  const { data } = await apiClient.get<ChatMessage[]>(`/student/chat/${sessionId}/messages`);
+  return data;
+}

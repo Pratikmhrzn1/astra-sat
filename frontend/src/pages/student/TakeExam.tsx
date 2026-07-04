@@ -7,6 +7,7 @@ import {
   submitExam,
   confirmAnswer,
   reviewVocab,
+  sendChatMessage,
   type ConfirmFeedbacks,
   type ReasoningClassification,
   type CommandOfEvidenceContent,
@@ -80,8 +81,17 @@ export default function TakeExam() {
   const [vocabPick, setVocabPick] = useState<Record<string, string>>({}); // selected option letter
   const [vocabSubmitted, setVocabSubmitted] = useState<Record<string, boolean>>({}); // whether checked
 
+  // Chat state (practice mode only)
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['student', 'exam', examId],
@@ -184,6 +194,37 @@ export default function TakeExam() {
   useEffect(() => {
     if (isOnline) syncAnswers();
   }, [isOnline]);
+
+  // Auto-scroll chat messages area to bottom when messages or loading state change
+  useEffect(() => {
+    if (chatMessagesRef.current) {
+      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+    }
+  }, [chatMessages, chatLoading]);
+
+  const handleSendChat = useCallback(async () => {
+    const msg = chatInput.trim();
+    if (!msg || chatLoading || !examId) return;
+    setChatInput('');
+    setChatError(null);
+    setChatMessages((prev) => [...prev, { role: 'user', content: msg }]);
+    setChatLoading(true);
+    try {
+      const result = await sendChatMessage({
+        sessionId: chatSessionId ?? undefined,
+        userMessage: msg,
+        examId,
+        questionId: data?.questions[index]?.id,
+      });
+      if (!chatSessionId) setChatSessionId(result.sessionId);
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: result.assistantMessage }]);
+    } catch {
+      setChatError("Couldn't reach the tutor right now — try again in a moment.");
+      setChatMessages((prev) => prev.slice(0, -1));
+    } finally {
+      setChatLoading(false);
+    }
+  }, [chatInput, chatLoading, chatSessionId, examId, index, data]);
 
   if (isLoading || !data) {
     return (
@@ -677,16 +718,29 @@ export default function TakeExam() {
 
       {/* Bottom bar */}
       <div style={{ height: 70, flexShrink: 0, background: '#fff', borderTop: '1px solid #E7E4DE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
-        <button
-          onClick={() => setNavOpen((n) => !n)}
-          style={{ display: 'flex', alignItems: 'center', gap: 9, border: '1px solid #C8C4BC', background: navOpen ? '#F2F0EC' : '#fff', borderRadius: 10, padding: '9px 16px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit' }}
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
-          </svg>
-          Question {index + 1} of {total}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={() => setNavOpen((n) => !n)}
+            style={{ display: 'flex', alignItems: 'center', gap: 9, border: '1px solid #C8C4BC', background: navOpen ? '#F2F0EC' : '#fff', borderRadius: 10, padding: '9px 16px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit' }}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
+            Question {index + 1} of {total}
+          </button>
+          {isPractice && (
+            <button
+              onClick={() => setChatOpen((o) => !o)}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, border: chatOpen ? '1px solid #0D7377' : '1px solid #C8C4BC', background: chatOpen ? 'rgba(13,115,119,0.07)' : '#fff', color: chatOpen ? '#0D7377' : '#0B0B0E', borderRadius: 10, padding: '9px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              Ask a question
+            </button>
+          )}
+        </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
           <button
@@ -697,6 +751,67 @@ export default function TakeExam() {
           {renderBottomAction()}
         </div>
       </div>
+
+      {/* Chat panel — practice mode only, slides up above the bottom bar */}
+      {isPractice && chatOpen && (
+        <div style={{ position: 'fixed', bottom: 70, left: 0, right: 0, height: 380, background: '#fff', borderTop: '1px solid #E7E4DE', boxShadow: '0 -8px 32px rgba(11,11,14,0.12)', display: 'flex', flexDirection: 'column', zIndex: 44, animation: 'chatSlideUp 0.2s ease-out' }}>
+          {/* Header */}
+          <div style={{ height: 48, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', borderBottom: '1px solid #F0ECE4' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#0D7377', flexShrink: 0 }} />
+              <span style={{ fontSize: 13.5, fontWeight: 700 }}>SAT Tutor</span>
+              <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.4)', fontWeight: 500 }}>· Reading &amp; Writing</span>
+            </div>
+            <button onClick={() => setChatOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#8C8880', fontSize: 22, lineHeight: 1, padding: 0, fontFamily: 'inherit' }}>×</button>
+          </div>
+
+          {/* Messages scroll area */}
+          <div ref={chatMessagesRef} className="scrollarea" style={{ flex: 1, overflowY: 'auto', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {chatMessages.length === 0 && (
+              <p style={{ color: 'rgba(11,11,14,0.4)', fontSize: 13.5, textAlign: 'center', margin: '20px 0 0' }}>
+                Ask anything about this question — grammar rules, what the passage means, strategy.
+              </p>
+            )}
+            {chatMessages.map((msg, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                <div style={{ maxWidth: '82%', padding: '9px 14px', borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: msg.role === 'user' ? '#0B0B0E' : '#F2F0EC', color: msg.role === 'user' ? '#fff' : '#0B0B0E', fontSize: 13.5, lineHeight: 1.55 }}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <div style={{ padding: '10px 16px', borderRadius: '14px 14px 14px 4px', background: '#F2F0EC', display: 'flex', gap: 5, alignItems: 'center' }}>
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: 'rgba(11,11,14,0.45)', animation: `chatDotBounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+                  ))}
+                </div>
+              </div>
+            )}
+            {chatError && (
+              <p style={{ fontSize: 12.5, color: '#C0392B', textAlign: 'center', margin: 0 }}>{chatError}</p>
+            )}
+          </div>
+
+          {/* Input row */}
+          <div style={{ height: 60, flexShrink: 0, borderTop: '1px solid #F0ECE4', display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px' }}>
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
+              placeholder="Ask about this question…"
+              disabled={chatLoading}
+              style={{ flex: 1, height: 38, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 9999, fontSize: 13.5, fontFamily: 'inherit', background: '#FAF9F6', color: '#0B0B0E', outline: 'none' }}
+            />
+            <button
+              onClick={handleSendChat}
+              disabled={chatLoading || !chatInput.trim()}
+              style={{ height: 38, padding: '0 18px', borderRadius: 9999, border: 'none', background: chatInput.trim() && !chatLoading ? '#0B0B0E' : '#C8C4BC', color: '#fff', fontSize: 13, fontWeight: 600, cursor: chatInput.trim() && !chatLoading ? 'pointer' : 'default', fontFamily: 'inherit', flexShrink: 0 }}
+            >Send</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

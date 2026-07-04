@@ -104,6 +104,30 @@ export async function generateStructuredFeedback(
   return { parsed, modelUsed, latencyMs, promptTokens, completionTokens, costUsd, parseFailed };
 }
 
+/**
+ * Plain-text chat call for the doubt-solving chatbot (Phase 10).
+ * Unlike generateStructuredFeedback, this expects a free-text reply — no JSON parsing.
+ * systemPrompt is injected fresh on every call; history carries only trimmed stored messages.
+ */
+export async function generateChatResponse(
+  systemPrompt: string,
+  history: { role: 'user' | 'assistant'; content: string }[],
+  modelEnvKey: string,
+): Promise<{ content: string; modelUsed: string }> {
+  const model = process.env[modelEnvKey];
+  if (!model) throw new Error(`Missing env var: ${modelEnvKey}`);
+
+  const messages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: 'system', content: systemPrompt },
+    ...history,
+  ];
+
+  const response = await getClient().chat.completions.create({ model, messages });
+  const content = response.choices[0]?.message?.content?.trim() ?? '';
+  const modelUsed = response.model ?? model;
+  return { content, modelUsed };
+}
+
 // ── Confirm-step feedback orchestration ───────────────────────────────────────
 // Each feedbackType gets its own isolated prompt — minimum context for the job.
 // All applicable types fire in parallel via Promise.all; each catches its own

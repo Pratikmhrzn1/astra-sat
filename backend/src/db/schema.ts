@@ -24,6 +24,7 @@ export const feedbackTypeEnum = pgEnum('feedback_type', ['reasoning_checkpoint',
 export const contentTypeEnum = pgEnum('content_type', ['vocab_quiz', 'skill_passage']);
 export const qualityFlagEnum = pgEnum('quality_flag', ['pending', 'approved', 'rejected']);
 export const narrativeStatusEnum = pgEnum('narrative_status', ['pending', 'complete', 'failed']);
+export const chatRoleEnum = pgEnum('chat_role', ['user', 'assistant']);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -190,6 +191,23 @@ export const mockNarratives = pgTable('mock_narratives', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+export const chatSessions = pgTable('chat_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  examId: uuid('exam_id').notNull().references(() => exams.id, { onDelete: 'cascade' }),
+  studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  questionId: uuid('question_id').references(() => questions.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const chatMessages = pgTable('chat_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  sessionId: uuid('session_id').notNull().references(() => chatSessions.id, { onDelete: 'cascade' }),
+  role: chatRoleEnum('role').notNull(),
+  content: text('content').notNull(),
+  tokenCount: integer('token_count').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 export const feedback = pgTable('feedback', {
   id: uuid('id').primaryKey().defaultRandom(),
   teacherId: uuid('teacher_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
@@ -215,4 +233,6 @@ export type StudentVocab = typeof studentVocab.$inferSelect;
 export type GeneratedContent = typeof generatedContent.$inferSelect;
 export type StudentSkillTrigger = typeof studentSkillTriggers.$inferSelect;
 export type MockNarrative = typeof mockNarratives.$inferSelect;
+export type ChatSession = typeof chatSessions.$inferSelect;
+export type ChatMessage = typeof chatMessages.$inferSelect;
 export type Feedback = typeof feedback.$inferSelect;

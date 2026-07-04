@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { eq, and, sql, desc, lte, ne, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
-import { users, questionSets, questions, passages, exams, examAnswers, aiFeedback, mockTests, feedback, studentVocab, generatedContent, mockNarratives, studentSkillTriggers } from '../db/schema';
+import { users, questionSets, questions, passages, exams, examAnswers, aiFeedback, mockTests, feedback, studentVocab, generatedContent, mockNarratives, studentSkillTriggers, chatSessions, chatMessages } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
@@ -14,6 +14,7 @@ import {
   extractVocabWord,
   extractSentenceWithWord,
   generateStructuredFeedback,
+  generateChatResponse,
 } from '../services/aiClient';
 
 // ── Phase 8: Weak-skill passage generation ────────────────────────────────────
@@ -962,6 +963,175 @@ router.put('/feedback/:feedbackId/read', async (req, res) => {
       .where(and(eq(feedback.id, req.params.feedbackId), eq(feedback.studentId, studentId))).returning();
     if (rows.length === 0) return res.status(404).json({ error: 'Feedback not found' });
     return res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ── Phase 10: Doubt-solving chatbot (practice mode only) ──────────────────────
+
+const OFF_TOPIC_KEYWORDS = ['essay', 'homework', 'physics', 'chemistry', 'history essay', 'college application'];
+
+const chatSchema = z.object({
+  sessionId: z.string().uuid().optional(),
+  userMessage: z.string().min(1).max(2000).trim(),
+  examId: z.string().uuid().optional(),
+  questionId: z.string().uuid().optional(),
+});
+
+// Simple token estimator: ceil(charCount / 4). Not exact — good enough for a ceiling check.
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+// Drop oldest messages until historyTokens <= 2000, but always keep the last 4 (2 user+assistant pairs).
+function trimChatHistory(
+  msgs: { role: string; content: string; tokenCount: number }[],
+): { role: 'user' | 'assistant'; content: string }[] {
+  const TOKEN_CAP = 2000;
+  const ALWAYS_KEEP = 4;
+  const mutable = [...msgs];
+  let total = mutable.reduce((acc, m) => acc + m.tokenCount, 0);
+  while (total > TOKEN_CAP && mutable.length > ALWAYS_KEEP) {
+    const dropped = mutable.shift()!;
+    total -= dropped.tokenCount;
+  }
+  return mutable.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+}
+
+router.post('/chat', validateBody(chatSchema), async (req, res) => {
+  const studentId = req.user!.sub;
+  const { sessionId, userMessage, examId, questionId } = req.body;
+
+  // Keyword guard — instant response without an AI call
+  const msgLower = userMessage.toLowerCase();
+  if (OFF_TOPIC_KEYWORDS.some((kw) => msgLower.includes(kw))) {
+    return res.json({
+      sessionId: sessionId ?? null,
+      assistantMessage: "I'm here for SAT Reading and Writing questions — what can I help you understand about this question?",
+    });
+  }
+
+  try {
+    let session: typeof chatSessions.$inferSelect;
+
+    if (sessionId) {
+      const sessionRows = await db.select().from(chatSessions)
+        .where(and(eq(chatSessions.id, sessionId), eq(chatSessions.studentId, studentId)))
+        .limit(1);
+      if (sessionRows.length === 0) return res.status(404).json({ error: 'Session not found' });
+      session = sessionRows[0];
+
+      // Update questionId if the student moved to a different question mid-chat
+      if (questionId && questionId !== session.questionId) {
+        const [updated] = await db.update(chatSessions).set({ questionId })
+          .where(eq(chatSessions.id, sessionId)).returning();
+        session = updated;
+      }
+    } else {
+      if (!examId) return res.status(400).json({ error: 'examId required to start a new chat session' });
+
+      // Verify exam belongs to this student and is practice mode
+      const examRows = await db.select().from(exams)
+        .where(and(eq(exams.id, examId), eq(exams.studentId, studentId), eq(exams.type, 'individual')))
+        .limit(1);
+      if (examRows.length === 0) return res.status(404).json({ error: 'Exam not found or not a practice session' });
+
+      // One session per exam attempt — reuse if already created
+      const existing = await db.select().from(chatSessions)
+        .where(and(eq(chatSessions.examId, examId), eq(chatSessions.studentId, studentId)))
+        .limit(1);
+
+      if (existing.length > 0) {
+        session = existing[0];
+        if (questionId && questionId !== session.questionId) {
+          const [updated] = await db.update(chatSessions).set({ questionId })
+            .where(eq(chatSessions.id, session.id)).returning();
+          session = updated;
+        }
+      } else {
+        const [created] = await db.insert(chatSessions)
+          .values({ examId, studentId, questionId: questionId ?? null })
+          .returning();
+        session = created;
+      }
+    }
+
+    // Build system prompt from live question data (always fresh — not stored in history)
+    let questionText = '(question context unavailable)';
+    let passageBlock = '';
+    if (session.questionId) {
+      const qRows = await db.select({ questionText: questions.questionText, passageText: passages.passageText })
+        .from(questions)
+        .leftJoin(passages, eq(questions.passageId, passages.id))
+        .where(eq(questions.id, session.questionId))
+        .limit(1);
+      if (qRows.length > 0) {
+        questionText = qRows[0].questionText;
+        const pt = qRows[0].passageText;
+        if (pt) {
+          const words = pt.split(/\s+/);
+          const excerpt = words.length > 200 ? words.slice(0, 200).join(' ') + '…' : pt;
+          passageBlock = ` The passage for this question is: ${excerpt}`;
+        }
+      }
+    }
+
+    const systemPrompt = `You are an SAT Reading and Writing tutor. You help students understand SAT concepts, question strategies, grammar rules, and reading techniques. You are currently helping a student with this question: ${questionText}.${passageBlock}
+
+Answer only questions related to SAT Reading and Writing — grammar, vocabulary, reading comprehension, rhetorical analysis, and test-taking strategy for these sections. If a student asks about math, other subjects, or anything unrelated to SAT Reading and Writing, respond with: "I'm focused on SAT Reading and Writing here — for that I'd suggest [the relevant resource]." Do not write essays, complete assignments, or answer questions from other subjects. Keep answers under 150 words — if more detail is needed, the student should ask a follow-up.`;
+
+    // Fetch stored history, apply token cap, inject current user message
+    const storedMsgs = await db.select({
+      role: chatMessages.role,
+      content: chatMessages.content,
+      tokenCount: chatMessages.tokenCount,
+    })
+      .from(chatMessages)
+      .where(eq(chatMessages.sessionId, session.id))
+      .orderBy(chatMessages.createdAt);
+
+    const trimmedHistory = trimChatHistory(storedMsgs);
+    const historyForCall: { role: 'user' | 'assistant'; content: string }[] = [
+      ...trimmedHistory,
+      { role: 'user', content: userMessage },
+    ];
+
+    const { content: assistantMessage } = await generateChatResponse(systemPrompt, historyForCall, 'AI_MODEL_FEEDBACK');
+
+    // Write both messages with estimated token counts
+    await db.insert(chatMessages).values([
+      { sessionId: session.id, role: 'user', content: userMessage, tokenCount: estimateTokens(userMessage) },
+      { sessionId: session.id, role: 'assistant', content: assistantMessage, tokenCount: estimateTokens(assistantMessage) },
+    ]);
+
+    return res.json({ sessionId: session.id, assistantMessage });
+  } catch (err) {
+    console.error('[chat] Error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/chat/:sessionId/messages', async (req, res) => {
+  const studentId = req.user!.sub;
+  try {
+    const sessionRows = await db.select().from(chatSessions)
+      .where(and(eq(chatSessions.id, req.params.sessionId), eq(chatSessions.studentId, studentId)))
+      .limit(1);
+    if (sessionRows.length === 0) return res.status(404).json({ error: 'Session not found' });
+
+    const msgs = await db.select({
+      id: chatMessages.id,
+      role: chatMessages.role,
+      content: chatMessages.content,
+      createdAt: chatMessages.createdAt,
+    })
+      .from(chatMessages)
+      .where(eq(chatMessages.sessionId, req.params.sessionId))
+      .orderBy(chatMessages.createdAt);
+
+    return res.json(msgs);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });

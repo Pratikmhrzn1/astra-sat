@@ -19,6 +19,30 @@ const CREATE_ENUMS = `
   DO $$ BEGIN
     CREATE TYPE answer_choice AS ENUM ('a', 'b', 'c', 'd');
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  DO $$ BEGIN
+    CREATE TYPE question_type AS ENUM ('multiple_choice', 'student_produced_response');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  DO $$ BEGIN
+    CREATE TYPE sub_skill AS ENUM ('grammar', 'inference', 'command_of_evidence', 'vocab_in_context', 'transitions');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  DO $$ BEGIN
+    CREATE TYPE sub_skill_source AS ENUM ('ai_suggested', 'human_confirmed');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  DO $$ BEGIN
+    CREATE TYPE feedback_type AS ENUM ('reasoning_checkpoint', 'grammar_diagnosis', 'trap_explainer', 'command_of_evidence', 'transitions_coach', 'vocab_drill');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  DO $$ BEGIN
+    CREATE TYPE content_type AS ENUM ('vocab_quiz', 'skill_passage');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  DO $$ BEGIN
+    CREATE TYPE quality_flag AS ENUM ('pending', 'approved', 'rejected');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  DO $$ BEGIN
+    CREATE TYPE narrative_status AS ENUM ('pending', 'complete', 'failed');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  DO $$ BEGIN
+    CREATE TYPE chat_role AS ENUM ('user', 'assistant');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 `;
 
 const CREATE_TABLES = `
@@ -50,21 +74,38 @@ const CREATE_TABLES = `
     title VARCHAR(255) NOT NULL,
     subject subject NOT NULL,
     description TEXT NOT NULL DEFAULT '',
+    generated BOOLEAN NOT NULL DEFAULT FALSE,
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
   );
 
+  CREATE TABLE IF NOT EXISTS passages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    set_id UUID NOT NULL REFERENCES question_sets(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL DEFAULT '',
+    passage_text TEXT NOT NULL,
+    generated BOOLEAN NOT NULL DEFAULT FALSE,
+    order_index INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
   CREATE TABLE IF NOT EXISTS questions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     set_id UUID NOT NULL REFERENCES question_sets(id) ON DELETE CASCADE,
+    passage_id UUID REFERENCES passages(id) ON DELETE SET NULL,
+    question_type question_type NOT NULL DEFAULT 'multiple_choice',
     question_text TEXT NOT NULL,
-    option_a TEXT NOT NULL,
-    option_b TEXT NOT NULL,
-    option_c TEXT NOT NULL,
-    option_d TEXT NOT NULL,
-    correct_answer answer_choice NOT NULL,
+    option_a TEXT,
+    option_b TEXT,
+    option_c TEXT,
+    option_d TEXT,
+    correct_answer answer_choice,
+    correct_answer_text TEXT,
     explanation TEXT,
+    sub_skill sub_skill,
+    sub_skill_source sub_skill_source,
+    generated BOOLEAN NOT NULL DEFAULT FALSE,
     order_index INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
   );
@@ -88,6 +129,7 @@ const CREATE_TABLES = `
     exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
     question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
     selected_answer answer_choice,
+    selected_answer_text TEXT,
     is_correct BOOLEAN,
     answered_at TIMESTAMP
   );
@@ -103,6 +145,83 @@ const CREATE_TABLES = `
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
   );
 
+  CREATE TABLE IF NOT EXISTS ai_feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    exam_answer_id UUID NOT NULL REFERENCES exam_answers(id) ON DELETE CASCADE,
+    feedback_type feedback_type NOT NULL,
+    content JSONB NOT NULL,
+    model_used TEXT NOT NULL,
+    latency_ms INTEGER,
+    prompt_tokens INTEGER,
+    completion_tokens INTEGER,
+    cost_usd NUMERIC,
+    parse_failed BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS student_vocab (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    word TEXT NOT NULL,
+    passage_excerpt TEXT NOT NULL,
+    next_review_at TIMESTAMP NOT NULL,
+    interval_days INTEGER NOT NULL DEFAULT 1,
+    ease_factor NUMERIC NOT NULL DEFAULT 2.5,
+    review_count INTEGER NOT NULL DEFAULT 0,
+    last_correct BOOLEAN,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS generated_content (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    content_type content_type NOT NULL DEFAULT 'vocab_quiz',
+    source_question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    content JSONB NOT NULL,
+    quality_flag quality_flag NOT NULL DEFAULT 'pending',
+    rejection_reason TEXT,
+    live_set_id UUID REFERENCES question_sets(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS student_skill_triggers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sub_skill TEXT NOT NULL,
+    trigger_count INTEGER NOT NULL DEFAULT 0,
+    last_triggered_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(student_id, sub_skill)
+  );
+
+  CREATE TABLE IF NOT EXISTS mock_narratives (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    exam_id UUID NOT NULL UNIQUE REFERENCES exams(id) ON DELETE CASCADE,
+    content JSONB,
+    model_used TEXT NOT NULL DEFAULT '',
+    latency_ms INTEGER,
+    cost_usd NUMERIC,
+    status narrative_status NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS chat_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    exam_id UUID NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    question_id UUID REFERENCES questions(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    role chat_role NOT NULL,
+    content TEXT NOT NULL,
+    token_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
   CREATE TABLE IF NOT EXISTS feedback (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -113,6 +232,31 @@ const CREATE_TABLES = `
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     read_at TIMESTAMP
   );
+`;
+
+// Idempotent ALTER TABLE statements for columns added after the initial deploy.
+// ADD COLUMN IF NOT EXISTS and DROP NOT NULL are both safe to re-run.
+const SCHEMA_UPDATES = `
+  ALTER TABLE exam_answers ADD COLUMN IF NOT EXISTS selected_answer_text TEXT;
+
+  ALTER TABLE question_sets ADD COLUMN IF NOT EXISTS generated BOOLEAN NOT NULL DEFAULT FALSE;
+
+  ALTER TABLE questions ADD COLUMN IF NOT EXISTS passage_id UUID REFERENCES passages(id) ON DELETE SET NULL;
+  ALTER TABLE questions ADD COLUMN IF NOT EXISTS question_type question_type NOT NULL DEFAULT 'multiple_choice';
+  ALTER TABLE questions ALTER COLUMN option_a DROP NOT NULL;
+  ALTER TABLE questions ALTER COLUMN option_b DROP NOT NULL;
+  ALTER TABLE questions ALTER COLUMN option_c DROP NOT NULL;
+  ALTER TABLE questions ALTER COLUMN option_d DROP NOT NULL;
+  ALTER TABLE questions ALTER COLUMN correct_answer DROP NOT NULL;
+  ALTER TABLE questions ADD COLUMN IF NOT EXISTS correct_answer_text TEXT;
+  ALTER TABLE questions ADD COLUMN IF NOT EXISTS sub_skill sub_skill;
+  ALTER TABLE questions ADD COLUMN IF NOT EXISTS sub_skill_source sub_skill_source;
+  ALTER TABLE questions ADD COLUMN IF NOT EXISTS generated BOOLEAN NOT NULL DEFAULT FALSE;
+
+  ALTER TABLE passages ADD COLUMN IF NOT EXISTS generated BOOLEAN NOT NULL DEFAULT FALSE;
+
+  ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+  ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS live_set_id UUID REFERENCES question_sets(id) ON DELETE SET NULL;
 `;
 
 const SEED_DEFAULT_ADMIN_CODE = `
@@ -127,6 +271,7 @@ export async function runMigrations() {
     await client.query('BEGIN');
     await client.query(CREATE_ENUMS);
     await client.query(CREATE_TABLES);
+    await client.query(SCHEMA_UPDATES);
     await client.query(SEED_DEFAULT_ADMIN_CODE);
     await client.query('COMMIT');
     console.log('Migrations completed successfully');
