@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { eq, and, sql, desc } from 'drizzle-orm';
+import { eq, and, sql, desc, lte, ne, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
-import { users, questionSets, questions, passages, exams, examAnswers, aiFeedback, mockTests, feedback } from '../db/schema';
+import { users, questionSets, questions, passages, exams, examAnswers, aiFeedback, mockTests, feedback, studentVocab, generatedContent, mockNarratives, studentSkillTriggers } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
@@ -11,7 +11,213 @@ import {
   FeedbackType,
   getApplicableFeedbackTypes,
   orchestrateConfirmFeedback,
+  extractVocabWord,
+  extractSentenceWithWord,
+  generateStructuredFeedback,
 } from '../services/aiClient';
+
+// ── Phase 8: Weak-skill passage generation ────────────────────────────────────
+// Fires async after confirm response — never blocks the student session.
+
+async function generateSkillPassageAsync(
+  studentId: string,
+  subSkill: string,
+  exampleQuestions: string[],
+  sourceQuestionId: string,
+): Promise<void> {
+  try {
+    const subSkillLabel = subSkill.replace(/_/g, ' ');
+    const examplesBlock = exampleQuestions
+      .slice(0, 3)
+      .map((q, i) => `Example ${i + 1}: "${q}"`)
+      .join('\n');
+
+    const systemPrompt = `You are generating a Digital SAT practice passage and questions for a student who struggles with ${subSkillLabel} questions.
+
+Return ONLY valid JSON, no markdown fences:
+{
+  "passage": {
+    "title": "short descriptive title",
+    "text": "150-250 words, wholly original prose — fiction, essay, or analytical writing on any topic",
+    "topic": "e.g. ecology, history, literary criticism"
+  },
+  "questions": [
+    {
+      "questionText": "full question text",
+      "options": { "A": "...", "B": "...", "C": "...", "D": "..." },
+      "correctAnswer": "A",
+      "explanation": "1-2 sentences explaining why the correct answer is right",
+      "subSkill": "${subSkill}"
+    }
+  ],
+  "generationMeta": {
+    "targetSubSkill": "${subSkill}",
+    "difficultyLevel": "module_2"
+  }
+}
+
+Rules:
+- passage.text must be 150-250 words — count carefully.
+- Generate EXACTLY 2 questions in the questions array — no more, no less.
+- questions[n].subSkill must be exactly "${subSkill}".
+- DO NOT reference or mimic College Board passages. DO NOT copy academic paper abstracts verbatim. The passage must be fictional or clearly original creative/analytical writing.
+- correctAnswer must be exactly "A", "B", "C", or "D".
+- Target difficulty: Digital SAT module 2 (harder questions, subtler distractors).`;
+
+    const userPrompt = `SubSkill to target: ${subSkillLabel}
+
+Example questions this student got wrong (style reference only — do not copy or echo these questions):
+${examplesBlock}
+
+Generate a wholly original passage and exactly 2 questions testing ${subSkillLabel}.`;
+
+    const result = await generateStructuredFeedback(systemPrompt, userPrompt, 'AI_MODEL_NARRATIVE');
+
+    // Human review required before student sees this — write as 'pending'
+    await db.insert(generatedContent).values({
+      contentType: 'skill_passage',
+      sourceQuestionId,
+      studentId,
+      content: result.parsed as Record<string, unknown>,
+      qualityFlag: 'pending',
+    });
+  } catch (err) {
+    console.error('[skill-passage] Generation error for subSkill', subSkill, ':', err);
+  }
+}
+
+async function checkAndTriggerSkillPassage(
+  studentId: string,
+  subSkill: string,
+  currentQuestionText: string,
+  currentQuestionId: string,
+): Promise<void> {
+  // Count total wrong answers for this student+subSkill across all practice sessions
+  const [{ wrongCount }] = await db
+    .select({ wrongCount: sql<number>`count(*)::int` })
+    .from(examAnswers)
+    .innerJoin(exams, eq(examAnswers.examId, exams.id))
+    .innerJoin(questions, eq(examAnswers.questionId, questions.id))
+    .where(and(
+      eq(exams.studentId, studentId),
+      eq(exams.type, 'individual'),
+      eq(questions.subSkill, subSkill as 'grammar' | 'inference' | 'command_of_evidence' | 'vocab_in_context' | 'transitions'),
+      eq(examAnswers.isCorrect, false),
+    ));
+
+  // Only fire on multiples of 3
+  if (wrongCount === 0 || wrongCount % 3 !== 0) return;
+
+  const expectedTriggerCount = wrongCount / 3;
+
+  // Atomic upsert: only advances trigger_count if still below the new threshold.
+  // The WHERE on DO UPDATE means concurrent requests return 0 rows — only one fires.
+  const upserted = await db.execute(
+    sql`INSERT INTO student_skill_triggers (student_id, sub_skill, trigger_count, last_triggered_at)
+        VALUES (${studentId}, ${subSkill}, ${expectedTriggerCount}, now())
+        ON CONFLICT (student_id, sub_skill)
+        DO UPDATE SET
+          trigger_count = EXCLUDED.trigger_count,
+          last_triggered_at = now()
+        WHERE student_skill_triggers.trigger_count < EXCLUDED.trigger_count
+        RETURNING id`,
+  );
+  if (!upserted.rows.length) return; // Concurrent request already claimed this threshold
+
+  // Fetch up to 2 additional recent wrong questions as style context
+  const moreRows = await db
+    .select({ questionText: questions.questionText })
+    .from(examAnswers)
+    .innerJoin(exams, eq(examAnswers.examId, exams.id))
+    .innerJoin(questions, eq(examAnswers.questionId, questions.id))
+    .where(and(
+      eq(exams.studentId, studentId),
+      eq(exams.type, 'individual'),
+      eq(questions.subSkill, subSkill as 'grammar' | 'inference' | 'command_of_evidence' | 'vocab_in_context' | 'transitions'),
+      eq(examAnswers.isCorrect, false),
+      ne(questions.id, currentQuestionId),
+    ))
+    .orderBy(desc(examAnswers.answeredAt))
+    .limit(2);
+
+  const exampleTexts = [currentQuestionText, ...moreRows.map((r) => r.questionText)];
+
+  generateSkillPassageAsync(studentId, subSkill, exampleTexts, currentQuestionId).catch((e) => {
+    console.error('[skill-passage] Background generation failed:', e);
+  });
+}
+
+// ── Mock-test narrative (Phase 9) ─────────────────────────────────────────────
+// Runs entirely in background after submit returns. Never blocks the student.
+
+async function generateNarrativeAsync(
+  examId: string,
+  narrativeId: string,
+  exam: { type: string; score: number | null; totalQuestions: number; timeSpentSeconds: number | null },
+): Promise<void> {
+  try {
+    // Aggregate per-subSkill wrong counts across all exam answers
+    const subSkillStats = await db
+      .select({
+        subSkill: questions.subSkill,
+        total: sql<number>`count(*)::int`,
+        wrong: sql<number>`count(*) filter (where ${examAnswers.isCorrect} = false)::int`,
+      })
+      .from(examAnswers)
+      .innerJoin(questions, eq(examAnswers.questionId, questions.id))
+      .where(eq(examAnswers.examId, examId))
+      .groupBy(questions.subSkill);
+
+    const section = exam.type === 'mock_english' ? 'English (Reading & Writing)' : 'Math';
+    const totalRight = exam.score ?? 0;
+    const totalWrong = exam.totalQuestions - totalRight;
+    const timeMin = exam.timeSpentSeconds ? Math.round(exam.timeSpentSeconds / 60) : null;
+
+    const breakdown = subSkillStats.map(({ subSkill, total, wrong }) => ({
+      subSkill: subSkill ?? 'untagged',
+      total,
+      wrong,
+      flag: wrong >= 3,
+    }));
+
+    const systemPrompt = `You are a candid SAT diagnostic coach. A student just completed a ${section} section mock test. Analyze their performance data and return a JSON diagnostic.
+
+Return ONLY valid JSON, no markdown:
+{
+  "scoreRange": "<estimated range e.g. '620–660', or null if you cannot reliably estimate>",
+  "primaryGap": "<the single subSkill with the most missed questions>",
+  "narrative": "<3–4 sentences. Lead with the honest pattern — no opening compliment. Cite actual numbers from the test (e.g. 'you missed 5 of 8 inference questions'). End with one specific, actionable next step.>",
+  "subSkillBreakdown": [{ "subSkill": "...", "wrong": <n>, "total": <n>, "flag": <boolean> }]
+}
+
+scoreRange: base on actual wrong-per-subSkill ratios. Set to null if your estimate would be unreliable — a wrong number is worse than no number.
+narrative: plain language, no encouragement filler, reference exact numbers, one concrete next step at the end.
+subSkillBreakdown: include every subSkill that appeared; flag = true when wrong >= 3.`;
+
+    const userPrompt = `Section: ${section}
+Score: ${totalRight} correct, ${totalWrong} wrong of ${exam.totalQuestions} total${timeMin !== null ? `\nTime: ${timeMin} minutes` : ''}
+
+SubSkill breakdown:
+${breakdown.map((b) => `- ${b.subSkill}: ${b.wrong} wrong of ${b.total}${b.flag ? ' [PATTERN]' : ''}`).join('\n')}`;
+
+    const result = await generateStructuredFeedback(systemPrompt, userPrompt, 'AI_MODEL_NARRATIVE');
+
+    await db.update(mockNarratives).set({
+      content: result.parsed as Record<string, unknown>,
+      modelUsed: result.modelUsed,
+      latencyMs: result.latencyMs,
+      costUsd: String(result.costUsd),
+      status: 'complete',
+    }).where(eq(mockNarratives.id, narrativeId));
+
+  } catch (err) {
+    console.error('[narrative] Generation failed for exam', examId, ':', err);
+    await db.update(mockNarratives)
+      .set({ status: 'failed' })
+      .where(eq(mockNarratives.id, narrativeId))
+      .catch((e) => console.error('[narrative] Failed to mark failed:', e));
+  }
+}
 
 const router = Router();
 router.use(requireAuth, requireRole(['student']));
@@ -328,16 +534,80 @@ router.post('/exams/:examId/questions/:questionId/confirm', validateBody(confirm
       }
     }
 
+    // Quality gate + vocab tracking for vocab_drill
+    let vocabTrackingId: string | null = null;
+    const vocabContent = cachedByType.get('vocab_drill') as Record<string, unknown> | undefined;
+    if (vocabContent && q.subSkill === 'vocab_in_context') {
+      // Only insert a generated_content row when the AI actually ran (not on cache hit)
+      const existingGc = await db.select({ id: generatedContent.id })
+        .from(generatedContent)
+        .where(and(
+          eq(generatedContent.sourceQuestionId, questionId),
+          eq(generatedContent.studentId, studentId),
+          eq(generatedContent.contentType, 'vocab_quiz'),
+        ))
+        .limit(1);
+
+      let gcId: string;
+      if (existingGc.length > 0) {
+        gcId = existingGc[0].id;
+      } else {
+        const [gcRow] = await db.insert(generatedContent).values({
+          contentType: 'vocab_quiz',
+          sourceQuestionId: questionId,
+          studentId,
+          content: vocabContent,
+          qualityFlag: 'pending',
+        }).returning({ id: generatedContent.id });
+        gcId = gcRow.id;
+      }
+      void gcId;
+
+      // Create studentVocab row on first encounter of this word for this student
+      const word = extractVocabWord(q.questionText);
+      if (word) {
+        const existing = await db
+          .select({ id: studentVocab.id })
+          .from(studentVocab)
+          .where(and(eq(studentVocab.studentId, studentId), eq(studentVocab.word, word)))
+          .limit(1);
+
+        if (existing.length === 0) {
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          const [newVocab] = await db.insert(studentVocab).values({
+            studentId,
+            questionId,
+            word,
+            passageExcerpt: extractSentenceWithWord(q.passageText ?? '', word),
+            nextReviewAt: tomorrow,
+          }).returning({ id: studentVocab.id });
+          vocabTrackingId = newVocab.id;
+        } else {
+          vocabTrackingId = existing[0].id;
+        }
+      }
+
+    }
+
     // Build response — only applicable types, null for any that failed
     const feedbacks: Record<string, unknown> = {};
     for (const t of applicableTypes) {
       feedbacks[t] = cachedByType.get(t) ?? null;
     }
 
-    return res.json({ isCorrect, feedbacks });
+    // Respond immediately — threshold check runs after
+    res.json({ isCorrect, feedbacks, vocabTrackingId });
+
+    // Phase 8: weak-skill threshold check — non-blocking, never delays the student
+    if (!isCorrect && q.subSkill) {
+      checkAndTriggerSkillPassage(studentId, q.subSkill, q.questionText, questionId).catch((e) => {
+        console.error('[skill-passage] Trigger check failed:', e);
+      });
+    }
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: 'Internal server error' });
+    if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -387,10 +657,27 @@ router.post('/exams/:examId/submit', validateBody(submitSchema), async (req, res
       timeSpentSeconds: timeSpentSeconds ?? exam.timeSpentSeconds,
     }).where(eq(exams.id, exam.id)).returning();
 
-    return res.json({ score, total: exam.totalQuestions, percentage: Math.round((score / exam.totalQuestions) * 100), exam: updated });
+    // Insert pending narrative row synchronously before responding (mock exams only)
+    let narrativeId: string | null = null;
+    if ((exam.type === 'mock_english' || exam.type === 'mock_math') && process.env.AI_MODEL_NARRATIVE) {
+      const [narrativeRow] = await db.insert(mockNarratives)
+        .values({ examId: exam.id })
+        .returning({ id: mockNarratives.id });
+      narrativeId = narrativeRow.id;
+    }
+
+    // Respond immediately — student does not wait for the AI call
+    res.json({ score, total: exam.totalQuestions, percentage: Math.round((score / exam.totalQuestions) * 100), exam: updated });
+
+    // Fire background narrative generation — intentionally non-awaited
+    if (narrativeId) {
+      generateNarrativeAsync(exam.id, narrativeId, updated).catch((err) => {
+        console.error('[narrative] Unhandled top-level error:', err);
+      });
+    }
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: 'Internal server error' });
+    if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -426,6 +713,71 @@ router.get('/exams/:examId/results', async (req, res) => {
       .from(questionSets).where(eq(questionSets.id, exam.setId)).limit(1);
 
     return res.json({ exam, set: setRows[0] || null, results });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/skill-passages/available', async (req, res) => {
+  const studentId = req.user!.sub;
+  try {
+    const triggers = await db.select({ subSkill: studentSkillTriggers.subSkill })
+      .from(studentSkillTriggers)
+      .where(eq(studentSkillTriggers.studentId, studentId));
+
+    if (triggers.length === 0) return res.json([]);
+
+    const studentSubSkills = new Set(triggers.map((t) => t.subSkill));
+
+    // Fetch approved skill_passages scoped to this student only (fix: was global)
+    const approved = await db.select({
+      id: generatedContent.id,
+      content: generatedContent.content,
+      liveSetId: generatedContent.liveSetId,
+    })
+      .from(generatedContent)
+      .where(and(
+        eq(generatedContent.contentType, 'skill_passage'),
+        eq(generatedContent.qualityFlag, 'approved'),
+        eq(generatedContent.studentId, studentId),
+        isNotNull(generatedContent.liveSetId),
+      ));
+
+    // Return one entry per subSkill (first approved wins) — only subSkills this student has triggered
+    const seen = new Set<string>();
+    const result: { subSkill: string; setId: string; generatedContentId: string }[] = [];
+    for (const row of approved) {
+      const subSkill = (row.content as Record<string, unknown> & { generationMeta?: { targetSubSkill?: string } })
+        ?.generationMeta?.targetSubSkill;
+      if (!subSkill || !studentSubSkills.has(subSkill) || seen.has(subSkill)) continue;
+      seen.add(subSkill);
+      result.push({ subSkill, setId: row.liveSetId!, generatedContentId: row.id });
+    }
+
+    return res.json(result);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/exams/:examId/narrative', async (req, res) => {
+  const studentId = req.user!.sub;
+  try {
+    const examRows = await db.select({ id: exams.id })
+      .from(exams)
+      .where(and(eq(exams.id, req.params.examId), eq(exams.studentId, studentId)))
+      .limit(1);
+    if (examRows.length === 0) return res.status(404).json({ error: 'Exam not found' });
+
+    const narrativeRows = await db.select()
+      .from(mockNarratives)
+      .where(eq(mockNarratives.examId, req.params.examId))
+      .limit(1);
+    if (narrativeRows.length === 0) return res.status(404).json({ error: 'Narrative not found' });
+
+    return res.json(narrativeRows[0]);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -500,6 +852,103 @@ router.get('/feedback', async (req, res) => {
       .from(feedback).innerJoin(users, eq(feedback.teacherId, users.id))
       .where(eq(feedback.studentId, studentId)).orderBy(desc(feedback.createdAt));
     return res.json(rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ── Vocab spaced-repetition ───────────────────────────────────────────────────
+
+router.get('/vocab/due', async (req, res) => {
+  const studentId = req.user!.sub;
+  try {
+    // Fetch due cards: nextReviewAt <= now, capped at 20, hardest words first
+    const due = await db
+      .select({
+        vocabId: studentVocab.id,
+        word: studentVocab.word,
+        passageExcerpt: studentVocab.passageExcerpt,
+        nextReviewAt: studentVocab.nextReviewAt,
+        easeFactor: studentVocab.easeFactor,
+        reviewCount: studentVocab.reviewCount,
+        questionId: studentVocab.questionId,
+      })
+      .from(studentVocab)
+      .where(and(eq(studentVocab.studentId, studentId), lte(studentVocab.nextReviewAt, new Date())))
+      .orderBy(studentVocab.easeFactor, studentVocab.nextReviewAt)
+      .limit(20);
+
+    if (due.length === 0) return res.json([]);
+
+    // For each due word, get the most recent non-rejected generated_content row
+    const results = await Promise.all(
+      due.map(async (v) => {
+        const gcRows = await db
+          .select({ id: generatedContent.id, content: generatedContent.content })
+          .from(generatedContent)
+          .where(
+            and(
+              eq(generatedContent.sourceQuestionId, v.questionId),
+              eq(generatedContent.studentId, studentId),
+              eq(generatedContent.contentType, 'vocab_quiz'),
+              sql`${generatedContent.qualityFlag} != 'rejected'`,
+            ),
+          )
+          .orderBy(desc(generatedContent.createdAt))
+          .limit(1);
+        if (gcRows.length === 0) return null;
+        return { ...v, generatedContentId: gcRows[0].id, content: gcRows[0].content };
+      }),
+    );
+
+    return res.json(results.filter(Boolean));
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const reviewVocabSchema = z.object({ isCorrect: z.boolean() });
+
+router.post('/vocab/:vocabId/review', validateBody(reviewVocabSchema), async (req, res) => {
+  const studentId = req.user!.sub;
+  const { vocabId } = req.params;
+  const { isCorrect } = req.body;
+  try {
+    const rows = await db
+      .select()
+      .from(studentVocab)
+      .where(and(eq(studentVocab.id, vocabId), eq(studentVocab.studentId, studentId)))
+      .limit(1);
+    if (rows.length === 0) return res.status(404).json({ error: 'Vocab item not found' });
+
+    const v = rows[0];
+    const easeNow = parseFloat(String(v.easeFactor));
+
+    let newIntervalDays: number;
+    let newEaseFactor: number;
+
+    if (isCorrect) {
+      newEaseFactor = Math.min(easeNow + 0.1, 5.0);
+      newIntervalDays = Math.round(v.intervalDays * easeNow);
+    } else {
+      newEaseFactor = Math.max(1.3, easeNow - 0.2);
+      newIntervalDays = 1;
+    }
+
+    const nextReview = new Date();
+    nextReview.setDate(nextReview.getDate() + newIntervalDays);
+
+    await db.update(studentVocab).set({
+      intervalDays: newIntervalDays,
+      easeFactor: String(newEaseFactor),
+      nextReviewAt: nextReview,
+      reviewCount: v.reviewCount + 1,
+      lastCorrect: isCorrect,
+    }).where(eq(studentVocab.id, vocabId));
+
+    return res.json({ ok: true, nextReviewAt: nextReview, intervalDays: newIntervalDays });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });

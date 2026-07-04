@@ -64,6 +64,9 @@
   }
 
   /* Screen animations */
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
   @keyframes fadeUp {
     from { transform: translateY(10px); opacity: 0; }
     to { transform: none; opacity: 1; }

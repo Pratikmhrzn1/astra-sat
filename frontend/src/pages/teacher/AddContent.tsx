@@ -1,11 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, BookOpen, ChevronLeft, WifiOff, CheckCircle2, FileText } from 'lucide-react';
+import { Plus, Trash2, BookOpen, ChevronLeft, WifiOff, CheckCircle2, FileText, Upload } from 'lucide-react';
 import {
   getQuestionSets, createQuestionSet, deleteQuestionSet,
   getSetPassages, createPassage, deletePassage,
   getSetQuestions, addQuestion, deleteQuestion, updateQuestionSubSkill,
+  importQuestionSetFromJSON,
 } from '../../api/teacher';
 import type { QuestionSet, Passage, Question, SubSkill } from '../../api/teacher';
 import { saveTeacherDraft, loadTeacherDraft, clearTeacherDraft } from '../../lib/offline';
@@ -133,6 +134,37 @@ export default function ContentManager() {
   const [qErrors, setQErrors] = useState<Record<string, string>>({});
   const [qError, setQError] = useState('');
   const [draftSaved, setDraftSaved] = useState(false);
+
+  // JSON import
+  const [jsonImporting, setJsonImporting] = useState(false);
+  const [jsonImportError, setJsonImportError] = useState('');
+  const jsonFileRef = useRef<HTMLInputElement | null>(null);
+
+  const handleJsonUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setJsonImportError('');
+    setJsonImporting(true);
+    try {
+      const text = await file.text();
+      const payload = JSON.parse(text);
+      if (!payload.title || !payload.subject || !Array.isArray(payload.questions)) {
+        throw new Error('JSON must include "title", "subject", and "questions" array.');
+      }
+      const result = await importQuestionSetFromJSON(payload);
+      queryClient.invalidateQueries({ queryKey: ['teacher', 'question-sets'] });
+      setActiveSet(result.set);
+      setEditorTab('questions');
+      setQType('multiple_choice');
+      setQForm({ ...emptyMC });
+    } catch (err: unknown) {
+      const msg = err instanceof SyntaxError ? 'Invalid JSON file.' : (err as Error).message ?? 'Import failed.';
+      setJsonImportError(msg);
+    } finally {
+      setJsonImporting(false);
+    }
+  }, [queryClient]);
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'set' | 'question' | 'passage'; id: string } | null>(null);
@@ -303,8 +335,30 @@ export default function ContentManager() {
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E2562B', marginBottom: 6 }}>Teacher</div>
             <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, margin: 0, letterSpacing: '-0.02em', color: '#0B0B0E' }}>Content Manager</h1>
           </div>
-          <Button onClick={() => setShowNewSet(true)} style={{ alignSelf: 'center' }}><Plus size={15} style={{ marginRight: 7 }} />New Question Set</Button>
+          <div style={{ display: 'flex', gap: 10, alignSelf: 'center', alignItems: 'center' }}>
+            <input
+              ref={jsonFileRef}
+              type="file"
+              accept=".json,application/json"
+              style={{ display: 'none' }}
+              onChange={handleJsonUpload}
+            />
+            <Button
+              variant="secondary"
+              onClick={() => { setJsonImportError(''); jsonFileRef.current?.click(); }}
+              loading={jsonImporting}
+            >
+              <Upload size={15} style={{ marginRight: 7 }} />Upload JSON
+            </Button>
+            <Button onClick={() => setShowNewSet(true)}><Plus size={15} style={{ marginRight: 7 }} />New Question Set</Button>
+          </div>
         </div>
+
+        {jsonImportError && (
+          <div style={{ background: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 10, padding: '10px 16px', marginBottom: 16, fontSize: 13.5, color: '#C0392B' }}>
+            {jsonImportError}
+          </div>
+        )}
 
         {showNewSet && (
           <div style={{ ...CARD, marginBottom: 24, overflow: 'hidden' }}>

@@ -6,10 +6,12 @@ import {
   saveAnswers,
   submitExam,
   confirmAnswer,
+  reviewVocab,
   type ConfirmFeedbacks,
   type ReasoningClassification,
   type CommandOfEvidenceContent,
   type TransitionsCoachContent,
+  type VocabDrillContent,
 } from '../../api/student';
 import { saveExamProgress, loadExamProgress, clearExamProgress } from '../../lib/offline';
 
@@ -69,10 +71,14 @@ export default function TakeExam() {
 
   // Practice-mode confirm state
   const [confirmedMap, setConfirmedMap] = useState<
-    Record<string, { isCorrect: boolean; feedbacks: ConfirmFeedbacks }>
+    Record<string, { isCorrect: boolean; feedbacks: ConfirmFeedbacks; vocabTrackingId: string | null }>
   >({});
   const [pendingConfidence, setPendingConfidence] = useState<'sure' | 'eliminated' | 'guessed' | null>(null);
   const [pendingReasoning, setPendingReasoning] = useState('');
+
+  // Vocab mini-quiz state: keyed by questionId
+  const [vocabPick, setVocabPick] = useState<Record<string, string>>({}); // selected option letter
+  const [vocabSubmitted, setVocabSubmitted] = useState<Record<string, boolean>>({}); // whether checked
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -137,7 +143,7 @@ export default function TakeExam() {
     onSuccess: (result, variables) => {
       setConfirmedMap((m) => ({
         ...m,
-        [variables.questionId]: { isCorrect: result.isCorrect, feedbacks: result.feedbacks },
+        [variables.questionId]: { isCorrect: result.isCorrect, feedbacks: result.feedbacks, vocabTrackingId: result.vocabTrackingId },
       }));
       setPendingConfidence(null);
       setPendingReasoning('');
@@ -542,6 +548,80 @@ export default function TakeExam() {
                       <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: '0 0 6px' }}>{tc.logicalRelationship}</p>
                       <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: '0 0 4px' }}>{tc.whyCorrect}</p>
                       <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'rgba(11,11,14,0.6)', margin: 0 }}>{tc.whyStudentWrong}</p>
+                    </div>
+                  );
+                })()}
+
+                {/* Vocab drill — interactive mini-quiz, distinct from the Continue button */}
+                {confirmed.feedbacks.vocab_drill && (() => {
+                  const vd = confirmed.feedbacks.vocab_drill as VocabDrillContent;
+                  const optLetters = ['A', 'B', 'C', 'D'];
+                  const picked = vocabPick[q.id];
+                  const isSubmitted = !!vocabSubmitted[q.id];
+                  const isPickCorrect = picked === vd.correctOption;
+
+                  const handleVocabSubmit = () => {
+                    if (!picked || isSubmitted) return;
+                    setVocabSubmitted((s) => ({ ...s, [q.id]: true }));
+                    if (confirmed.vocabTrackingId) {
+                      reviewVocab(confirmed.vocabTrackingId, picked === vd.correctOption).catch(console.error);
+                    }
+                  };
+
+                  return (
+                    <div style={{ padding: '14px 16px', borderRadius: 12, background: 'rgba(0,128,128,0.04)', border: '2px solid rgba(0,128,128,0.18)' }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#0D7377', marginBottom: 6 }}>
+                        Vocab drill — "{vd.word}"
+                      </div>
+                      <p style={{ fontSize: 13, lineHeight: 1.55, color: 'rgba(11,11,14,0.6)', margin: '0 0 10px', fontStyle: 'italic' }}>
+                        "{vd.sentenceContext}"
+                      </p>
+                      <p style={{ fontSize: 13.5, fontWeight: 600, color: '#0B0B0E', margin: '0 0 10px' }}>{vd.followUpQuestion}</p>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+                        {vd.options.map((opt, oi) => {
+                          const letter = optLetters[oi];
+                          const isPicked = picked === letter;
+                          const isCorrectOpt = letter === vd.correctOption;
+                          let bg = '#fff';
+                          let border = '1px solid #C8C4BC';
+                          let color = '#0B0B0E';
+                          if (isSubmitted) {
+                            if (isCorrectOpt) { bg = 'rgba(46,125,90,0.1)'; border = '1.5px solid #2E7D5A'; color = '#1A5C38'; }
+                            else if (isPicked && !isCorrectOpt) { bg = 'rgba(192,57,43,0.08)'; border = '1.5px solid #C0392B'; color = '#8B1A10'; }
+                          } else if (isPicked) {
+                            bg = 'rgba(0,128,128,0.07)'; border = '1.5px solid #0D7377';
+                          }
+                          return (
+                            <button
+                              key={letter}
+                              onClick={() => { if (!isSubmitted) setVocabPick((p) => ({ ...p, [q.id]: letter })); }}
+                              disabled={isSubmitted}
+                              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 9, border, background: bg, color, fontSize: 13, textAlign: 'left', cursor: isSubmitted ? 'default' : 'pointer', fontFamily: 'inherit', transition: 'all 0.12s' }}
+                            >
+                              <span style={{ width: 22, height: 22, borderRadius: 9999, border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{letter}</span>
+                              {opt}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {isSubmitted ? (
+                        <div style={{ padding: '10px 12px', borderRadius: 8, background: isPickCorrect ? 'rgba(46,125,90,0.08)' : 'rgba(192,57,43,0.07)', marginTop: 4 }}>
+                          <div style={{ fontSize: 11.5, fontWeight: 700, color: isPickCorrect ? '#1A5C38' : '#8B1A10', marginBottom: 4 }}>
+                            {isPickCorrect ? '✓ Correct' : '✗ Incorrect — correct answer: ' + vd.correctOption}
+                          </div>
+                          <p style={{ fontSize: 13, lineHeight: 1.5, color: '#0B0B0E', margin: 0 }}>{vd.explanation}</p>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={handleVocabSubmit}
+                          disabled={!picked}
+                          style={{ height: 36, padding: '0 18px', borderRadius: 9999, border: 'none', background: picked ? '#0D7377' : '#C8C4BC', color: '#fff', fontSize: 13, fontWeight: 700, cursor: picked ? 'pointer' : 'default', fontFamily: 'inherit', letterSpacing: '0.02em' }}
+                        >
+                          Check answer
+                        </button>
+                      )}
                     </div>
                   );
                 })()}

@@ -12,6 +12,7 @@ import {
   aiFeedback,
   mockTests,
   feedback,
+  generatedContent,
 } from '../db/schema';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
@@ -432,6 +433,170 @@ router.post('/questions/auto-tag-subskill', async (_req, res) => {
   } catch (err) {
     console.error('[auto-tag] Fatal error:', err);
     return res.status(500).json({ error: 'Classification run failed', details: String(err) });
+  }
+});
+
+// ── Generated content quality gate ───────────────────────────────────────────
+
+router.get('/generated-content', async (req, res) => {
+  const { type, flag } = req.query as { type?: string; flag?: string };
+  try {
+    const conditions = [];
+    if (type) conditions.push(eq(generatedContent.contentType, type as 'vocab_quiz' | 'skill_passage'));
+    if (flag) conditions.push(eq(generatedContent.qualityFlag, flag as 'pending' | 'approved' | 'rejected'));
+
+    const rows = await db
+      .select({
+        id: generatedContent.id,
+        contentType: generatedContent.contentType,
+        qualityFlag: generatedContent.qualityFlag,
+        createdAt: generatedContent.createdAt,
+        content: generatedContent.content,
+        studentId: generatedContent.studentId,
+        sourceQuestionId: generatedContent.sourceQuestionId,
+        questionText: questions.questionText,
+        optionA: questions.optionA,
+        optionB: questions.optionB,
+        optionC: questions.optionC,
+        optionD: questions.optionD,
+        correctAnswer: questions.correctAnswer,
+      })
+      .from(generatedContent)
+      .innerJoin(questions, eq(generatedContent.sourceQuestionId, questions.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(generatedContent.createdAt));
+
+    return res.json(rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const flagSchema = z.object({
+  qualityFlag: z.enum(['approved', 'rejected']),
+  rejectionReason: z.string().optional(),
+});
+
+router.patch('/generated-content/:id/flag', validateBody(flagSchema), async (req, res) => {
+  const { id } = req.params;
+  const { qualityFlag, rejectionReason } = req.body;
+  try {
+    const existing = await db.select().from(generatedContent).where(eq(generatedContent.id, id)).limit(1);
+    if (existing.length === 0) return res.status(404).json({ error: 'Generated content not found' });
+    const row = existing[0];
+
+    // Fix B1: idempotency — re-approving an already-approved item would double-insert
+    if (row.qualityFlag === 'approved' && qualityFlag === 'approved') {
+      return res.json(row);
+    }
+
+    // On rejection: store reason, nothing promoted to live tables
+    if (qualityFlag === 'rejected') {
+      const [updated] = await db.update(generatedContent)
+        .set({ qualityFlag, ...(rejectionReason ? { rejectionReason } : {}) })
+        .where(eq(generatedContent.id, id))
+        .returning();
+      return res.json(updated);
+    }
+
+    // On approval of skill_passage: promote to live passages + questions tables
+    if (qualityFlag === 'approved' && row.contentType === 'skill_passage') {
+      type SkillPassageContent = {
+        passage: { title: string; text: string; topic: string };
+        questions: Array<{
+          questionText: string;
+          options: { A: string; B: string; C: string; D: string };
+          correctAnswer: string;
+          explanation: string;
+          subSkill: string;
+        }>;
+        generationMeta: { targetSubSkill: string; difficultyLevel: string };
+      };
+      const content = row.content as SkillPassageContent;
+      const subSkill = content.generationMeta?.targetSubSkill ?? 'unknown';
+
+      // Fix B6: validate AI content before any DB writes to avoid orphaned passages
+      const validAnswers = new Set(['a', 'b', 'c', 'd', 'A', 'B', 'C', 'D']);
+      for (const q of content.questions ?? []) {
+        if (!q.correctAnswer || !validAnswers.has(q.correctAnswer)) {
+          return res.status(422).json({ error: `Generated content has invalid correctAnswer: ${q.correctAnswer ?? 'null'}` });
+        }
+        if (!q.questionText || !q.options?.A || !q.options?.B || !q.options?.C || !q.options?.D) {
+          return res.status(422).json({ error: 'Generated content is missing required question fields' });
+        }
+      }
+
+      const setTitle = `AI Practice: ${subSkill.replace(/_/g, ' ')}`;
+
+      // Fix B2: filter by generated=true so teacher-owned sets with matching titles are never touched
+      const existingSet = await db.select({ id: questionSets.id })
+        .from(questionSets)
+        .where(and(eq(questionSets.title, setTitle), eq(questionSets.generated, true)))
+        .limit(1);
+
+      // Fix B3: wrap passage + question inserts in a transaction so no orphans on failure
+      const client = await pool.connect();
+      let setId: string;
+      let updatedRow: typeof row;
+      try {
+        await client.query('BEGIN');
+
+        if (existingSet.length > 0) {
+          setId = existingSet[0].id;
+        } else {
+          const setRes = await client.query<{ id: string }>(
+            `INSERT INTO question_sets (title, subject, description, generated)
+             VALUES ($1, 'english', $2, true) RETURNING id`,
+            [setTitle, `AI-generated practice passages for ${subSkill.replace(/_/g, ' ')} (Digital SAT module 2)`],
+          );
+          setId = setRes.rows[0].id;
+        }
+
+        const passRes = await client.query<{ id: string }>(
+          `INSERT INTO passages (set_id, title, passage_text, generated, order_index)
+           VALUES ($1, $2, $3, true, 0) RETURNING id`,
+          [setId, content.passage.title ?? '', content.passage.text],
+        );
+        const passageId = passRes.rows[0].id;
+
+        for (let i = 0; i < content.questions.length; i++) {
+          const q = content.questions[i];
+          const correctAnswerLower = q.correctAnswer.toLowerCase();
+          await client.query(
+            `INSERT INTO questions (set_id, passage_id, question_type, question_text, option_a, option_b, option_c, option_d, correct_answer, explanation, sub_skill, sub_skill_source, generated, order_index)
+             VALUES ($1,$2,'multiple_choice',$3,$4,$5,$6,$7,$8,$9,$10,'ai_suggested',true,$11)`,
+            [setId, passageId, q.questionText, q.options.A, q.options.B, q.options.C, q.options.D,
+              correctAnswerLower, q.explanation ?? '', subSkill, i],
+          );
+        }
+
+        const gcRes = await client.query<typeof row>(
+          `UPDATE generated_content SET quality_flag='approved', live_set_id=$1 WHERE id=$2 RETURNING *`,
+          [setId, id],
+        );
+        updatedRow = gcRes.rows[0];
+
+        await client.query('COMMIT');
+      } catch (txErr) {
+        await client.query('ROLLBACK');
+        throw txErr;
+      } finally {
+        client.release();
+      }
+
+      return res.json({ ...updatedRow, liveSetId: setId });
+    }
+
+    // Default: approve vocab_quiz or any other type
+    const [updated] = await db.update(generatedContent)
+      .set({ qualityFlag })
+      .where(eq(generatedContent.id, id))
+      .returning();
+    return res.json(updated);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 

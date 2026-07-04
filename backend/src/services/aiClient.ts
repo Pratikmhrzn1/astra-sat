@@ -104,7 +104,7 @@ export async function generateStructuredFeedback(
 // All applicable types fire in parallel via Promise.all; each catches its own
 // errors so one failure never blocks the others.
 
-export type FeedbackType = 'reasoning_checkpoint' | 'grammar_diagnosis' | 'trap_explainer' | 'command_of_evidence' | 'transitions_coach';
+export type FeedbackType = 'reasoning_checkpoint' | 'grammar_diagnosis' | 'trap_explainer' | 'command_of_evidence' | 'transitions_coach' | 'vocab_drill';
 
 export interface FeedbackContext {
   questionText: string;
@@ -140,7 +140,25 @@ export function getApplicableFeedbackTypes(
   if (ctx.subject === 'english' && ctx.questionType === 'multiple_choice' && !ctx.isCorrect) types.push('trap_explainer');
   if (ctx.subject === 'english' && ctx.subSkill === 'command_of_evidence' && ctx.questionType === 'multiple_choice' && !ctx.isCorrect) types.push('command_of_evidence');
   if (ctx.subject === 'english' && ctx.subSkill === 'transitions' && !ctx.isCorrect) types.push('transitions_coach');
+  // vocab_drill fires regardless of correctness — reinforcement is useful either way
+  if (ctx.subject === 'english' && ctx.subSkill === 'vocab_in_context') types.push('vocab_drill');
   return types;
+}
+
+// ── Vocab helpers (also used by the confirm route for passageExcerpt extraction) ──
+
+/** Extracts the quoted/italicised vocab word from a SAT vocab question stem. */
+export function extractVocabWord(questionText: string): string {
+  const m = questionText.match(/[""''"']([^""''"']{1,40})[""''"']/);
+  return m?.[1] ?? '';
+}
+
+/** Returns the single sentence from text that contains the given word. */
+export function extractSentenceWithWord(text: string, word: string): string {
+  if (!word || !text) return text?.substring(0, 300) ?? '';
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const lower = word.toLowerCase();
+  return sentences.find((s) => s.toLowerCase().includes(lower))?.trim() ?? text.substring(0, 300);
 }
 
 // ── Prompt builders (module-private, one per type) ────────────────────────────
@@ -338,6 +356,33 @@ Correct answer: ${ctx.correctAnswer?.toUpperCase()} — ${optMap[ctx.correctAnsw
   return { system, user };
 }
 
+function buildVocabDrillPrompts(ctx: FeedbackContext): { system: string; user: string } {
+  // Minimal context: the sentence containing the word + the word + correct definition.
+  // No full passage, no options list, no chip.
+  const optMap: Record<string, string | null> = { a: ctx.optionA, b: ctx.optionB, c: ctx.optionC, d: ctx.optionD };
+  const correctText = optMap[ctx.correctAnswer ?? ''] ?? '';
+  const word = extractVocabWord(ctx.questionText);
+  const sentence = ctx.passageText
+    ? extractSentenceWithWord(ctx.passageText, word)
+    : ctx.questionText;
+
+  const system = `You are an SAT vocabulary coach. Create a new multiple-choice question testing whether the student understands how this word is used in its specific context. Do NOT reuse the original question text.
+
+Return ONLY valid JSON, no markdown:
+{"word":"<word>","sentenceContext":"<exact sentence>","followUpQuestion":"<new question>","options":["<A text>","<B text>","<C text>","<D text>"],"correctOption":"<A|B|C|D>","explanation":"<1 sentence>"}
+
+followUpQuestion: start with 'In the sentence above, "<word>" is closest in meaning to…'
+options: exactly 4 strings. One matches the in-context meaning; the others are plausible but wrong in this sentence.
+explanation: 1 sentence on why the correct option fits the sentence specifically (not just the dictionary definition).`;
+
+  const user = `Word: ${word || '(from question)'}
+Sentence from passage: ${sentence}
+Original question: ${ctx.questionText}
+Correct definition in context: ${correctText}`;
+
+  return { system, user };
+}
+
 // ── Orchestrator ──────────────────────────────────────────────────────────────
 
 /**
@@ -361,8 +406,10 @@ export async function orchestrateConfirmFeedback(
         prompts = buildTrapExplainerPrompts(ctx);
       } else if (feedbackType === 'command_of_evidence') {
         prompts = buildCommandOfEvidencePrompts(ctx);
-      } else {
+      } else if (feedbackType === 'transitions_coach') {
         prompts = buildTransitionsCoachPrompts(ctx);
+      } else {
+        prompts = buildVocabDrillPrompts(ctx);
       }
       const aiResult = await generateStructuredFeedback(prompts.system, prompts.user, 'AI_MODEL_FEEDBACK');
       return { feedbackType, aiResult, error: null };

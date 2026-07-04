@@ -141,3 +141,35 @@ export async function updateQuestionSubSkill(
 export async function deleteQuestion(questionId: string): Promise<void> {
   await apiClient.delete(`/teacher/questions/${questionId}`);
 }
+
+export interface QuestionSetImportPayload {
+  title: string;
+  subject: 'english' | 'math';
+  description?: string;
+  passages?: Array<{
+    title?: string;
+    passageText: string;
+    orderIndex?: number;
+  }>;
+  questions: Array<{
+    passageIndex?: number | null;
+    questionType: 'multiple_choice' | 'student_produced_response';
+    questionText: string;
+    subSkill?: SubSkill | null;
+    optionA?: string | null;
+    optionB?: string | null;
+    optionC?: string | null;
+    optionD?: string | null;
+    correctAnswer?: 'a' | 'b' | 'c' | 'd' | null;
+    correctAnswerText?: string | null;
+    explanation?: string | null;
+    orderIndex?: number;
+  }>;
+}
+
+export async function importQuestionSetFromJSON(
+  payload: QuestionSetImportPayload,
+): Promise<{ set: QuestionSet; questionCount: number; passageCount: number }> {
+  const { data } = await apiClient.post('/teacher/question-sets/import-json', payload);
+  return data;
+}

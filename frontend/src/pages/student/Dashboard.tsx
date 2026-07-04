@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/auth';
-import { getExams, getMockTests, getFeedback } from '../../api/student';
+import { getExams, getMockTests, getFeedback, getAvailableSkillPassages, startExam } from '../../api/student';
 
 function scoreColorTotal(v: number) {
   return v >= 1360 ? '#1A6B3C' : v >= 1240 ? '#2E7D5A' : v >= 1120 ? '#B8893E' : '#C47A1B';
@@ -18,6 +18,8 @@ export default function Dashboard() {
   const { data: exams = [] } = useQuery({ queryKey: ['student', 'exams'], queryFn: getExams });
   const { data: mockTests = [] } = useQuery({ queryKey: ['student', 'mock-tests'], queryFn: getMockTests });
   const { data: feedback = [] } = useQuery({ queryKey: ['student', 'feedback'], queryFn: getFeedback });
+  const { data: weakAreaPassages = [] } = useQuery({ queryKey: ['student', 'skill-passages'], queryFn: getAvailableSkillPassages });
+  const [weakAreaError, setWeakAreaError] = React.useState<string | null>(null);
 
   const completedExams = exams.filter((e) => e.status === 'completed');
   const unreadFeedback = feedback.filter((f) => !f.isRead).length;
@@ -185,6 +187,7 @@ export default function Dashboard() {
               { label: 'Full length', sub: 'R&W + Math · scored /1600', title: 'Take a mock SAT', color: '#E2562B', path: '/student/mock-test' },
               { label: 'Section', sub: 'Algebra, geometry & data', title: 'Math practice', color: '#2563A8', path: '/student/exams' },
               { label: 'Section', sub: 'Grammar, vocab & comprehension', title: 'Reading & Writing', color: '#2E7D5A', path: '/student/exams' },
+              { label: 'Daily review', sub: 'Words due for spaced repetition', title: 'Vocab flashcards', color: '#0D7377', path: '/student/vocab-review' },
             ].map(({ label, sub, title, color, path }) => (
               <div
                 key={title}
@@ -202,6 +205,42 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Weak-area practice — only shown when approved passages exist for this student's gap subSkills */}
+      {weakAreaPassages.length > 0 && (
+        <div style={{ marginTop: 28 }}>
+          <h3 style={{ fontSize: 17, margin: '0 0 14px', fontFamily: "'Satoshi', sans-serif" }}>Practice your weak areas</h3>
+          {weakAreaError && (
+            <div style={{ background: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 10, padding: '10px 16px', marginBottom: 12, fontSize: 13, color: '#C0392B' }}>
+              {weakAreaError}
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+            {weakAreaPassages.map((p) => (
+              <div
+                key={p.subSkill}
+                className="lift"
+                onClick={async () => {
+                  setWeakAreaError(null);
+                  try {
+                    const { exam } = await startExam(p.setId);
+                    navigate(`/student/exam/${exam.id}`);
+                  } catch {
+                    setWeakAreaError('Could not start practice session. Please try again.');
+                  }
+                }}
+                style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 13, padding: '20px 22px', cursor: 'pointer', boxShadow: '0 1px 3px rgba(11,11,14,0.04)' }}
+                onMouseEnter={(el) => { el.currentTarget.style.boxShadow = '0 6px 20px rgba(11,11,14,0.09)'; el.currentTarget.style.borderColor = '#D8D4CC'; }}
+                onMouseLeave={(el) => { el.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.04)'; el.currentTarget.style.borderColor = '#E7E4DE'; }}
+              >
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#E2562B', marginBottom: 6 }}>Targeted practice</div>
+                <div style={{ fontSize: 15, fontWeight: 600, textTransform: 'capitalize' }}>{p.subSkill.replace(/_/g, ' ')}</div>
+                <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', marginTop: 3 }}>AI-generated · module 2 difficulty</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

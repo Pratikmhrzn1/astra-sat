@@ -187,12 +187,33 @@ export interface TransitionsCoachContent {
   whyStudentWrong: string;
 }
 
+export interface VocabDrillContent {
+  word: string;
+  sentenceContext: string;
+  followUpQuestion: string;
+  options: string[]; // exactly 4
+  correctOption: string; // "A" | "B" | "C" | "D"
+  explanation: string;
+}
+
 export interface ConfirmFeedbacks {
   reasoning_checkpoint?: ReasoningCheckpointContent | null;
   grammar_diagnosis?: GrammarDiagnosisContent | null;
   trap_explainer?: TrapExplainerContent | null;
   command_of_evidence?: CommandOfEvidenceContent | null;
   transitions_coach?: TransitionsCoachContent | null;
+  vocab_drill?: VocabDrillContent | null;
+}
+
+export interface VocabDueItem {
+  vocabId: string;
+  word: string;
+  passageExcerpt: string;
+  nextReviewAt: string;
+  easeFactor: string;
+  reviewCount: number;
+  generatedContentId: string;
+  content: VocabDrillContent;
 }
 
 export async function confirmAnswer(
@@ -204,10 +225,64 @@ export async function confirmAnswer(
     confidence: 'sure' | 'eliminated' | 'guessed';
     reasoning?: string;
   },
-): Promise<{ isCorrect: boolean; feedbacks: ConfirmFeedbacks }> {
+): Promise<{ isCorrect: boolean; feedbacks: ConfirmFeedbacks; vocabTrackingId: string | null }> {
   const { data } = await apiClient.post(
     `/student/exams/${examId}/questions/${questionId}/confirm`,
     payload,
   );
+  return data;
+}
+
+export interface NarrativeSubSkill {
+  subSkill: string;
+  wrong: number;
+  total: number;
+  flag: boolean;
+}
+
+export interface NarrativeContent {
+  scoreRange: string | null;
+  primaryGap: string;
+  narrative: string;
+  subSkillBreakdown: NarrativeSubSkill[];
+}
+
+export interface MockNarrative {
+  id: string;
+  examId: string;
+  content: NarrativeContent | null;
+  modelUsed: string;
+  latencyMs: number | null;
+  costUsd: string | null;
+  status: 'pending' | 'complete' | 'failed';
+  createdAt: string;
+}
+
+export async function getMockNarrative(examId: string): Promise<MockNarrative> {
+  const { data } = await apiClient.get<MockNarrative>(`/student/exams/${examId}/narrative`);
+  return data;
+}
+
+export interface WeakAreaPassage {
+  subSkill: string;
+  setId: string;
+  generatedContentId: string;
+}
+
+export async function getAvailableSkillPassages(): Promise<WeakAreaPassage[]> {
+  const { data } = await apiClient.get<WeakAreaPassage[]>('/student/skill-passages/available');
+  return data;
+}
+
+export async function getDueVocab(): Promise<VocabDueItem[]> {
+  const { data } = await apiClient.get<VocabDueItem[]>('/student/vocab/due');
+  return data;
+}
+
+export async function reviewVocab(
+  vocabId: string,
+  isCorrect: boolean,
+): Promise<{ ok: boolean; nextReviewAt: string; intervalDays: number }> {
+  const { data } = await apiClient.post(`/student/vocab/${vocabId}/review`, { isCorrect });
   return data;
 }

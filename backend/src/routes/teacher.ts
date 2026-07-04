@@ -153,6 +153,84 @@ router.post('/question-sets', validateBody(createSetSchema), async (req, res) =>
   }
 });
 
+const importJsonSchema = z.object({
+  title: z.string().min(1).max(255),
+  subject: z.enum(['english', 'math']),
+  description: z.string().max(2000).optional().default(''),
+  passages: z.array(z.object({
+    title: z.string().max(255).optional().default(''),
+    passageText: z.string().min(1),
+    orderIndex: z.number().int().optional(),
+  })).optional().default([]),
+  questions: z.array(z.object({
+    passageIndex: z.number().int().nullable().optional(),
+    questionType: z.enum(['multiple_choice', 'student_produced_response']),
+    questionText: z.string().min(1),
+    subSkill: z.enum(['grammar', 'inference', 'command_of_evidence', 'vocab_in_context', 'transitions']).nullable().optional(),
+    optionA: z.string().nullable().optional(),
+    optionB: z.string().nullable().optional(),
+    optionC: z.string().nullable().optional(),
+    optionD: z.string().nullable().optional(),
+    correctAnswer: z.enum(['a', 'b', 'c', 'd']).nullable().optional(),
+    correctAnswerText: z.string().nullable().optional(),
+    explanation: z.string().nullable().optional(),
+    orderIndex: z.number().int().optional(),
+  })).min(1, 'At least one question is required'),
+});
+
+router.post('/question-sets/import-json', validateBody(importJsonSchema), async (req, res) => {
+  const teacherId = req.user!.sub;
+  const { title, subject, description, passages: passagesData, questions: questionsData } = req.body;
+  try {
+    const [set] = await db.insert(questionSets)
+      .values({ title, subject, description, createdBy: teacherId })
+      .returning();
+
+    const insertedPassageIds: string[] = [];
+    for (let i = 0; i < passagesData.length; i++) {
+      const p = passagesData[i];
+      const [inserted] = await db.insert(passages).values({
+        setId: set.id,
+        title: p.title ?? '',
+        passageText: p.passageText,
+        orderIndex: p.orderIndex ?? i,
+      }).returning({ id: passages.id });
+      insertedPassageIds.push(inserted.id);
+    }
+
+    for (let i = 0; i < questionsData.length; i++) {
+      const q = questionsData[i];
+      const passageId = (q.passageIndex != null && insertedPassageIds[q.passageIndex])
+        ? insertedPassageIds[q.passageIndex]
+        : null;
+      await db.insert(questions).values({
+        setId: set.id,
+        passageId,
+        questionType: q.questionType,
+        questionText: q.questionText,
+        subSkill: (q.subSkill ?? null) as 'grammar' | 'inference' | 'command_of_evidence' | 'vocab_in_context' | 'transitions' | null,
+        optionA: q.optionA ?? null,
+        optionB: q.optionB ?? null,
+        optionC: q.optionC ?? null,
+        optionD: q.optionD ?? null,
+        correctAnswer: (q.correctAnswer ?? null) as 'a' | 'b' | 'c' | 'd' | null,
+        correctAnswerText: q.correctAnswerText ?? null,
+        explanation: q.explanation ?? null,
+        orderIndex: q.orderIndex ?? i,
+      });
+    }
+
+    return res.status(201).json({
+      set,
+      questionCount: questionsData.length,
+      passageCount: passagesData.length,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.put('/question-sets/:setId', validateBody(createSetSchema.partial()), async (req, res) => {
   const teacherId = req.user!.sub;
   const { setId } = req.params;

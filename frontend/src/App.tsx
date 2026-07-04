@@ -16,6 +16,7 @@ import ExamDetail from './pages/student/ExamDetail';
 import StudentFeedback from './pages/student/Feedback';
 import Library from './pages/student/Library';
 import StudentSettings from './pages/student/Settings';
+import VocabReview from './pages/student/VocabReview';
 
 import TeacherLayout from './pages/teacher/TeacherLayout';
 import TeacherDashboard from './pages/teacher/Dashboard';
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="results/:examId" element={<ExamDetail />} />
           <Route path="feedback" element={<StudentFeedback />} />
           <Route path="library" element={<Library />} />
+          <Route path="vocab-review" element={<VocabReview />} />
           <Route path="settings" element={<StudentSettings />} />
         </Route>
 

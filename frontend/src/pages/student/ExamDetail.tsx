@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getExamResults } from '../../api/student';
+import { getExamResults, getMockNarrative, type NarrativeContent } from '../../api/student';
 
 function scoreColor(v: number) {
   return v >= 680 ? '#1A6B3C' : v >= 620 ? '#2E7D5A' : v >= 560 ? '#B8893E' : '#C47A1B';
@@ -18,6 +18,24 @@ export default function ExamDetail() {
     queryKey: ['student', 'exam-results', examId],
     queryFn: () => getExamResults(examId!),
     enabled: !!examId,
+  });
+
+  const isMockExam = data?.exam.type === 'mock_english' || data?.exam.type === 'mock_math';
+  const pollCountRef = useRef(0);
+
+  const { data: narrativeData, isError: narrativeError } = useQuery({
+    queryKey: ['student', 'narrative', examId],
+    queryFn: async () => {
+      pollCountRef.current++;
+      return getMockNarrative(examId!);
+    },
+    enabled: !!examId && isMockExam,
+    refetchInterval: (query) => {
+      if (query.state.data?.status !== 'pending') return false;
+      if (pollCountRef.current >= 10) return false; // cap at 30 s (10 × 3 s)
+      return 3000;
+    },
+    retry: false,
   });
 
   if (isLoading) {
@@ -79,6 +97,95 @@ export default function ExamDetail() {
           ))}
         </div>
       </div>
+
+      {/* Mock-test narrative panel — above all drill-down content */}
+      {isMockExam && (() => {
+        // Error (includes 404 when AI_MODEL_NARRATIVE env var is unset) or timed-out polling
+        if (narrativeError || (pollCountRef.current >= 10 && narrativeData?.status === 'pending')) {
+          return (
+            <div style={{ background: '#FDF2F0', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 16, padding: '20px 26px', marginBottom: 24 }}>
+              <span style={{ fontSize: 13.5, color: '#8B1A10' }}>Analysis unavailable for this attempt.</span>
+            </div>
+          );
+        }
+
+        // Pending / still loading
+        if (!narrativeData || narrativeData.status === 'pending') {
+          return (
+            <div style={{ background: '#F5F3EF', border: '1px dashed #C8C4BC', borderRadius: 16, padding: '26px 30px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 18, height: 18, borderRadius: 9999, border: '2px solid #E2562B', borderTopColor: 'transparent', animation: 'spin 0.9s linear infinite', flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#0B0B0E', marginBottom: 3 }}>Generating your analysis…</div>
+                <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)' }}>This usually takes under 15 seconds.</div>
+              </div>
+            </div>
+          );
+        }
+
+        // Failed or timed out
+        if (narrativeData.status === 'failed') {
+          return (
+            <div style={{ background: '#FDF2F0', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 16, padding: '20px 26px', marginBottom: 24 }}>
+              <span style={{ fontSize: 13.5, color: '#8B1A10' }}>Analysis unavailable for this attempt.</span>
+            </div>
+          );
+        }
+
+        // Complete — render narrative + subSkillBreakdown
+        const nc = narrativeData.content as NarrativeContent;
+        if (!nc) return null;
+
+        return (
+          <div style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 18, padding: '28px 32px', marginBottom: 24, boxShadow: '0 2px 12px rgba(11,11,14,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 18 }}>
+              <div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#E2562B', marginBottom: 6 }}>
+                  Pattern diagnosis
+                </div>
+                <p style={{ fontSize: 15.5, lineHeight: 1.65, color: '#0B0B0E', margin: 0, maxWidth: 640 }}>
+                  {nc.narrative}
+                </p>
+              </div>
+              {nc.scoreRange && (
+                <div style={{ flexShrink: 0, textAlign: 'center', background: '#0B0B0E', borderRadius: 14, padding: '14px 22px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>Est. range</div>
+                  <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: '#fff', lineHeight: 1 }}>{nc.scoreRange}</div>
+                </div>
+              )}
+            </div>
+
+            {/* subSkill breakdown */}
+            {nc.subSkillBreakdown && nc.subSkillBreakdown.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 10 }}>
+                  SubSkill breakdown
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {nc.subSkillBreakdown.map((s) => {
+                    const pct = s.total > 0 ? Math.round((s.wrong / s.total) * 100) : 0;
+                    const barColor = s.flag ? '#C0392B' : pct > 40 ? '#B8893E' : '#2E7D5A';
+                    return (
+                      <div key={s.subSkill} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: 9999, background: barColor, flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, fontWeight: s.flag ? 700 : 500, color: s.flag ? '#0B0B0E' : 'rgba(11,11,14,0.7)', width: 170 }}>
+                          {s.subSkill.replace(/_/g, ' ')}
+                          {s.flag && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#C0392B', letterSpacing: '0.06em', textTransform: 'uppercase' }}>pattern</span>}
+                        </span>
+                        <div style={{ flex: 1, height: 6, background: '#F0EDE7', borderRadius: 9999, overflow: 'hidden' }}>
+                          <div style={{ height: 6, width: `${pct}%`, background: barColor, borderRadius: 9999 }} />
+                        </div>
+                        <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.5)', fontFamily: "'JetBrains Mono', monospace", width: 56, textAlign: 'right' }}>
+                          {s.wrong}/{s.total}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Topic performance */}
       <h3 style={{ fontSize: 16, margin: '6px 0 14px' }}>Performance by topic</h3>
