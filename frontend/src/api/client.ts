@@ -5,9 +5,8 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export const apiClient = axios.create({
   baseURL: `${API_BASE}/api`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true, // send the httpOnly refresh-token cookie on every request
 });
 
 apiClient.interceptors.request.use((config) => {
@@ -26,11 +25,8 @@ let failedQueue: Array<{
 
 function processQueue(error: unknown, token: string | null) {
   failedQueue.forEach(({ resolve, reject }) => {
-    if (error) {
-      reject(error);
-    } else {
-      resolve(token!);
-    }
+    if (error) reject(error);
+    else resolve(token!);
   });
   failedQueue = [];
 }
@@ -54,15 +50,13 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = useAuthStore.getState().refreshToken;
-      if (!refreshToken) {
-        useAuthStore.getState().logout();
-        window.location.href = '/login';
-        return Promise.reject(error);
-      }
-
       try {
-        const response = await axios.post(`${API_BASE}/api/auth/refresh`, { refreshToken });
+        // No body — the httpOnly 'rt' cookie is sent automatically via withCredentials
+        const response = await axios.post(
+          `${API_BASE}/api/auth/refresh`,
+          {},
+          { withCredentials: true },
+        );
         const { accessToken } = response.data;
         useAuthStore.getState().setAccessToken(accessToken);
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;

@@ -25,6 +25,8 @@ export const contentTypeEnum = pgEnum('content_type', ['vocab_quiz', 'skill_pass
 export const qualityFlagEnum = pgEnum('quality_flag', ['pending', 'approved', 'rejected']);
 export const narrativeStatusEnum = pgEnum('narrative_status', ['pending', 'complete', 'failed']);
 export const chatRoleEnum = pgEnum('chat_role', ['user', 'assistant']);
+export const feedbackCategoryEnum = pgEnum('feedback_category', ['bug', 'suggestion', 'other']);
+export const fileTypeEnum = pgEnum('file_type', ['audio', 'video', 'image', 'document', 'other']);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -46,6 +48,14 @@ export const accessCodes = pgTable('access_codes', {
   isActive: boolean('is_active').notNull().default(true),
   maxUses: integer('max_uses'),
   useCount: integer('use_count').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const refreshTokens = pgTable('refresh_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -236,3 +246,28 @@ export type MockNarrative = typeof mockNarratives.$inferSelect;
 export type ChatSession = typeof chatSessions.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type Feedback = typeof feedback.$inferSelect;
+
+export const platformFeedback = pgTable('platform_feedback', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  category: feedbackCategoryEnum('category').notNull().default('other'),
+  message: text('message').notNull(),
+  isRead: boolean('is_read').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const libraryItems = pgTable('library_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  title: varchar('title', { length: 200 }).notNull(),
+  description: text('description'),
+  fileUrl: text('file_url').notNull(),
+  fileType: fileTypeEnum('file_type').notNull(),
+  mimeType: varchar('mime_type', { length: 100 }),
+  fileName: varchar('file_name', { length: 300 }),
+  uploadedBy: uuid('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+  hidden: boolean('hidden').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export type PlatformFeedback = typeof platformFeedback.$inferSelect;
+export type LibraryItem = typeof libraryItems.$inferSelect;

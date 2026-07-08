@@ -1,9 +1,8 @@
 import { apiClient } from './client';
-import type { AuthUser, Role } from '../store/auth';
+import type { AuthUser } from '../store/auth';
 
 export interface LoginResponse {
   accessToken: string;
-  refreshToken: string;
   user: AuthUser;
 }
 

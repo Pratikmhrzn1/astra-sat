@@ -37,7 +37,7 @@ export default function Register() {
     setApiError('');
     try {
       const result = await apiRegister(data.email, data.name, data.password, data.accessCode);
-      storeLogin(result.user, result.accessToken, result.refreshToken);
+      storeLogin(result.user, result.accessToken);
       navigate(ROLE_ROUTES[result.user.role], { replace: true });
     } catch (err) {
       setApiError(getApiError(err));

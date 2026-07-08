@@ -43,6 +43,12 @@ const CREATE_ENUMS = `
   DO $$ BEGIN
     CREATE TYPE chat_role AS ENUM ('user', 'assistant');
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  DO $$ BEGIN
+    CREATE TYPE feedback_category AS ENUM ('bug', 'suggestion', 'other');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  DO $$ BEGIN
+    CREATE TYPE file_type AS ENUM ('audio', 'video', 'image', 'document', 'other');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 `;
 
 const CREATE_TABLES = `
@@ -66,6 +72,14 @@ const CREATE_TABLES = `
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     max_uses INTEGER,
     use_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
   );
 
@@ -231,6 +245,28 @@ const CREATE_TABLES = `
     is_read BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     read_at TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS platform_feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    category feedback_category NOT NULL DEFAULT 'other',
+    message TEXT NOT NULL,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS library_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(200) NOT NULL,
+    description TEXT,
+    file_url TEXT NOT NULL,
+    file_type file_type NOT NULL,
+    mime_type VARCHAR(100),
+    file_name VARCHAR(300),
+    uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    hidden BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
   );
 `;
 

@@ -31,6 +31,10 @@ import AdminDashboard from './pages/admin/Dashboard';
 import Users from './pages/admin/Users';
 import AccessCodes from './pages/admin/AccessCodes';
 import Database from './pages/admin/Database';
+import AdminFeedback from './pages/admin/Feedback';
+import AdminLibrary from './pages/admin/Library';
+
+import TeacherLibrary from './pages/teacher/Library';
 
 function RootRedirect() {
   const { user } = useAuthStore();
@@ -84,6 +88,7 @@ export default function App() {
           <Route path="students/:studentId/exams/:examId" element={<StudentExamDetail />} />
           <Route path="content" element={<AddContent />} />
           <Route path="feedback" element={<TeacherFeedback />} />
+          <Route path="library" element={<TeacherLibrary />} />
         </Route>
 
         <Route
@@ -99,6 +104,8 @@ export default function App() {
           <Route path="users" element={<Users />} />
           <Route path="access-codes" element={<AccessCodes />} />
           <Route path="database" element={<Database />} />
+          <Route path="feedback" element={<AdminFeedback />} />
+          <Route path="library" element={<AdminLibrary />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

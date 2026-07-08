@@ -1,22 +1,28 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { getLibraryItems } from '../../api/library';
+import type { FileType } from '../../api/library';
+import { Spinner } from '../../components/ui/Spinner';
 
-const ITEMS = [
-  { cat: 'Study guides', color: '#E2562B', title: 'The Digital SAT, end to end', meta: '14 min read', sub: 'Format, timing, and what each section actually tests.' },
-  { cat: 'Study guides', color: '#E2562B', title: 'How section-adaptive scoring works', meta: '9 min read', sub: 'Why module two changes — and how raw scores become scaled scores.' },
-  { cat: 'Video lessons', color: '#2563A8', title: 'Linear equations in 8 minutes', meta: '8:24 · video', sub: 'Solve, rearrange, and interpret single-variable equations fast.' },
-  { cat: 'Video lessons', color: '#2563A8', title: 'Punctuation rules that actually show up', meta: '11:05 · video', sub: 'Commas, dashes, colons and semicolons — only what the SAT tests.' },
-  { cat: 'Video lessons', color: '#2563A8', title: 'Reading: command of evidence', meta: '9:40 · video', sub: 'Match claims to the data and quotations that support them.' },
-  { cat: 'Question banks', color: '#2E7D5A', title: 'Heart of Algebra — 60 questions', meta: '60 questions', sub: 'Drill linear equations, inequalities and systems by difficulty.' },
-  { cat: 'Question banks', color: '#2E7D5A', title: 'Words in context — 40 questions', meta: '40 questions', sub: 'Precise vocabulary practice with full explanations.' },
-  { cat: 'Formula & vocab', color: '#B8893E', title: 'Math formula reference sheet', meta: 'PDF · 2 pages', sub: 'Every geometry and algebra formula you\'re expected to know.' },
-  { cat: 'Formula & vocab', color: '#B8893E', title: 'High-frequency SAT vocabulary', meta: 'PDF · 120 words', sub: 'The words that recur most often, with example sentences.' },
-];
+const TYPE_META: Record<FileType, { color: string; label: string; icon: string }> = {
+  audio:    { color: '#B8893E', label: 'Audio',    icon: '🎵' },
+  video:    { color: '#2563A8', label: 'Video',    icon: '🎬' },
+  image:    { color: '#2E7D5A', label: 'Image',    icon: '🖼️' },
+  document: { color: '#E2562B', label: 'Document', icon: '📄' },
+  other:    { color: '#8C8880', label: 'Other',    icon: '📎' },
+};
 
-const TABS = ['All', 'Study guides', 'Video lessons', 'Question banks', 'Formula & vocab'];
+const TABS = ['All', 'Audio', 'Video', 'Image', 'Document', 'Other'];
 
 export default function Library() {
   const [filter, setFilter] = useState('All');
-  const shown = ITEMS.filter((it) => filter === 'All' || it.cat === filter);
+
+  const { data: items = [], isLoading, isError } = useQuery({
+    queryKey: ['library'],
+    queryFn: getLibraryItems,
+  });
+
+  const shown = items.filter((i) => filter === 'All' || i.fileType.toLowerCase() === filter.toLowerCase());
 
   return (
     <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
@@ -40,28 +46,56 @@ export default function Library() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-        {shown.map((it, i) => (
-          <div
-            key={i}
-            className="lift"
-            style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, padding: '22px 22px 20px', boxShadow: '0 1px 3px rgba(11,11,14,0.04)', cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
-            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(11,11,14,0.09)'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = '#D8D4CC'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.04)'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = '#E7E4DE'; }}
-          >
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, alignSelf: 'flex-start', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: it.color, marginBottom: 14 }}>
-              <span style={{ width: 7, height: 7, borderRadius: 9999, background: it.color }} />
-              {it.cat}
-            </div>
-            <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.3, marginBottom: 8 }}>{it.title}</div>
-            <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.55)', lineHeight: 1.55, flex: 1, marginBottom: 18 }}>{it.sub}</div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)', fontFamily: "'JetBrains Mono', monospace" }}>{it.meta}</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#E2562B' }}>Open →</span>
-            </div>
+      {isLoading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}><Spinner /></div>
+      ) : isError ? (
+        <div style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, padding: '48px 24px', textAlign: 'center' }}>
+          <div style={{ fontSize: 15, color: '#dc2626' }}>Failed to load library. Please try again.</div>
+        </div>
+      ) : shown.length === 0 ? (
+        <div style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, padding: '48px 24px', textAlign: 'center' }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>📚</div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', marginBottom: 6 }}>
+            {filter === 'All' ? 'No resources yet' : `No ${filter.toLowerCase()} resources`}
           </div>
-        ))}
-      </div>
+          <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.5)' }}>
+            {filter === 'All' ? 'Your teacher will add resources here soon.' : 'Try a different filter.'}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          {shown.map((item) => {
+            const meta = TYPE_META[item.fileType] ?? TYPE_META.other;
+            return (
+              <div
+                key={item.id}
+                className="lift"
+                style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, padding: '22px 22px 20px', boxShadow: '0 1px 3px rgba(11,11,14,0.04)', cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(11,11,14,0.09)'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = '#D8D4CC'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.04)'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = '#E7E4DE'; }}
+                onClick={() => window.open(item.fileUrl, '_blank')}
+              >
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, alignSelf: 'flex-start', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: meta.color, marginBottom: 14 }}>
+                  <span style={{ fontSize: 16 }}>{meta.icon}</span>
+                  {meta.label}
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.3, marginBottom: 8 }}>{item.title}</div>
+                {item.description && (
+                  <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.55)', lineHeight: 1.55, flex: 1, marginBottom: 18, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                    {item.description}
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
+                  {item.fileName && (
+                    <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)', fontFamily: "'JetBrains Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>{item.fileName}</span>
+                  )}
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#E2562B', marginLeft: 'auto' }}>Open →</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

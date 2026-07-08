@@ -31,7 +31,7 @@ export default function Login() {
     setApiError('');
     try {
       const result = await login(data.email, data.password);
-      storeLogin(result.user, result.accessToken, result.refreshToken);
+      storeLogin(result.user, result.accessToken);
       navigate(ROLE_ROUTES[result.user.role], { replace: true });
     } catch (err) {
       setApiError(getApiError(err));

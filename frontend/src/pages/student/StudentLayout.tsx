@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/auth';
+import { Modal } from '../../components/ui/Modal';
+import { Button } from '../../components/ui/Button';
+import { submitFeedback } from '../../api/feedback';
 
 const NAV = [
   { path: '/student/dashboard', label: 'Dashboard', icon: (
@@ -52,11 +56,35 @@ const NAV = [
   )},
 ];
 
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 12px', border: '1px solid #C8C4BC', borderRadius: 10,
+  fontSize: 14, background: '#fff', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
+};
+
+type FeedbackCategory = 'bug' | 'suggestion' | 'other';
+
 export default function StudentLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [profileMenu, setProfileMenu] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackCategory, setFeedbackCategory] = useState<FeedbackCategory>('other');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackSent, setFeedbackSent] = useState(false);
+
+  const feedbackMutation = useMutation({
+    mutationFn: () => submitFeedback({ category: feedbackCategory, message: feedbackMessage }),
+    onSuccess: () => setFeedbackSent(true),
+  });
+
+  const closeFeedbackModal = () => {
+    setShowFeedback(false);
+    setFeedbackSent(false);
+    setFeedbackMessage('');
+    setFeedbackCategory('other');
+    feedbackMutation.reset();
+  };
 
   const initials = user?.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('') ?? '?';
 
@@ -108,6 +136,21 @@ export default function StudentLayout() {
           })}
         </div>
 
+        {/* Send Feedback */}
+        <div style={{ padding: '4px 16px 8px' }}>
+          <button
+            onClick={() => setShowFeedback(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 14, height: 40, padding: '0 11px', width: '100%', border: '1px solid #E7E4DE', borderRadius: 10, background: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 500, color: '#8C8880' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#0B0B0E'; e.currentTarget.style.background = 'rgba(11,11,14,0.04)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#8C8880'; e.currentTarget.style.background = '#fff'; }}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span className="nav-label">Send Feedback</span>
+          </button>
+        </div>
+
         {/* Profile */}
         <div style={{ borderTop: '1px solid #EEEBE5', padding: '10px 0', position: 'relative' }}>
           {profileMenu && (
@@ -155,6 +198,67 @@ export default function StudentLayout() {
       <main className="scrollarea" style={{ marginLeft: 76, minHeight: '100vh', height: '100vh', overflowY: 'auto' }}>
         <Outlet />
       </main>
+
+      <Modal
+        isOpen={showFeedback}
+        onClose={closeFeedbackModal}
+        title="Send Feedback"
+        size="sm"
+        footer={
+          feedbackSent ? (
+            <Button variant="secondary" onClick={closeFeedbackModal}>Close</Button>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={closeFeedbackModal}>Cancel</Button>
+              <Button
+                variant="primary"
+                onClick={() => feedbackMutation.mutate()}
+                loading={feedbackMutation.isPending}
+                disabled={feedbackMessage.trim().length < 10}
+              >Send</Button>
+            </>
+          )
+        }
+      >
+        {feedbackSent ? (
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>✅</div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>Thank you!</div>
+            <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.55)' }}>Your feedback has been sent to the admin team.</div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {feedbackMutation.isError && (
+              <div style={{ background: 'rgba(220,38,38,0.08)', color: '#dc2626', padding: '9px 12px', borderRadius: 8, fontSize: 13 }}>
+                Something went wrong. Please try again.
+              </div>
+            )}
+            <div>
+              <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 7, color: 'rgba(11,11,14,0.65)' }}>Category</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(['bug', 'suggestion', 'other'] as FeedbackCategory[]).map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setFeedbackCategory(cat)}
+                    style={{ flex: 1, height: 34, border: feedbackCategory === cat ? '1.5px solid #0B0B0E' : '1px solid #C8C4BC', borderRadius: 9, background: feedbackCategory === cat ? '#0B0B0E' : '#fff', color: feedbackCategory === cat ? '#fff' : '#0B0B0E', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}
+                  >{cat === 'bug' ? 'Bug Report' : cat === 'suggestion' ? 'Suggestion' : 'Other'}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 7, color: 'rgba(11,11,14,0.65)' }}>
+                Message <span style={{ color: 'rgba(11,11,14,0.4)', fontWeight: 400 }}>({feedbackMessage.length}/2000)</span>
+              </label>
+              <textarea
+                style={{ ...inputStyle, height: 110, resize: 'vertical' }}
+                placeholder="Describe the bug or share your suggestion… (min 10 characters)"
+                value={feedbackMessage}
+                onChange={(e) => setFeedbackMessage(e.target.value.slice(0, 2000))}
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
