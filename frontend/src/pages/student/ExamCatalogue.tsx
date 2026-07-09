@@ -13,6 +13,8 @@ export default function ExamCatalogue() {
   const [searchParams] = useSearchParams();
   const subject = (searchParams.get('subject') as 'math' | 'english') ?? 'math';
 
+  const switchSubject = (s: 'math' | 'english') => navigate(`/student/exams?subject=${s}`, { replace: true });
+
   const { data: sets = [], isLoading } = useQuery({ queryKey: ['student', 'question-sets'], queryFn: getQuestionSets });
 
   const startMutation = useMutation({
@@ -50,6 +52,23 @@ export default function ExamCatalogue() {
 
   return (
     <div className="screen-fade" style={{ padding: '40px 48px 64px' }}>
+      {/* Subject switcher */}
+      <div style={{ display: 'inline-flex', gap: 4, background: '#F0EDE7', borderRadius: 12, padding: 4, marginBottom: 28 }}>
+        {([['math', 'Math'], ['english', 'Reading & Writing']] as const).map(([s, label]) => (
+          <button
+            key={s}
+            onClick={() => switchSubject(s)}
+            style={{
+              padding: '8px 18px', borderRadius: 9, fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+              border: 'none', fontFamily: 'inherit', transition: 'background 0.15s, color 0.15s',
+              background: subject === s ? '#fff' : 'transparent',
+              color: subject === s ? '#0B0B0E' : 'rgba(11,11,14,0.45)',
+              boxShadow: subject === s ? '0 1px 4px rgba(11,11,14,0.1)' : 'none',
+            }}
+          >{label}</button>
+        ))}
+      </div>
+
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E2562B' }}>{kicker}</div>
       <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 56, margin: '8px 0 0', letterSpacing: '-0.02em' }}>{title}</h1>
       <p style={{ maxWidth: 640, fontSize: 16, lineHeight: 1.65, color: 'rgba(11,11,14,0.6)', margin: '14px 0 28px' }}>{blurb}</p>
