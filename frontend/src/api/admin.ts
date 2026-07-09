@@ -87,3 +87,8 @@ export async function runMigrations(): Promise<{ ok: boolean; message: string }>
   const { data } = await apiClient.post('/admin/migrate');
   return data;
 }
+
+export async function runSql(sqlText: string): Promise<{ ok: boolean; statements: number; rowsAffected: number; rows: Record<string, unknown>[] }> {
+  const { data } = await apiClient.post('/admin/run-sql', { sql: sqlText });
+  return data;
+}

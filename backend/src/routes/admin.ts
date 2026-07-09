@@ -327,6 +327,27 @@ router.post('/migrate', async (_req, res) => {
   }
 });
 
+const runSqlSchema = z.object({ sql: z.string().min(1).max(50000) });
+
+router.post('/run-sql', validateBody(runSqlSchema), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const result = await client.query(req.body.sql);
+    const results = Array.isArray(result) ? result : [result];
+    return res.json({
+      ok: true,
+      statements: results.length,
+      rowsAffected: results.reduce((sum, r) => sum + (r.rowCount ?? 0), 0),
+      rows: results.flatMap((r) => r.rows ?? []).slice(0, 100),
+    });
+  } catch (err) {
+    console.error('SQL runner error:', err);
+    return res.status(400).json({ error: String(err) });
+  } finally {
+    client.release();
+  }
+});
+
 // ── AI subSkill batch classification ─────────────────────────────────────────
 
 const VALID_SUB_SKILLS = ['grammar', 'inference', 'command_of_evidence', 'vocab_in_context', 'transitions'] as const;
