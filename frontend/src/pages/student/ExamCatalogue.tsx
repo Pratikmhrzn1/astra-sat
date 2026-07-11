@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { getQuestionSets, startExam } from '../../api/student';
 import { getApiError } from '../../api/client';
+import { getAllExamProgress, clearExamProgress } from '../../lib/offline';
 
 const CARD_STYLE: React.CSSProperties = {
   background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)',
@@ -13,20 +14,39 @@ export default function ExamCatalogue() {
   const [searchParams] = useSearchParams();
   const subject = (searchParams.get('subject') as 'math' | 'english') ?? 'math';
 
+  const [timerEnabled, setTimerEnabled] = useState(() => localStorage.getItem('sat-timer-pref') === 'true');
+  const [resumeItems, setResumeItems] = useState<Array<{ examId: string; examTitle?: string; lastSaved: string }>>([]);
+  const pendingSetTitleRef = useRef('');
+
+  useEffect(() => {
+    getAllExamProgress().then((all) => setResumeItems(all));
+  }, []);
+
   const switchSubject = (s: 'math' | 'english') => navigate(`/student/exams?subject=${s}`, { replace: true });
 
   const { data: sets = [], isLoading } = useQuery({ queryKey: ['student', 'question-sets'], queryFn: getQuestionSets });
 
   const startMutation = useMutation({
     mutationFn: startExam,
-    onSuccess: (data) => navigate(`/student/exams/${data.exam.id}`),
+    onSuccess: (data) => navigate(`/student/exams/${data.exam.id}`, { state: { timerEnabled, examTitle: pendingSetTitleRef.current } }),
   });
+
+  const toggleTimer = () => {
+    const next = !timerEnabled;
+    setTimerEnabled(next);
+    localStorage.setItem('sat-timer-pref', String(next));
+  };
+
+  const dismissResume = async (examId: string) => {
+    await clearExamProgress(examId);
+    setResumeItems((r) => r.filter((x) => x.examId !== examId));
+  };
 
   const filtered = sets.filter((s) => s.subject === subject);
 
   const isMath = subject === 'math';
   const accentColor = isMath ? '#2563A8' : '#2E7D5A';
-  const kicker = isMath ? 'Section practice · scored out of 800' : 'Section practice · scored out of 800';
+  const kicker = 'Section practice · scored out of 800';
   const title = isMath ? 'Math' : 'Reading & Writing';
   const blurb = isMath
     ? 'Focused Math practice spanning the Digital SAT domains. An on-screen calculator is available for every question, exactly like the real exam.'
@@ -43,15 +63,46 @@ export default function ExamCatalogue() {
       ];
 
   const rules = [
-    'A countdown timer runs for the whole section.',
+    timerEnabled
+      ? 'A 20-minute countdown runs — the test auto-submits when time runs out.'
+      : 'No timer — take as much time as you need on each question.',
     'Flag any question and return to it from the navigator.',
     'Cross out answer choices you\'ve ruled out.',
     isMath ? 'An on-screen calculator is available throughout.' : 'Each question stands alone — answer in any order.',
-    'You\'ll get a full scored report the moment you submit.',
+    'AI guidance is available on the results page after you submit.',
   ];
 
   return (
     <div className="screen-fade" style={{ padding: '40px 48px 64px' }}>
+      {/* Resume banner */}
+      {resumeItems.length > 0 && (
+        <div style={{ background: '#FFFBF0', border: '1px solid rgba(184,137,62,0.35)', borderRadius: 14, padding: '14px 20px', marginBottom: 24 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B8893E', marginBottom: 10 }}>
+            Unfinished {resumeItems.length === 1 ? 'test' : 'tests'}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {resumeItems.map((item) => (
+              <div key={item.examId} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: '#0B0B0E' }}>
+                  {item.examTitle ?? 'Practice test'}
+                  <span style={{ fontWeight: 400, fontSize: 12.5, color: 'rgba(11,11,14,0.45)', marginLeft: 10 }}>
+                    saved {new Date(item.lastSaved).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </span>
+                <button
+                  onClick={() => navigate(`/student/exams/${item.examId}`)}
+                  style={{ height: 34, padding: '0 16px', background: '#0B0B0E', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
+                >Continue →</button>
+                <button
+                  onClick={() => dismissResume(item.examId)}
+                  style={{ height: 34, padding: '0 14px', background: 'transparent', color: 'rgba(11,11,14,0.45)', border: '1px solid #D8D4CC', borderRadius: 9999, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
+                >Dismiss</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Subject switcher */}
       <div style={{ display: 'inline-flex', gap: 4, background: '#F0EDE7', borderRadius: 12, padding: 4, marginBottom: 28 }}>
         {([['math', 'Math'], ['english', 'Reading & Writing']] as const).map(([s, label]) => (
@@ -75,7 +126,7 @@ export default function ExamCatalogue() {
 
       {/* Meta stats */}
       <div style={{ display: 'flex', gap: 14, marginBottom: 28 }}>
-        {[['—', 'Questions per set'], ['20m', 'Per set time'], ['800', 'Score scale']].map(([v, l], i) => (
+        {[['—', 'Questions per set'], [timerEnabled ? '20m' : '∞', 'Time limit'], ['800', 'Score scale']].map(([v, l], i) => (
           <div key={i} style={{ ...CARD_STYLE, padding: '18px 26px', minWidth: 130, borderRadius: 14 }}>
             <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 38, lineHeight: 1, color: '#0B0B0E' }}>{v}</div>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginTop: 6 }}>{l}</div>
@@ -111,8 +162,29 @@ export default function ExamCatalogue() {
         </div>
       </div>
 
-      {/* Available sets */}
-      <h3 style={{ fontSize: 16, margin: '0 0 14px' }}>Available question sets</h3>
+      {/* Available sets + timer toggle */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <h3 style={{ fontSize: 16, margin: 0 }}>Available question sets</h3>
+        <button
+          onClick={toggleTimer}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 9, padding: '8px 16px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+            border: timerEnabled ? '1px solid #E2562B' : '1px solid #C8C4BC',
+            background: timerEnabled ? 'rgba(226,86,43,0.06)' : '#fff',
+            color: timerEnabled ? '#E2562B' : '#8C8880',
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Timer: {timerEnabled ? 'On' : 'Off'}</span>
+          {/* Toggle pill */}
+          <div style={{ width: 34, height: 18, borderRadius: 9999, background: timerEnabled ? '#E2562B' : '#D0CCC6', position: 'relative', flexShrink: 0, transition: 'background 0.2s' }}>
+            <div style={{ position: 'absolute', top: 2, left: timerEnabled ? 18 : 2, width: 14, height: 14, borderRadius: 9999, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'left 0.2s' }} />
+          </div>
+        </button>
+      </div>
+
       {isLoading ? (
         <div style={{ color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>Loading…</div>
       ) : filtered.length === 0 ? (
@@ -135,7 +207,7 @@ export default function ExamCatalogue() {
                 <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: 'rgba(11,11,14,0.4)', marginTop: 4 }}>{set.questionCount} questions</div>
               </div>
               <button
-                onClick={() => startMutation.mutate(set.id)}
+                onClick={() => { pendingSetTitleRef.current = set.title; startMutation.mutate(set.id); }}
                 disabled={startMutation.isPending}
                 style={{ height: 40, padding: '0 22px', background: accentColor, color: '#fff', border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
               >

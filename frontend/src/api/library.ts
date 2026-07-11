@@ -1,15 +1,15 @@
 import { apiClient } from './client';
 
-export type FileType = 'audio' | 'video' | 'image' | 'document' | 'other';
+export type FileType = 'audio' | 'video' | 'image' | 'document' | 'other' | 'note';
 
 export interface LibraryItem {
   id: string;
   title: string;
   description: string | null;
-  fileUrl: string;
+  fileUrl: string | null;
   fileType: FileType;
-  mimeType: string | null;
   fileName: string | null;
+  noteContent: string | null;
   hidden: boolean;
   uploadedBy: string | null;
   uploaderName: string | null;
@@ -21,13 +21,22 @@ export async function getLibraryItems(): Promise<LibraryItem[]> {
   return data;
 }
 
+export async function uploadFile(file: File): Promise<{ url: string; fileName: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await apiClient.post<{ url: string; fileName: string }>('/library/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
 export async function createLibraryItem(payload: {
   title: string;
   description?: string;
-  fileUrl: string;
   fileType: FileType;
-  mimeType?: string;
+  fileUrl?: string;
   fileName?: string;
+  noteContent?: string;
 }): Promise<LibraryItem> {
   const { data } = await apiClient.post<LibraryItem>('/library', payload);
   return data;
@@ -35,7 +44,7 @@ export async function createLibraryItem(payload: {
 
 export async function updateLibraryItem(
   id: string,
-  payload: { title?: string; description?: string | null; hidden?: boolean }
+  payload: { title?: string; description?: string | null; noteContent?: string | null; hidden?: boolean }
 ): Promise<LibraryItem> {
   const { data } = await apiClient.patch<LibraryItem>(`/library/${id}`, payload);
   return data;

@@ -7,6 +7,8 @@ interface SatPrepDB extends DBSchema {
       examId: string;
       answers: Record<string, string | null>;
       timeSpentSeconds: number;
+      timerEnabled: boolean;
+      examTitle?: string;
       lastSaved: string;
     };
   };
@@ -38,7 +40,9 @@ function getDB() {
 export async function saveExamProgress(
   examId: string,
   answers: Record<string, string | null>,
-  timeSpentSeconds: number
+  timeSpentSeconds: number,
+  timerEnabled: boolean = false,
+  examTitle?: string,
 ): Promise<void> {
   try {
     const db = await getDB();
@@ -46,6 +50,8 @@ export async function saveExamProgress(
       examId,
       answers,
       timeSpentSeconds,
+      timerEnabled,
+      ...(examTitle ? { examTitle } : {}),
       lastSaved: new Date().toISOString(),
     });
   } catch {
@@ -55,14 +61,24 @@ export async function saveExamProgress(
 
 export async function loadExamProgress(
   examId: string
-): Promise<{ answers: Record<string, string | null>; timeSpentSeconds: number } | null> {
+): Promise<{ answers: Record<string, string | null>; timeSpentSeconds: number; timerEnabled: boolean } | null> {
   try {
     const db = await getDB();
     const record = await db.get('exam-progress', examId);
     if (!record) return null;
-    return { answers: record.answers, timeSpentSeconds: record.timeSpentSeconds };
+    return { answers: record.answers, timeSpentSeconds: record.timeSpentSeconds, timerEnabled: record.timerEnabled ?? false };
   } catch {
     return null;
+  }
+}
+
+export async function getAllExamProgress(): Promise<Array<{ examId: string; timerEnabled: boolean; examTitle?: string; lastSaved: string }>> {
+  try {
+    const db = await getDB();
+    const records = await db.getAll('exam-progress');
+    return records.map((r) => ({ examId: r.examId, timerEnabled: r.timerEnabled ?? false, examTitle: r.examTitle, lastSaved: r.lastSaved }));
+  } catch {
+    return [];
   }
 }
 

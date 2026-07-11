@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getLibraryItems } from '../../api/library';
-import type { FileType } from '../../api/library';
+import type { FileType, LibraryItem } from '../../api/library';
+import { Modal } from '../../components/ui/Modal';
 import { Spinner } from '../../components/ui/Spinner';
 
 const TYPE_META: Record<FileType, { color: string; label: string; icon: string }> = {
@@ -10,12 +11,24 @@ const TYPE_META: Record<FileType, { color: string; label: string; icon: string }
   image:    { color: '#2E7D5A', label: 'Image',    icon: '🖼️' },
   document: { color: '#E2562B', label: 'Document', icon: '📄' },
   other:    { color: '#8C8880', label: 'Other',    icon: '📎' },
+  note:     { color: '#7C3AED', label: 'Note',     icon: '📝' },
 };
 
-const TABS = ['All', 'Audio', 'Video', 'Image', 'Document', 'Other'];
+const TABS = ['All', 'Audio', 'Video', 'Image', 'Document', 'Note', 'Other'];
+
+function NoteModal({ item, onClose }: { item: LibraryItem; onClose: () => void }) {
+  return (
+    <Modal isOpen onClose={onClose} title={item.title} size="md">
+      <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, color: '#0B0B0E', minHeight: 80 }}>
+        {item.noteContent || <span style={{ color: 'rgba(11,11,14,0.35)' }}>No content.</span>}
+      </div>
+    </Modal>
+  );
+}
 
 export default function Library() {
   const [filter, setFilter] = useState('All');
+  const [readNote, setReadNote] = useState<LibraryItem | null>(null);
 
   const { data: items = [], isLoading, isError } = useQuery({
     queryKey: ['library'],
@@ -66,6 +79,7 @@ export default function Library() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           {shown.map((item) => {
             const meta = TYPE_META[item.fileType] ?? TYPE_META.other;
+            const isNote = item.fileType === 'note';
             return (
               <div
                 key={item.id}
@@ -73,7 +87,7 @@ export default function Library() {
                 style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, padding: '22px 22px 20px', boxShadow: '0 1px 3px rgba(11,11,14,0.04)', cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
                 onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(11,11,14,0.09)'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = '#D8D4CC'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.04)'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = '#E7E4DE'; }}
-                onClick={() => window.open(item.fileUrl, '_blank')}
+                onClick={() => isNote ? setReadNote(item) : item.fileUrl && window.open(item.fileUrl, '_blank')}
               >
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, alignSelf: 'flex-start', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: meta.color, marginBottom: 14 }}>
                   <span style={{ fontSize: 16 }}>{meta.icon}</span>
@@ -85,17 +99,21 @@ export default function Library() {
                     {item.description}
                   </div>
                 )}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
-                  {item.fileName && (
-                    <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)', fontFamily: "'JetBrains Mono', monospace", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>{item.fileName}</span>
-                  )}
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#E2562B', marginLeft: 'auto' }}>Open →</span>
+                {isNote && !item.description && item.noteContent && (
+                  <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.45)', lineHeight: 1.55, flex: 1, marginBottom: 18, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, fontStyle: 'italic' }}>
+                    {item.noteContent}
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginTop: 'auto' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#E2562B' }}>{isNote ? 'Read →' : 'Open →'}</span>
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {readNote && <NoteModal item={readNote} onClose={() => setReadNote(null)} />}
     </div>
   );
 }

@@ -423,7 +423,6 @@ router.post('/exams/:examId/questions/:questionId/confirm', validateBody(confirm
       .where(and(eq(exams.id, examId), eq(exams.studentId, studentId))).limit(1);
     if (examRows.length === 0) return res.status(404).json({ error: 'Exam not found' });
     const exam = examRows[0];
-    if (exam.status === 'completed') return res.status(400).json({ error: 'Exam already completed' });
     if (exam.type !== 'individual') return res.status(400).json({ error: 'Confirm is only available in practice mode' });
 
     // Fetch question with passage and set subject — both needed for trap_explainer routing
@@ -456,22 +455,32 @@ router.post('/exams/:examId/questions/:questionId/confirm', validateBody(confirm
     if (answerRows.length === 0) return res.status(404).json({ error: 'Answer record not found' });
     const answerRow = answerRows[0];
 
-    // Write the answer (confirm is authoritative — overrides any autosave)
-    const hasAnswer = selectedAnswer != null || (selectedAnswerText && selectedAnswerText.trim() !== '');
-    await db.update(examAnswers).set({
-      selectedAnswer: selectedAnswer ?? null,
-      selectedAnswerText: selectedAnswerText ?? null,
-      answeredAt: hasAnswer ? new Date() : null,
-    }).where(eq(examAnswers.id, answerRow.id));
-
-    // Score immediately — same deterministic logic as final submit
+    // For completed exams: use stored answer/result without mutating DB
     let isCorrect: boolean;
-    if (q.questionType === 'student_produced_response') {
-      isCorrect = selectedAnswerText ? sprIsCorrect(selectedAnswerText, q.correctAnswerText ?? '') : false;
+    let effectiveAnswer: string | null;
+    let effectiveAnswerText: string | null;
+
+    if (exam.status !== 'completed') {
+      const hasAnswer = selectedAnswer != null || (selectedAnswerText && selectedAnswerText.trim() !== '');
+      await db.update(examAnswers).set({
+        selectedAnswer: selectedAnswer ?? null,
+        selectedAnswerText: selectedAnswerText ?? null,
+        answeredAt: hasAnswer ? new Date() : null,
+      }).where(eq(examAnswers.id, answerRow.id));
+
+      if (q.questionType === 'student_produced_response') {
+        isCorrect = selectedAnswerText ? sprIsCorrect(selectedAnswerText, q.correctAnswerText ?? '') : false;
+      } else {
+        isCorrect = selectedAnswer != null && selectedAnswer === q.correctAnswer;
+      }
+      await db.update(examAnswers).set({ isCorrect }).where(eq(examAnswers.id, answerRow.id));
+      effectiveAnswer = selectedAnswer ?? null;
+      effectiveAnswerText = selectedAnswerText ?? null;
     } else {
-      isCorrect = selectedAnswer != null && selectedAnswer === q.correctAnswer;
+      isCorrect = answerRow.isCorrect ?? false;
+      effectiveAnswer = answerRow.selectedAnswer;
+      effectiveAnswerText = answerRow.selectedAnswerText;
     }
-    await db.update(examAnswers).set({ isCorrect }).where(eq(examAnswers.id, answerRow.id));
 
     // Build the feedback context once — shared by all prompt builders
     const ctx: FeedbackContext = {
@@ -485,8 +494,8 @@ router.post('/exams/:examId/questions/:questionId/confirm', validateBody(confirm
       optionD: q.optionD,
       correctAnswer: q.correctAnswer ?? null,
       correctAnswerText: q.correctAnswerText ?? null,
-      selectedAnswer: selectedAnswer ?? null,
-      selectedAnswerText: selectedAnswerText ?? null,
+      selectedAnswer: effectiveAnswer,
+      selectedAnswerText: effectiveAnswerText,
       isCorrect,
       confidence,
       reasoning: reasoning ?? null,

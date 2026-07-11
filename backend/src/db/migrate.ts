@@ -293,6 +293,14 @@ const SCHEMA_UPDATES = `
 
   ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
   ALTER TABLE generated_content ADD COLUMN IF NOT EXISTS live_set_id UUID REFERENCES question_sets(id) ON DELETE SET NULL;
+
+  DO $$ BEGIN
+    ALTER TYPE file_type ADD VALUE IF NOT EXISTS 'note';
+  EXCEPTION WHEN others THEN NULL; END $$;
+
+  ALTER TABLE library_items ALTER COLUMN file_url DROP NOT NULL;
+  ALTER TABLE library_items DROP COLUMN IF EXISTS mime_type;
+  ALTER TABLE library_items ADD COLUMN IF NOT EXISTS note_content TEXT;
 `;
 
 const SEED_DEFAULT_ADMIN_CODE = `

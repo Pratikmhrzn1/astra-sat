@@ -1,64 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import {
-  getExam,
-  saveAnswers,
-  submitExam,
-  confirmAnswer,
-  reviewVocab,
-  sendChatMessage,
-  type ConfirmFeedbacks,
-  type ReasoningClassification,
-  type CommandOfEvidenceContent,
-  type TransitionsCoachContent,
-  type VocabDrillContent,
-} from '../../api/student';
+import { getExam, saveAnswers, submitExam } from '../../api/student';
 import { saveExamProgress, loadExamProgress, clearExamProgress } from '../../lib/offline';
-
-// ── Reasoning feedback helpers ────────────────────────────────────────────────
-
-const CLASSIFICATION_META: Record<
-  ReasoningClassification,
-  { label: string; color: string; bg: string; border: string }
-> = {
-  correct_logic_correct_answer: {
-    label: 'Strong reasoning',
-    color: '#1A6B3C',
-    bg: 'rgba(46,125,90,0.07)',
-    border: 'rgba(46,125,90,0.25)',
-  },
-  correct_logic_wrong_answer: {
-    label: 'Sound logic — likely a misread',
-    color: '#B8893E',
-    bg: 'rgba(184,137,62,0.07)',
-    border: 'rgba(184,137,62,0.3)',
-  },
-  wrong_logic_correct_answer: {
-    label: 'Right answer — review your reasoning',
-    color: '#B8893E',
-    bg: 'rgba(184,137,62,0.07)',
-    border: 'rgba(184,137,62,0.3)',
-  },
-  wrong_logic_wrong_answer: {
-    label: 'Comprehension gap identified',
-    color: '#C0392B',
-    bg: 'rgba(192,57,43,0.07)',
-    border: 'rgba(192,57,43,0.2)',
-  },
-};
-
-const CONFIDENCE_CHIPS: { value: 'sure' | 'eliminated' | 'guessed'; label: string }[] = [
-  { value: 'sure', label: 'I was sure' },
-  { value: 'eliminated', label: 'Eliminated the wrong ones' },
-  { value: 'guessed', label: 'Guessed' },
-];
-
-// ── Main component ────────────────────────────────────────────────────────────
 
 export default function TakeExam() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const locationState = location.state as { timerEnabled?: boolean; examTitle?: string } | null;
 
   const [answers, setAnswers] = useState<Record<string, string | null>>({});
   const [flags, setFlags] = useState<Record<number, boolean>>({});
@@ -69,29 +19,18 @@ export default function TakeExam() {
   const [calcOpen, setCalcOpen] = useState(false);
   const [calcExpr, setCalcExpr] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-  // Practice-mode confirm state
-  const [confirmedMap, setConfirmedMap] = useState<
-    Record<string, { isCorrect: boolean; feedbacks: ConfirmFeedbacks; vocabTrackingId: string | null }>
-  >({});
-  const [pendingConfidence, setPendingConfidence] = useState<'sure' | 'eliminated' | 'guessed' | null>(null);
-  const [pendingReasoning, setPendingReasoning] = useState('');
-
-  // Vocab mini-quiz state: keyed by questionId
-  const [vocabPick, setVocabPick] = useState<Record<string, string>>({}); // selected option letter
-  const [vocabSubmitted, setVocabSubmitted] = useState<Record<string, boolean>>({}); // whether checked
-
-  // Chat state (practice mode only)
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
-  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
-  const [chatInput, setChatInput] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatError, setChatError] = useState<string | null>(null);
+  const [timerEnabled, setTimerEnabled] = useState<boolean>(locationState?.timerEnabled ?? false);
+  const examTitle = locationState?.examTitle;
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const chatMessagesRef = useRef<HTMLDivElement>(null);
+  const elapsedRef = useRef<number>(0);           // seconds elapsed this session
+  const savedTimeSpentRef = useRef<number>(0);     // seconds from a previous session (IDB)
+  const timerEnabledRef = useRef<boolean>(locationState?.timerEnabled ?? false);
+  const timeLeftRef = useRef<number>(20 * 60);
+
+  // Keep refs in sync with state
+  useEffect(() => { timerEnabledRef.current = timerEnabled; }, [timerEnabled]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['student', 'exam', examId],
@@ -99,25 +38,40 @@ export default function TakeExam() {
     enabled: !!examId,
   });
 
+  // After data loads: non-individual exams always use the timer
   useEffect(() => {
-    if (!data || !examId) return;
-    loadExamProgress(examId).then((saved) => {
+    if (!data) return;
+    if (data.exam.type !== 'individual') {
+      setTimerEnabled(true);
+      timerEnabledRef.current = true;
+      return;
+    }
+    // Individual: load saved progress and override timerEnabled from IDB (resume path)
+    loadExamProgress(examId!).then((saved) => {
       if (saved) {
         setAnswers(saved.answers);
-        setTimeLeft(Math.max(0, 20 * 60 - saved.timeSpentSeconds));
+        savedTimeSpentRef.current = saved.timeSpentSeconds;
+        setTimerEnabled(saved.timerEnabled);
+        timerEnabledRef.current = saved.timerEnabled;
+        if (saved.timerEnabled) {
+          const remaining = Math.max(0, 20 * 60 - saved.timeSpentSeconds);
+          setTimeLeft(remaining);
+          timeLeftRef.current = remaining;
+        }
       } else {
         const init: Record<string, string | null> = {};
         data.answers.forEach((a) => { init[a.questionId] = a.selectedAnswerText ?? a.selectedAnswer; });
         setAnswers(init);
+        savedTimeSpentRef.current = 0;
       }
     });
   }, [data, examId]);
 
-  // Reset confidence chip when navigating to a different question
-  useEffect(() => {
-    setPendingConfidence(null);
-    setPendingReasoning('');
-  }, [index]);
+  // Time-spent helper — reads refs to avoid stale closure issues in callbacks
+  const getTimeSpent = useCallback((): number => {
+    if (timerEnabledRef.current) return 20 * 60 - timeLeftRef.current;
+    return savedTimeSpentRef.current + elapsedRef.current;
+  }, []);
 
   const saveMutation = useMutation({
     mutationFn: ({ ans, time }: { ans: typeof answers; time: number }) =>
@@ -129,45 +83,31 @@ export default function TakeExam() {
   });
 
   const submitMutation = useMutation({
-    mutationFn: () => submitExam(examId!, 20 * 60 - timeLeft),
+    mutationFn: () => submitExam(examId!, getTimeSpent()),
     onSuccess: async () => {
       if (examId) await clearExamProgress(examId);
       navigate(`/student/results/${examId}`, { replace: true });
     },
   });
 
-  const confirmMutation = useMutation({
-    mutationFn: (payload: {
-      questionId: string;
-      selectedAnswer: string | null;
-      confidence: 'sure' | 'eliminated' | 'guessed';
-      reasoning?: string;
-      isSPR: boolean;
-    }) =>
-      confirmAnswer(examId!, payload.questionId, {
-        selectedAnswer: payload.isSPR ? null : (payload.selectedAnswer as 'a' | 'b' | 'c' | 'd' | null),
-        selectedAnswerText: payload.isSPR ? payload.selectedAnswer : null,
-        confidence: payload.confidence,
-        reasoning: payload.reasoning || undefined,
-      }),
-    onSuccess: (result, variables) => {
-      setConfirmedMap((m) => ({
-        ...m,
-        [variables.questionId]: { isCorrect: result.isCorrect, feedbacks: result.feedbacks, vocabTrackingId: result.vocabTrackingId },
-      }));
-      setPendingConfidence(null);
-      setPendingReasoning('');
-    },
-  });
-
+  // Countdown timer — only when timerEnabled
   useEffect(() => {
+    if (!timerEnabled) return;
     timerRef.current = setInterval(() => {
       setTimeLeft((t) => {
-        if (t <= 1) { clearInterval(timerRef.current!); submitMutation.mutate(); return 0; }
-        return t - 1;
+        const next = Math.max(0, t - 1);
+        timeLeftRef.current = next;
+        if (next <= 0) { clearInterval(timerRef.current!); submitMutation.mutate(); }
+        return next;
       });
     }, 1000);
     return () => clearInterval(timerRef.current!);
+  }, [timerEnabled]);
+
+  // Always count elapsed seconds (used for untimed time-spent tracking)
+  useEffect(() => {
+    const tick = setInterval(() => { elapsedRef.current += 1; }, 1000);
+    return () => clearInterval(tick);
   }, []);
 
   useEffect(() => {
@@ -179,12 +119,13 @@ export default function TakeExam() {
   }, []);
 
   const syncAnswers = useCallback(() => {
-    if (isOnline && examId) saveMutation.mutate({ ans: answers, time: 20 * 60 - timeLeft });
-  }, [answers, timeLeft, isOnline, examId]);
+    if (isOnline && examId) saveMutation.mutate({ ans: answers, time: getTimeSpent() });
+  }, [answers, isOnline, examId, getTimeSpent]);
 
+  // Save to IDB on every answer change
   useEffect(() => {
-    if (examId) saveExamProgress(examId, answers, 20 * 60 - timeLeft);
-  }, [answers]);
+    if (examId) saveExamProgress(examId, answers, getTimeSpent(), timerEnabledRef.current, examTitle);
+  }, [answers, timerEnabled]);
 
   useEffect(() => {
     syncRef.current = setInterval(syncAnswers, 30000);
@@ -194,37 +135,6 @@ export default function TakeExam() {
   useEffect(() => {
     if (isOnline) syncAnswers();
   }, [isOnline]);
-
-  // Auto-scroll chat messages area to bottom when messages or loading state change
-  useEffect(() => {
-    if (chatMessagesRef.current) {
-      chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
-    }
-  }, [chatMessages, chatLoading]);
-
-  const handleSendChat = useCallback(async () => {
-    const msg = chatInput.trim();
-    if (!msg || chatLoading || !examId) return;
-    setChatInput('');
-    setChatError(null);
-    setChatMessages((prev) => [...prev, { role: 'user', content: msg }]);
-    setChatLoading(true);
-    try {
-      const result = await sendChatMessage({
-        sessionId: chatSessionId ?? undefined,
-        userMessage: msg,
-        examId,
-        questionId: data?.questions[index]?.id,
-      });
-      if (!chatSessionId) setChatSessionId(result.sessionId);
-      setChatMessages((prev) => [...prev, { role: 'assistant', content: result.assistantMessage }]);
-    } catch {
-      setChatError("Couldn't reach the tutor right now — try again in a moment.");
-      setChatMessages((prev) => prev.slice(0, -1));
-    } finally {
-      setChatLoading(false);
-    }
-  }, [chatInput, chatLoading, chatSessionId, examId, index, data]);
 
   if (isLoading || !data) {
     return (
@@ -236,7 +146,7 @@ export default function TakeExam() {
 
   const { exam, questions } = data;
   const isPractice = exam.type === 'individual';
-  const isMath = exam.type === 'mock_math';
+  const isActuallyMath = exam.type === 'mock_math';
   const q = questions[index];
   const total = questions.length;
   const mins = String(Math.floor(timeLeft / 60)).padStart(2, '0');
@@ -247,33 +157,17 @@ export default function TakeExam() {
   const isLast = index === total - 1;
   const qElim = elim[index] ?? {};
   const isSPR = q.questionType === 'student_produced_response';
-  const confirmed = confirmedMap[q.id];
   const LETTER = ['A', 'B', 'C', 'D'];
   const optKeys = ['a', 'b', 'c', 'd'];
   const optTexts = [q.optionA, q.optionB, q.optionC, q.optionD];
 
-  const selectAnswer = (opt: string) => {
-    if (isPractice && confirmed) return; // locked after confirm
-    setAnswers((a) => ({ ...a, [q.id]: opt }));
-  };
+  const selectAnswer = (opt: string) => setAnswers((a) => ({ ...a, [q.id]: opt }));
 
   const toggleElim = (opt: string) => {
-    if (isPractice && confirmed) return;
     setElim((e) => {
       const row = { ...(e[index] ?? {}) };
       row[opt] = !row[opt];
       return { ...e, [index]: row };
-    });
-  };
-
-  const handleConfirm = () => {
-    if (!pendingConfidence || !selected || confirmMutation.isPending) return;
-    confirmMutation.mutate({
-      questionId: q.id,
-      selectedAnswer: selected,
-      confidence: pendingConfidence,
-      reasoning: pendingReasoning,
-      isSPR,
     });
   };
 
@@ -289,60 +183,7 @@ export default function TakeExam() {
     });
   };
 
-  // ── Bottom bar button logic ───────────────────────────────────────────────
-  // Practice: locked after confirm → Continue / Submit; answer selected → Confirm & Continue; no answer → Skip
-  // Mock: unchanged Next / Submit
-
   const renderBottomAction = () => {
-    if (isPractice) {
-      if (confirmed) {
-        if (isLast) {
-          return (
-            <button
-              onClick={() => submitMutation.mutate()}
-              disabled={submitMutation.isPending}
-              style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-            >Submit test</button>
-          );
-        }
-        return (
-          <button
-            onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
-            style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-          >Continue →</button>
-        );
-      }
-      if (selected) {
-        const canConfirm = !!pendingConfidence && !confirmMutation.isPending;
-        return (
-          <button
-            onClick={handleConfirm}
-            disabled={!canConfirm}
-            style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: canConfirm ? '#0B0B0E' : '#C8C4BC', color: '#fff', fontSize: 14, fontWeight: 600, cursor: canConfirm ? 'pointer' : 'default', fontFamily: 'inherit' }}
-          >
-            {confirmMutation.isPending ? 'Checking…' : 'Confirm & Continue'}
-          </button>
-        );
-      }
-      // No answer selected — allow skipping
-      if (isLast) {
-        return (
-          <button
-            onClick={() => submitMutation.mutate()}
-            disabled={submitMutation.isPending}
-            style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-          >Submit test</button>
-        );
-      }
-      return (
-        <button
-          onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
-          style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: '1px solid #C8C4BC', background: '#fff', color: '#8C8880', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-        >Skip →</button>
-      );
-    }
-
-    // Mock mode — unchanged
     if (isLast) {
       return (
         <button
@@ -355,8 +196,13 @@ export default function TakeExam() {
     return (
       <button
         onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
-        style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-      >Next →</button>
+        style={{
+          height: 42, padding: '0 22px', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+          border: selected ? 'none' : '1px solid #C8C4BC',
+          background: selected ? '#E2562B' : '#fff',
+          color: selected ? '#fff' : '#8C8880',
+        }}
+      >{selected ? 'Next →' : 'Skip →'}</button>
     );
   };
 
@@ -371,18 +217,24 @@ export default function TakeExam() {
           >← Exit</button>
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>
-              {isMath ? 'Math' : 'Reading & Writing'}
+              {isActuallyMath ? 'Math' : 'Reading & Writing'}
               {isPractice && <span style={{ marginLeft: 8, color: '#2563A8' }}>· Practice</span>}
             </div>
             <div style={{ fontSize: 14.5, fontWeight: 600 }}>Question {index + 1} of {total}</div>
           </div>
         </div>
 
-        {/* Timer */}
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, lineHeight: 1, letterSpacing: '-0.02em', color: low ? '#C0392B' : '#0B0B0E' }}>{mins}:{secs}</div>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>Time left</div>
-        </div>
+        {/* Timer — only shown when enabled */}
+        {timerEnabled ? (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, lineHeight: 1, letterSpacing: '-0.02em', color: low ? '#C0392B' : '#0B0B0E' }}>{mins}:{secs}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>Time left</div>
+          </div>
+        ) : isPractice ? (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.3)', letterSpacing: '0.04em' }}>Untimed</div>
+          </div>
+        ) : null}
 
         {/* Right controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -401,7 +253,7 @@ export default function TakeExam() {
             </svg>
             {flagged ? 'Flagged' : 'Flag'}
           </button>
-          {isMath && (
+          {isActuallyMath && (
             <button
               onClick={() => setCalcOpen((c) => !c)}
               style={{ display: 'flex', alignItems: 'center', gap: 7, border: calcOpen ? '1px solid #E2562B' : '1px solid #C8C4BC', background: calcOpen ? 'rgba(226,86,43,0.07)' : '#fff', color: calcOpen ? '#E2562B' : '#0B0B0E', borderRadius: 9999, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
@@ -423,7 +275,7 @@ export default function TakeExam() {
       {/* Content */}
       <div className="scrollarea" style={{ flex: 1, overflowY: 'auto', background: '#FAF9F6' }}>
         <div style={{ maxWidth: q.passageText ? 1100 : 760, margin: '0 auto', padding: '40px 40px 60px', display: q.passageText ? 'grid' : 'block', gridTemplateColumns: '1fr 1fr', gap: 48 }}>
-          {/* Passage (left side) */}
+          {/* Passage */}
           {q.passageText && (
             <div style={{ paddingRight: 40, borderRight: '1px solid #EAE7E1' }}>
               {q.passageTitle && <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 10 }}>{q.passageTitle}</div>}
@@ -436,236 +288,47 @@ export default function TakeExam() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <span style={{ width: 26, height: 26, borderRadius: 7, background: '#0B0B0E', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{index + 1}</span>
               {isSPR && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'rgba(226,86,43,0.08)', color: '#E2562B' }}>Grid-in</span>}
-              {isPractice && confirmed && (
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: confirmed.isCorrect ? 'rgba(46,125,90,0.08)' : 'rgba(192,57,43,0.08)', color: confirmed.isCorrect ? '#2E7D5A' : '#C0392B' }}>
-                  {confirmed.isCorrect ? '✓ Correct' : '✗ Incorrect'}
-                </span>
-              )}
             </div>
             <p style={{ fontSize: 16.5, lineHeight: 1.55, fontWeight: 500, color: '#0B0B0E', margin: '0 0 22px' }}>{q.questionText}</p>
 
-            {/* SPR: text input */}
+            {/* SPR input */}
             {isSPR && (
               <div>
                 <input
                   type="text"
                   value={selected ?? ''}
                   onChange={(e) => selectAnswer(e.target.value)}
-                  disabled={isPractice && !!confirmed}
                   placeholder="Enter your answer…"
-                  style={{ width: '100%', maxWidth: 280, height: 52, padding: '0 16px', border: selected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', borderRadius: 12, fontSize: 18, fontFamily: "'JetBrains Mono', monospace", background: isPractice && confirmed ? '#F2F0EC' : '#fff', color: '#0B0B0E', outline: 'none', boxSizing: 'border-box', opacity: isPractice && confirmed ? 0.7 : 1 }}
+                  style={{ width: '100%', maxWidth: 280, height: 52, padding: '0 16px', border: selected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', borderRadius: 12, fontSize: 18, fontFamily: "'JetBrains Mono', monospace", background: '#fff', color: '#0B0B0E', outline: 'none', boxSizing: 'border-box' }}
                 />
                 <p style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)', marginTop: 8 }}>Accepted formats: whole number, decimal (1.5), or fraction (3/4)</p>
               </div>
             )}
 
-            {/* MC: option buttons */}
+            {/* MC options */}
             {!isSPR && (
               <div>
                 {optKeys.map((key, oi) => {
                   if (!optTexts[oi]) return null;
                   const isSelected = selected === key;
                   const isElim = !!qElim[key];
-                  const isLocked = isPractice && !!confirmed;
                   return (
                     <div key={key} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
                       <button
                         onClick={() => selectAnswer(key)}
-                        disabled={isLocked}
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '15px 18px', borderRadius: 12, cursor: isLocked ? 'default' : 'pointer', background: isSelected ? 'rgba(226,86,43,0.06)' : '#fff', border: isSelected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', opacity: isElim ? 0.4 : 1, transition: 'all 0.15s', fontFamily: 'inherit' }}
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '15px 18px', borderRadius: 12, cursor: 'pointer', background: isSelected ? 'rgba(226,86,43,0.06)' : '#fff', border: isSelected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', opacity: isElim ? 0.4 : 1, transition: 'all 0.15s', fontFamily: 'inherit' }}
                       >
                         <span style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 9999, border: isSelected ? '1.5px solid #E2562B' : '1.5px solid #C8C4BC', background: isSelected ? '#E2562B' : 'transparent', color: isSelected ? '#fff' : '#8C8880', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{LETTER[oi]}</span>
                         <span style={{ fontSize: 15, color: '#0B0B0E', lineHeight: 1.5, textDecoration: isElim ? 'line-through' : 'none' }}>{optTexts[oi]}</span>
                       </button>
-                      {!isLocked && (
-                        <button
-                          title="Cross out"
-                          onClick={() => toggleElim(key)}
-                          style={{ width: 44, flexShrink: 0, borderRadius: 10, border: '1px solid #E7E4DE', background: isElim ? 'rgba(11,11,14,0.04)' : '#fff', color: isElim ? '#E2562B' : '#A8A49C', cursor: 'pointer', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', textDecoration: 'line-through', fontFamily: 'inherit' }}
-                        >ABC</button>
-                      )}
+                      <button
+                        title="Cross out"
+                        onClick={() => toggleElim(key)}
+                        style={{ width: 44, flexShrink: 0, borderRadius: 10, border: '1px solid #E7E4DE', background: isElim ? 'rgba(11,11,14,0.04)' : '#fff', color: isElim ? '#E2562B' : '#A8A49C', cursor: 'pointer', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', textDecoration: 'line-through', fontFamily: 'inherit' }}
+                      >ABC</button>
                     </div>
                   );
                 })}
-              </div>
-            )}
-
-            {/* Practice mode: confidence chips (shown when answer selected, not yet confirmed) */}
-            {isPractice && !confirmed && selected && (
-              <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #EEEBE5' }}>
-                <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 12 }}>
-                  How did you approach this?
-                </p>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
-                  {CONFIDENCE_CHIPS.map((chip) => {
-                    const active = pendingConfidence === chip.value;
-                    return (
-                      <button
-                        key={chip.value}
-                        onClick={() => setPendingConfidence(chip.value)}
-                        style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: active ? '1.5px solid #0B0B0E' : '1px solid #C8C4BC', background: active ? '#0B0B0E' : '#fff', color: active ? '#fff' : '#8C8880', transition: 'all 0.15s' }}
-                      >
-                        {chip.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <input
-                  type="text"
-                  value={pendingReasoning}
-                  onChange={(e) => setPendingReasoning(e.target.value)}
-                  placeholder="Anything else? (optional)"
-                  style={{ width: '100%', height: 40, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 10, fontSize: 13.5, fontFamily: 'inherit', background: '#fff', color: '#0B0B0E', outline: 'none', boxSizing: 'border-box' }}
-                />
-              </div>
-            )}
-
-            {/* Practice mode: AI feedback panel (shown after confirm) */}
-            {isPractice && confirmed && (
-              <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {/* Reasoning checkpoint — always fires; omit block silently if call failed */}
-                {confirmed.feedbacks.reasoning_checkpoint && (() => {
-                  const rc = confirmed.feedbacks.reasoning_checkpoint!;
-                  const meta = CLASSIFICATION_META[rc.classification as ReasoningClassification] ?? CLASSIFICATION_META.correct_logic_correct_answer;
-                  return (
-                    <div style={{ padding: '16px 18px', borderRadius: 12, background: meta.bg, border: `1px solid ${meta.border}` }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: meta.color, marginBottom: 8 }}>
-                        {meta.label}
-                      </div>
-                      <p style={{ fontSize: 14, lineHeight: 1.6, color: '#0B0B0E', margin: 0 }}>{rc.explanation}</p>
-                    </div>
-                  );
-                })()}
-
-                {/* Grammar diagnosis — only present when subSkill=grammar AND wrong */}
-                {confirmed.feedbacks.grammar_diagnosis && (
-                  <div style={{ padding: '12px 16px', borderRadius: 10, background: '#F0ECE4', border: '1px solid rgba(184,137,62,0.25)' }}>
-                    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8A6020', marginBottom: 5 }}>
-                      Grammar rule: {confirmed.feedbacks.grammar_diagnosis.grammarRule}
-                    </div>
-                    <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: 0 }}>
-                      {confirmed.feedbacks.grammar_diagnosis.grammarFix}
-                    </p>
-                  </div>
-                )}
-
-                {/* Trap explainer — only present when English MC AND wrong */}
-                {confirmed.feedbacks.trap_explainer && (
-                  <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(11,11,14,0.03)', border: '1px solid #E7E4DE' }}>
-                    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.45)', marginBottom: 5 }}>
-                      Trap: {confirmed.feedbacks.trap_explainer.trap}
-                    </div>
-                    <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: 0 }}>
-                      {confirmed.feedbacks.trap_explainer.explanation}
-                    </p>
-                  </div>
-                )}
-
-                {/* Command of evidence — only present when subSkill=command_of_evidence AND English MC AND wrong */}
-                {confirmed.feedbacks.command_of_evidence && (() => {
-                  const coe = confirmed.feedbacks.command_of_evidence as CommandOfEvidenceContent;
-                  return (
-                    <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.2)' }}>
-                      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#1D4ED8', marginBottom: 8 }}>
-                        Supporting evidence
-                      </div>
-                      <blockquote style={{ fontFamily: "'Instrument Serif', serif", fontSize: 14.5, lineHeight: 1.6, color: '#0B0B0E', margin: '0 0 10px', paddingLeft: 12, borderLeft: '2px solid rgba(37,99,235,0.35)', fontStyle: 'italic' }}>
-                        "{coe.supportingLine}"
-                      </blockquote>
-                      <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: '0 0 4px' }}>{coe.whyCorrect}</p>
-                      <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'rgba(11,11,14,0.6)', margin: 0 }}>{coe.whyStudentWrong}</p>
-                    </div>
-                  );
-                })()}
-
-                {/* Transitions coach — only present when subSkill=transitions AND wrong */}
-                {confirmed.feedbacks.transitions_coach && (() => {
-                  const tc = confirmed.feedbacks.transitions_coach as TransitionsCoachContent;
-                  return (
-                    <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(124,58,237,0.04)', border: '1px solid rgba(124,58,237,0.2)' }}>
-                      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6D28D9', marginBottom: 8 }}>
-                        Transition logic
-                      </div>
-                      <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: '0 0 6px' }}>{tc.logicalRelationship}</p>
-                      <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: '0 0 4px' }}>{tc.whyCorrect}</p>
-                      <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'rgba(11,11,14,0.6)', margin: 0 }}>{tc.whyStudentWrong}</p>
-                    </div>
-                  );
-                })()}
-
-                {/* Vocab drill — interactive mini-quiz, distinct from the Continue button */}
-                {confirmed.feedbacks.vocab_drill && (() => {
-                  const vd = confirmed.feedbacks.vocab_drill as VocabDrillContent;
-                  const optLetters = ['A', 'B', 'C', 'D'];
-                  const picked = vocabPick[q.id];
-                  const isSubmitted = !!vocabSubmitted[q.id];
-                  const isPickCorrect = picked === vd.correctOption;
-
-                  const handleVocabSubmit = () => {
-                    if (!picked || isSubmitted) return;
-                    setVocabSubmitted((s) => ({ ...s, [q.id]: true }));
-                    if (confirmed.vocabTrackingId) {
-                      reviewVocab(confirmed.vocabTrackingId, picked === vd.correctOption).catch(console.error);
-                    }
-                  };
-
-                  return (
-                    <div style={{ padding: '14px 16px', borderRadius: 12, background: 'rgba(0,128,128,0.04)', border: '2px solid rgba(0,128,128,0.18)' }}>
-                      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#0D7377', marginBottom: 6 }}>
-                        Vocab drill — "{vd.word}"
-                      </div>
-                      <p style={{ fontSize: 13, lineHeight: 1.55, color: 'rgba(11,11,14,0.6)', margin: '0 0 10px', fontStyle: 'italic' }}>
-                        "{vd.sentenceContext}"
-                      </p>
-                      <p style={{ fontSize: 13.5, fontWeight: 600, color: '#0B0B0E', margin: '0 0 10px' }}>{vd.followUpQuestion}</p>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
-                        {vd.options.map((opt, oi) => {
-                          const letter = optLetters[oi];
-                          const isPicked = picked === letter;
-                          const isCorrectOpt = letter === vd.correctOption;
-                          let bg = '#fff';
-                          let border = '1px solid #C8C4BC';
-                          let color = '#0B0B0E';
-                          if (isSubmitted) {
-                            if (isCorrectOpt) { bg = 'rgba(46,125,90,0.1)'; border = '1.5px solid #2E7D5A'; color = '#1A5C38'; }
-                            else if (isPicked && !isCorrectOpt) { bg = 'rgba(192,57,43,0.08)'; border = '1.5px solid #C0392B'; color = '#8B1A10'; }
-                          } else if (isPicked) {
-                            bg = 'rgba(0,128,128,0.07)'; border = '1.5px solid #0D7377';
-                          }
-                          return (
-                            <button
-                              key={letter}
-                              onClick={() => { if (!isSubmitted) setVocabPick((p) => ({ ...p, [q.id]: letter })); }}
-                              disabled={isSubmitted}
-                              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 9, border, background: bg, color, fontSize: 13, textAlign: 'left', cursor: isSubmitted ? 'default' : 'pointer', fontFamily: 'inherit', transition: 'all 0.12s' }}
-                            >
-                              <span style={{ width: 22, height: 22, borderRadius: 9999, border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{letter}</span>
-                              {opt}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {isSubmitted ? (
-                        <div style={{ padding: '10px 12px', borderRadius: 8, background: isPickCorrect ? 'rgba(46,125,90,0.08)' : 'rgba(192,57,43,0.07)', marginTop: 4 }}>
-                          <div style={{ fontSize: 11.5, fontWeight: 700, color: isPickCorrect ? '#1A5C38' : '#8B1A10', marginBottom: 4 }}>
-                            {isPickCorrect ? '✓ Correct' : '✗ Incorrect — correct answer: ' + vd.correctOption}
-                          </div>
-                          <p style={{ fontSize: 13, lineHeight: 1.5, color: '#0B0B0E', margin: 0 }}>{vd.explanation}</p>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={handleVocabSubmit}
-                          disabled={!picked}
-                          style={{ height: 36, padding: '0 18px', borderRadius: 9999, border: 'none', background: picked ? '#0D7377' : '#C8C4BC', color: '#fff', fontSize: 13, fontWeight: 700, cursor: picked ? 'pointer' : 'default', fontFamily: 'inherit', letterSpacing: '0.02em' }}
-                        >
-                          Check answer
-                        </button>
-                      )}
-                    </div>
-                  );
-                })()}
               </div>
             )}
           </div>
@@ -673,7 +336,7 @@ export default function TakeExam() {
       </div>
 
       {/* Calculator popup */}
-      {isMath && calcOpen && (
+      {isActuallyMath && calcOpen && (
         <div style={{ position: 'fixed', right: 24, bottom: 92, width: 248, background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 16px 48px rgba(11,11,14,0.18)', padding: 14, zIndex: 45 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>Calculator</span>
@@ -718,29 +381,16 @@ export default function TakeExam() {
 
       {/* Bottom bar */}
       <div style={{ height: 70, flexShrink: 0, background: '#fff', borderTop: '1px solid #E7E4DE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button
-            onClick={() => setNavOpen((n) => !n)}
-            style={{ display: 'flex', alignItems: 'center', gap: 9, border: '1px solid #C8C4BC', background: navOpen ? '#F2F0EC' : '#fff', borderRadius: 10, padding: '9px 16px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit' }}
-          >
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
-              <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
-            </svg>
-            Question {index + 1} of {total}
-          </button>
-          {isPractice && (
-            <button
-              onClick={() => setChatOpen((o) => !o)}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, border: chatOpen ? '1px solid #0D7377' : '1px solid #C8C4BC', background: chatOpen ? 'rgba(13,115,119,0.07)' : '#fff', color: chatOpen ? '#0D7377' : '#0B0B0E', borderRadius: 10, padding: '9px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-            >
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-              Ask a question
-            </button>
-          )}
-        </div>
+        <button
+          onClick={() => setNavOpen((n) => !n)}
+          style={{ display: 'flex', alignItems: 'center', gap: 9, border: '1px solid #C8C4BC', background: navOpen ? '#F2F0EC' : '#fff', borderRadius: 10, padding: '9px 16px', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit' }}
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+            <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+          </svg>
+          Question {index + 1} of {total}
+        </button>
 
         <div style={{ display: 'flex', gap: 10 }}>
           <button
@@ -751,67 +401,6 @@ export default function TakeExam() {
           {renderBottomAction()}
         </div>
       </div>
-
-      {/* Chat panel — practice mode only, slides up above the bottom bar */}
-      {isPractice && chatOpen && (
-        <div style={{ position: 'fixed', bottom: 70, left: 0, right: 0, height: 380, background: '#fff', borderTop: '1px solid #E7E4DE', boxShadow: '0 -8px 32px rgba(11,11,14,0.12)', display: 'flex', flexDirection: 'column', zIndex: 44, animation: 'chatSlideUp 0.2s ease-out' }}>
-          {/* Header */}
-          <div style={{ height: 48, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', borderBottom: '1px solid #F0ECE4' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#0D7377', flexShrink: 0 }} />
-              <span style={{ fontSize: 13.5, fontWeight: 700 }}>SAT Tutor</span>
-              <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.4)', fontWeight: 500 }}>· Reading &amp; Writing</span>
-            </div>
-            <button onClick={() => setChatOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#8C8880', fontSize: 22, lineHeight: 1, padding: 0, fontFamily: 'inherit' }}>×</button>
-          </div>
-
-          {/* Messages scroll area */}
-          <div ref={chatMessagesRef} className="scrollarea" style={{ flex: 1, overflowY: 'auto', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {chatMessages.length === 0 && (
-              <p style={{ color: 'rgba(11,11,14,0.4)', fontSize: 13.5, textAlign: 'center', margin: '20px 0 0' }}>
-                Ask anything about this question — grammar rules, what the passage means, strategy.
-              </p>
-            )}
-            {chatMessages.map((msg, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                <div style={{ maxWidth: '82%', padding: '9px 14px', borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: msg.role === 'user' ? '#0B0B0E' : '#F2F0EC', color: msg.role === 'user' ? '#fff' : '#0B0B0E', fontSize: 13.5, lineHeight: 1.55 }}>
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-            {chatLoading && (
-              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                <div style={{ padding: '10px 16px', borderRadius: '14px 14px 14px 4px', background: '#F2F0EC', display: 'flex', gap: 5, alignItems: 'center' }}>
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: 'rgba(11,11,14,0.45)', animation: `chatDotBounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
-                  ))}
-                </div>
-              </div>
-            )}
-            {chatError && (
-              <p style={{ fontSize: 12.5, color: '#C0392B', textAlign: 'center', margin: 0 }}>{chatError}</p>
-            )}
-          </div>
-
-          {/* Input row */}
-          <div style={{ height: 60, flexShrink: 0, borderTop: '1px solid #F0ECE4', display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px' }}>
-            <input
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChat(); } }}
-              placeholder="Ask about this question…"
-              disabled={chatLoading}
-              style={{ flex: 1, height: 38, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 9999, fontSize: 13.5, fontFamily: 'inherit', background: '#FAF9F6', color: '#0B0B0E', outline: 'none' }}
-            />
-            <button
-              onClick={handleSendChat}
-              disabled={chatLoading || !chatInput.trim()}
-              style={{ height: 38, padding: '0 18px', borderRadius: 9999, border: 'none', background: chatInput.trim() && !chatLoading ? '#0B0B0E' : '#C8C4BC', color: '#fff', fontSize: 13, fontWeight: 600, cursor: chatInput.trim() && !chatLoading ? 'pointer' : 'default', fontFamily: 'inherit', flexShrink: 0 }}
-            >Send</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

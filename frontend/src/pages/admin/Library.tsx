@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, EyeOff } from 'lucide-react';
-import { getLibraryItems, createLibraryItem, updateLibraryItem, deleteLibraryItem } from '../../api/library';
+import { Plus, Pencil, Trash2, EyeOff, Upload, FileText } from 'lucide-react';
+import { getLibraryItems, createLibraryItem, updateLibraryItem, deleteLibraryItem, uploadFile } from '../../api/library';
 import type { LibraryItem, FileType } from '../../api/library';
 import { Modal, ConfirmModal } from '../../components/ui/Modal';
 import { Button } from '../../components/ui/Button';
@@ -16,18 +16,43 @@ const TYPE_META: Record<FileType, { color: string; label: string; icon: string }
   image:    { color: '#2E7D5A', label: 'Image',    icon: '🖼️' },
   document: { color: '#E2562B', label: 'Document', icon: '📄' },
   other:    { color: '#8C8880', label: 'Other',    icon: '📎' },
+  note:     { color: '#7C3AED', label: 'Note',     icon: '📝' },
 };
 
-const FILE_TYPES: FileType[] = ['audio', 'video', 'image', 'document', 'other'];
-const ALL_FILTERS = ['All', 'Audio', 'Video', 'Image', 'Document', 'Other'];
+const FILE_TYPES: Exclude<FileType, 'note'>[] = ['audio', 'video', 'image', 'document', 'other'];
+const ALL_FILTERS = ['All', 'Audio', 'Video', 'Image', 'Document', 'Note', 'Other'];
+
+const EXT_MAP: Record<string, Exclude<FileType, 'note'>> = {
+  pdf: 'document', doc: 'document', docx: 'document', ppt: 'document', pptx: 'document',
+  xls: 'document', xlsx: 'document', txt: 'document', csv: 'document', rtf: 'document',
+  mp4: 'video', mov: 'video', avi: 'video', webm: 'video', mkv: 'video', flv: 'video',
+  mp3: 'audio', wav: 'audio', ogg: 'audio', flac: 'audio', m4a: 'audio', aac: 'audio',
+  png: 'image', jpg: 'image', jpeg: 'image', gif: 'image', webp: 'image', svg: 'image', bmp: 'image',
+};
+
+function inferFileType(filename: string): Exclude<FileType, 'note'> {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+  return EXT_MAP[ext] ?? 'other';
+}
 
 const inputStyle: React.CSSProperties = {
   width: '100%', height: 40, padding: '0 12px', border: '1px solid #C8C4BC', borderRadius: 10,
   fontSize: 14, background: '#fff', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
 };
 
-function ItemCard({ item, onEdit, onDelete }: { item: LibraryItem; onEdit: () => void; onDelete: () => void }) {
+function NoteReadModal({ item, onClose }: { item: LibraryItem; onClose: () => void }) {
+  return (
+    <Modal isOpen onClose={onClose} title={item.title} size="md">
+      <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.75, color: '#0B0B0E', minHeight: 80 }}>
+        {item.noteContent || <span style={{ color: 'rgba(11,11,14,0.35)' }}>No content.</span>}
+      </div>
+    </Modal>
+  );
+}
+
+function ItemCard({ item, onEdit, onDelete, onRead }: { item: LibraryItem; onEdit: () => void; onDelete: () => void; onRead: () => void }) {
   const meta = TYPE_META[item.fileType] ?? TYPE_META.other;
+  const isNote = item.fileType === 'note';
   return (
     <div style={{ ...CARD, padding: '20px', display: 'flex', flexDirection: 'column', position: 'relative', opacity: item.hidden ? 0.6 : 1 }}>
       {item.hidden && (
@@ -45,57 +70,87 @@ function ItemCard({ item, onEdit, onDelete }: { item: LibraryItem; onEdit: () =>
           {item.description}
         </div>
       )}
+      {isNote && item.noteContent && (
+        <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', lineHeight: 1.5, marginBottom: 12, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, fontStyle: 'italic' }}>
+          {item.noteContent}
+        </div>
+      )}
       {item.uploaderName && (
         <div style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.4)', marginBottom: 14 }}>by {item.uploaderName}</div>
       )}
       <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
         <button
-          onClick={() => window.open(item.fileUrl, '_blank')}
+          onClick={isNote ? onRead : () => item.fileUrl && window.open(item.fileUrl, '_blank')}
           style={{ flex: 1, height: 34, background: '#0B0B0E', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-        >Open</button>
-        <button
-          onClick={onEdit}
-          style={{ width: 34, height: 34, border: '1px solid #E7E4DE', background: '#fff', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#0B0B0E' }}
-          title="Edit"
-        ><Pencil size={14} /></button>
-        <button
-          onClick={onDelete}
-          style={{ width: 34, height: 34, border: '1px solid #E7E4DE', background: '#fff', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#dc2626' }}
-          title="Delete"
-        ><Trash2 size={14} /></button>
+        >{isNote ? 'Read' : 'Open'}</button>
+        <button onClick={onEdit} style={{ width: 34, height: 34, border: '1px solid #E7E4DE', background: '#fff', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#0B0B0E' }} title="Edit"><Pencil size={14} /></button>
+        <button onClick={onDelete} style={{ width: 34, height: 34, border: '1px solid #E7E4DE', background: '#fff', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#dc2626' }} title="Delete"><Trash2 size={14} /></button>
       </div>
     </div>
   );
 }
 
+type AddMode = 'file' | 'note';
+interface FileState { url: string; fileName: string; fileType: Exclude<FileType, 'note'>; }
+
 export default function AdminLibrary() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState('All');
   const [showCreate, setShowCreate] = useState(false);
+  const [addMode, setAddMode] = useState<AddMode>('file');
   const [editItem, setEditItem] = useState<LibraryItem | null>(null);
+  const [readNote, setReadNote] = useState<LibraryItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LibraryItem | null>(null);
   const [formError, setFormError] = useState('');
-
-  const [createForm, setCreateForm] = useState({ title: '', fileUrl: '', fileType: 'document' as FileType, description: '', mimeType: '', fileName: '' });
-  const [editForm, setEditForm] = useState({ title: '', description: '', hidden: false });
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<FileState | null>(null);
+  const [fileTitle, setFileTitle] = useState('');
+  const [fileDesc, setFileDesc] = useState('');
+  const [fileType, setFileType] = useState<Exclude<FileType, 'note'>>('document');
+  const [noteTitle, setNoteTitle] = useState('');
+  const [noteContent, setNoteContent] = useState('');
+  const [noteDesc, setNoteDesc] = useState('');
+  const [editForm, setEditForm] = useState({ title: '', description: '', noteContent: '', hidden: false });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: items = [], isLoading } = useQuery({ queryKey: ['library'], queryFn: getLibraryItems });
 
+  const resetCreate = () => {
+    setAddMode('file'); setUploadedFile(null);
+    setFileTitle(''); setFileDesc(''); setFileType('document');
+    setNoteTitle(''); setNoteContent(''); setNoteDesc('');
+    setFormError(''); setIsDragging(false);
+  };
+
+  const processFile = useCallback(async (file: File) => {
+    setUploading(true); setFormError('');
+    try {
+      const result = await uploadFile(file);
+      const inferredType = inferFileType(file.name);
+      setUploadedFile({ url: result.url, fileName: result.fileName, fileType: inferredType });
+      setFileType(inferredType);
+      if (!fileTitle) setFileTitle(file.name.replace(/\.[^.]+$/, ''));
+    } catch { setFormError('Upload failed. Please try again.'); }
+    finally { setUploading(false); }
+  }, [fileTitle]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  }, [processFile]);
+
   const createMutation = useMutation({
-    mutationFn: () => createLibraryItem({
-      title: createForm.title,
-      fileUrl: createForm.fileUrl,
-      fileType: createForm.fileType,
-      description: createForm.description || undefined,
-      mimeType: createForm.mimeType || undefined,
-      fileName: createForm.fileName || undefined,
-    }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['library'] }); setShowCreate(false); setCreateForm({ title: '', fileUrl: '', fileType: 'document', description: '', mimeType: '', fileName: '' }); setFormError(''); },
+    mutationFn: () => addMode === 'note'
+      ? createLibraryItem({ title: noteTitle, description: noteDesc || undefined, fileType: 'note', noteContent })
+      : createLibraryItem({ title: fileTitle, description: fileDesc || undefined, fileType, fileUrl: uploadedFile!.url, fileName: uploadedFile!.fileName }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['library'] }); setShowCreate(false); resetCreate(); },
     onError: (err) => setFormError(getApiError(err)),
   });
 
   const editMutation = useMutation({
-    mutationFn: () => updateLibraryItem(editItem!.id, { title: editForm.title, description: editForm.description || null, hidden: editForm.hidden }),
+    mutationFn: () => updateLibraryItem(editItem!.id, { title: editForm.title, description: editForm.description || null, noteContent: editItem?.fileType === 'note' ? (editForm.noteContent || null) : undefined, hidden: editForm.hidden }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['library'] }); setEditItem(null); setFormError(''); },
     onError: (err) => setFormError(getApiError(err)),
   });
@@ -105,6 +160,7 @@ export default function AdminLibrary() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['library'] }); setDeleteTarget(null); },
   });
 
+  const canSubmit = addMode === 'note' ? !!noteTitle && !!noteContent : !!fileTitle && !!uploadedFile;
   const shown = items.filter((i) => filter === 'All' || i.fileType.toLowerCase() === filter.toLowerCase());
 
   return (
@@ -114,12 +170,9 @@ export default function AdminLibrary() {
           <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, margin: 0, letterSpacing: '-0.02em' }}>Library</h1>
           <p style={{ fontSize: 15, color: 'rgba(11,11,14,0.55)', margin: '4px 0 0' }}>Manage resources for students and teachers.</p>
         </div>
-        <button
-          onClick={() => { setShowCreate(true); setFormError(''); }}
+        <button onClick={() => { setShowCreate(true); resetCreate(); }}
           style={{ display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 18px', background: '#E2562B', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-        >
-          <Plus size={16} /> Add Item
-        </button>
+        ><Plus size={16} /> Add Item</button>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
@@ -142,31 +195,80 @@ export default function AdminLibrary() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           {shown.map((item) => (
             <ItemCard key={item.id} item={item}
-              onEdit={() => { setEditItem(item); setEditForm({ title: item.title, description: item.description ?? '', hidden: item.hidden }); setFormError(''); }}
+              onEdit={() => { setEditItem(item); setEditForm({ title: item.title, description: item.description ?? '', noteContent: item.noteContent ?? '', hidden: item.hidden }); setFormError(''); }}
               onDelete={() => setDeleteTarget(item)}
+              onRead={() => setReadNote(item)}
             />
           ))}
         </div>
       )}
 
-      {/* Create Modal */}
-      <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Add Library Item" size="md"
-        footer={<><Button variant="secondary" onClick={() => setShowCreate(false)}>Cancel</Button><Button variant="primary" onClick={() => createMutation.mutate()} loading={createMutation.isPending} disabled={!createForm.title || !createForm.fileUrl}>Add Item</Button></>}
+      {/* Add Item Modal */}
+      <Modal isOpen={showCreate} onClose={() => { setShowCreate(false); resetCreate(); }} title="Add Library Item" size="md"
+        footer={<><Button variant="secondary" onClick={() => { setShowCreate(false); resetCreate(); }}>Cancel</Button><Button variant="primary" onClick={() => createMutation.mutate()} loading={createMutation.isPending} disabled={!canSubmit || uploading}>Add Item</Button></>}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {formError && <div style={{ background: 'rgba(220,38,38,0.08)', color: '#dc2626', padding: '9px 12px', borderRadius: 8, fontSize: 13 }}>{formError}</div>}
-          <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>Title *</label><input style={inputStyle} value={createForm.title} onChange={(e) => setCreateForm((p) => ({ ...p, title: e.target.value }))} placeholder="e.g. Math Formula Sheet" /></div>
-          <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>File URL *</label><input style={inputStyle} value={createForm.fileUrl} onChange={(e) => setCreateForm((p) => ({ ...p, fileUrl: e.target.value }))} placeholder="https://..." /></div>
-          <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>File Type *</label>
-            <select style={{ ...inputStyle, height: 40 }} value={createForm.fileType} onChange={(e) => setCreateForm((p) => ({ ...p, fileType: e.target.value as FileType }))}>
-              {FILE_TYPES.map((t) => <option key={t} value={t}>{TYPE_META[t].label}</option>)}
-            </select>
+          <div style={{ display: 'inline-flex', gap: 4, background: '#F0EDE7', borderRadius: 10, padding: 4 }}>
+            {([['file', Upload, 'Upload File'], ['note', FileText, 'Write Note']] as const).map(([m, Icon, label]) => (
+              <button key={m} onClick={() => { setAddMode(m); setFormError(''); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none', fontFamily: 'inherit', transition: 'background 0.15s', background: addMode === m ? '#fff' : 'transparent', color: addMode === m ? '#0B0B0E' : 'rgba(11,11,14,0.45)', boxShadow: addMode === m ? '0 1px 4px rgba(11,11,14,0.1)' : 'none' }}
+              ><Icon size={13} />{label}</button>
+            ))}
           </div>
-          <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>Description</label><textarea style={{ ...inputStyle, height: 80, padding: '8px 12px', resize: 'vertical' }} value={createForm.description} onChange={(e) => setCreateForm((p) => ({ ...p, description: e.target.value }))} placeholder="Optional description..." /></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>File Name</label><input style={inputStyle} value={createForm.fileName} onChange={(e) => setCreateForm((p) => ({ ...p, fileName: e.target.value }))} placeholder="Optional" /></div>
-            <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>MIME Type</label><input style={inputStyle} value={createForm.mimeType} onChange={(e) => setCreateForm((p) => ({ ...p, mimeType: e.target.value }))} placeholder="e.g. application/pdf" /></div>
-          </div>
+
+          {addMode === 'file' ? (
+            <>
+              <div>
+                <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 6, color: 'rgba(11,11,14,0.65)' }}>File *</label>
+                <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) processFile(f); }} />
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleDrop}
+                  onClick={() => !uploading && fileInputRef.current?.click()}
+                  style={{ border: isDragging ? '2px dashed #E2562B' : uploadedFile ? '2px solid #0B0B0E' : '2px dashed #C8C4BC', borderRadius: 12, padding: '24px 20px', textAlign: 'center', cursor: uploading ? 'default' : 'pointer', background: isDragging ? 'rgba(226,86,43,0.04)' : uploadedFile ? 'rgba(11,11,14,0.02)' : '#FAFAF8', transition: 'border-color 0.15s, background 0.15s' }}
+                >
+                  {uploading ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}><Spinner /><div style={{ fontSize: 13, color: 'rgba(11,11,14,0.5)' }}>Uploading…</div></div>
+                  ) : uploadedFile ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 28 }}>{TYPE_META[uploadedFile.fileType].icon}</span>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0B0B0E' }}>{uploadedFile.fileName}</div>
+                      <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)' }}>Click to change file</div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                      <Upload size={24} color="rgba(11,11,14,0.25)" />
+                      <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0B0B0E' }}>Drag & drop or click to upload</div>
+                      <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)' }}>Any file type · max 50 MB</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {uploadedFile && (
+                <div>
+                  <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>File Type <span style={{ fontWeight: 400, color: 'rgba(11,11,14,0.4)' }}>(auto-detected — correct if wrong)</span></label>
+                  <select style={{ ...inputStyle, height: 40 }} value={fileType} onChange={(e) => setFileType(e.target.value as Exclude<FileType, 'note'>)}>
+                    {FILE_TYPES.map((t) => <option key={t} value={t}>{TYPE_META[t].label}</option>)}
+                  </select>
+                </div>
+              )}
+              <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>Title *</label><input style={inputStyle} value={fileTitle} onChange={(e) => setFileTitle(e.target.value)} placeholder="e.g. Math Formula Sheet" /></div>
+              <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>Description</label><textarea style={{ ...inputStyle, height: 72, padding: '8px 12px', resize: 'vertical' }} value={fileDesc} onChange={(e) => setFileDesc(e.target.value)} placeholder="Optional description…" /></div>
+            </>
+          ) : (
+            <>
+              <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>Title *</label><input style={inputStyle} value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} placeholder="e.g. Useful YouTube Videos" /></div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>Content *</label>
+                <textarea style={{ ...inputStyle, height: 180, padding: '10px 12px', resize: 'vertical', lineHeight: 1.6 }} value={noteContent} onChange={(e) => setNoteContent(e.target.value)}
+                  placeholder={"Write anything here — links, notes, instructions…\n\nExample:\nCheck out this Khan Academy video:\nhttps://www.youtube.com/watch?v=..."}
+                />
+              </div>
+              <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>Description</label><input style={inputStyle} value={noteDesc} onChange={(e) => setNoteDesc(e.target.value)} placeholder="Optional short description shown on the card…" /></div>
+            </>
+          )}
         </div>
       </Modal>
 
@@ -177,7 +279,10 @@ export default function AdminLibrary() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {formError && <div style={{ background: 'rgba(220,38,38,0.08)', color: '#dc2626', padding: '9px 12px', borderRadius: 8, fontSize: 13 }}>{formError}</div>}
           <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>Title</label><input style={inputStyle} value={editForm.title} onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))} /></div>
-          <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>Description</label><textarea style={{ ...inputStyle, height: 80, padding: '8px 12px', resize: 'vertical' }} value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} /></div>
+          <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>Description</label><textarea style={{ ...inputStyle, height: 72, padding: '8px 12px', resize: 'vertical' }} value={editForm.description} onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))} /></div>
+          {editItem?.fileType === 'note' && (
+            <div><label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>Content</label><textarea style={{ ...inputStyle, height: 140, padding: '10px 12px', resize: 'vertical', lineHeight: 1.6 }} value={editForm.noteContent} onChange={(e) => setEditForm((p) => ({ ...p, noteContent: e.target.value }))} /></div>
+          )}
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, cursor: 'pointer' }}>
             <input type="checkbox" checked={editForm.hidden} onChange={(e) => setEditForm((p) => ({ ...p, hidden: e.target.checked }))} style={{ width: 16, height: 16 }} />
             Hide from students and teachers
@@ -185,6 +290,7 @@ export default function AdminLibrary() {
         </div>
       </Modal>
 
+      {readNote && <NoteReadModal item={readNote} onClose={() => setReadNote(null)} />}
       <ConfirmModal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={() => deleteMutation.mutate()} title="Delete item" message={`"${deleteTarget?.title}" will be permanently deleted.`} confirmLabel="Delete" confirmVariant="danger" loading={deleteMutation.isPending} />
     </div>
   );

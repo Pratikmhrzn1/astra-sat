@@ -26,7 +26,7 @@ export const qualityFlagEnum = pgEnum('quality_flag', ['pending', 'approved', 'r
 export const narrativeStatusEnum = pgEnum('narrative_status', ['pending', 'complete', 'failed']);
 export const chatRoleEnum = pgEnum('chat_role', ['user', 'assistant']);
 export const feedbackCategoryEnum = pgEnum('feedback_category', ['bug', 'suggestion', 'other']);
-export const fileTypeEnum = pgEnum('file_type', ['audio', 'video', 'image', 'document', 'other']);
+export const fileTypeEnum = pgEnum('file_type', ['audio', 'video', 'image', 'document', 'other', 'note']);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -260,10 +260,10 @@ export const libraryItems = pgTable('library_items', {
   id: uuid('id').primaryKey().defaultRandom(),
   title: varchar('title', { length: 200 }).notNull(),
   description: text('description'),
-  fileUrl: text('file_url').notNull(),
+  fileUrl: text('file_url'),
   fileType: fileTypeEnum('file_type').notNull(),
-  mimeType: varchar('mime_type', { length: 100 }),
   fileName: varchar('file_name', { length: 300 }),
+  noteContent: text('note_content'),
   uploadedBy: uuid('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
   hidden: boolean('hidden').notNull().default(false),
   createdAt: timestamp('created_at').notNull().defaultNow(),
