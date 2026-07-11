@@ -425,8 +425,11 @@ export default function ExamDetail() {
       {/* Question review */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '6px 0 14px' }}>
         <h3 style={{ fontSize: 16, margin: 0 }}>Question review</h3>
-        <span style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)' }}>
-          {isPractice ? 'Expand to review or get AI guidance' : 'Tap a question to see the explanation'}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: '#B8893E', background: 'rgba(184,137,62,0.1)', border: '1px solid rgba(184,137,62,0.3)', borderRadius: 9999, padding: '5px 12px' }}>
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+          {isPractice ? 'Click a question to expand & get AI guidance' : 'Click a question to see the explanation'}
         </span>
       </div>
 
@@ -457,7 +460,7 @@ export default function ExamDetail() {
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(11,11,14,0.4)', width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
                 <span style={{ fontSize: 14.5, fontWeight: 600, flex: 1 }}>Question {i + 1}</span>
-                <span style={{ color: 'rgba(11,11,14,0.3)', fontSize: 13, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>▸</span>
+                <span style={{ color: open ? '#E2562B' : 'rgba(184,137,62,0.75)', fontSize: 16, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s, color 0.2s', display: 'inline-block', flexShrink: 0 }}>▸</span>
               </button>
 
               {open && (

@@ -8,7 +8,7 @@ export default function TakeExam() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const locationState = location.state as { timerEnabled?: boolean; examTitle?: string } | null;
+  const locationState = location.state as { timerEnabled?: boolean; examTitle?: string; fromMockSection1?: boolean } | null;
 
   const [answers, setAnswers] = useState<Record<string, string | null>>({});
   const [flags, setFlags] = useState<Record<number, boolean>>({});
@@ -20,6 +20,7 @@ export default function TakeExam() {
   const [calcExpr, setCalcExpr] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [timerEnabled, setTimerEnabled] = useState<boolean>(locationState?.timerEnabled ?? false);
+  const [sectionBanner, setSectionBanner] = useState<boolean>(locationState?.fromMockSection1 ?? false);
   const examTitle = locationState?.examTitle;
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -86,6 +87,11 @@ export default function TakeExam() {
     mutationFn: () => submitExam(examId!, getTimeSpent()),
     onSuccess: async () => {
       if (examId) await clearExamProgress(examId);
+      // Mock test: English section chains into Math section
+      if (data?.exam.type === 'mock_english' && data?.mathExamId) {
+        navigate(`/student/exams/${data.mathExamId}`, { replace: true, state: { fromMockSection1: true } });
+        return;
+      }
       navigate(`/student/results/${examId}`, { replace: true });
     },
   });
@@ -271,6 +277,17 @@ export default function TakeExam() {
           >Submit test</button>
         </div>
       </div>
+
+      {/* Section transition banner */}
+      {sectionBanner && (
+        <div style={{ flexShrink: 0, background: 'rgba(37,99,168,0.07)', borderBottom: '1px solid rgba(37,99,168,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#2563A8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#1D4ED8' }}>Section 1 (Reading &amp; Writing) complete — you&apos;re now on Section 2: Math</span>
+          </div>
+          <button onClick={() => setSectionBanner(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#6B7280', fontSize: 18, lineHeight: 1, padding: '0 4px', fontFamily: 'inherit' }}>×</button>
+        </div>
+      )}
 
       {/* Content */}
       <div className="scrollarea" style={{ flex: 1, overflowY: 'auto', background: '#FAF9F6' }}>
