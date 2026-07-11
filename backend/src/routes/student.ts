@@ -702,7 +702,7 @@ router.get('/exams/:examId/results', async (req, res) => {
 
     const results = await db
       .select({
-        questionId: questions.id,
+        id: questions.id,
         questionType: questions.questionType,
         questionText: questions.questionText,
         optionA: questions.optionA, optionB: questions.optionB, optionC: questions.optionC, optionD: questions.optionD,

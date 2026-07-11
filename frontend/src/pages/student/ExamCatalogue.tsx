@@ -19,7 +19,14 @@ export default function ExamCatalogue() {
   const pendingSetTitleRef = useRef('');
 
   useEffect(() => {
-    getAllExamProgress().then((all) => setResumeItems(all));
+    getAllExamProgress().then((all) => {
+      if (all.length === 0) return;
+      // Keep only the most recent; silently clear older ones
+      const sorted = [...all].sort((a, b) => new Date(b.lastSaved).getTime() - new Date(a.lastSaved).getTime());
+      const [latest, ...stale] = sorted;
+      stale.forEach((s) => clearExamProgress(s.examId));
+      setResumeItems([latest]);
+    });
   }, []);
 
   const switchSubject = (s: 'math' | 'english') => navigate(`/student/exams?subject=${s}`, { replace: true });
@@ -78,7 +85,7 @@ export default function ExamCatalogue() {
       {resumeItems.length > 0 && (
         <div style={{ background: '#FFFBF0', border: '1px solid rgba(184,137,62,0.35)', borderRadius: 14, padding: '14px 20px', marginBottom: 24 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B8893E', marginBottom: 10 }}>
-            Unfinished {resumeItems.length === 1 ? 'test' : 'tests'}
+            Unfinished test
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {resumeItems.map((item) => (
