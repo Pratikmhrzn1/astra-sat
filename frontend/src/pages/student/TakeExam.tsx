@@ -21,6 +21,7 @@ export default function TakeExam() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [timerEnabled, setTimerEnabled] = useState<boolean>(locationState?.timerEnabled ?? false);
   const [sectionBanner, setSectionBanner] = useState<boolean>(locationState?.fromMockSection1 ?? false);
+  const [transitioning, setTransitioning] = useState(false);
   const examTitle = locationState?.examTitle;
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -29,15 +30,44 @@ export default function TakeExam() {
   const savedTimeSpentRef = useRef<number>(0);     // seconds from a previous session (IDB)
   const timerEnabledRef = useRef<boolean>(locationState?.timerEnabled ?? false);
   const timeLeftRef = useRef<number>(20 * 60);
+  const mathExamIdRef = useRef<string | null>(null);
+  const transitioningRef = useRef(false);
 
   // Keep refs in sync with state
   useEffect(() => { timerEnabledRef.current = timerEnabled; }, [timerEnabled]);
+
+  // Reset all exam-specific state when examId changes (English → Math transition, same component instance)
+  useEffect(() => {
+    setAnswers({});
+    setFlags({});
+    setElim({});
+    setIndex(0);
+    setCalcOpen(false);
+    setCalcExpr('');
+    elapsedRef.current = 0;
+    savedTimeSpentRef.current = 0;
+    timeLeftRef.current = 20 * 60;
+    setTimeLeft(20 * 60);
+    mathExamIdRef.current = null;
+    setSectionBanner(!!(locationState?.fromMockSection1));
+  }, [examId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data, isLoading } = useQuery({
     queryKey: ['student', 'exam', examId],
     queryFn: () => getExam(examId!),
     enabled: !!examId,
   });
+
+  // Capture mathExamId reliably in a ref as soon as data loads; also clear the
+  // transition overlay once the new exam's data has arrived.
+  useEffect(() => {
+    if (!data) return;
+    mathExamIdRef.current = data.mathExamId ?? null;
+    if (transitioningRef.current) {
+      transitioningRef.current = false;
+      setTransitioning(false);
+    }
+  }, [data]);
 
   // After data loads: non-individual exams always use the timer
   useEffect(() => {
@@ -87,14 +117,22 @@ export default function TakeExam() {
     mutationFn: () => submitExam(examId!, getTimeSpent()),
     onSuccess: async () => {
       if (examId) await clearExamProgress(examId);
-      // Mock test: English section chains into Math section
-      if (data?.exam.type === 'mock_english' && data?.mathExamId) {
-        navigate(`/student/exams/${data.mathExamId}`, { replace: true, state: { fromMockSection1: true } });
+      // Mock test: English section chains into Math section — use the ref (not data closure)
+      if (mathExamIdRef.current) {
+        navigate(`/student/exams/${mathExamIdRef.current}`, { replace: true, state: { fromMockSection1: true } });
         return;
       }
+      transitioningRef.current = false;
+      setTransitioning(false);
       navigate(`/student/results/${examId}`, { replace: true });
     },
   });
+
+  const handleSubmit = () => {
+    transitioningRef.current = true;
+    setTransitioning(true);
+    submitMutation.mutate();
+  };
 
   // Countdown timer — only when timerEnabled
   useEffect(() => {
@@ -103,7 +141,12 @@ export default function TakeExam() {
       setTimeLeft((t) => {
         const next = Math.max(0, t - 1);
         timeLeftRef.current = next;
-        if (next <= 0) { clearInterval(timerRef.current!); submitMutation.mutate(); }
+        if (next <= 0) {
+          clearInterval(timerRef.current!);
+          transitioningRef.current = true;
+          setTransitioning(true);
+          submitMutation.mutate();
+        }
         return next;
       });
     }, 1000);
@@ -191,12 +234,13 @@ export default function TakeExam() {
 
   const renderBottomAction = () => {
     if (isLast) {
+      const isNextSection = !!mathExamIdRef.current;
       return (
         <button
-          onClick={() => submitMutation.mutate()}
-          disabled={submitMutation.isPending}
-          style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-        >Submit test</button>
+          onClick={handleSubmit}
+          disabled={transitioning}
+          style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: isNextSection ? '#2563A8' : '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: transitioning ? 'default' : 'pointer', fontFamily: 'inherit' }}
+        >{isNextSection ? 'Next Section →' : 'Submit test'}</button>
       );
     }
     return (
@@ -271,9 +315,9 @@ export default function TakeExam() {
             </button>
           )}
           <button
-            onClick={() => submitMutation.mutate()}
-            disabled={submitMutation.isPending}
-            style={{ border: '1px solid #0B0B0E', background: '#0B0B0E', color: '#fff', borderRadius: 9999, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+            onClick={handleSubmit}
+            disabled={transitioning}
+            style={{ border: '1px solid #0B0B0E', background: '#0B0B0E', color: '#fff', borderRadius: 9999, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: transitioning ? 'default' : 'pointer', fontFamily: 'inherit' }}
           >Submit test</button>
         </div>
       </div>
@@ -418,6 +462,15 @@ export default function TakeExam() {
           {renderBottomAction()}
         </div>
       </div>
+
+      {/* Full-screen overlay during section submit / transition */}
+      {transitioning && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#FAF9F6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14 }}>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid #E2562B', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E' }}>Completing section…</div>
+        </div>
+      )}
     </div>
   );
 }
