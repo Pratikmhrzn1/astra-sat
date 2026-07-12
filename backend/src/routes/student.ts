@@ -359,15 +359,21 @@ router.get('/exams/:examId', async (req, res) => {
       .select({ questionId: examAnswers.questionId, selectedAnswer: examAnswers.selectedAnswer, selectedAnswerText: examAnswers.selectedAnswerText, answeredAt: examAnswers.answeredAt })
       .from(examAnswers).where(eq(examAnswers.examId, exam.id));
 
-    // For mock English exams, find the associated Math exam so the frontend can chain sections
+    // For mock exams, find the sibling section so the frontend can chain / combine results
     let mathExamId: string | null = null;
+    let englishExamId: string | null = null;
     if (exam.type === 'mock_english') {
       const mtRows = await db.select({ mathExamId: mockTests.mathExamId })
         .from(mockTests).where(eq(mockTests.englishExamId, exam.id)).limit(1);
       if (mtRows.length > 0) mathExamId = mtRows[0].mathExamId ?? null;
     }
+    if (exam.type === 'mock_math') {
+      const mtRows = await db.select({ englishExamId: mockTests.englishExamId })
+        .from(mockTests).where(eq(mockTests.mathExamId, exam.id)).limit(1);
+      if (mtRows.length > 0) englishExamId = mtRows[0].englishExamId ?? null;
+    }
 
-    return res.json({ exam, questions: qs, answers, mathExamId });
+    return res.json({ exam, questions: qs, answers, mathExamId, englishExamId });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });

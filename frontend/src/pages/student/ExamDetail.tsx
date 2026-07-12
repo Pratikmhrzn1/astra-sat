@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   getExamResults, getMockNarrative,
@@ -175,6 +175,8 @@ function AiFeedbackPanel({
 export default function ExamDetail() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const englishExamId = searchParams.get('englishExamId') || null;
   const [reviewOpen, setReviewOpen] = useState<Record<number, boolean>>({});
 
   // AI guidance state (keyed by questionId)
@@ -200,6 +202,14 @@ export default function ExamDetail() {
     enabled: !!examId,
   });
 
+  // For mock math results pages, also fetch the English section
+  const { data: englishData } = useQuery({
+    queryKey: ['student', 'exam-results', englishExamId],
+    queryFn: () => getExamResults(englishExamId!),
+    enabled: !!englishExamId,
+  });
+
+  const isMockCombined = !!englishExamId && !!englishData;
   const isPractice = data?.exam.type === 'individual';
   const isMockExam = data?.exam.type === 'mock_english' || data?.exam.type === 'mock_math';
   const pollCountRef = useRef(0);
@@ -229,12 +239,18 @@ export default function ExamDetail() {
     if (chatMessagesRef.current) chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
   }, [chatMessages, chatLoading]);
 
+  // Route AI calls to the correct exam — English questions need englishExamId
+  const getExamIdForQuestion = (questionId: string): string => {
+    if (englishExamId && engResults.some((r) => r.id === questionId)) return englishExamId;
+    return examId!;
+  };
+
   const handleAiGuidance = async (questionId: string) => {
     const pending = aiPending[questionId];
     if (!pending?.confidence || aiLoading[questionId]) return;
     setAiLoading((l) => ({ ...l, [questionId]: true }));
     try {
-      const result = await confirmAnswer(examId!, questionId, {
+      const result = await confirmAnswer(getExamIdForQuestion(questionId), questionId, {
         confidence: pending.confidence,
         reasoning: pending.reasoning || undefined,
       });
@@ -249,12 +265,13 @@ export default function ExamDetail() {
   const handleSendChat = useCallback(async () => {
     const msg = chatInput.trim();
     if (!msg || chatLoading || !examId || !chatQuestionId) return;
+    const activeExamId = getExamIdForQuestion(chatQuestionId);
     setChatInput('');
     setChatError(null);
     setChatMessages((prev) => [...prev, { role: 'user', content: msg }]);
     setChatLoading(true);
     try {
-      const result = await sendChatMessage({ sessionId: chatSessionId ?? undefined, userMessage: msg, examId, questionId: chatQuestionId });
+      const result = await sendChatMessage({ sessionId: chatSessionId ?? undefined, userMessage: msg, examId: activeExamId, questionId: chatQuestionId });
       if (!chatSessionId) setChatSessionId(result.sessionId);
       setChatMessages((prev) => [...prev, { role: 'assistant', content: result.assistantMessage }]);
     } catch {
@@ -263,7 +280,7 @@ export default function ExamDetail() {
     } finally {
       setChatLoading(false);
     }
-  }, [chatInput, chatLoading, chatSessionId, examId, chatQuestionId]);
+  }, [chatInput, chatLoading, chatSessionId, examId, chatQuestionId, englishExamId, englishData]);
 
   if (isLoading) {
     return <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: 'rgba(11,11,14,0.4)' }}>Loading…</div></div>;
@@ -279,7 +296,15 @@ export default function ExamDetail() {
   }
 
   const { exam, set, results } = data;
-  const score800 = exam.score !== null ? Math.round(200 + (exam.score / exam.totalQuestions) * 600) : 0;
+
+  // Combined mock test totals (Math + English sections)
+  const engResults = englishData?.results ?? [];
+  const mathScore800 = exam.score !== null ? Math.round(200 + (exam.score / exam.totalQuestions) * 600) : 0;
+  const engScore800 = englishData?.exam.score !== null && englishData?.exam.score !== undefined
+    ? Math.round(200 + (englishData.exam.score / englishData.exam.totalQuestions) * 600) : 0;
+  const totalScore1600 = isMockCombined ? mathScore800 + engScore800 : null;
+
+  const score800 = mathScore800;
   const accuracy = exam.score !== null ? Math.round((exam.score / exam.totalQuestions) * 100) : 0;
   const correct = results.filter((r) => r.isCorrect).length;
   const wrong = results.filter((r) => r.isCorrect === false).length;
@@ -299,7 +324,7 @@ export default function ExamDetail() {
   return (
     <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E2562B', marginBottom: 6 }}>
-        Score report · {set?.subject === 'math' ? 'Math' : 'Reading & Writing'}
+        {isMockCombined ? 'Full mock SAT · score report' : `Score report · ${set?.subject === 'math' ? 'Math' : 'Reading & Writing'}`}
         {isPractice && <span style={{ marginLeft: 10, color: '#2563A8' }}>· Practice</span>}
       </div>
       <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 40, margin: '0 0 24px', letterSpacing: '-0.02em' }}>Here's how you did</h1>
@@ -308,20 +333,51 @@ export default function ExamDetail() {
       <div className="pop" style={{ background: '#0B0B0E', borderRadius: 18, padding: '32px 36px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 36, marginBottom: 22, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', left: -60, bottom: -80, width: 240, height: 240, borderRadius: 9999, background: 'radial-gradient(circle, rgba(226,86,43,0.16), transparent 70%)' }} />
         <div style={{ position: 'relative' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Section score</div>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: 4, whiteSpace: 'nowrap' }}>
-            <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: headlineColor }}>{score800}</div>
-            <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, color: 'rgba(255,255,255,0.35)', marginBottom: 10 }}>/ 800</div>
-          </div>
-          <div style={{ fontSize: 13, marginTop: 8, color: 'rgba(255,255,255,0.5)' }}>{correct} of {results.length} correct</div>
+          {isMockCombined ? (
+            <>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Total score</div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: 4, whiteSpace: 'nowrap' }}>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: totalScore1600! >= 1200 ? '#2E7D5A' : totalScore1600! >= 1000 ? '#B8893E' : '#C0392B' }}>{totalScore1600}</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, color: 'rgba(255,255,255,0.35)', marginBottom: 10 }}>/ 1600</div>
+              </div>
+              <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Reading & Writing: <strong style={{ color: '#fff' }}>{engScore800}</strong></span>
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>·</span>
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Math: <strong style={{ color: '#fff' }}>{mathScore800}</strong></span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Section score</div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: 4, whiteSpace: 'nowrap' }}>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: headlineColor }}>{score800}</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, color: 'rgba(255,255,255,0.35)', marginBottom: 10 }}>/ 800</div>
+              </div>
+              <div style={{ fontSize: 13, marginTop: 8, color: 'rgba(255,255,255,0.5)' }}>{correct} of {results.length} correct</div>
+            </>
+          )}
         </div>
         <div style={{ position: 'relative', display: 'flex', gap: 40 }}>
-          {[{ label: 'Accuracy', value: accuracy + '%' }, { label: 'Correct', value: String(correct) }, { label: 'Wrong', value: String(wrong) }, { label: 'Skipped', value: String(skipped) }].map(({ label, value }) => (
-            <div key={label}>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>{label}</div>
-              <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, lineHeight: 1, color: '#fff' }}>{value}</div>
-            </div>
-          ))}
+          {isMockCombined ? (
+            [
+              { label: 'Total Qs', value: String(results.length + engResults.length) },
+              { label: 'Correct', value: String(correct + engResults.filter(r => r.isCorrect).length) },
+              { label: 'Wrong', value: String(wrong + engResults.filter(r => r.isCorrect === false).length) },
+              { label: 'Skipped', value: String(skipped + engResults.filter(r => r.isCorrect === null).length) },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>{label}</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, lineHeight: 1, color: '#fff' }}>{value}</div>
+              </div>
+            ))
+          ) : (
+            [{ label: 'Accuracy', value: accuracy + '%' }, { label: 'Correct', value: String(correct) }, { label: 'Wrong', value: String(wrong) }, { label: 'Skipped', value: String(skipped) }].map(({ label, value }) => (
+              <div key={label}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>{label}</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, lineHeight: 1, color: '#fff' }}>{value}</div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -434,7 +490,15 @@ export default function ExamDetail() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {results.map((r, i) => {
+        {/* English section header (combined mock view) */}
+        {isMockCombined && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0 4px' }}>
+            <span style={{ width: 10, height: 10, borderRadius: 9999, background: '#2E7D5A', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.5)' }}>Section 1 · Reading & Writing</span>
+            <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.35)', fontFamily: "'JetBrains Mono', monospace" }}>({engResults.filter(r => r.isCorrect).length}/{engResults.length} correct · {engScore800}/800)</span>
+          </div>
+        )}
+        {isMockCombined && engResults.map((r, i) => {
           const open = reviewOpen[i];
           const ok = r.isCorrect === true;
           const opts = [
@@ -488,8 +552,8 @@ export default function ExamDetail() {
                     </div>
                   )}
 
-                  {/* Practice-only: AI Guidance + Ask a question buttons */}
-                  {isPractice && (
+                  {/* AI Guidance + Ask a question buttons (practice and mock exams) */}
+                  {(isPractice || isMockExam) && (
                     <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
                       <button
                         onClick={() => setAiPanelOpen((o) => ({ ...o, [qId]: !o[qId] }))}
@@ -513,7 +577,151 @@ export default function ExamDetail() {
                   )}
 
                   {/* AI Guidance inline panel */}
-                  {isPractice && aiOpen && (
+                  {(isPractice || isMockExam) && aiOpen && (
+                    <div style={{ marginTop: 14, padding: '18px 20px', borderRadius: 14, background: '#F8F6F2', border: '1px solid #E7E4DE' }}>
+                      {aiResult ? (
+                        <AiFeedbackPanel
+                          feedbacks={aiResult.feedbacks}
+                          vocabTrackingId={aiResult.vocabTrackingId}
+                          questionId={qId}
+                          vocabPick={vocabPick}
+                          vocabSubmitted={vocabSubmitted}
+                          setVocabPick={setVocabPick}
+                          setVocabSubmitted={setVocabSubmitted}
+                        />
+                      ) : (
+                        <>
+                          <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', margin: '0 0 12px' }}>
+                            How did you approach this?
+                          </p>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                            {CONFIDENCE_CHIPS.map((chip) => {
+                              const active = aiPendingQ.confidence === chip.value;
+                              return (
+                                <button
+                                  key={chip.value}
+                                  onClick={() => setAiPending((p) => ({ ...p, [qId]: { ...aiPendingQ, confidence: chip.value } }))}
+                                  style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: active ? '1.5px solid #0B0B0E' : '1px solid #C8C4BC', background: active ? '#0B0B0E' : '#fff', color: active ? '#fff' : '#8C8880', transition: 'all 0.15s' }}
+                                >
+                                  {chip.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <input
+                            type="text"
+                            value={aiPendingQ.reasoning}
+                            onChange={(e) => setAiPending((p) => ({ ...p, [qId]: { ...aiPendingQ, reasoning: e.target.value } }))}
+                            placeholder="Anything else? (optional)"
+                            style={{ width: '100%', height: 40, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 10, fontSize: 13.5, fontFamily: 'inherit', background: '#fff', color: '#0B0B0E', outline: 'none', boxSizing: 'border-box', marginBottom: 12 }}
+                          />
+                          <button
+                            onClick={() => handleAiGuidance(qId)}
+                            disabled={!aiPendingQ.confidence || isAiLoading}
+                            style={{ height: 38, padding: '0 20px', borderRadius: 9999, border: 'none', background: aiPendingQ.confidence && !isAiLoading ? '#E2562B' : '#C8C4BC', color: '#fff', fontSize: 13, fontWeight: 600, cursor: aiPendingQ.confidence && !isAiLoading ? 'pointer' : 'default', fontFamily: 'inherit' }}
+                          >
+                            {isAiLoading ? 'Analysing…' : 'Get AI Guidance →'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Math section header (combined mock view) */}
+        {isMockCombined && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 0 4px' }}>
+            <span style={{ width: 10, height: 10, borderRadius: 9999, background: '#2563A8', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.5)' }}>Section 2 · Math</span>
+            <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.35)', fontFamily: "'JetBrains Mono', monospace" }}>({correct}/{results.length} correct · {mathScore800}/800)</span>
+          </div>
+        )}
+
+        {results.map((r, i) => {
+          const listIdx = isMockCombined ? engResults.length + i : i;
+          const open = reviewOpen[listIdx];
+          const ok = r.isCorrect === true;
+          const opts = [
+            { key: 'a', text: r.optionA },
+            { key: 'b', text: r.optionB },
+            { key: 'c', text: r.optionC },
+            { key: 'd', text: r.optionD },
+          ];
+          const qId = r.id;
+          const aiOpen = !!aiPanelOpen[qId];
+          const aiResult = aiResults[qId];
+          const aiPendingQ = aiPending[qId] ?? { confidence: null, reasoning: '' };
+          const isAiLoading = !!aiLoading[qId];
+
+          return (
+            <div key={r.id} style={{ ...CARD, overflow: 'hidden' }}>
+              <button
+                onClick={() => toggleReview(listIdx)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+              >
+                <span style={{ width: 26, height: 26, borderRadius: 9999, flexShrink: 0, background: ok ? 'rgba(46,125,90,0.12)' : r.isCorrect === false ? 'rgba(192,57,43,0.1)' : 'rgba(11,11,14,0.06)', color: ok ? '#2E7D5A' : r.isCorrect === false ? '#C0392B' : '#8C8880', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
+                  {ok ? '✓' : r.isCorrect === false ? '✕' : '–'}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(11,11,14,0.4)', width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
+                <span style={{ fontSize: 14.5, fontWeight: 600, flex: 1 }}>Question {i + 1}</span>
+                <span style={{ color: open ? '#E2562B' : 'rgba(184,137,62,0.75)', fontSize: 16, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s, color 0.2s', display: 'inline-block', flexShrink: 0 }}>▸</span>
+              </button>
+
+              {open && (
+                <div style={{ padding: '0 18px 20px 64px' }}>
+                  <p style={{ fontSize: 14.5, fontWeight: 500, lineHeight: 1.5, margin: '0 0 14px' }}>{r.questionText}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 14 }}>
+                    {opts.map(({ key, text }) => {
+                      const isCorrect = r.correctAnswer === key;
+                      const isYour = r.selectedAnswer === key;
+                      const bg = isCorrect ? 'rgba(46,125,90,0.08)' : isYour ? 'rgba(192,57,43,0.06)' : '#FAF9F6';
+                      const bd = isCorrect ? '1px solid rgba(46,125,90,0.4)' : isYour ? '1px solid rgba(192,57,43,0.3)' : '1px solid #EAE7E1';
+                      return (
+                        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: bg, border: bd }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#8C8880', width: 16 }}>{key.toUpperCase()}</span>
+                          <span style={{ fontSize: 14, flex: 1 }}>{text}</span>
+                          {isCorrect && <span style={{ fontSize: 11, fontWeight: 700, color: '#2E7D5A' }}>CORRECT</span>}
+                          {isYour && !isCorrect && <span style={{ fontSize: 11, fontWeight: 700, color: '#C0392B' }}>YOUR ANSWER</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {r.explanation && (
+                    <div style={{ background: '#F2F0EC', borderRadius: 10, padding: '12px 14px', fontSize: 13.5, lineHeight: 1.55, color: 'rgba(11,11,14,0.7)', marginBottom: 14 }}>
+                      <strong style={{ color: '#0B0B0E' }}>Why: </strong>{r.explanation}
+                    </div>
+                  )}
+
+                  {/* AI Guidance + Ask a question buttons (practice and mock exams) */}
+                  {(isPractice || isMockExam) && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => setAiPanelOpen((o) => ({ ...o, [qId]: !o[qId] }))}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', border: aiOpen ? '1px solid #E2562B' : '1px solid #C8C4BC', background: aiOpen ? 'rgba(226,86,43,0.06)' : '#fff', color: aiOpen ? '#E2562B' : '#0B0B0E', borderRadius: 9999, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                        AI Guidance
+                      </button>
+                      <button
+                        onClick={() => setChatQuestionId(chatQuestionId === qId ? null : qId)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', border: chatQuestionId === qId ? '1px solid #0D7377' : '1px solid #C8C4BC', background: chatQuestionId === qId ? 'rgba(13,115,119,0.07)' : '#fff', color: chatQuestionId === qId ? '#0D7377' : '#0B0B0E', borderRadius: 9999, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        Ask a question
+                      </button>
+                    </div>
+                  )}
+
+                  {/* AI Guidance inline panel */}
+                  {(isPractice || isMockExam) && aiOpen && (
                     <div style={{ marginTop: 14, padding: '18px 20px', borderRadius: 14, background: '#F8F6F2', border: '1px solid #E7E4DE' }}>
                       {aiResult ? (
                         <AiFeedbackPanel
@@ -575,8 +783,8 @@ export default function ExamDetail() {
         <button onClick={() => navigate('/student/dashboard')} style={{ height: 48, padding: '0 26px', background: '#E2562B', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 10px rgba(226,86,43,0.26)' }}>Back to dashboard</button>
       </div>
 
-      {/* Chat panel — fixed bottom, practice only */}
-      {isPractice && chatQuestionId && (
+      {/* Chat panel — fixed bottom, practice and mock exams */}
+      {(isPractice || isMockExam) && chatQuestionId && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 380, background: '#fff', borderTop: '1px solid #E7E4DE', boxShadow: '0 -8px 32px rgba(11,11,14,0.12)', display: 'flex', flexDirection: 'column', zIndex: 44, animation: 'chatSlideUp 0.2s ease-out' }}>
           <div style={{ height: 48, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', borderBottom: '1px solid #F0ECE4' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

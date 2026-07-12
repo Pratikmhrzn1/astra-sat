@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getExam, saveAnswers, submitExam } from '../../api/student';
 import { saveExamProgress, loadExamProgress, clearExamProgress } from '../../lib/offline';
 
@@ -8,6 +8,7 @@ export default function TakeExam() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const locationState = location.state as { timerEnabled?: boolean; examTitle?: string; fromMockSection1?: boolean } | null;
 
   const [answers, setAnswers] = useState<Record<string, string | null>>({});
@@ -31,10 +32,15 @@ export default function TakeExam() {
   const timerEnabledRef = useRef<boolean>(locationState?.timerEnabled ?? false);
   const timeLeftRef = useRef<number>(20 * 60);
   const mathExamIdRef = useRef<string | null>(null);
+  const englishExamIdRef = useRef<string | null>(null);
   const transitioningRef = useRef(false);
+  // Always-current answers for use inside timer/IDB closures
+  const answersRef = useRef<Record<string, string | null>>({});
+  const dataRef = useRef<{ exam: import('../../api/student').Exam; questions: import('../../api/student').Question[]; answers: { questionId: string; selectedAnswer: string | null; selectedAnswerText: string | null }[]; mathExamId: string | null; englishExamId: string | null } | undefined>(undefined);
 
-  // Keep refs in sync with state
+  // Keep refs in sync with state/query
   useEffect(() => { timerEnabledRef.current = timerEnabled; }, [timerEnabled]);
+  useEffect(() => { answersRef.current = answers; }, [answers]);
 
   // Reset all exam-specific state when examId changes (English → Math transition, same component instance)
   useEffect(() => {
@@ -49,6 +55,7 @@ export default function TakeExam() {
     timeLeftRef.current = 20 * 60;
     setTimeLeft(20 * 60);
     mathExamIdRef.current = null;
+    englishExamIdRef.current = null;
     setSectionBanner(!!(locationState?.fromMockSection1));
   }, [examId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -58,16 +65,24 @@ export default function TakeExam() {
     enabled: !!examId,
   });
 
-  // Capture mathExamId reliably in a ref as soon as data loads; also clear the
-  // transition overlay once the new exam's data has arrived.
+  // Capture sibling exam IDs; pre-fetch Math exam so English→Math transition is instant;
+  // also clear any overlay once new exam data has arrived (for regular submit path).
   useEffect(() => {
     if (!data) return;
+    dataRef.current = data;
     mathExamIdRef.current = data.mathExamId ?? null;
+    englishExamIdRef.current = data.englishExamId ?? null;
+    if (data.mathExamId) {
+      queryClient.prefetchQuery({
+        queryKey: ['student', 'exam', data.mathExamId],
+        queryFn: () => getExam(data.mathExamId!),
+      });
+    }
     if (transitioningRef.current) {
       transitioningRef.current = false;
       setTransitioning(false);
     }
-  }, [data]);
+  }, [data, queryClient]);
 
   // After data loads: non-individual exams always use the timer
   useEffect(() => {
@@ -113,18 +128,15 @@ export default function TakeExam() {
       }), time),
   });
 
+  // Final submit (Math section or individual exam) — shows overlay while waiting for server
   const submitMutation = useMutation({
     mutationFn: () => submitExam(examId!, getTimeSpent()),
     onSuccess: async () => {
       if (examId) await clearExamProgress(examId);
-      // Mock test: English section chains into Math section — use the ref (not data closure)
-      if (mathExamIdRef.current) {
-        navigate(`/student/exams/${mathExamIdRef.current}`, { replace: true, state: { fromMockSection1: true } });
-        return;
-      }
       transitioningRef.current = false;
       setTransitioning(false);
-      navigate(`/student/results/${examId}`, { replace: true });
+      const suffix = englishExamIdRef.current ? `?englishExamId=${englishExamIdRef.current}` : '';
+      navigate(`/student/results/${examId}${suffix}`, { replace: true });
     },
   });
 
@@ -133,6 +145,30 @@ export default function TakeExam() {
     setTransitioning(true);
     submitMutation.mutate();
   };
+
+  // Mock English → Math: navigate instantly (Math data is pre-fetched), submit Section 1 in background.
+  // Uses refs so this is safe to call from inside timer callbacks.
+  const handleNextSection = useCallback(() => {
+    const mathId = mathExamIdRef.current!;
+    const currentExamId = examId!;
+    const timeSpent = getTimeSpent();
+    const currentData = dataRef.current!;
+    const formattedAnswers = Object.entries(answersRef.current).map(([questionId, value]) => {
+      const q = currentData.questions.find((qq) => qq.id === questionId);
+      const isSPR = q?.questionType === 'student_produced_response';
+      return {
+        questionId,
+        selectedAnswer: isSPR ? null : (value as 'a' | 'b' | 'c' | 'd' | null),
+        selectedAnswerText: isSPR ? value : null,
+      };
+    });
+    navigate(`/student/exams/${mathId}`, { replace: true, state: { fromMockSection1: true } });
+    // Save latest answers → submit → clear IDB, all in background
+    saveAnswers(currentExamId, formattedAnswers, timeSpent)
+      .then(() => submitExam(currentExamId, timeSpent))
+      .then(() => clearExamProgress(currentExamId))
+      .catch(() => {});
+  }, [examId, navigate, getTimeSpent]);
 
   // Countdown timer — only when timerEnabled
   useEffect(() => {
@@ -143,9 +179,13 @@ export default function TakeExam() {
         timeLeftRef.current = next;
         if (next <= 0) {
           clearInterval(timerRef.current!);
-          transitioningRef.current = true;
-          setTransitioning(true);
-          submitMutation.mutate();
+          if (mathExamIdRef.current) {
+            handleNextSection();
+          } else {
+            transitioningRef.current = true;
+            setTransitioning(true);
+            submitMutation.mutate();
+          }
         }
         return next;
       });
@@ -187,7 +227,7 @@ export default function TakeExam() {
 
   if (isLoading || !data) {
     return (
-      <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAF9F6' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAF9F6' }}>
         <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: 'rgba(11,11,14,0.4)' }}>Loading exam…</div>
       </div>
     );
@@ -237,7 +277,7 @@ export default function TakeExam() {
       const isNextSection = !!mathExamIdRef.current;
       return (
         <button
-          onClick={handleSubmit}
+          onClick={isNextSection ? handleNextSection : handleSubmit}
           disabled={transitioning}
           style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: isNextSection ? '#2563A8' : '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: transitioning ? 'default' : 'pointer', fontFamily: 'inherit' }}
         >{isNextSection ? 'Next Section →' : 'Submit test'}</button>

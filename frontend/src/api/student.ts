@@ -86,6 +86,7 @@ export async function getExam(examId: string): Promise<{
   questions: Question[];
   answers: { questionId: string; selectedAnswer: string | null; selectedAnswerText: string | null }[];
   mathExamId: string | null;
+  englishExamId: string | null;
 }> {
   const { data } = await apiClient.get(`/student/exams/${examId}`);
   return data;
