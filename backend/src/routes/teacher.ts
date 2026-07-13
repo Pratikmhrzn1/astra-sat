@@ -123,11 +123,9 @@ router.get('/feedback', async (req, res) => {
 
 // ── Question Sets ─────────────────────────────────────────────────────────────
 
-router.get('/question-sets', async (req, res) => {
-  const teacherId = req.user!.sub;
+router.get('/question-sets', async (_req, res) => {
   try {
-    const rows = await db.select().from(questionSets)
-      .where(eq(questionSets.createdBy, teacherId)).orderBy(desc(questionSets.createdAt));
+    const rows = await db.select().from(questionSets).orderBy(desc(questionSets.createdAt));
     return res.json(rows);
   } catch (err) {
     console.error(err);
@@ -232,11 +230,10 @@ router.post('/question-sets/import-json', validateBody(importJsonSchema), async 
 });
 
 router.put('/question-sets/:setId', validateBody(createSetSchema.partial()), async (req, res) => {
-  const teacherId = req.user!.sub;
   const { setId } = req.params;
   try {
     const setRows = await db.select().from(questionSets)
-      .where(and(eq(questionSets.id, setId), eq(questionSets.createdBy, teacherId))).limit(1);
+      .where(eq(questionSets.id, setId)).limit(1);
     if (setRows.length === 0) return res.status(404).json({ error: 'Question set not found' });
     const [updated] = await db.update(questionSets).set({ ...req.body, updatedAt: new Date() }).where(eq(questionSets.id, setId)).returning();
     return res.json(updated);
@@ -247,11 +244,10 @@ router.put('/question-sets/:setId', validateBody(createSetSchema.partial()), asy
 });
 
 router.delete('/question-sets/:setId', async (req, res) => {
-  const teacherId = req.user!.sub;
   const { setId } = req.params;
   try {
     const setRows = await db.select().from(questionSets)
-      .where(and(eq(questionSets.id, setId), eq(questionSets.createdBy, teacherId))).limit(1);
+      .where(eq(questionSets.id, setId)).limit(1);
     if (setRows.length === 0) return res.status(404).json({ error: 'Question set not found' });
     const examUsage = await db.select({ id: exams.id }).from(exams).where(eq(exams.setId, setId)).limit(1);
     if (examUsage.length > 0) return res.status(400).json({ error: 'Cannot delete a set that has been used in exams' });
@@ -265,18 +261,17 @@ router.delete('/question-sets/:setId', async (req, res) => {
 
 // ── Passages ──────────────────────────────────────────────────────────────────
 
-async function assertSetOwner(setId: string, teacherId: string, res: any): Promise<boolean> {
-  const rows = await db.select().from(questionSets)
-    .where(and(eq(questionSets.id, setId), eq(questionSets.createdBy, teacherId))).limit(1);
+async function assertSetExists(setId: string, res: any): Promise<boolean> {
+  const rows = await db.select({ id: questionSets.id }).from(questionSets)
+    .where(eq(questionSets.id, setId)).limit(1);
   if (rows.length === 0) { res.status(404).json({ error: 'Question set not found' }); return false; }
   return true;
 }
 
 router.get('/question-sets/:setId/passages', async (req, res) => {
-  const teacherId = req.user!.sub;
   const { setId } = req.params;
   try {
-    if (!(await assertSetOwner(setId, teacherId, res))) return;
+    if (!(await assertSetExists(setId, res))) return;
     const rows = await db.select().from(passages)
       .where(eq(passages.setId, setId)).orderBy(passages.orderIndex);
     return res.json(rows);
@@ -293,10 +288,9 @@ const createPassageSchema = z.object({
 });
 
 router.post('/question-sets/:setId/passages', validateBody(createPassageSchema), async (req, res) => {
-  const teacherId = req.user!.sub;
   const { setId } = req.params;
   try {
-    if (!(await assertSetOwner(setId, teacherId, res))) return;
+    if (!(await assertSetExists(setId, res))) return;
     const [p] = await db.insert(passages).values({ setId, ...req.body }).returning();
     return res.status(201).json(p);
   } catch (err) {
@@ -306,13 +300,11 @@ router.post('/question-sets/:setId/passages', validateBody(createPassageSchema),
 });
 
 router.put('/passages/:passageId', validateBody(createPassageSchema.partial()), async (req, res) => {
-  const teacherId = req.user!.sub;
   const { passageId } = req.params;
   try {
-    const rows = await db.select({ id: passages.id, setId: passages.setId, createdBy: questionSets.createdBy })
-      .from(passages).innerJoin(questionSets, eq(passages.setId, questionSets.id))
+    const rows = await db.select({ id: passages.id }).from(passages)
       .where(eq(passages.id, passageId)).limit(1);
-    if (rows.length === 0 || rows[0].createdBy !== teacherId) return res.status(404).json({ error: 'Passage not found' });
+    if (rows.length === 0) return res.status(404).json({ error: 'Passage not found' });
     const [updated] = await db.update(passages).set(req.body).where(eq(passages.id, passageId)).returning();
     return res.json(updated);
   } catch (err) {
@@ -322,13 +314,11 @@ router.put('/passages/:passageId', validateBody(createPassageSchema.partial()), 
 });
 
 router.delete('/passages/:passageId', async (req, res) => {
-  const teacherId = req.user!.sub;
   const { passageId } = req.params;
   try {
-    const rows = await db.select({ id: passages.id, createdBy: questionSets.createdBy })
-      .from(passages).innerJoin(questionSets, eq(passages.setId, questionSets.id))
+    const rows = await db.select({ id: passages.id }).from(passages)
       .where(eq(passages.id, passageId)).limit(1);
-    if (rows.length === 0 || rows[0].createdBy !== teacherId) return res.status(404).json({ error: 'Passage not found' });
+    if (rows.length === 0) return res.status(404).json({ error: 'Passage not found' });
     await db.delete(passages).where(eq(passages.id, passageId));
     return res.json({ ok: true });
   } catch (err) {
@@ -340,10 +330,9 @@ router.delete('/passages/:passageId', async (req, res) => {
 // ── Questions ─────────────────────────────────────────────────────────────────
 
 router.get('/question-sets/:setId/questions', async (req, res) => {
-  const teacherId = req.user!.sub;
   const { setId } = req.params;
   try {
-    if (!(await assertSetOwner(setId, teacherId, res))) return;
+    if (!(await assertSetExists(setId, res))) return;
     const qs = await db.select().from(questions)
       .where(eq(questions.setId, setId)).orderBy(questions.orderIndex);
     return res.json(qs);
@@ -389,10 +378,9 @@ const createQuestionSchema = z.discriminatedUnion('questionType', [
 ]);
 
 router.post('/question-sets/:setId/questions', validateBody(createQuestionSchema), async (req, res) => {
-  const teacherId = req.user!.sub;
   const { setId } = req.params;
   try {
-    if (!(await assertSetOwner(setId, teacherId, res))) return;
+    if (!(await assertSetExists(setId, res))) return;
     const values = {
       setId,
       ...req.body,
@@ -408,13 +396,11 @@ router.post('/question-sets/:setId/questions', validateBody(createQuestionSchema
 });
 
 router.put('/questions/:questionId', async (req, res) => {
-  const teacherId = req.user!.sub;
   const { questionId } = req.params;
   try {
-    const qRows = await db.select({ id: questions.id, createdBy: questionSets.createdBy })
-      .from(questions).innerJoin(questionSets, eq(questions.setId, questionSets.id))
+    const qRows = await db.select({ id: questions.id }).from(questions)
       .where(eq(questions.id, questionId)).limit(1);
-    if (qRows.length === 0 || qRows[0].createdBy !== teacherId) return res.status(404).json({ error: 'Question not found' });
+    if (qRows.length === 0) return res.status(404).json({ error: 'Question not found' });
     const [updated] = await db.update(questions).set(req.body).where(eq(questions.id, questionId)).returning();
     return res.json(updated);
   } catch (err) {
@@ -429,14 +415,12 @@ const updateSubSkillSchema = z.object({
 });
 
 router.put('/questions/:questionId/subskill', validateBody(updateSubSkillSchema), async (req, res) => {
-  const teacherId = req.user!.sub;
   const { questionId } = req.params;
   const { subSkill, subSkillSource } = req.body;
   try {
-    const qRows = await db.select({ id: questions.id, createdBy: questionSets.createdBy })
-      .from(questions).innerJoin(questionSets, eq(questions.setId, questionSets.id))
+    const qRows = await db.select({ id: questions.id }).from(questions)
       .where(eq(questions.id, questionId)).limit(1);
-    if (qRows.length === 0 || qRows[0].createdBy !== teacherId) return res.status(404).json({ error: 'Question not found' });
+    if (qRows.length === 0) return res.status(404).json({ error: 'Question not found' });
     const [updated] = await db
       .update(questions)
       .set({ subSkill: subSkill ?? null, subSkillSource })
@@ -450,13 +434,11 @@ router.put('/questions/:questionId/subskill', validateBody(updateSubSkillSchema)
 });
 
 router.delete('/questions/:questionId', async (req, res) => {
-  const teacherId = req.user!.sub;
   const { questionId } = req.params;
   try {
-    const qRows = await db.select({ id: questions.id, createdBy: questionSets.createdBy })
-      .from(questions).innerJoin(questionSets, eq(questions.setId, questionSets.id))
+    const qRows = await db.select({ id: questions.id }).from(questions)
       .where(eq(questions.id, questionId)).limit(1);
-    if (qRows.length === 0 || qRows[0].createdBy !== teacherId) return res.status(404).json({ error: 'Question not found' });
+    if (qRows.length === 0) return res.status(404).json({ error: 'Question not found' });
     await db.delete(questions).where(eq(questions.id, questionId));
     return res.json({ ok: true });
   } catch (err) {
