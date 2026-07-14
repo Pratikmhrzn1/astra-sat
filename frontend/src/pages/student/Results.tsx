@@ -15,7 +15,7 @@ export default function Results() {
   const [filter, setFilter] = useState<Filter>('All');
 
   const { data: exams = [], isLoading } = useQuery({ queryKey: ['student', 'exams'], queryFn: getExams });
-  const { data: mockTests = [] } = useQuery({ queryKey: ['student', 'mock-tests'], queryFn: getMockTests });
+  useQuery({ queryKey: ['student', 'mock-tests'], queryFn: getMockTests });
 
   const completed = exams.filter((e) => e.status === 'completed');
   const shown = filter === 'All' ? completed : completed.filter((e) => e.type === filter);
@@ -26,12 +26,11 @@ export default function Results() {
     { label: 'Individual', value: 'individual' },
   ];
 
-  const bestMock = completed
-    .filter((e) => e.type === 'mock_english' || e.type === 'mock_math')
-    .reduce((best, e) => {
-      const score = e.score ?? 0;
-      return score > best ? score : best;
-    }, 0);
+  const bestScore = completed.reduce<number | null>((best, e) => {
+    if (e.score === null) return best;
+    const scaled = Math.round(200 + (e.score / e.totalQuestions) * 600);
+    return best === null || scaled > best ? scaled : best;
+  }, null);
 
   const rwSeries = completed.filter((e) => e.subject === 'english' && e.score !== null).map((e) => Math.round(200 + (e.score! / e.totalQuestions) * 600)).reverse();
   const mathSeries = completed.filter((e) => e.subject === 'math' && e.score !== null).map((e) => Math.round(200 + (e.score! / e.totalQuestions) * 600)).reverse();
@@ -65,7 +64,7 @@ export default function Results() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 28 }}>
         <div style={{ ...CARD, padding: '20px 22px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 4 }}>Best score</div>
-          <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 46, lineHeight: 1, color: '#1A6B3C' }}>{bestMock || completed.length > 0 ? (completed[0]?.score !== null ? Math.round(200 + (completed[0]!.score! / completed[0]!.totalQuestions) * 600) : '—') : '—'}</div>
+          <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 46, lineHeight: 1, color: '#1A6B3C' }}>{bestScore ?? '—'}</div>
           <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)', marginTop: 6 }}>out of 800</div>
         </div>
         <div style={{ ...CARD, padding: '20px 22px' }}>

@@ -154,7 +154,7 @@ async function checkAndTriggerSkillPassage(
 async function generateNarrativeAsync(
   examId: string,
   narrativeId: string,
-  exam: { type: string; score: number | null; totalQuestions: number; timeSpentSeconds: number | null },
+  exam: { type: string; score: number | null; totalQuestions: number; timeSpentSeconds: number | null; setId: string },
 ): Promise<void> {
   try {
     // Aggregate per-subSkill wrong counts across all exam answers
@@ -169,7 +169,16 @@ async function generateNarrativeAsync(
       .where(eq(examAnswers.examId, examId))
       .groupBy(questions.subSkill);
 
-    const section = exam.type === 'mock_english' ? 'English (Reading & Writing)' : 'Math';
+    // Derive section label from exam type; fall back to set subject for individual exams
+    let section: string;
+    if (exam.type === 'mock_english') {
+      section = 'English (Reading & Writing)';
+    } else if (exam.type === 'mock_math') {
+      section = 'Math';
+    } else {
+      const [setRow] = await db.select({ subject: questionSets.subject }).from(questionSets).where(eq(questionSets.id, exam.setId)).limit(1);
+      section = setRow?.subject === 'english' ? 'English (Reading & Writing)' : 'Math';
+    }
     const totalRight = exam.score ?? 0;
     const totalWrong = exam.totalQuestions - totalRight;
     const timeMin = exam.timeSpentSeconds ? Math.round(exam.timeSpentSeconds / 60) : null;
@@ -681,9 +690,9 @@ router.post('/exams/:examId/submit', validateBody(submitSchema), async (req, res
       timeSpentSeconds: timeSpentSeconds ?? exam.timeSpentSeconds,
     }).where(eq(exams.id, exam.id)).returning();
 
-    // Insert pending narrative row synchronously before responding (mock exams only)
+    // Insert pending narrative row synchronously before responding
     let narrativeId: string | null = null;
-    if ((exam.type === 'mock_english' || exam.type === 'mock_math') && process.env.AI_MODEL_NARRATIVE) {
+    if (process.env.AI_MODEL_NARRATIVE) {
       const [narrativeRow] = await db.insert(mockNarratives)
         .values({ examId: exam.id })
         .returning({ id: mockNarratives.id });

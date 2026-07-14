@@ -217,7 +217,7 @@ export default function ExamDetail() {
   const { data: narrativeData, isError: narrativeError } = useQuery({
     queryKey: ['student', 'narrative', examId],
     queryFn: async () => { pollCountRef.current++; return getMockNarrative(examId!); },
-    enabled: !!examId && isMockExam,
+    enabled: !!examId && (isMockExam || isPractice),
     refetchInterval: (query) => {
       if (query.state.data?.status !== 'pending') return false;
       if (pollCountRef.current >= 10) return false;
@@ -327,7 +327,7 @@ export default function ExamDetail() {
         {isMockCombined ? 'Full mock SAT · score report' : `Score report · ${set?.subject === 'math' ? 'Math' : 'Reading & Writing'}`}
         {isPractice && <span style={{ marginLeft: 10, color: '#2563A8' }}>· Practice</span>}
       </div>
-      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 40, margin: '0 0 24px', letterSpacing: '-0.02em' }}>Here's how you did</h1>
+      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 40, margin: '0 0 24px', letterSpacing: '-0.02em' }}>Performance Report</h1>
 
       {/* Hero */}
       <div className="pop" style={{ background: '#0B0B0E', borderRadius: 18, padding: '32px 36px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 36, marginBottom: 22, position: 'relative', overflow: 'hidden' }}>
@@ -388,8 +388,8 @@ export default function ExamDetail() {
         </div>
       )}
 
-      {/* Mock narrative */}
-      {isMockExam && (() => {
+      {/* Performance narrative */}
+      {(isMockExam || isPractice) && (() => {
         if (narrativeError || (pollCountRef.current >= 10 && narrativeData?.status === 'pending')) {
           return (
             <div style={{ background: '#FDF2F0', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 16, padding: '20px 26px', marginBottom: 24 }}>
