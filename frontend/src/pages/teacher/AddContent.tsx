@@ -169,6 +169,9 @@ export default function ContentManager() {
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'set' | 'question' | 'passage'; id: string } | null>(null);
 
+  // Sets list subject filter
+  const [subjectFilter, setSubjectFilter] = useState<'all' | 'english' | 'math'>('all');
+
   // Question list filter
   type QFilter = 'all' | 'ai_suggested' | 'untagged';
   const [qFilter, setQFilter] = useState<QFilter>('all');
@@ -387,6 +390,34 @@ export default function ContentManager() {
           </div>
         )}
 
+        {/* Subject filter pills */}
+        {!setsLoading && sets.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+            {([
+              { value: 'all', label: 'All Sets' },
+              { value: 'english', label: 'Reading & Writing' },
+              { value: 'math', label: 'Math' },
+            ] as const).map(({ value, label }) => {
+              const active = subjectFilter === value;
+              const color = value === 'english' ? '#2563A8' : value === 'math' ? '#B8893E' : '#0B0B0E';
+              return (
+                <button
+                  key={value}
+                  onClick={() => setSubjectFilter(value)}
+                  style={{
+                    padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600,
+                    fontFamily: 'inherit', cursor: 'pointer',
+                    border: active ? 'none' : '1px solid #E7E4DE',
+                    background: active ? color : '#F2F0EC',
+                    color: active ? '#fff' : 'rgba(11,11,14,0.5)',
+                    transition: 'all 0.15s',
+                  }}
+                >{label}</button>
+              );
+            })}
+          </div>
+        )}
+
         {setsLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#E2562B]" /></div>
         ) : sets.length === 0 && !showNewSet ? (
@@ -397,7 +428,7 @@ export default function ContentManager() {
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
-            {sets.map((set) => (
+            {sets.filter((s) => subjectFilter === 'all' || s.subject === subjectFilter).map((set) => (
               <div key={set.id} style={{ ...CARD, padding: '20px 22px', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
                 onClick={() => { setActiveSet(set); setEditorTab('questions'); setQType('multiple_choice'); setQForm({ ...emptyMC }); }}
                 onMouseEnter={(e) => (e.currentTarget.style.boxShadow = '0 4px 16px rgba(11,11,14,0.1)')}
