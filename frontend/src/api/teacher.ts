@@ -173,3 +173,25 @@ export async function importQuestionSetFromJSON(
   const { data } = await apiClient.post('/teacher/question-sets/import-json', payload);
   return data;
 }
+
+export interface TeacherVocabWord {
+  id: string;
+  word: string;
+  definition: string;
+  exampleSentence: string;
+  createdAt: string;
+}
+
+export async function getTeacherVocabWords(): Promise<TeacherVocabWord[]> {
+  const { data } = await apiClient.get<TeacherVocabWord[]>('/teacher/vocab-words');
+  return data;
+}
+
+export async function createTeacherVocabWord(payload: { word: string; definition: string; exampleSentence?: string }): Promise<TeacherVocabWord> {
+  const { data } = await apiClient.post<TeacherVocabWord>('/teacher/vocab-words', payload);
+  return data;
+}
+
+export async function deleteTeacherVocabWord(wordId: string): Promise<void> {
+  await apiClient.delete(`/teacher/vocab-words/${wordId}`);
+}

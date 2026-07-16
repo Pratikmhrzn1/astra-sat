@@ -7,8 +7,9 @@ import {
   getSetPassages, createPassage, deletePassage,
   getSetQuestions, addQuestion, deleteQuestion, updateQuestionSubSkill,
   importQuestionSetFromJSON,
+  getTeacherVocabWords, createTeacherVocabWord, deleteTeacherVocabWord,
 } from '../../api/teacher';
-import type { QuestionSet, Passage, Question, SubSkill } from '../../api/teacher';
+import type { QuestionSet, Passage, Question, SubSkill, TeacherVocabWord } from '../../api/teacher';
 import { saveTeacherDraft, loadTeacherDraft, clearTeacherDraft } from '../../lib/offline';
 import { Button } from '../../components/ui/Button';
 import { Input, Textarea } from '../../components/ui/Input';
@@ -171,6 +172,21 @@ export default function ContentManager() {
 
   // Sets list subject filter
   const [subjectFilter, setSubjectFilter] = useState<'all' | 'english' | 'math'>('all');
+  const [mainView, setMainView] = useState<'sets' | 'vocab'>('sets');
+
+  // Vocab bank state
+  const [vocabForm, setVocabForm] = useState({ word: '', definition: '', exampleSentence: '' });
+  const [vocabFormError, setVocabFormError] = useState('');
+  const { data: vocabWords = [], isLoading: vocabLoading } = useQuery({ queryKey: ['teacher', 'vocab-words'], queryFn: getTeacherVocabWords });
+  const addVocabMutation = useMutation({
+    mutationFn: createTeacherVocabWord,
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['teacher', 'vocab-words'] }); setVocabForm({ word: '', definition: '', exampleSentence: '' }); setVocabFormError(''); },
+    onError: () => setVocabFormError('Failed to add word. Please try again.'),
+  });
+  const deleteVocabMutation = useMutation({
+    mutationFn: deleteTeacherVocabWord,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teacher', 'vocab-words'] }),
+  });
 
   // Question list filter
   type QFilter = 'all' | 'ai_suggested' | 'untagged';
@@ -329,6 +345,73 @@ export default function ContentManager() {
     if (Object.keys(errors).length === 0) addQuestionMutation.mutate();
   }
 
+  // ── Render: Vocab Bank ───────────────────────────────────────────────────────
+  if (!activeSet && mainView === 'vocab') {
+    const handleAddVocab = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!vocabForm.word.trim()) { setVocabFormError('Word is required.'); return; }
+      if (!vocabForm.definition.trim()) { setVocabFormError('Definition is required.'); return; }
+      addVocabMutation.mutate({ word: vocabForm.word.trim(), definition: vocabForm.definition.trim(), exampleSentence: vocabForm.exampleSentence.trim() });
+    };
+    return (
+      <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E2562B', marginBottom: 6 }}>Teacher</div>
+            <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, margin: 0, letterSpacing: '-0.02em', color: '#0B0B0E' }}>Content Manager</h1>
+          </div>
+        </div>
+
+        {/* View toggle */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 28 }}>
+          {([{ value: 'sets', label: 'Question Sets' }, { value: 'vocab', label: 'Vocab Bank' }] as const).map(({ value, label }) => (
+            <button key={value} onClick={() => setMainView(value)}
+              style={{ padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: mainView === value ? 'none' : '1px solid #E7E4DE', background: mainView === value ? '#0B0B0E' : '#F2F0EC', color: mainView === value ? '#fff' : 'rgba(11,11,14,0.5)', transition: 'all 0.15s' }}
+            >{label}</button>
+          ))}
+        </div>
+
+        {/* Add word form */}
+        <div style={{ ...CARD, padding: '24px 28px', marginBottom: 28 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 16px' }}>Add Vocab Word</h3>
+          <form onSubmit={handleAddVocab} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Input label="Word" value={vocabForm.word} onChange={(e) => setVocabForm((f) => ({ ...f, word: e.target.value }))} placeholder="e.g. ephemeral" />
+            <Textarea label="Definition" value={vocabForm.definition} onChange={(e) => setVocabForm((f) => ({ ...f, definition: e.target.value }))} placeholder="Lasting for a very short time." rows={2} />
+            <Textarea label="Example Sentence (optional)" value={vocabForm.exampleSentence} onChange={(e) => setVocabForm((f) => ({ ...f, exampleSentence: e.target.value }))} placeholder="The ephemeral beauty of cherry blossoms makes them all the more precious." rows={2} />
+            {vocabFormError && <p style={{ fontSize: 13, color: '#C0392B', margin: 0 }}>{vocabFormError}</p>}
+            <div>
+              <Button type="submit" loading={addVocabMutation.isPending}><Plus size={14} style={{ marginRight: 6 }} />Add Word</Button>
+            </div>
+          </form>
+        </div>
+
+        {/* Word list */}
+        {vocabLoading ? (
+          <div style={{ textAlign: 'center', padding: 40 }}><Spinner /></div>
+        ) : vocabWords.length === 0 ? (
+          <div style={{ ...CARD, padding: '40px 24px', textAlign: 'center', color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>No vocab words yet. Add one above.</div>
+        ) : (
+          <div style={{ ...CARD, overflow: 'hidden' }}>
+            {vocabWords.map((w: TeacherVocabWord, i: number) => (
+              <div key={w.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '16px 24px', borderBottom: i < vocabWords.length - 1 ? '1px solid #F2F0EC' : 'none' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: '#0B0B0E', marginBottom: 2 }}>{w.word}</div>
+                  <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.7)', marginBottom: w.exampleSentence ? 4 : 0 }}>{w.definition}</div>
+                  {w.exampleSentence && <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', fontStyle: 'italic' }}>"{w.exampleSentence}"</div>}
+                </div>
+                <button onClick={() => deleteVocabMutation.mutate(w.id)}
+                  style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(11,11,14,0.3)', padding: 4, marginTop: 2 }}
+                  title="Delete word">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // ── Render: Sets list ────────────────────────────────────────────────────────
   if (!activeSet) {
     return (
@@ -355,6 +438,15 @@ export default function ContentManager() {
             </Button>
             <Button onClick={() => setShowNewSet(true)}><Plus size={15} style={{ marginRight: 7 }} />New Question Set</Button>
           </div>
+        </div>
+
+        {/* View toggle */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 28 }}>
+          {([{ value: 'sets', label: 'Question Sets' }, { value: 'vocab', label: 'Vocab Bank' }] as const).map(({ value, label }) => (
+            <button key={value} onClick={() => setMainView(value)}
+              style={{ padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: mainView === value ? 'none' : '1px solid #E7E4DE', background: mainView === value ? '#0B0B0E' : '#F2F0EC', color: mainView === value ? '#fff' : 'rgba(11,11,14,0.5)', transition: 'all 0.15s' }}
+            >{label}</button>
+          ))}
         </div>
 
         {jsonImportError && (

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db';
-import { users, questionSets, questions, passages, exams, examAnswers, feedback } from '../db/schema';
+import { users, questionSets, questions, passages, exams, examAnswers, feedback, teacherVocabWords } from '../db/schema';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 
@@ -440,6 +440,52 @@ router.delete('/questions/:questionId', async (req, res) => {
       .where(eq(questions.id, questionId)).limit(1);
     if (qRows.length === 0) return res.status(404).json({ error: 'Question not found' });
     await db.delete(questions).where(eq(questions.id, questionId));
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ── Teacher vocab word bank ────────────────────────────────────────────────────
+
+const vocabWordSchema = z.object({
+  word: z.string().min(1).max(100),
+  definition: z.string().min(1).max(500),
+  exampleSentence: z.string().max(500).optional(),
+});
+
+router.get('/vocab-words', async (_req, res) => {
+  try {
+    const rows = await db.select().from(teacherVocabWords).orderBy(desc(teacherVocabWords.createdAt));
+    return res.json(rows);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/vocab-words', validateBody(vocabWordSchema), async (req, res) => {
+  const { word, definition, exampleSentence } = req.body;
+  try {
+    const [row] = await db.insert(teacherVocabWords).values({
+      word: word.trim(),
+      definition: definition.trim(),
+      exampleSentence: (exampleSentence ?? '').trim(),
+    }).returning();
+    return res.status(201).json(row);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/vocab-words/:wordId', async (req, res) => {
+  try {
+    const rows = await db.select({ id: teacherVocabWords.id })
+      .from(teacherVocabWords).where(eq(teacherVocabWords.id, req.params.wordId)).limit(1);
+    if (rows.length === 0) return res.status(404).json({ error: 'Word not found' });
+    await db.delete(teacherVocabWords).where(eq(teacherVocabWords.id, req.params.wordId));
     return res.json({ ok: true });
   } catch (err) {
     console.error(err);

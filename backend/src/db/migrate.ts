@@ -301,6 +301,27 @@ const SCHEMA_UPDATES = `
   ALTER TABLE library_items ALTER COLUMN file_url DROP NOT NULL;
   ALTER TABLE library_items DROP COLUMN IF EXISTS mime_type;
   ALTER TABLE library_items ADD COLUMN IF NOT EXISTS note_content TEXT;
+
+  CREATE TABLE IF NOT EXISTS teacher_vocab_words (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    word TEXT NOT NULL,
+    definition TEXT NOT NULL,
+    example_sentence TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS student_teacher_vocab_progress (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    teacher_vocab_word_id UUID NOT NULL REFERENCES teacher_vocab_words(id) ON DELETE CASCADE,
+    next_review_at TIMESTAMP NOT NULL,
+    interval_days INTEGER NOT NULL DEFAULT 1,
+    ease_factor NUMERIC NOT NULL DEFAULT 2.5,
+    review_count INTEGER NOT NULL DEFAULT 0,
+    last_correct BOOLEAN,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(student_id, teacher_vocab_word_id)
+  );
 `;
 
 const SEED_DEFAULT_ADMIN_CODE = `

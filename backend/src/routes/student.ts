@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { eq, and, sql, desc, lte, ne, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
-import { users, questionSets, questions, passages, exams, examAnswers, aiFeedback, mockTests, feedback, studentVocab, generatedContent, mockNarratives, studentSkillTriggers, chatSessions, chatMessages } from '../db/schema';
+import { users, questionSets, questions, passages, exams, examAnswers, aiFeedback, mockTests, feedback, studentVocab, generatedContent, mockNarratives, studentSkillTriggers, chatSessions, chatMessages, teacherVocabWords, studentTeacherVocabProgress } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
@@ -817,6 +817,43 @@ router.get('/exams/:examId/narrative', async (req, res) => {
   }
 });
 
+router.post('/exams/:examId/narrative/retry', async (req, res) => {
+  const studentId = req.user!.sub;
+  if (!process.env.AI_MODEL_NARRATIVE) return res.status(503).json({ error: 'Narrative model not configured' });
+  try {
+    const examRows = await db.select().from(exams)
+      .where(and(eq(exams.id, req.params.examId), eq(exams.studentId, studentId)))
+      .limit(1);
+    if (examRows.length === 0) return res.status(404).json({ error: 'Exam not found' });
+    const exam = examRows[0];
+    if (exam.status !== 'completed') return res.status(400).json({ error: 'Exam not completed' });
+
+    // Upsert narrative row — reset to pending if it exists, create if not
+    const existing = await db.select({ id: mockNarratives.id })
+      .from(mockNarratives).where(eq(mockNarratives.examId, exam.id)).limit(1);
+
+    let narrativeId: string;
+    if (existing.length > 0) {
+      await db.update(mockNarratives)
+        .set({ status: 'pending', content: {}, modelUsed: '', latencyMs: null, costUsd: null })
+        .where(eq(mockNarratives.id, existing[0].id));
+      narrativeId = existing[0].id;
+    } else {
+      const [row] = await db.insert(mockNarratives).values({ examId: exam.id }).returning({ id: mockNarratives.id });
+      narrativeId = row.id;
+    }
+
+    res.json({ ok: true });
+
+    generateNarrativeAsync(exam.id, narrativeId, exam).catch((err) => {
+      console.error('[narrative-retry] Unhandled error:', err);
+    });
+  } catch (err) {
+    console.error(err);
+    if (!res.headersSent) res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.post('/mock-tests', async (req, res) => {
   const studentId = req.user!.sub;
   try {
@@ -896,7 +933,7 @@ router.get('/feedback', async (req, res) => {
 router.get('/vocab/due', async (req, res) => {
   const studentId = req.user!.sub;
   try {
-    // Fetch due cards: nextReviewAt <= now, capped at 20, hardest words first
+    // Question-derived words due for review
     const due = await db
       .select({
         vocabId: studentVocab.id,
@@ -912,30 +949,61 @@ router.get('/vocab/due', async (req, res) => {
       .orderBy(studentVocab.easeFactor, studentVocab.nextReviewAt)
       .limit(20);
 
-    if (due.length === 0) return res.json([]);
-
-    // For each due word, get the most recent non-rejected generated_content row
-    const results = await Promise.all(
+    const questionResults = await Promise.all(
       due.map(async (v) => {
         const gcRows = await db
           .select({ id: generatedContent.id, content: generatedContent.content })
           .from(generatedContent)
-          .where(
-            and(
-              eq(generatedContent.sourceQuestionId, v.questionId),
-              eq(generatedContent.studentId, studentId),
-              eq(generatedContent.contentType, 'vocab_quiz'),
-              sql`${generatedContent.qualityFlag} != 'rejected'`,
-            ),
-          )
+          .where(and(
+            eq(generatedContent.sourceQuestionId, v.questionId),
+            eq(generatedContent.studentId, studentId),
+            eq(generatedContent.contentType, 'vocab_quiz'),
+            sql`${generatedContent.qualityFlag} != 'rejected'`,
+          ))
           .orderBy(desc(generatedContent.createdAt))
           .limit(1);
         if (gcRows.length === 0) return null;
-        return { ...v, generatedContentId: gcRows[0].id, content: gcRows[0].content };
+        return { source: 'question' as const, ...v, generatedContentId: gcRows[0].id, content: gcRows[0].content };
       }),
     );
 
-    return res.json(results.filter(Boolean));
+    // Teacher vocab words: unstarted OR due for this student
+    const allTeacherWords = await db.select({
+      id: teacherVocabWords.id,
+      word: teacherVocabWords.word,
+      definition: teacherVocabWords.definition,
+      exampleSentence: teacherVocabWords.exampleSentence,
+    }).from(teacherVocabWords);
+
+    const teacherResults = await Promise.all(
+      allTeacherWords.map(async (tw) => {
+        const progress = await db.select()
+          .from(studentTeacherVocabProgress)
+          .where(and(
+            eq(studentTeacherVocabProgress.studentId, studentId),
+            eq(studentTeacherVocabProgress.teacherVocabWordId, tw.id),
+          ))
+          .limit(1);
+        const p = progress[0];
+        if (p && p.nextReviewAt > new Date()) return null; // not due yet
+        return {
+          source: 'teacher' as const,
+          vocabId: tw.id,
+          word: tw.word,
+          definition: tw.definition,
+          passageExcerpt: tw.exampleSentence,
+          nextReviewAt: p ? p.nextReviewAt.toISOString() : null,
+          easeFactor: p ? String(p.easeFactor) : '2.5',
+          reviewCount: p ? p.reviewCount : 0,
+        };
+      }),
+    );
+
+    const combined = [
+      ...questionResults.filter(Boolean),
+      ...teacherResults.filter(Boolean),
+    ];
+    return res.json(combined);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -980,6 +1048,63 @@ router.post('/vocab/:vocabId/review', validateBody(reviewVocabSchema), async (re
       reviewCount: v.reviewCount + 1,
       lastCorrect: isCorrect,
     }).where(eq(studentVocab.id, vocabId));
+
+    return res.json({ ok: true, nextReviewAt: nextReview, intervalDays: newIntervalDays });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/vocab/teacher/:wordId/review', validateBody(reviewVocabSchema), async (req, res) => {
+  const studentId = req.user!.sub;
+  const { wordId } = req.params;
+  const { isCorrect } = req.body;
+  try {
+    const wordRows = await db.select().from(teacherVocabWords).where(eq(teacherVocabWords.id, wordId)).limit(1);
+    if (wordRows.length === 0) return res.status(404).json({ error: 'Word not found' });
+
+    const existing = await db.select().from(studentTeacherVocabProgress)
+      .where(and(
+        eq(studentTeacherVocabProgress.studentId, studentId),
+        eq(studentTeacherVocabProgress.teacherVocabWordId, wordId),
+      )).limit(1);
+
+    const p = existing[0];
+    const easeNow = p ? parseFloat(String(p.easeFactor)) : 2.5;
+    const intervalNow = p ? p.intervalDays : 1;
+
+    let newIntervalDays: number;
+    let newEaseFactor: number;
+    if (isCorrect) {
+      newEaseFactor = Math.min(easeNow + 0.1, 5.0);
+      newIntervalDays = Math.round(intervalNow * easeNow);
+    } else {
+      newEaseFactor = Math.max(1.3, easeNow - 0.2);
+      newIntervalDays = 1;
+    }
+    const nextReview = new Date();
+    nextReview.setDate(nextReview.getDate() + newIntervalDays);
+
+    if (p) {
+      await db.update(studentTeacherVocabProgress).set({
+        intervalDays: newIntervalDays,
+        easeFactor: String(newEaseFactor),
+        nextReviewAt: nextReview,
+        reviewCount: p.reviewCount + 1,
+        lastCorrect: isCorrect,
+      }).where(eq(studentTeacherVocabProgress.id, p.id));
+    } else {
+      await db.insert(studentTeacherVocabProgress).values({
+        studentId,
+        teacherVocabWordId: wordId,
+        nextReviewAt: nextReview,
+        intervalDays: newIntervalDays,
+        easeFactor: String(newEaseFactor),
+        reviewCount: 1,
+        lastCorrect: isCorrect,
+      });
+    }
 
     return res.json({ ok: true, nextReviewAt: nextReview, intervalDays: newIntervalDays });
   } catch (err) {

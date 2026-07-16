@@ -207,7 +207,8 @@ export interface ConfirmFeedbacks {
   vocab_drill?: VocabDrillContent | null;
 }
 
-export interface VocabDueItem {
+export interface VocabDueItemQuestion {
+  source: 'question';
   vocabId: string;
   word: string;
   passageExcerpt: string;
@@ -217,6 +218,19 @@ export interface VocabDueItem {
   generatedContentId: string;
   content: VocabDrillContent;
 }
+
+export interface VocabDueItemTeacher {
+  source: 'teacher';
+  vocabId: string;
+  word: string;
+  definition: string;
+  passageExcerpt: string;
+  nextReviewAt: string | null;
+  easeFactor: string;
+  reviewCount: number;
+}
+
+export type VocabDueItem = VocabDueItemQuestion | VocabDueItemTeacher;
 
 export async function confirmAnswer(
   examId: string,
@@ -263,6 +277,14 @@ export interface MockNarrative {
 export async function getMockNarrative(examId: string): Promise<MockNarrative> {
   const { data } = await apiClient.get<MockNarrative>(`/student/exams/${examId}/narrative`);
   return data;
+}
+
+export async function retryNarrative(examId: string): Promise<void> {
+  await apiClient.post(`/student/exams/${examId}/narrative/retry`);
+}
+
+export async function reviewTeacherVocab(wordId: string, isCorrect: boolean): Promise<void> {
+  await apiClient.post(`/student/vocab/teacher/${wordId}/review`, { isCorrect });
 }
 
 export interface WeakAreaPassage {

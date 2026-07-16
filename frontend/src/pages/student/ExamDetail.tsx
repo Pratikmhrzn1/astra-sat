@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  getExamResults, getMockNarrative,
+  getExamResults, getMockNarrative, retryNarrative,
   confirmAnswer, sendChatMessage, reviewVocab,
   type NarrativeContent, type ConfirmFeedbacks,
   type ReasoningClassification, type CommandOfEvidenceContent,
@@ -213,6 +213,15 @@ export default function ExamDetail() {
   const isPractice = data?.exam.type === 'individual';
   const isMockExam = data?.exam.type === 'mock_english' || data?.exam.type === 'mock_math';
   const pollCountRef = useRef(0);
+  const queryClient = useQueryClient();
+
+  const retryMutation = useMutation({
+    mutationFn: () => retryNarrative(examId!),
+    onSuccess: () => {
+      pollCountRef.current = 0;
+      queryClient.invalidateQueries({ queryKey: ['student', 'narrative', examId] });
+    },
+  });
 
   const { data: narrativeData, isError: narrativeError } = useQuery({
     queryKey: ['student', 'narrative', examId],
@@ -392,8 +401,11 @@ export default function ExamDetail() {
       {(isMockExam || isPractice) && (() => {
         if (narrativeError || (pollCountRef.current >= 10 && narrativeData?.status === 'pending')) {
           return (
-            <div style={{ background: '#FDF2F0', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 16, padding: '20px 26px', marginBottom: 24 }}>
+            <div style={{ background: '#FDF2F0', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 16, padding: '20px 26px', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
               <span style={{ fontSize: 13.5, color: '#8B1A10' }}>Analysis unavailable for this attempt.</span>
+              <button onClick={() => retryMutation.mutate()} disabled={retryMutation.isPending} style={{ padding: '7px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: retryMutation.isPending ? 'default' : 'pointer', border: '1px solid rgba(192,57,43,0.4)', background: 'transparent', color: '#8B1A10', opacity: retryMutation.isPending ? 0.5 : 1 }}>
+                {retryMutation.isPending ? 'Retrying…' : 'Retry Analysis'}
+              </button>
             </div>
           );
         }
@@ -410,8 +422,11 @@ export default function ExamDetail() {
         }
         if (narrativeData.status === 'failed') {
           return (
-            <div style={{ background: '#FDF2F0', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 16, padding: '20px 26px', marginBottom: 24 }}>
+            <div style={{ background: '#FDF2F0', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 16, padding: '20px 26px', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
               <span style={{ fontSize: 13.5, color: '#8B1A10' }}>Analysis unavailable for this attempt.</span>
+              <button onClick={() => retryMutation.mutate()} disabled={retryMutation.isPending} style={{ padding: '7px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: retryMutation.isPending ? 'default' : 'pointer', border: '1px solid rgba(192,57,43,0.4)', background: 'transparent', color: '#8B1A10', opacity: retryMutation.isPending ? 0.5 : 1 }}>
+                {retryMutation.isPending ? 'Retrying…' : 'Retry Analysis'}
+              </button>
             </div>
           );
         }
