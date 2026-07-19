@@ -1,0 +1,452 @@
+{
+  "title": "SAT Math — Full Practice Module",
+  "subject": "math",
+  "description": "44 questions covering Algebra, Advanced Math, Problem-Solving & Data Analysis, and Geometry & Trigonometry. Mix of multiple-choice and student-produced response.",
+  "passages": [],
+  "questions": [
+    {
+      "orderIndex": 0,
+      "questionType": "multiple_choice",
+      "questionText": "If 4x − 7 = 17, what is the value of x?",
+      "optionA": "2.5",
+      "optionB": "6",
+      "optionC": "4",
+      "optionD": "10",
+      "correctAnswer": "b",
+      "explanation": "Add 7 to both sides: 4x = 24. Divide by 4: x = 6."
+    },
+    {
+      "orderIndex": 1,
+      "questionType": "multiple_choice",
+      "questionText": "The equation 2(x + 3) = 5x − 6 has what solution?",
+      "optionA": "x = 2",
+      "optionB": "x = 4",
+      "optionC": "x = 6",
+      "optionD": "x = 12",
+      "correctAnswer": "b",
+      "explanation": "Distribute: 2x + 6 = 5x − 6. Subtract 2x from both sides: 6 = 3x − 6. Add 6: 12 = 3x, so x = 4."
+    },
+    {
+      "orderIndex": 2,
+      "questionType": "multiple_choice",
+      "questionText": "Which value of x satisfies (3x/4) + 1 = 7?",
+      "optionA": "6",
+      "optionB": "8",
+      "optionC": "9",
+      "optionD": "10",
+      "correctAnswer": "b",
+      "explanation": "Subtract 1: 3x/4 = 6. Multiply by 4: 3x = 24. Divide by 3: x = 8."
+    },
+    {
+      "orderIndex": 3,
+      "questionType": "multiple_choice",
+      "questionText": "If (x − 2)/3 = (x + 4)/5, what is the value of x?",
+      "optionA": "5",
+      "optionB": "7",
+      "optionC": "11",
+      "optionD": "13",
+      "correctAnswer": "c",
+      "explanation": "Cross-multiply: 5(x − 2) = 3(x + 4). So 5x − 10 = 3x + 12. Then 2x = 22, giving x = 11."
+    },
+    {
+      "orderIndex": 4,
+      "questionType": "student_produced_response",
+      "questionText": "What is the value of x if 5x − 3(x − 2) = 18?",
+      "correctAnswerText": "6",
+      "explanation": "Distribute: 5x − 3x + 6 = 18, so 2x + 6 = 18, 2x = 12, x = 6."
+    },
+    {
+      "orderIndex": 5,
+      "questionType": "student_produced_response",
+      "questionText": "If 2x + y = 10 and x = 3, what is the value of y?",
+      "correctAnswerText": "4",
+      "explanation": "Substitute x = 3: 6 + y = 10, so y = 4."
+    },
+    {
+      "orderIndex": 6,
+      "questionType": "multiple_choice",
+      "questionText": "Which inequality is equivalent to −3x + 5 > 14?",
+      "optionA": "x > −3",
+      "optionB": "x < −3",
+      "optionC": "x > 3",
+      "optionD": "x < 3",
+      "correctAnswer": "b",
+      "explanation": "Subtract 5: −3x > 9. Divide by −3 and flip the inequality: x < −3."
+    },
+    {
+      "orderIndex": 7,
+      "questionType": "multiple_choice",
+      "questionText": "If 2x + 1 ≤ 9 and x is a positive integer, what is the greatest possible value of x?",
+      "optionA": "3",
+      "optionB": "4",
+      "optionC": "5",
+      "optionD": "6",
+      "correctAnswer": "b",
+      "explanation": "2x ≤ 8, so x ≤ 4. The greatest positive integer satisfying this is 4."
+    },
+    {
+      "orderIndex": 8,
+      "questionType": "multiple_choice",
+      "questionText": "If x + y = 7 and 2x − y = 2, what is the value of x?",
+      "optionA": "2",
+      "optionB": "3",
+      "optionC": "4",
+      "optionD": "5",
+      "correctAnswer": "b",
+      "explanation": "Add the two equations: 3x = 9, so x = 3."
+    },
+    {
+      "orderIndex": 9,
+      "questionType": "multiple_choice",
+      "questionText": "A store sells notebooks for $3 each and pens for $1.50 each. Maria buys 10 items and spends $21. How many notebooks did she buy?",
+      "optionA": "3",
+      "optionB": "4",
+      "optionC": "6",
+      "optionD": "7",
+      "correctAnswer": "b",
+      "explanation": "Let n = notebooks, p = pens. n + p = 10 and 3n + 1.5p = 21. Substitute p = 10 − n: 3n + 15 − 1.5n = 21, so 1.5n = 6, n = 4."
+    },
+    {
+      "orderIndex": 10,
+      "questionType": "multiple_choice",
+      "questionText": "If 3x − y = 5 and 2x + y = 10, what is the value of y?",
+      "optionA": "1",
+      "optionB": "3",
+      "optionC": "4",
+      "optionD": "7",
+      "correctAnswer": "c",
+      "explanation": "Add the equations: 5x = 15, so x = 3. Substitute into 2x + y = 10: 6 + y = 10, y = 4."
+    },
+    {
+      "orderIndex": 11,
+      "questionType": "student_produced_response",
+      "questionText": "If 3x + 2y = 16 and x = 2, what is the value of y?",
+      "correctAnswerText": "5",
+      "explanation": "Substitute x = 2: 6 + 2y = 16, 2y = 10, y = 5."
+    },
+    {
+      "orderIndex": 12,
+      "questionType": "multiple_choice",
+      "questionText": "What are the solutions to x² − 5x + 6 = 0?",
+      "optionA": "x = 1 and x = 6",
+      "optionB": "x = −2 and x = −3",
+      "optionC": "x = 2 and x = 3",
+      "optionD": "x = −1 and x = 6",
+      "correctAnswer": "c",
+      "explanation": "Factor: (x − 2)(x − 3) = 0. Solutions are x = 2 and x = 3."
+    },
+    {
+      "orderIndex": 13,
+      "questionType": "multiple_choice",
+      "questionText": "The graph of y = x² − 4x + 3 crosses the x-axis at which x-values?",
+      "optionA": "x = 0 only",
+      "optionB": "x = 1 and x = 3",
+      "optionC": "x = −1 and x = −3",
+      "optionD": "x = 1 only",
+      "correctAnswer": "b",
+      "explanation": "Set y = 0: x² − 4x + 3 = 0 factors as (x − 1)(x − 3) = 0, giving x = 1 and x = 3."
+    },
+    {
+      "orderIndex": 14,
+      "questionType": "multiple_choice",
+      "questionText": "If x² + 8x + k = 0 has exactly one real solution, what is the value of k?",
+      "optionA": "4",
+      "optionB": "8",
+      "optionC": "16",
+      "optionD": "64",
+      "correctAnswer": "c",
+      "explanation": "For exactly one solution, the discriminant equals zero: b² − 4ac = 0. Here 64 − 4k = 0, so k = 16."
+    },
+    {
+      "orderIndex": 15,
+      "questionType": "multiple_choice",
+      "questionText": "What is the minimum value of f(x) = x² − 6x + 11?",
+      "optionA": "−7",
+      "optionB": "2",
+      "optionC": "3",
+      "optionD": "11",
+      "correctAnswer": "b",
+      "explanation": "Complete the square: f(x) = (x − 3)² + 2. The minimum occurs at x = 3 and equals 2."
+    },
+    {
+      "orderIndex": 16,
+      "questionType": "student_produced_response",
+      "questionText": "What is the positive solution to x² − 9 = 0?",
+      "correctAnswerText": "3",
+      "explanation": "x² = 9, so x = ±3. The positive solution is 3."
+    },
+    {
+      "orderIndex": 17,
+      "questionType": "student_produced_response",
+      "questionText": "The equation x² − 7x + 10 = 0 has two solutions. What is the greater solution?",
+      "correctAnswerText": "5",
+      "explanation": "Factor: (x − 2)(x − 5) = 0, giving x = 2 or x = 5. The greater solution is 5."
+    },
+    {
+      "orderIndex": 18,
+      "questionType": "multiple_choice",
+      "questionText": "Which expression is equivalent to (x + 3)(x − 2) − (x² − 1)?",
+      "optionA": "x − 5",
+      "optionB": "x + 5",
+      "optionC": "2x − 5",
+      "optionD": "x² − 5",
+      "correctAnswer": "a",
+      "explanation": "Expand: x² + x − 6 − x² + 1 = x − 5."
+    },
+    {
+      "orderIndex": 19,
+      "questionType": "multiple_choice",
+      "questionText": "If f(x) = (x² − 4)/(x − 2) for x ≠ 2, which expression is equivalent to f(x)?",
+      "optionA": "x − 2",
+      "optionB": "x + 2",
+      "optionC": "x²",
+      "optionD": "(x − 2)/(x + 2)",
+      "correctAnswer": "b",
+      "explanation": "Factor the numerator: (x − 2)(x + 2)/(x − 2) = x + 2, for x ≠ 2."
+    },
+    {
+      "orderIndex": 20,
+      "questionType": "student_produced_response",
+      "questionText": "What is the value of 3a² − 2a + 1 when a = 2?",
+      "correctAnswerText": "9",
+      "explanation": "3(4) − 2(2) + 1 = 12 − 4 + 1 = 9."
+    },
+    {
+      "orderIndex": 21,
+      "questionType": "multiple_choice",
+      "questionText": "If f(x) = 2 · 3^x, what is f(3)?",
+      "optionA": "18",
+      "optionB": "27",
+      "optionC": "54",
+      "optionD": "162",
+      "correctAnswer": "c",
+      "explanation": "f(3) = 2 · 3³ = 2 · 27 = 54."
+    },
+    {
+      "orderIndex": 22,
+      "questionType": "multiple_choice",
+      "questionText": "A population of bacteria doubles every 4 hours. If there are initially 500 bacteria, which expression gives the number of bacteria after t hours?",
+      "optionA": "500 · 2^t",
+      "optionB": "500 · 2^(t/4)",
+      "optionC": "500 · 4^t",
+      "optionD": "2 · 500^t",
+      "correctAnswer": "b",
+      "explanation": "The population doubles every 4 hours, so the exponent is t/4. After t hours: 500 · 2^(t/4)."
+    },
+    {
+      "orderIndex": 23,
+      "questionType": "multiple_choice",
+      "questionText": "If f(x) = 3x − 1, what is f(f(2))?",
+      "optionA": "5",
+      "optionB": "9",
+      "optionC": "14",
+      "optionD": "17",
+      "correctAnswer": "c",
+      "explanation": "First find f(2) = 3(2) − 1 = 5. Then f(5) = 3(5) − 1 = 14."
+    },
+    {
+      "orderIndex": 24,
+      "questionType": "multiple_choice",
+      "questionText": "The function g is defined by g(x) = x² + 2. If g(a) = 27 and a > 0, what is the value of a?",
+      "optionA": "3",
+      "optionB": "5",
+      "optionC": "7",
+      "optionD": "25",
+      "correctAnswer": "b",
+      "explanation": "a² + 2 = 27, so a² = 25. Since a > 0, a = 5."
+    },
+    {
+      "orderIndex": 25,
+      "questionType": "multiple_choice",
+      "questionText": "A linear function f satisfies f(0) = 4 and f(2) = 10. What is f(5)?",
+      "optionA": "15",
+      "optionB": "17",
+      "optionC": "19",
+      "optionD": "22",
+      "correctAnswer": "c",
+      "explanation": "The slope is (10 − 4)/(2 − 0) = 3. So f(x) = 3x + 4. Then f(5) = 15 + 4 = 19."
+    },
+    {
+      "orderIndex": 26,
+      "questionType": "multiple_choice",
+      "questionText": "Two parallel lines are cut by a transversal. One co-interior (same-side interior) angle measures 65°. What is the measure of the other co-interior angle?",
+      "optionA": "65°",
+      "optionB": "90°",
+      "optionC": "115°",
+      "optionD": "180°",
+      "correctAnswer": "c",
+      "explanation": "Co-interior angles between parallel lines are supplementary (add to 180°). So 180° − 65° = 115°."
+    },
+    {
+      "orderIndex": 27,
+      "questionType": "multiple_choice",
+      "questionText": "In a right triangle, one acute angle measures 35°. What is the measure of the other acute angle?",
+      "optionA": "35°",
+      "optionB": "45°",
+      "optionC": "55°",
+      "optionD": "65°",
+      "correctAnswer": "c",
+      "explanation": "The three angles sum to 180°. 90° + 35° + x = 180°, so x = 55°."
+    },
+    {
+      "orderIndex": 28,
+      "questionType": "multiple_choice",
+      "questionText": "Triangle ABC is similar to triangle DEF. If AB = 6, DE = 9, and BC = 8, what is the length of EF?",
+      "optionA": "5",
+      "optionB": "8",
+      "optionC": "10",
+      "optionD": "12",
+      "correctAnswer": "d",
+      "explanation": "The scale factor is DE/AB = 9/6 = 3/2. So EF = BC · (3/2) = 8 · 1.5 = 12."
+    },
+    {
+      "orderIndex": 29,
+      "questionType": "student_produced_response",
+      "questionText": "The perimeter of a rectangle is 36 cm. If the length is 4 cm more than the width, what is the width in centimeters?",
+      "correctAnswerText": "7",
+      "explanation": "Let w = width, l = w + 4. Perimeter: 2(w + 4) + 2w = 36, so 4w + 8 = 36, 4w = 28, w = 7."
+    },
+    {
+      "orderIndex": 30,
+      "questionType": "multiple_choice",
+      "questionText": "What is the area of a circle with radius 5?",
+      "optionA": "5π",
+      "optionB": "10π",
+      "optionC": "25π",
+      "optionD": "100π",
+      "correctAnswer": "c",
+      "explanation": "Area = πr² = π(5)² = 25π."
+    },
+    {
+      "orderIndex": 31,
+      "questionType": "multiple_choice",
+      "questionText": "A circle has circumference 12π. What is the diameter of the circle?",
+      "optionA": "6",
+      "optionB": "12",
+      "optionC": "24",
+      "optionD": "36",
+      "correctAnswer": "b",
+      "explanation": "Circumference = 2πr = 12π, so r = 6 and diameter = 12."
+    },
+    {
+      "orderIndex": 32,
+      "questionType": "student_produced_response",
+      "questionText": "What is the radius of a circle with area 49π?",
+      "correctAnswerText": "7",
+      "explanation": "πr² = 49π, so r² = 49 and r = 7."
+    },
+    {
+      "orderIndex": 33,
+      "questionType": "multiple_choice",
+      "questionText": "A rectangle has length (2x + 3) and width (x − 1). What is its area in terms of x?",
+      "optionA": "3x + 2",
+      "optionB": "2x² − x − 3",
+      "optionC": "2x² + x − 3",
+      "optionD": "2x² + x + 3",
+      "correctAnswer": "c",
+      "explanation": "(2x + 3)(x − 1) = 2x² − 2x + 3x − 3 = 2x² + x − 3."
+    },
+    {
+      "orderIndex": 34,
+      "questionType": "multiple_choice",
+      "questionText": "What is the volume of a cylinder with radius 3 and height 5?",
+      "optionA": "15π",
+      "optionB": "30π",
+      "optionC": "45π",
+      "optionD": "90π",
+      "correctAnswer": "c",
+      "explanation": "Volume = πr²h = π(3²)(5) = 45π."
+    },
+    {
+      "orderIndex": 35,
+      "questionType": "student_produced_response",
+      "questionText": "A right triangle has legs of length 5 and 12. What is the length of the hypotenuse?",
+      "correctAnswerText": "13",
+      "explanation": "By the Pythagorean theorem: c² = 5² + 12² = 25 + 144 = 169. So c = 13."
+    },
+    {
+      "orderIndex": 36,
+      "questionType": "multiple_choice",
+      "questionText": "The mean of five numbers is 12. Four of the numbers are 10, 11, 14, and 15. What is the fifth number?",
+      "optionA": "8",
+      "optionB": "10",
+      "optionC": "12",
+      "optionD": "14",
+      "correctAnswer": "b",
+      "explanation": "The total sum must be 5 × 12 = 60. The sum of the four known values is 50. The fifth number is 60 − 50 = 10."
+    },
+    {
+      "orderIndex": 37,
+      "questionType": "multiple_choice",
+      "questionText": "For the data set {3, 7, 8, 8, 12, 15}, what is the median?",
+      "optionA": "7",
+      "optionB": "8",
+      "optionC": "8.5",
+      "optionD": "9",
+      "correctAnswer": "b",
+      "explanation": "With 6 values, the median is the average of the 3rd and 4th values: (8 + 8)/2 = 8."
+    },
+    {
+      "orderIndex": 38,
+      "questionType": "multiple_choice",
+      "questionText": "A bag contains 4 red balls, 3 blue balls, and 5 green balls. If one ball is chosen at random, what is the probability that it is NOT green?",
+      "optionA": "5/12",
+      "optionB": "7/12",
+      "optionC": "1/3",
+      "optionD": "1/2",
+      "correctAnswer": "b",
+      "explanation": "Total balls = 12. Non-green balls = 4 + 3 = 7. Probability = 7/12."
+    },
+    {
+      "orderIndex": 39,
+      "questionType": "student_produced_response",
+      "questionText": "The data set {4, 6, 8, 10, x} has a mean of 8. What is the value of x?",
+      "correctAnswerText": "12",
+      "explanation": "Sum must equal 5 × 8 = 40. Current sum = 4 + 6 + 8 + 10 = 28. So x = 40 − 28 = 12."
+    },
+    {
+      "orderIndex": 40,
+      "questionType": "multiple_choice",
+      "questionText": "A car travels 240 miles in 4 hours. At the same rate, how many miles will it travel in 6 hours?",
+      "optionA": "280",
+      "optionB": "320",
+      "optionC": "360",
+      "optionD": "400",
+      "correctAnswer": "c",
+      "explanation": "Rate = 240 ÷ 4 = 60 mph. Distance in 6 hours = 60 × 6 = 360 miles."
+    },
+    {
+      "orderIndex": 41,
+      "questionType": "multiple_choice",
+      "questionText": "A jacket originally costs $80 and is on sale for 25% off. What is the sale price?",
+      "optionA": "$20",
+      "optionB": "$55",
+      "optionC": "$60",
+      "optionD": "$75",
+      "correctAnswer": "c",
+      "explanation": "Discount = 25% of $80 = $20. Sale price = $80 − $20 = $60."
+    },
+    {
+      "orderIndex": 42,
+      "questionType": "multiple_choice",
+      "questionText": "If the ratio of boys to girls in a class is 3:4 and there are 28 students total, how many boys are in the class?",
+      "optionA": "8",
+      "optionB": "10",
+      "optionC": "12",
+      "optionD": "16",
+      "correctAnswer": "c",
+      "explanation": "Boys = (3/7) × 28 = 12."
+    },
+    {
+      "orderIndex": 43,
+      "questionType": "multiple_choice",
+      "questionText": "In a right triangle, sin(θ) = 3/5. What is cos(θ)?",
+      "optionA": "3/4",
+      "optionB": "4/5",
+      "optionC": "5/3",
+      "optionD": "5/4",
+      "correctAnswer": "b",
+      "explanation": "Using the Pythagorean identity: cos²(θ) = 1 − sin²(θ) = 1 − 9/25 = 16/25. So cos(θ) = 4/5."
+    }
+  ]
+}

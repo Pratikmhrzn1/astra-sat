@@ -34,3 +34,12 @@ export async function getMe(): Promise<AuthUser> {
 export async function logout(): Promise<void> {
   await apiClient.post('/auth/logout');
 }
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await apiClient.post('/auth/change-password', { currentPassword, newPassword });
+}
+
+export async function updateProfile(name: string): Promise<AuthUser> {
+  const { data } = await apiClient.patch<AuthUser>('/auth/profile', { name });
+  return data;
+}

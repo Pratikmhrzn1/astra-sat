@@ -1,0 +1,846 @@
+{
+  "title": "SAT Reading & Writing — Full Practice Module",
+  "subject": "english",
+  "description": "54 questions across 10 content passages and 17 grammar/transitions exercises. Covers inference, vocabulary in context, command of evidence, transitions, and standard English conventions.",
+  "passages": [
+    {
+      "orderIndex": 0,
+      "title": "Coral Reefs",
+      "passageText": "Coral reefs, often called the \"rainforests of the sea,\" cover less than one percent of the ocean floor yet support approximately 25 percent of all marine species. These ecosystems depend on a delicate symbiosis between coral polyps and photosynthetic algae called zooxanthellae. The algae provide up to 90 percent of the coral's energy through photosynthesis. When ocean temperatures rise even slightly, corals expel the algae in a process known as bleaching. Without the algae's nutrients, bleached corals frequently die, leaving behind stark white calcium carbonate skeletons. Scientists estimate that half of the world's coral reefs have already been lost since 1950, largely due to climate-induced warming, ocean acidification, and coastal pollution."
+    },
+    {
+      "orderIndex": 1,
+      "title": "Women's Suffrage",
+      "passageText": "The struggle for women's voting rights in the United States spanned more than seven decades. Early advocates such as Elizabeth Cady Stanton and Susan B. Anthony organized the first women's rights convention in Seneca Falls, New York, in 1848, establishing a formal framework for the movement. Despite persistent campaigns, legal challenges, and public demonstrations, women were not granted the constitutional right to vote until the ratification of the Nineteenth Amendment in 1920. The movement's success owed much to the strategic alliances suffragists built with progressive reformers and their ability to adapt their arguments to appeal to skeptical legislators."
+    },
+    {
+      "orderIndex": 2,
+      "title": "Behavioral Economics",
+      "passageText": "Traditional economic theory assumed that individuals always make rational decisions to maximize their own utility. However, behavioral economists Daniel Kahneman and Amos Tversky challenged this view through their research on cognitive biases. Their studies showed that people systematically deviate from rational decision-making due to mental shortcuts called heuristics. For instance, individuals tend to weigh potential losses more heavily than equivalent gains — a phenomenon Kahneman and Tversky called \"loss aversion.\" These findings have since been applied to public policy, nudging people toward beneficial behaviors such as saving for retirement or organ donation by altering the default options presented to them."
+    },
+    {
+      "orderIndex": 3,
+      "title": "Generative Artificial Intelligence",
+      "passageText": "Artificial intelligence systems capable of generating text, images, and audio have advanced rapidly in recent years, raising both excitement and concern among researchers, policymakers, and the general public. Proponents argue that generative AI can democratize access to creative tools, accelerate scientific discovery, and improve productivity across industries. Critics, however, warn of risks including the spread of misinformation through synthetic media, the potential displacement of workers in creative fields, and questions about intellectual property when AI systems are trained on copyrighted material. Governments and regulatory bodies around the world are now grappling with how to establish frameworks that encourage innovation while protecting against these potential harms."
+    },
+    {
+      "orderIndex": 4,
+      "title": "Sleep and the Glymphatic System",
+      "passageText": "Sleep researchers have long known that adequate sleep is essential for cognitive function, emotional regulation, and physical health. A growing body of evidence suggests that during sleep, the brain actively clears metabolic waste products through a system called the glymphatic system. This cleansing process appears to be particularly efficient during deep, slow-wave sleep. Some scientists hypothesize that chronic sleep deprivation, by preventing thorough glymphatic clearance, may increase the risk of neurodegenerative diseases such as Alzheimer's. While this hypothesis remains under investigation, it provides a compelling biological explanation for the well-documented cognitive consequences of insufficient sleep."
+    },
+    {
+      "orderIndex": 5,
+      "title": "Climate Change and Food Security",
+      "passageText": "Rising global temperatures and increasingly unpredictable precipitation patterns pose significant challenges to global food security. Crop yields for staple foods such as wheat, maize, and rice are projected to decline in many regions as growing seasons shift and heat stress intensifies. While some northern regions may temporarily benefit from warmer temperatures and longer growing seasons, these gains are unlikely to offset losses in tropical and subtropical zones, where the majority of the world's food-insecure populations live. Adaptation strategies such as developing drought-resistant crop varieties and improving irrigation efficiency offer partial solutions, but experts emphasize that meaningful mitigation of greenhouse gas emissions remains essential."
+    },
+    {
+      "orderIndex": 6,
+      "title": "Renaissance Art",
+      "passageText": "The Italian Renaissance, spanning roughly from the 14th to the 17th century, transformed European art through a revival of classical Greco-Roman aesthetics and a new focus on humanism. Artists such as Leonardo da Vinci, Michelangelo, and Raphael developed techniques including linear perspective — a mathematical method for depicting three-dimensional space on a flat surface — and chiaroscuro, the use of strong contrasts between light and shadow to create depth. These innovations allowed painters to represent the human form and natural world with unprecedented realism. The period also saw a shift in the social role of artists, who began to be regarded not merely as skilled craftsmen but as intellectuals and visionaries."
+    },
+    {
+      "orderIndex": 7,
+      "title": "Global Supply Chains",
+      "passageText": "The COVID-19 pandemic exposed significant vulnerabilities in global supply chains that had been built around principles of efficiency and cost minimization. Just-in-time manufacturing, in which companies maintain minimal inventories and rely on precise delivery schedules, proved fragile when factories shut down, shipping routes were disrupted, and consumer demand shifted unpredictably. Businesses that had outsourced production to distant regions to reduce labor costs found themselves unable to source critical components. In response, many companies have begun to prioritize supply chain resilience, diversifying their supplier networks, increasing domestic production capacity, and building strategic reserves of key materials."
+    },
+    {
+      "orderIndex": 8,
+      "title": "Language Diversity",
+      "passageText": "Of the approximately 7,000 languages spoken in the world today, linguists estimate that roughly half will fall silent by the end of this century. Languages disappear when communities abandon them in favor of more widely spoken languages that offer greater economic opportunity and social mobility. While language loss is often framed as a cultural tragedy, some scholars argue that the picture is more complex. Every language encodes unique knowledge systems, ecological understanding, and cognitive frameworks. When a language disappears, that knowledge — including detailed classifications of local plants, animals, and environmental phenomena — may be irreversibly lost. Efforts to document and revitalize endangered languages have had mixed results, succeeding in some communities while failing in others where economic pressures remain overwhelming."
+    },
+    {
+      "orderIndex": 9,
+      "title": "The 15-Minute City",
+      "passageText": "Cities around the world are experimenting with the concept of the \"15-minute city,\" in which all essential services — schools, grocery stores, parks, healthcare, and workplaces — are accessible within a 15-minute walk or bicycle ride from any residence. Proponents argue that this model reduces car dependency, lowers carbon emissions, improves quality of life, and strengthens local communities. Critics contend that implementing such a model in existing cities would require massive and potentially prohibitive infrastructure investment, and that it may not be feasible in low-density suburbs or rural areas. Nevertheless, cities such as Paris and Melbourne have begun integrating 15-minute city principles into their urban planning frameworks."
+    },
+    {
+      "orderIndex": 10,
+      "title": "Grammar: Punctuating Transitional Words",
+      "passageText": "After months of analysis, the team submitted their manuscript to the journal. The editors however were not immediately convinced of the paper's significance."
+    },
+    {
+      "orderIndex": 11,
+      "title": "Grammar: Subject-Verb Agreement",
+      "passageText": "The collection of ancient manuscripts discovered in the monastery's basement are now being studied by linguists around the world."
+    },
+    {
+      "orderIndex": 12,
+      "title": "Grammar: Pronoun-Antecedent Agreement",
+      "passageText": "The committee announced their decision after a three-hour meeting."
+    },
+    {
+      "orderIndex": 13,
+      "title": "Grammar: Plural Possessive",
+      "passageText": "The two scientists research overlapped in several key areas, leading them to collaborate on a joint paper."
+    },
+    {
+      "orderIndex": 14,
+      "title": "Grammar: Run-On Sentence",
+      "passageText": "The bridge was built in 1892 it has withstood multiple earthquakes and is still in use today."
+    },
+    {
+      "orderIndex": 15,
+      "title": "Grammar: Misplaced Modifier",
+      "passageText": "Running through the forest, the trees seemed to blur together."
+    },
+    {
+      "orderIndex": 16,
+      "title": "Grammar: Parallel Structure",
+      "passageText": "The new policy aims to reduce costs, improve efficiency, and the environment should be protected."
+    },
+    {
+      "orderIndex": 17,
+      "title": "Transitions: Contrast",
+      "passageText": "Some researchers believe that social media has a negative effect on adolescent mental health. _______, several large-scale studies have found no significant correlation between social media use and depression."
+    },
+    {
+      "orderIndex": 18,
+      "title": "Transitions: Cause and Effect",
+      "passageText": "The city installed 500 new electric vehicle charging stations across the metropolitan area. _______, EV adoption rates in the city rose by 40 percent over the following year."
+    },
+    {
+      "orderIndex": 19,
+      "title": "Transitions: Addition",
+      "passageText": "The new therapy reduced patients' anxiety levels significantly. _______, many participants reported improved sleep quality during the treatment period."
+    },
+    {
+      "orderIndex": 20,
+      "title": "Transitions: Clarification",
+      "passageText": "The author's writing style is often described as minimalist. _______, she tends to use short sentences, limited adjectives, and sparse descriptions."
+    },
+    {
+      "orderIndex": 21,
+      "title": "Transitions: Concession",
+      "passageText": "The documentary received widespread critical acclaim. _______, it failed to attract a large mainstream audience and earned little at the box office."
+    },
+    {
+      "orderIndex": 22,
+      "title": "Grammar: Verb Tense Consistency",
+      "passageText": "Yesterday, the scientist discovered a new compound and announces her findings to the press."
+    },
+    {
+      "orderIndex": 23,
+      "title": "Grammar: Comma After Introductory Clause",
+      "passageText": "Although the storm had passed the residents remained indoors for several more hours."
+    },
+    {
+      "orderIndex": 24,
+      "title": "Grammar: Semicolons",
+      "passageText": "The experiment required three separate trials; each lasting approximately two hours."
+    },
+    {
+      "orderIndex": 25,
+      "title": "Grammar: Who vs. Whom",
+      "passageText": "The award was given to the scientist who the committee believed deserved the most recognition."
+    },
+    {
+      "orderIndex": 26,
+      "title": "Grammar: Concision and Active Voice",
+      "passageText": "The report was written by the committee and contains recommendations that were made by the board."
+    }
+  ],
+  "questions": [
+    {
+      "orderIndex": 0,
+      "passageIndex": 0,
+      "questionType": "multiple_choice",
+      "subSkill": "inference",
+      "questionText": "Which choice best describes the main purpose of the passage?",
+      "optionA": "To argue that ocean pollution is the primary cause of coral reef decline",
+      "optionB": "To explain the biology of coral reef ecosystems and the threats they face",
+      "optionC": "To compare coral reefs with rainforests in terms of biodiversity",
+      "optionD": "To describe the symbiotic relationship between algae and human beings",
+      "correctAnswer": "b",
+      "explanation": "The passage introduces coral reefs, explains their dependence on zooxanthellae, describes bleaching, and identifies causes of decline. B captures all of this. A is too narrow. C misrepresents the rainforest comparison. D incorrectly involves humans."
+    },
+    {
+      "orderIndex": 1,
+      "passageIndex": 0,
+      "questionType": "multiple_choice",
+      "subSkill": "vocab_in_context",
+      "questionText": "As used in the passage, \"symbiosis\" most nearly means",
+      "optionA": "competition between two species for the same resource",
+      "optionB": "a relationship in which one organism harms another",
+      "optionC": "a mutually beneficial relationship between two organisms",
+      "optionD": "the process by which one species evolves from another",
+      "correctAnswer": "c",
+      "explanation": "The passage describes zooxanthellae providing 90% of the coral's energy — a clearly beneficial exchange. \"Symbiosis\" here means a mutually beneficial relationship."
+    },
+    {
+      "orderIndex": 2,
+      "passageIndex": 0,
+      "questionType": "multiple_choice",
+      "subSkill": "command_of_evidence",
+      "questionText": "Which detail from the passage most directly supports the claim that coral bleaching is fatal to reef ecosystems?",
+      "optionA": "\"Coral reefs... cover less than one percent of the ocean floor\"",
+      "optionB": "\"The algae provide up to 90 percent of the coral's energy through photosynthesis\"",
+      "optionC": "\"bleached corals frequently die, leaving behind stark white calcium carbonate skeletons\"",
+      "optionD": "\"half of the world's coral reefs have already been lost since 1950\"",
+      "correctAnswer": "c",
+      "explanation": "C directly states that bleached corals \"frequently die,\" making it the most direct evidence that bleaching is fatal. D shows overall reef loss but does not attribute it specifically to bleaching."
+    },
+    {
+      "orderIndex": 3,
+      "passageIndex": 0,
+      "questionType": "multiple_choice",
+      "subSkill": "inference",
+      "questionText": "Based on the passage, what can be inferred about zooxanthellae?",
+      "optionA": "They can survive without coral polyps for extended periods",
+      "optionB": "They are harmful to coral reefs when present in large quantities",
+      "optionC": "Coral reefs cannot survive without them",
+      "optionD": "They are the primary cause of ocean acidification",
+      "correctAnswer": "c",
+      "explanation": "The passage states that without the algae's nutrients, bleached corals \"frequently die,\" implying corals cannot survive without zooxanthellae. A is unaddressed. B contradicts the passage. D is not supported."
+    },
+    {
+      "orderIndex": 4,
+      "passageIndex": 1,
+      "questionType": "multiple_choice",
+      "subSkill": "inference",
+      "questionText": "What is the main idea of this passage?",
+      "optionA": "Elizabeth Cady Stanton was the single most important figure in the women's suffrage movement",
+      "optionB": "The Nineteenth Amendment was ratified solely because of public demonstrations",
+      "optionC": "Women's suffrage was achieved through decades of organized effort and strategic adaptation",
+      "optionD": "The Seneca Falls Convention immediately produced the Nineteenth Amendment",
+      "correctAnswer": "c",
+      "explanation": "The passage describes a long struggle and attributes success to alliances and adaptation. C captures both the effort and the strategy. A focuses on one person. B is too narrow. D implies an immediate causation the passage does not support."
+    },
+    {
+      "orderIndex": 5,
+      "passageIndex": 1,
+      "questionType": "multiple_choice",
+      "subSkill": "vocab_in_context",
+      "questionText": "As used in the passage, \"persistent\" most nearly means",
+      "optionA": "aggressive",
+      "optionB": "continuing despite obstacles",
+      "optionC": "occasionally interrupted",
+      "optionD": "politically motivated",
+      "correctAnswer": "b",
+      "explanation": "\"Persistent campaigns\" describes efforts that continued over decades despite failure and opposition. B best captures this meaning."
+    },
+    {
+      "orderIndex": 6,
+      "passageIndex": 1,
+      "questionType": "multiple_choice",
+      "subSkill": "command_of_evidence",
+      "questionText": "Which sentence from the passage provides the strongest evidence that strategic alliances were important to the suffrage movement's success?",
+      "optionA": "\"The struggle for women's voting rights in the United States spanned more than seven decades.\"",
+      "optionB": "\"Early advocates... organized the first women's rights convention in Seneca Falls, New York, in 1848\"",
+      "optionC": "\"women were not granted the constitutional right to vote until the ratification of the Nineteenth Amendment in 1920\"",
+      "optionD": "\"The movement's success owed much to the strategic alliances suffragists built with progressive reformers\"",
+      "correctAnswer": "d",
+      "explanation": "D explicitly states that the movement's success \"owed much to strategic alliances,\" making it the most direct evidence. The other options describe the timeline, not what caused success."
+    },
+    {
+      "orderIndex": 7,
+      "passageIndex": 1,
+      "questionType": "multiple_choice",
+      "subSkill": "transitions",
+      "questionText": "The word \"Despite\" at the start of the third sentence serves primarily to",
+      "optionA": "introduce an example of a specific campaign tactic",
+      "optionB": "signal a contrast between years of effort and the long delay in achieving voting rights",
+      "optionC": "suggest that the campaigns were poorly organized",
+      "optionD": "indicate that suffragists abandoned legal strategies",
+      "correctAnswer": "b",
+      "explanation": "\"Despite persistent campaigns... women were not granted the right to vote until 1920\" contrasts sustained effort with delayed results. B captures this concessive relationship."
+    },
+    {
+      "orderIndex": 8,
+      "passageIndex": 2,
+      "questionType": "multiple_choice",
+      "subSkill": "inference",
+      "questionText": "The primary purpose of the passage is to",
+      "optionA": "argue that traditional economic theory is completely wrong",
+      "optionB": "describe how behavioral economics challenged and extended traditional economic theory",
+      "optionC": "prove that people never make rational economic decisions",
+      "optionD": "explain why governments should make all financial decisions for citizens",
+      "correctAnswer": "b",
+      "explanation": "The passage presents traditional theory, introduces behavioral economics as a challenge, and describes policy applications. B accurately captures this arc. A and C are too absolute. D misrepresents the policy application."
+    },
+    {
+      "orderIndex": 9,
+      "passageIndex": 2,
+      "questionType": "multiple_choice",
+      "subSkill": "vocab_in_context",
+      "questionText": "As used in the passage, \"systematically\" most nearly means",
+      "optionA": "randomly",
+      "optionB": "occasionally",
+      "optionC": "predictably and consistently",
+      "optionD": "dangerously",
+      "correctAnswer": "c",
+      "explanation": "\"Systematically deviate\" means the deviations follow predictable patterns rather than occurring at random. C best captures this sense."
+    },
+    {
+      "orderIndex": 10,
+      "passageIndex": 2,
+      "questionType": "multiple_choice",
+      "subSkill": "command_of_evidence",
+      "questionText": "Which detail from the passage best illustrates the concept of loss aversion?",
+      "optionA": "\"Traditional economic theory assumed that individuals always make rational decisions\"",
+      "optionB": "\"behavioral economists Daniel Kahneman and Amos Tversky challenged this view\"",
+      "optionC": "\"individuals tend to weigh potential losses more heavily than equivalent gains\"",
+      "optionD": "\"nudging people toward beneficial behaviors such as saving for retirement\"",
+      "correctAnswer": "c",
+      "explanation": "C directly defines loss aversion by describing how people asymmetrically perceive losses versus gains. It is the only option that addresses the concept itself."
+    },
+    {
+      "orderIndex": 11,
+      "passageIndex": 2,
+      "questionType": "multiple_choice",
+      "subSkill": "inference",
+      "questionText": "Based on the passage, what can be inferred about heuristics?",
+      "optionA": "They always lead to optimal economic decisions",
+      "optionB": "They are used only by people without economic training",
+      "optionC": "They can cause people to make predictable errors in judgment",
+      "optionD": "They were invented by Kahneman and Tversky",
+      "correctAnswer": "c",
+      "explanation": "The passage says people \"deviate from rational decision-making due to mental shortcuts called heuristics,\" implying heuristics cause predictable, systematic errors. A contradicts this. B is not stated. D is not supported — K&T studied them, not invented them."
+    },
+    {
+      "orderIndex": 12,
+      "passageIndex": 3,
+      "questionType": "multiple_choice",
+      "subSkill": "inference",
+      "questionText": "What is the central tension described in the passage?",
+      "optionA": "competition between AI companies for market dominance",
+      "optionB": "the disagreement between proponents and critics about the benefits and risks of generative AI",
+      "optionC": "the conflict between governments and technology companies over copyright law",
+      "optionD": "the debate over whether AI systems are capable of genuine creativity",
+      "correctAnswer": "b",
+      "explanation": "The passage presents proponent arguments followed by critic concerns. B correctly identifies this as the central tension. A is not discussed. C is only one specific critic concern. D is not addressed."
+    },
+    {
+      "orderIndex": 13,
+      "passageIndex": 3,
+      "questionType": "multiple_choice",
+      "subSkill": "vocab_in_context",
+      "questionText": "As used in the passage, \"democratize\" most nearly means",
+      "optionA": "make subject to public voting",
+      "optionB": "restrict to a select group",
+      "optionC": "make widely accessible",
+      "optionD": "regulate through government policy",
+      "correctAnswer": "c",
+      "explanation": "\"Democratize access to creative tools\" means making those tools available to more people, not just specialists. C best captures this sense of broadening access."
+    },
+    {
+      "orderIndex": 14,
+      "passageIndex": 3,
+      "questionType": "multiple_choice",
+      "subSkill": "command_of_evidence",
+      "questionText": "Which detail best supports the critics' concern about economic disruption from AI?",
+      "optionA": "\"generative AI can democratize access to creative tools\"",
+      "optionB": "\"Governments and regulatory bodies... are now grappling with how to establish frameworks\"",
+      "optionC": "\"the potential displacement of workers in creative fields\"",
+      "optionD": "\"accelerate scientific discovery, and improve productivity across industries\"",
+      "correctAnswer": "c",
+      "explanation": "C specifically addresses job displacement, which is the clearest form of economic disruption cited. A and D are proponent arguments. B describes the regulatory response, not the concern itself."
+    },
+    {
+      "orderIndex": 15,
+      "passageIndex": 3,
+      "questionType": "multiple_choice",
+      "subSkill": "transitions",
+      "questionText": "The word \"however\" in the third sentence primarily serves to",
+      "optionA": "introduce a solution to the problems described in the second sentence",
+      "optionB": "signal a shift from the proponents' view to the critics' concerns",
+      "optionC": "provide a specific example of AI's benefits",
+      "optionD": "suggest that critics are uninformed about AI's capabilities",
+      "correctAnswer": "b",
+      "explanation": "\"However\" signals a contrast — the passage moves from proponent arguments to critic concerns. B correctly captures this transitional function."
+    },
+    {
+      "orderIndex": 16,
+      "passageIndex": 4,
+      "questionType": "multiple_choice",
+      "subSkill": "inference",
+      "questionText": "The primary purpose of the passage is to",
+      "optionA": "prove that sleep deprivation always leads to Alzheimer's disease",
+      "optionB": "explain a proposed biological mechanism linking sleep quality to brain health",
+      "optionC": "argue that sleep is more important than diet and exercise for health",
+      "optionD": "describe the history of sleep research",
+      "correctAnswer": "b",
+      "explanation": "The passage describes the glymphatic system and its hypothesized connection to cognitive health. B captures this explanatory purpose. A overstates certainty (the passage uses \"may\" and \"hypothesize\"). C and D are not supported."
+    },
+    {
+      "orderIndex": 17,
+      "passageIndex": 4,
+      "questionType": "multiple_choice",
+      "subSkill": "vocab_in_context",
+      "questionText": "As used in the passage, \"compelling\" most nearly means",
+      "optionA": "controversial",
+      "optionB": "simplistic",
+      "optionC": "persuasive and credible",
+      "optionD": "incomplete",
+      "correctAnswer": "c",
+      "explanation": "A \"compelling biological explanation\" is one that is convincing and well-supported. C best captures this meaning."
+    },
+    {
+      "orderIndex": 18,
+      "passageIndex": 4,
+      "questionType": "multiple_choice",
+      "subSkill": "command_of_evidence",
+      "questionText": "Which statement from the passage best supports the hypothesis that sleep deprivation may increase the risk of neurodegenerative disease?",
+      "optionA": "\"adequate sleep is essential for cognitive function, emotional regulation, and physical health\"",
+      "optionB": "\"during sleep, the brain actively clears metabolic waste products through the glymphatic system\"",
+      "optionC": "\"chronic sleep deprivation, by preventing thorough glymphatic clearance, may increase the risk of neurodegenerative diseases\"",
+      "optionD": "\"This cleansing process appears to be particularly efficient during deep, slow-wave sleep\"",
+      "correctAnswer": "c",
+      "explanation": "C directly states the hypothesized causal link between sleep deprivation and neurodegenerative risk, making it the most direct evidence. B explains the mechanism but does not make the claim. A is a general statement about sleep's importance."
+    },
+    {
+      "orderIndex": 19,
+      "passageIndex": 4,
+      "questionType": "multiple_choice",
+      "subSkill": "inference",
+      "questionText": "Based on the passage, what can be inferred about the glymphatic system?",
+      "optionA": "It is primarily active during waking hours",
+      "optionB": "It has been conclusively proven to prevent Alzheimer's disease",
+      "optionC": "It functions most efficiently during a specific stage of sleep",
+      "optionD": "It was discovered very recently and lacks scientific credibility",
+      "correctAnswer": "c",
+      "explanation": "The passage states that glymphatic cleansing \"appears to be particularly efficient during deep, slow-wave sleep,\" supporting C. A contradicts the passage. B overstates the findings. D contradicts the passage."
+    },
+    {
+      "orderIndex": 20,
+      "passageIndex": 5,
+      "questionType": "multiple_choice",
+      "subSkill": "inference",
+      "questionText": "What is the author's main point in this passage?",
+      "optionA": "Northern farmers will benefit significantly and permanently from climate change",
+      "optionB": "Climate change threatens food security, and adaptation measures alone are insufficient without emissions reduction",
+      "optionC": "Developing drought-resistant crops will fully solve the global food security crisis",
+      "optionD": "The world's food-insecure populations live mainly in northern regions",
+      "correctAnswer": "b",
+      "explanation": "The passage describes threats to food security, acknowledges partial adaptations, but concludes that emissions reduction is essential. B captures this nuanced argument. A overstates northern benefits. C overstates adaptation. D directly contradicts the passage."
+    },
+    {
+      "orderIndex": 21,
+      "passageIndex": 5,
+      "questionType": "multiple_choice",
+      "subSkill": "vocab_in_context",
+      "questionText": "As used in the passage, \"offset\" most nearly means",
+      "optionA": "compensate for",
+      "optionB": "reduce",
+      "optionC": "eliminate",
+      "optionD": "measure",
+      "correctAnswer": "a",
+      "explanation": "\"These gains are unlikely to offset losses\" means the northern gains won't compensate for the losses elsewhere. A best fits this context."
+    },
+    {
+      "orderIndex": 22,
+      "passageIndex": 5,
+      "questionType": "multiple_choice",
+      "subSkill": "command_of_evidence",
+      "questionText": "Which detail best supports the idea that climate change threatens food-insecure populations disproportionately?",
+      "optionA": "\"Rising global temperatures... pose significant challenges to global food security\"",
+      "optionB": "\"some northern regions may temporarily benefit from warmer temperatures\"",
+      "optionC": "\"losses in tropical and subtropical zones, where the majority of the world's food-insecure populations live\"",
+      "optionD": "\"developing drought-resistant crop varieties and improving irrigation efficiency\"",
+      "correctAnswer": "c",
+      "explanation": "C explicitly connects the zone of greatest losses (tropical/subtropical) with where food-insecure populations live, making it the most direct evidence of disproportionate impact."
+    },
+    {
+      "orderIndex": 23,
+      "passageIndex": 5,
+      "questionType": "multiple_choice",
+      "subSkill": "transitions",
+      "questionText": "In context, the phrase \"While some northern regions may temporarily benefit\" serves primarily to",
+      "optionA": "suggest that all regions benefit equally from climate change",
+      "optionB": "acknowledge a potential counterexample before reinforcing the passage's main argument",
+      "optionC": "prove that climate mitigation efforts are unnecessary",
+      "optionD": "contradict the claim that crop yields will decline globally",
+      "correctAnswer": "b",
+      "explanation": "\"While\" introduces a concession — the author acknowledges northern benefits but then argues these gains won't offset southern losses. B captures this rhetorical function."
+    },
+    {
+      "orderIndex": 24,
+      "passageIndex": 6,
+      "questionType": "multiple_choice",
+      "subSkill": "inference",
+      "questionText": "The passage primarily focuses on",
+      "optionA": "the religious themes that dominated Renaissance painting",
+      "optionB": "the technical innovations and changing social status of artists during the Renaissance",
+      "optionC": "the differences between Italian and northern European Renaissance art",
+      "optionD": "Leonardo da Vinci's individual contributions to science",
+      "correctAnswer": "b",
+      "explanation": "The passage discusses perspective, chiaroscuro, and how artists came to be seen as intellectuals. B captures both the technical and social dimensions. A is not the focus. C is not addressed. D is too narrow."
+    },
+    {
+      "orderIndex": 25,
+      "passageIndex": 6,
+      "questionType": "multiple_choice",
+      "subSkill": "vocab_in_context",
+      "questionText": "As used in the passage, \"unprecedented\" most nearly means",
+      "optionA": "traditional and familiar",
+      "optionB": "technically flawed",
+      "optionC": "never achieved before",
+      "optionD": "widely recognized",
+      "correctAnswer": "c",
+      "explanation": "\"Unprecedented realism\" means a level of realism that had not been achieved previously. C best fits."
+    },
+    {
+      "orderIndex": 26,
+      "passageIndex": 6,
+      "questionType": "multiple_choice",
+      "subSkill": "command_of_evidence",
+      "questionText": "Which detail from the passage best illustrates the shift in how artists were perceived during the Renaissance?",
+      "optionA": "\"Artists such as Leonardo da Vinci, Michelangelo, and Raphael developed techniques including linear perspective\"",
+      "optionB": "\"a mathematical method for depicting three-dimensional space on a flat surface\"",
+      "optionC": "\"These innovations allowed painters to represent the human form... with unprecedented realism\"",
+      "optionD": "\"artists... began to be regarded not merely as skilled craftsmen but as intellectuals and visionaries\"",
+      "correctAnswer": "d",
+      "explanation": "D directly describes the change in social perception — from craftsmen to intellectuals and visionaries. The other options address technical innovations, not social status."
+    },
+    {
+      "orderIndex": 27,
+      "passageIndex": 7,
+      "questionType": "multiple_choice",
+      "subSkill": "inference",
+      "questionText": "What is the author's central argument?",
+      "optionA": "The COVID-19 pandemic was caused by failures in global supply chains",
+      "optionB": "Supply chains that prioritized efficiency over resilience proved vulnerable during the pandemic",
+      "optionC": "All companies should immediately return manufacturing to domestic facilities",
+      "optionD": "Just-in-time manufacturing is always inferior to maintaining large inventories",
+      "correctAnswer": "b",
+      "explanation": "The passage argues that efficiency-focused supply chains were fragile and that resilience is now being prioritized. B captures this. A confuses cause and effect. C and D are too absolute."
+    },
+    {
+      "orderIndex": 28,
+      "passageIndex": 7,
+      "questionType": "multiple_choice",
+      "subSkill": "vocab_in_context",
+      "questionText": "As used in the passage, \"fragile\" most nearly means",
+      "optionA": "innovative",
+      "optionB": "inexpensive",
+      "optionC": "easily disrupted",
+      "optionD": "internationally sourced",
+      "correctAnswer": "c",
+      "explanation": "Just-in-time manufacturing \"proved fragile when factories shut down\" — meaning it broke down easily under disruption. C best captures this meaning."
+    },
+    {
+      "orderIndex": 29,
+      "passageIndex": 7,
+      "questionType": "multiple_choice",
+      "subSkill": "command_of_evidence",
+      "questionText": "Which statement provides the best evidence that outsourcing created supply chain vulnerabilities?",
+      "optionA": "\"The COVID-19 pandemic exposed significant vulnerabilities in global supply chains\"",
+      "optionB": "\"Just-in-time manufacturing... proved fragile when factories shut down\"",
+      "optionC": "\"Businesses that had outsourced production to distant regions... found themselves unable to source critical components\"",
+      "optionD": "\"many companies have begun to prioritize supply chain resilience\"",
+      "correctAnswer": "c",
+      "explanation": "C directly links outsourcing to a specific vulnerability: inability to source critical components. A is a general statement. B refers to just-in-time specifically, not outsourcing. D describes the response."
+    },
+    {
+      "orderIndex": 30,
+      "passageIndex": 8,
+      "questionType": "multiple_choice",
+      "subSkill": "inference",
+      "questionText": "The passage suggests that language loss is",
+      "optionA": "a purely cultural issue with no practical consequences",
+      "optionB": "a straightforward tragedy that all scholars agree on",
+      "optionC": "a complex phenomenon with both cultural and epistemological consequences",
+      "optionD": "easily reversible through documentation efforts",
+      "correctAnswer": "c",
+      "explanation": "The passage describes language loss as \"more complex\" than a cultural tragedy and explains that languages encode unique knowledge systems. C captures this complexity. A misses the epistemological dimension. B contradicts \"some scholars argue that the picture is more complex.\" D is contradicted by \"mixed results.\""
+    },
+    {
+      "orderIndex": 31,
+      "passageIndex": 8,
+      "questionType": "multiple_choice",
+      "subSkill": "vocab_in_context",
+      "questionText": "As used in the passage, \"encodes\" most nearly means",
+      "optionA": "hides",
+      "optionB": "contains and expresses",
+      "optionC": "translates",
+      "optionD": "destroys",
+      "correctAnswer": "b",
+      "explanation": "Languages \"encode unique knowledge systems\" — they contain and express this knowledge within their structure. B best fits."
+    },
+    {
+      "orderIndex": 32,
+      "passageIndex": 8,
+      "questionType": "multiple_choice",
+      "subSkill": "command_of_evidence",
+      "questionText": "Which statement best supports the claim that language loss has practical, not merely symbolic, consequences?",
+      "optionA": "\"Of the approximately 7,000 languages spoken in the world today\"",
+      "optionB": "\"Languages disappear when communities abandon them in favor of more widely spoken languages\"",
+      "optionC": "\"Every language encodes unique knowledge systems, ecological understanding, and cognitive frameworks\"",
+      "optionD": "\"Efforts to document and revitalize endangered languages have had mixed results\"",
+      "correctAnswer": "c",
+      "explanation": "C goes beyond symbolic value by mentioning \"ecological understanding\" and \"cognitive frameworks\" — these represent practical, usable knowledge systems. D addresses efforts, not consequences."
+    },
+    {
+      "orderIndex": 33,
+      "passageIndex": 8,
+      "questionType": "multiple_choice",
+      "subSkill": "transitions",
+      "questionText": "The word \"While\" at the start of the fourth sentence primarily serves to",
+      "optionA": "introduce an example of a language that has already disappeared",
+      "optionB": "confirm that the author views language loss only as a cultural tragedy",
+      "optionC": "acknowledge a common framing before presenting a more nuanced perspective",
+      "optionD": "provide statistical evidence that language loss is accelerating",
+      "correctAnswer": "c",
+      "explanation": "\"While language loss is often framed as a cultural tragedy, some scholars argue...\" — \"While\" concedes the common framing before introducing a more complex view. C captures this."
+    },
+    {
+      "orderIndex": 34,
+      "passageIndex": 9,
+      "questionType": "multiple_choice",
+      "subSkill": "inference",
+      "questionText": "The passage primarily presents",
+      "optionA": "a one-sided argument in favor of the 15-minute city concept",
+      "optionB": "a balanced overview of a new urban model, including its potential benefits and limitations",
+      "optionC": "a critique of how Paris and Melbourne have misapplied urban planning principles",
+      "optionD": "evidence that car-dependent cities are always inferior to walkable ones",
+      "correctAnswer": "b",
+      "explanation": "The passage presents proponent and critic views, then gives real-world examples of implementation. B captures this balanced approach. A and D are too one-sided. C is not supported."
+    },
+    {
+      "orderIndex": 35,
+      "passageIndex": 9,
+      "questionType": "multiple_choice",
+      "subSkill": "vocab_in_context",
+      "questionText": "As used in the passage, \"prohibitive\" most nearly means",
+      "optionA": "legally forbidden",
+      "optionB": "excessively costly",
+      "optionC": "environmentally harmful",
+      "optionD": "politically unpopular",
+      "correctAnswer": "b",
+      "explanation": "\"Potentially prohibitive infrastructure investment\" describes investment so expensive it would prevent or deter the change. B best captures this."
+    },
+    {
+      "orderIndex": 36,
+      "passageIndex": 9,
+      "questionType": "multiple_choice",
+      "subSkill": "command_of_evidence",
+      "questionText": "Which detail provides the strongest evidence that the 15-minute city concept has moved beyond theory?",
+      "optionA": "\"Proponents argue that this model reduces car dependency, lowers carbon emissions\"",
+      "optionB": "\"Critics contend that implementing such a model... would require massive infrastructure investment\"",
+      "optionC": "\"cities such as Paris and Melbourne have begun integrating 15-minute city principles\"",
+      "optionD": "\"all essential services are accessible within a 15-minute walk or bicycle ride\"",
+      "correctAnswer": "c",
+      "explanation": "C names specific cities that have begun implementation, showing the concept has moved into practice. A and B describe the debate around the concept. D defines the concept."
+    },
+    {
+      "orderIndex": 37,
+      "passageIndex": 10,
+      "questionType": "multiple_choice",
+      "subSkill": "grammar",
+      "questionText": "Which is the best version of the underlined sentence \"The editors however were not immediately convinced of the paper's significance\"?",
+      "optionA": "The editors however were not immediately convinced of the paper's significance.",
+      "optionB": "The editors, however, were not immediately convinced of the paper's significance.",
+      "optionC": "The editors however, were not immediately convinced of the paper's significance.",
+      "optionD": "The editors, however were not immediately convinced of the paper's significance.",
+      "correctAnswer": "b",
+      "explanation": "\"However\" is a transitional adverb. When used mid-sentence, it must be set off by commas on both sides. B correctly places commas before and after \"however.\""
+    },
+    {
+      "orderIndex": 38,
+      "passageIndex": 11,
+      "questionType": "multiple_choice",
+      "subSkill": "grammar",
+      "questionText": "Which word should replace \"are\" in the sentence to correct the subject-verb agreement error?",
+      "optionA": "is",
+      "optionB": "were",
+      "optionC": "have been",
+      "optionD": "No change needed",
+      "correctAnswer": "a",
+      "explanation": "The subject is \"collection,\" which is singular. \"Scientists\" is part of a prepositional phrase modifying \"collection\" and does not affect the verb. \"Is\" is the correct singular verb."
+    },
+    {
+      "orderIndex": 39,
+      "passageIndex": 12,
+      "questionType": "multiple_choice",
+      "subSkill": "grammar",
+      "questionText": "Which word should replace \"their\" to correct the pronoun-antecedent agreement?",
+      "optionA": "its",
+      "optionB": "his",
+      "optionC": "there",
+      "optionD": "No change needed",
+      "correctAnswer": "a",
+      "explanation": "\"Committee\" is a collective noun treated as singular in American English, so the correct possessive pronoun is \"its,\" not \"their.\""
+    },
+    {
+      "orderIndex": 40,
+      "passageIndex": 13,
+      "questionType": "multiple_choice",
+      "subSkill": "grammar",
+      "questionText": "Which revision best corrects the possessive form in \"The two scientists research overlapped\"?",
+      "optionA": "The two scientists' research overlapped",
+      "optionB": "The two scientist's research overlapped",
+      "optionC": "The two scientists research overlapped (NO CHANGE)",
+      "optionD": "The two scientists's research overlapped",
+      "correctAnswer": "a",
+      "explanation": "\"Scientists\" is plural. The plural possessive is formed by adding an apostrophe after the existing s: \"scientists'.\" B incorrectly treats \"scientist\" as singular."
+    },
+    {
+      "orderIndex": 41,
+      "passageIndex": 14,
+      "questionType": "multiple_choice",
+      "subSkill": "grammar",
+      "questionText": "Which revision best corrects the run-on sentence?",
+      "optionA": "The bridge was built in 1892, it has withstood multiple earthquakes and is still in use today.",
+      "optionB": "The bridge was built in 1892. It has withstood multiple earthquakes and is still in use today.",
+      "optionC": "The bridge was built in 1892, withstood multiple earthquakes, and is still in use today.",
+      "optionD": "The bridge was built in 1892 it has withstood multiple earthquakes, and is still in use today.",
+      "correctAnswer": "b",
+      "explanation": "B corrects the run-on by creating two complete sentences with a period. A creates a comma splice — two independent clauses joined only by a comma. C changes the meaning. D does not fix the run-on."
+    },
+    {
+      "orderIndex": 42,
+      "passageIndex": 15,
+      "questionType": "multiple_choice",
+      "subSkill": "grammar",
+      "questionText": "Which revision best corrects the misplaced modifier in the sentence?",
+      "optionA": "Running through the forest, the trees seemed to blur together. (NO CHANGE)",
+      "optionB": "As I ran through the forest, the trees seemed to blur together.",
+      "optionC": "The trees, running through the forest, seemed to blur together.",
+      "optionD": "Running through the forest, blurring together were the trees.",
+      "correctAnswer": "b",
+      "explanation": "The original implies the trees are running. B clarifies that a person is running by adding a subject (\"I\"), placing the modifier correctly. C and D are awkward or still illogical."
+    },
+    {
+      "orderIndex": 43,
+      "passageIndex": 16,
+      "questionType": "multiple_choice",
+      "subSkill": "grammar",
+      "questionText": "Which revision best corrects the parallel structure error?",
+      "optionA": "The new policy aims to reduce costs, improve efficiency, and the environment should be protected. (NO CHANGE)",
+      "optionB": "The new policy aims to reduce costs, to improve efficiency, and the environment should be protected.",
+      "optionC": "The new policy aims to reduce costs, improve efficiency, and protect the environment.",
+      "optionD": "The new policy aims at reducing costs, improving efficiency, and to protect the environment.",
+      "correctAnswer": "c",
+      "explanation": "Parallel structure requires the three items to match in form. C uses three bare infinitives: \"reduce,\" \"improve,\" and \"protect.\" The original breaks the pattern with a full clause at the end."
+    },
+    {
+      "orderIndex": 44,
+      "passageIndex": 17,
+      "questionType": "multiple_choice",
+      "subSkill": "transitions",
+      "questionText": "Which transition word or phrase best fills the blank?",
+      "optionA": "Therefore",
+      "optionB": "In addition",
+      "optionC": "For example",
+      "optionD": "However",
+      "correctAnswer": "d",
+      "explanation": "The blank introduces a contrasting finding — some believe social media is harmful, but studies found no significant correlation. \"However\" signals this contrast. \"Therefore\" implies a conclusion drawn from the first sentence. \"In addition\" adds information in the same direction. \"For example\" introduces an illustration."
+    },
+    {
+      "orderIndex": 45,
+      "passageIndex": 18,
+      "questionType": "multiple_choice",
+      "subSkill": "transitions",
+      "questionText": "Which transition best fills the blank?",
+      "optionA": "Nevertheless",
+      "optionB": "As a result",
+      "optionC": "In contrast",
+      "optionD": "Regardless",
+      "correctAnswer": "b",
+      "explanation": "The second sentence describes a direct outcome of installing charging stations (higher EV adoption). \"As a result\" correctly signals a cause-and-effect relationship. \"Nevertheless\" signals contrast. \"In contrast\" signals comparison."
+    },
+    {
+      "orderIndex": 46,
+      "passageIndex": 19,
+      "questionType": "multiple_choice",
+      "subSkill": "transitions",
+      "questionText": "Which transition best completes the sentence?",
+      "optionA": "However",
+      "optionB": "Furthermore",
+      "optionC": "As a result",
+      "optionD": "In other words",
+      "correctAnswer": "b",
+      "explanation": "The second sentence adds another positive outcome of the therapy. \"Furthermore\" signals an additional supporting point. \"However\" signals contrast. \"As a result\" implies a direct causal chain from the first sentence, which is not the relationship here."
+    },
+    {
+      "orderIndex": 47,
+      "passageIndex": 20,
+      "questionType": "multiple_choice",
+      "subSkill": "transitions",
+      "questionText": "Which transition best fills the blank?",
+      "optionA": "Consequently",
+      "optionB": "On the other hand",
+      "optionC": "That is",
+      "optionD": "Nevertheless",
+      "correctAnswer": "c",
+      "explanation": "The second sentence clarifies what \"minimalist\" means by giving concrete examples. \"That is\" (equivalent to \"in other words\") introduces a restatement or clarification. \"Consequently\" signals a result. \"On the other hand\" signals contrast."
+    },
+    {
+      "orderIndex": 48,
+      "passageIndex": 21,
+      "questionType": "multiple_choice",
+      "subSkill": "transitions",
+      "questionText": "Which transition best fills the blank?",
+      "optionA": "Moreover",
+      "optionB": "Similarly",
+      "optionC": "Yet",
+      "optionD": "In addition",
+      "correctAnswer": "c",
+      "explanation": "\"Yet\" signals a contrast between critical success and commercial failure. This is a concessive relationship — the documentary succeeded critically but failed commercially. \"Moreover,\" \"Similarly,\" and \"In addition\" all introduce information that continues in the same direction."
+    },
+    {
+      "orderIndex": 49,
+      "passageIndex": 22,
+      "questionType": "multiple_choice",
+      "subSkill": "grammar",
+      "questionText": "Which word should replace \"announces\" to correct the verb tense error?",
+      "optionA": "announces (NO CHANGE)",
+      "optionB": "announced",
+      "optionC": "will announce",
+      "optionD": "is announcing",
+      "correctAnswer": "b",
+      "explanation": "The sentence establishes past tense with \"discovered.\" \"Announced\" maintains consistent past tense. Mixing \"discovered\" (past) with \"announces\" (present) creates an inconsistency."
+    },
+    {
+      "orderIndex": 50,
+      "passageIndex": 23,
+      "questionType": "multiple_choice",
+      "subSkill": "grammar",
+      "questionText": "Where should a comma be added to correct the punctuation of this sentence?",
+      "optionA": "After \"Although\"",
+      "optionB": "After \"passed\"",
+      "optionC": "After \"residents\"",
+      "optionD": "After \"indoors\"",
+      "correctAnswer": "b",
+      "explanation": "When a dependent clause (\"Although the storm had passed\") precedes the main clause, it must be followed by a comma. The comma goes after \"passed,\" where the dependent clause ends."
+    },
+    {
+      "orderIndex": 51,
+      "passageIndex": 24,
+      "questionType": "multiple_choice",
+      "subSkill": "grammar",
+      "questionText": "Which revision best corrects the punctuation error?",
+      "optionA": "The experiment required three separate trials; each lasting approximately two hours. (NO CHANGE)",
+      "optionB": "The experiment required three separate trials, each lasting approximately two hours.",
+      "optionC": "The experiment required three separate trials: each lasting approximately two hours.",
+      "optionD": "The experiment required three separate trials. Each lasting approximately two hours.",
+      "correctAnswer": "b",
+      "explanation": "A semicolon must join two independent clauses. \"Each lasting approximately two hours\" is a participial phrase, not an independent clause. A comma correctly introduces it. D creates a sentence fragment."
+    },
+    {
+      "orderIndex": 52,
+      "passageIndex": 25,
+      "questionType": "multiple_choice",
+      "subSkill": "grammar",
+      "questionText": "Which pronoun correctly completes the sentence?",
+      "optionA": "who (NO CHANGE)",
+      "optionB": "whom",
+      "optionC": "whose",
+      "optionD": "which",
+      "correctAnswer": "a",
+      "explanation": "\"Who\" is a subject pronoun. In the relative clause \"who the committee believed deserved the most recognition,\" \"who\" functions as the subject of \"deserved.\" You can test this by substituting: \"he deserved\" works (not \"him deserved\"), confirming \"who\" is correct."
+    },
+    {
+      "orderIndex": 53,
+      "passageIndex": 26,
+      "questionType": "multiple_choice",
+      "subSkill": "grammar",
+      "questionText": "Which revision makes the sentence most concise while maintaining its meaning?",
+      "optionA": "The report was written by the committee and contains recommendations that were made by the board. (NO CHANGE)",
+      "optionB": "The committee wrote the report, which contains the board's recommendations.",
+      "optionC": "Written by the committee, the report contains recommendations, and these were made by the board.",
+      "optionD": "The committee's report was written and it contains the board's recommendations.",
+      "correctAnswer": "b",
+      "explanation": "B eliminates unnecessary passive constructions (\"was written by,\" \"were made by\") and is the most concise version that preserves the full meaning. C is still wordy. D is grammatically awkward."
+    }
+  ]
+}

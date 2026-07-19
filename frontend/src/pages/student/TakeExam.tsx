@@ -17,8 +17,7 @@ export default function TakeExam() {
   const [index, setIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(20 * 60);
   const [navOpen, setNavOpen] = useState(false);
-  const [calcOpen, setCalcOpen] = useState(false);
-  const [calcExpr, setCalcExpr] = useState('');
+  const largeFontSize = localStorage.getItem('sat-font-pref') === 'true';
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [timerEnabled, setTimerEnabled] = useState<boolean>(locationState?.timerEnabled ?? false);
   const [sectionBanner, setSectionBanner] = useState<boolean>(locationState?.fromMockSection1 ?? false);
@@ -48,8 +47,6 @@ export default function TakeExam() {
     setFlags({});
     setElim({});
     setIndex(0);
-    setCalcOpen(false);
-    setCalcExpr('');
     elapsedRef.current = 0;
     savedTimeSpentRef.current = 0;
     timeLeftRef.current = 20 * 60;
@@ -260,18 +257,6 @@ export default function TakeExam() {
     });
   };
 
-  const calcPress = (k: string) => {
-    setCalcExpr((e) => {
-      if (k === 'C') return '';
-      if (k === '⌫') return e.slice(0, -1);
-      if (k === '=') {
-        try { return String(Math.round(Function('"use strict";return (' + e.replace(/[^0-9+\-*/().%\s]/g, '') + ')')() * 10000) / 10000); }
-        catch { return 'Error'; }
-      }
-      return (e === 'Error' ? '' : e) + k;
-    });
-  };
-
   const renderBottomAction = () => {
     if (isLast) {
       const isNextSection = !!mathExamIdRef.current;
@@ -343,17 +328,6 @@ export default function TakeExam() {
             </svg>
             {flagged ? 'Flagged' : 'Flag'}
           </button>
-          {isActuallyMath && (
-            <button
-              onClick={() => setCalcOpen((c) => !c)}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, border: calcOpen ? '1px solid #E2562B' : '1px solid #C8C4BC', background: calcOpen ? 'rgba(226,86,43,0.07)' : '#fff', color: calcOpen ? '#E2562B' : '#0B0B0E', borderRadius: 9999, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-            >
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="5" y="2" width="14" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/>
-              </svg>
-              Calculator
-            </button>
-          )}
           <button
             onClick={handleSubmit}
             disabled={transitioning}
@@ -390,7 +364,7 @@ export default function TakeExam() {
               <span style={{ width: 26, height: 26, borderRadius: 7, background: '#0B0B0E', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{index + 1}</span>
               {isSPR && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'rgba(226,86,43,0.08)', color: '#E2562B' }}>Grid-in</span>}
             </div>
-            <p style={{ fontSize: 16.5, lineHeight: 1.55, fontWeight: 500, color: '#0B0B0E', margin: '0 0 22px' }}>{q.questionText}</p>
+            <p style={{ fontSize: largeFontSize ? 20 : 16.5, lineHeight: 1.55, fontWeight: 500, color: '#0B0B0E', margin: '0 0 22px' }}>{q.questionText}</p>
 
             {/* SPR input */}
             {isSPR && (
@@ -420,7 +394,7 @@ export default function TakeExam() {
                         style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '15px 18px', borderRadius: 12, cursor: 'pointer', background: isSelected ? 'rgba(226,86,43,0.06)' : '#fff', border: isSelected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', opacity: isElim ? 0.4 : 1, transition: 'all 0.15s', fontFamily: 'inherit' }}
                       >
                         <span style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 9999, border: isSelected ? '1.5px solid #E2562B' : '1.5px solid #C8C4BC', background: isSelected ? '#E2562B' : 'transparent', color: isSelected ? '#fff' : '#8C8880', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{LETTER[oi]}</span>
-                        <span style={{ fontSize: 15, color: '#0B0B0E', lineHeight: 1.5, textDecoration: isElim ? 'line-through' : 'none' }}>{optTexts[oi]}</span>
+                        <span style={{ fontSize: largeFontSize ? 18 : 15, color: '#0B0B0E', lineHeight: 1.5, textDecoration: isElim ? 'line-through' : 'none' }}>{optTexts[oi]}</span>
                       </button>
                       <button
                         title="Cross out"
@@ -435,28 +409,6 @@ export default function TakeExam() {
           </div>
         </div>
       </div>
-
-      {/* Calculator popup */}
-      {isActuallyMath && calcOpen && (
-        <div style={{ position: 'fixed', right: 24, bottom: 92, width: 248, background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 16px 48px rgba(11,11,14,0.18)', padding: 14, zIndex: 45 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>Calculator</span>
-            <button onClick={() => setCalcOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#8C8880', fontSize: 18, lineHeight: 1, fontFamily: 'inherit' }}>×</button>
-          </div>
-          <div style={{ background: '#0B0B0E', color: '#fff', borderRadius: 10, padding: '12px 14px', textAlign: 'right', fontFamily: "'JetBrains Mono', monospace", fontSize: 18, minHeight: 24, overflow: 'hidden', marginBottom: 10, whiteSpace: 'nowrap' }}>
-            {calcExpr || '0'}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-            <button onClick={() => calcPress('C')} style={{ gridColumn: 'span 2', height: 40, borderRadius: 9, border: '1px solid #E7E4DE', background: '#F2F0EC', color: '#C0392B', fontWeight: 600, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' }}>Clear</button>
-            <button onClick={() => calcPress('⌫')} style={{ gridColumn: 'span 2', height: 40, borderRadius: 9, border: '1px solid #E7E4DE', background: '#F2F0EC', color: '#0B0B0E', fontWeight: 600, cursor: 'pointer', fontSize: 14, fontFamily: 'inherit' }}>⌫</button>
-            {['7','8','9','/','4','5','6','*','1','2','3','-','0','.','%','+'].map((k) => {
-              const isOp = '/*-+%'.includes(k);
-              return <button key={k} onClick={() => calcPress(k)} style={{ height: 40, borderRadius: 9, border: '1px solid #E7E4DE', background: isOp ? '#FBEEE9' : '#fff', color: isOp ? '#E2562B' : '#0B0B0E', fontWeight: 600, cursor: 'pointer', fontSize: 15, fontFamily: "'JetBrains Mono', monospace" }}>{k}</button>;
-            })}
-            <button onClick={() => calcPress('=')} style={{ gridColumn: 'span 4', height: 42, borderRadius: 9, border: 'none', background: '#E2562B', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 16, fontFamily: 'inherit' }}>=</button>
-          </div>
-        </div>
-      )}
 
       {/* Question navigator popup */}
       {navOpen && (

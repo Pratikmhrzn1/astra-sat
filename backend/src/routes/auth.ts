@@ -251,4 +251,49 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters').max(128),
+});
+
+router.post('/change-password', requireAuth, validateBody(changePasswordSchema), async (req: Request, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userRows = await db.select().from(users).where(eq(users.id, req.user!.sub)).limit(1);
+    if (userRows.length === 0) return res.status(404).json({ error: 'User not found' });
+    const user = userRows[0];
+
+    const valid = await comparePassword(currentPassword, user.passwordHash);
+    if (!valid) return res.status(400).json({ error: 'Current password is incorrect' });
+
+    const newHash = await hashPassword(newPassword);
+    await db.update(users).set({ passwordHash: newHash }).where(eq(users.id, user.id));
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('Change password error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const updateProfileSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters').max(100).trim(),
+});
+
+router.patch('/profile', requireAuth, validateBody(updateProfileSchema), async (req: Request, res: Response) => {
+  try {
+    const { name } = req.body;
+    const [updated] = await db
+      .update(users)
+      .set({ name })
+      .where(eq(users.id, req.user!.sub))
+      .returning({ id: users.id, email: users.email, name: users.name, role: users.role });
+
+    if (!updated) return res.status(404).json({ error: 'User not found' });
+    return res.json(updated);
+  } catch (err) {
+    console.error('Update profile error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;
