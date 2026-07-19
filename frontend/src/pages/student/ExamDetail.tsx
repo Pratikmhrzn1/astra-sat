@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMobile } from '../../hooks/useMobile';
 import {
   getExamResults, getMockNarrative, retryNarrative,
   confirmAnswer, sendChatMessage, reviewVocab,
@@ -176,6 +177,7 @@ export default function ExamDetail() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const isMobile = useMobile();
   const englishExamId = searchParams.get('englishExamId') || null;
   const [reviewOpen, setReviewOpen] = useState<Record<number, boolean>>({});
 
@@ -331,26 +333,26 @@ export default function ExamDetail() {
   const toggleReview = (i: number) => setReviewOpen((p) => ({ ...p, [i]: !p[i] }));
 
   return (
-    <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
+    <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 80px' : '36px 48px 64px' }}>
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E2562B', marginBottom: 6 }}>
         {isMockCombined ? 'Full mock SAT · score report' : `Score report · ${set?.subject === 'math' ? 'Math' : 'Reading & Writing'}`}
         {isPractice && <span style={{ marginLeft: 10, color: '#2563A8' }}>· Practice</span>}
       </div>
-      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 40, margin: '0 0 24px', letterSpacing: '-0.02em' }}>Performance Report</h1>
+      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 28 : 40, margin: '0 0 20px', letterSpacing: '-0.02em' }}>Performance Report</h1>
 
       {/* Hero */}
-      <div className="pop" style={{ background: '#0B0B0E', borderRadius: 18, padding: '32px 36px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 36, marginBottom: 22, position: 'relative', overflow: 'hidden' }}>
+      <div className="pop" style={{ background: '#0B0B0E', borderRadius: 18, padding: isMobile ? '22px 20px' : '32px 36px', display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', gap: isMobile ? 20 : 36, marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', left: -60, bottom: -80, width: 240, height: 240, borderRadius: 9999, background: 'radial-gradient(circle, rgba(226,86,43,0.16), transparent 70%)' }} />
         <div style={{ position: 'relative' }}>
           {isMockCombined ? (
             <>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Total score</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: 4, whiteSpace: 'nowrap' }}>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: totalScore1600! >= 1200 ? '#2E7D5A' : totalScore1600! >= 1000 ? '#B8893E' : '#C0392B' }}>{totalScore1600}</div>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, color: 'rgba(255,255,255,0.35)', marginBottom: 10 }}>/ 1600</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 60 : 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: totalScore1600! >= 1200 ? '#2E7D5A' : totalScore1600! >= 1000 ? '#B8893E' : '#C0392B' }}>{totalScore1600}</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 22 : 30, color: 'rgba(255,255,255,0.35)', marginBottom: isMobile ? 6 : 10 }}>/ 1600</div>
               </div>
-              <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
-                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Reading & Writing: <strong style={{ color: '#fff' }}>{engScore800}</strong></span>
+              <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>R&W: <strong style={{ color: '#fff' }}>{engScore800}</strong></span>
                 <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>·</span>
                 <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Math: <strong style={{ color: '#fff' }}>{mathScore800}</strong></span>
               </div>
@@ -359,14 +361,14 @@ export default function ExamDetail() {
             <>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Section score</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: 4, whiteSpace: 'nowrap' }}>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: headlineColor }}>{score800}</div>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, color: 'rgba(255,255,255,0.35)', marginBottom: 10 }}>/ 800</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 60 : 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: headlineColor }}>{score800}</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 22 : 30, color: 'rgba(255,255,255,0.35)', marginBottom: isMobile ? 6 : 10 }}>/ 800</div>
               </div>
               <div style={{ fontSize: 13, marginTop: 8, color: 'rgba(255,255,255,0.5)' }}>{correct} of {results.length} correct</div>
             </>
           )}
         </div>
-        <div style={{ position: 'relative', display: 'flex', gap: 40 }}>
+        <div style={{ position: 'relative', display: 'flex', gap: isMobile ? 20 : 40, flexWrap: 'wrap' }}>
           {isMockCombined ? (
             [
               { label: 'Total Qs', value: String(results.length + engResults.length) },
@@ -375,15 +377,15 @@ export default function ExamDetail() {
               { label: 'Skipped', value: String(skipped + engResults.filter(r => r.isCorrect === null).length) },
             ].map(({ label, value }) => (
               <div key={label}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>{label}</div>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, lineHeight: 1, color: '#fff' }}>{value}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>{label}</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 30 : 44, lineHeight: 1, color: '#fff' }}>{value}</div>
               </div>
             ))
           ) : (
             [{ label: 'Accuracy', value: accuracy + '%' }, { label: 'Correct', value: String(correct) }, { label: 'Wrong', value: String(wrong) }, { label: 'Skipped', value: String(skipped) }].map(({ label, value }) => (
               <div key={label}>
-                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>{label}</div>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, lineHeight: 1, color: '#fff' }}>{value}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>{label}</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 30 : 44, lineHeight: 1, color: '#fff' }}>{value}</div>
               </div>
             ))
           )}
@@ -434,13 +436,13 @@ export default function ExamDetail() {
         if (!nc) return null;
         return (
           <div style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 18, padding: '28px 32px', marginBottom: 24, boxShadow: '0 2px 12px rgba(11,11,14,0.06)' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 18 }}>
-              <div>
+            <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'flex-start', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', gap: 16, marginBottom: 18 }}>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#E2562B', marginBottom: 6 }}>Pattern diagnosis</div>
-                <p style={{ fontSize: 15.5, lineHeight: 1.65, color: '#0B0B0E', margin: 0, maxWidth: 640 }}>{nc.narrative}</p>
+                <p style={{ fontSize: isMobile ? 14 : 15.5, lineHeight: 1.65, color: '#0B0B0E', margin: 0 }}>{nc.narrative}</p>
               </div>
               {nc.scoreRange && (
-                <div style={{ flexShrink: 0, textAlign: 'center', background: '#0B0B0E', borderRadius: 14, padding: '14px 22px' }}>
+                <div style={{ flexShrink: 0, textAlign: 'center', background: '#0B0B0E', borderRadius: 14, padding: isMobile ? '10px 16px' : '14px 22px', alignSelf: isMobile ? 'flex-start' : 'flex-start' }}>
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>Est. range</div>
                   <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: '#fff', lineHeight: 1 }}>{nc.scoreRange}</div>
                 </div>
@@ -456,7 +458,7 @@ export default function ExamDetail() {
                     return (
                       <div key={s.subSkill} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{ width: 8, height: 8, borderRadius: 9999, background: barColor, flexShrink: 0 }} />
-                        <span style={{ fontSize: 13, fontWeight: s.flag ? 700 : 500, color: s.flag ? '#0B0B0E' : 'rgba(11,11,14,0.7)', width: 170 }}>
+                        <span style={{ fontSize: 13, fontWeight: s.flag ? 700 : 500, color: s.flag ? '#0B0B0E' : 'rgba(11,11,14,0.7)', minWidth: isMobile ? 110 : 170, flex: isMobile ? '0 0 auto' : undefined }}>
                           {s.subSkill.replace(/_/g, ' ')}
                           {s.flag && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#C0392B', letterSpacing: '0.06em', textTransform: 'uppercase' }}>pattern</span>}
                         </span>
@@ -543,7 +545,7 @@ export default function ExamDetail() {
               </button>
 
               {open && (
-                <div style={{ padding: '0 18px 20px 64px' }}>
+                <div style={{ padding: isMobile ? '0 14px 18px 14px' : '0 18px 20px 64px' }}>
                   <p style={{ fontSize: 14.5, fontWeight: 500, lineHeight: 1.5, margin: '0 0 14px' }}>{r.questionText}</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 14 }}>
                     {opts.map(({ key, text }) => {
@@ -687,7 +689,7 @@ export default function ExamDetail() {
               </button>
 
               {open && (
-                <div style={{ padding: '0 18px 20px 64px' }}>
+                <div style={{ padding: isMobile ? '0 14px 18px 14px' : '0 18px 20px 64px' }}>
                   <p style={{ fontSize: 14.5, fontWeight: 500, lineHeight: 1.5, margin: '0 0 14px' }}>{r.questionText}</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 14 }}>
                     {opts.map(({ key, text }) => {
@@ -793,9 +795,9 @@ export default function ExamDetail() {
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: 12, marginTop: 30 }}>
-        <button onClick={() => navigate('/student/results')} style={{ height: 48, padding: '0 26px', background: '#fff', color: '#0B0B0E', border: '1px solid #C8C4BC', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>View all results</button>
-        <button onClick={() => navigate('/student/dashboard')} style={{ height: 48, padding: '0 26px', background: '#E2562B', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 10px rgba(226,86,43,0.26)' }}>Back to dashboard</button>
+      <div style={{ display: 'flex', gap: 12, marginTop: 30, flexDirection: isMobile ? 'column' : 'row' }}>
+        <button onClick={() => navigate('/student/results')} style={{ height: 48, padding: '0 26px', background: '#fff', color: '#0B0B0E', border: '1px solid #C8C4BC', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: isMobile ? '100%' : undefined }}>View all results</button>
+        <button onClick={() => navigate('/student/dashboard')} style={{ height: 48, padding: '0 26px', background: '#E2562B', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 10px rgba(226,86,43,0.26)', width: isMobile ? '100%' : undefined }}>Back to dashboard</button>
       </div>
 
       {/* Chat panel — fixed bottom, practice and mock exams */}
