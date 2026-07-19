@@ -857,13 +857,29 @@ router.post('/exams/:examId/narrative/retry', async (req, res) => {
 router.post('/mock-tests', async (req, res) => {
   const studentId = req.user!.sub;
   try {
-    const englishSetRows = await db.execute(sql`SELECT id FROM question_sets WHERE subject = 'english' ORDER BY RANDOM() LIMIT 1`);
-    const mathSetRows = await db.execute(sql`SELECT id FROM question_sets WHERE subject = 'math' ORDER BY RANDOM() LIMIT 1`);
-    if (englishSetRows.rows.length === 0) return res.status(400).json({ error: 'No English question sets available' });
+    // Pick math set first, then choose English with opposing difficulty
+    const mathSetRows = await db.execute(sql`SELECT id, difficulty FROM question_sets WHERE subject = 'math' ORDER BY RANDOM() LIMIT 1`);
     if (mathSetRows.rows.length === 0) return res.status(400).json({ error: 'No Math question sets available' });
 
-    const englishSetId = (englishSetRows.rows[0] as any).id;
     const mathSetId = (mathSetRows.rows[0] as any).id;
+    const mathDifficulty: string | null = (mathSetRows.rows[0] as any).difficulty ?? null;
+
+    // Opposing difficulty matrix: LOW↔HARD, MEDIUM→random extreme
+    let opposingDifficulty: string | null = null;
+    if (mathDifficulty === 'low') opposingDifficulty = 'hard';
+    else if (mathDifficulty === 'hard') opposingDifficulty = 'low';
+    else if (mathDifficulty === 'medium') opposingDifficulty = Math.random() < 0.5 ? 'low' : 'hard';
+
+    // Try opposing difficulty first, fallback to any English set
+    let englishSetRows = opposingDifficulty
+      ? await db.execute(sql`SELECT id FROM question_sets WHERE subject = 'english' AND difficulty = ${opposingDifficulty} ORDER BY RANDOM() LIMIT 1`)
+      : { rows: [] };
+    if (englishSetRows.rows.length === 0) {
+      englishSetRows = await db.execute(sql`SELECT id FROM question_sets WHERE subject = 'english' ORDER BY RANDOM() LIMIT 1`);
+    }
+    if (englishSetRows.rows.length === 0) return res.status(400).json({ error: 'No English question sets available' });
+
+    const englishSetId = (englishSetRows.rows[0] as any).id;
 
     const englishQs = await db.select(questionSelect).from(questions)
       .leftJoin(passages, eq(questions.passageId, passages.id))

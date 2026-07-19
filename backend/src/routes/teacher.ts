@@ -137,13 +137,14 @@ const createSetSchema = z.object({
   title: z.string().min(1).max(255),
   subject: z.enum(['english', 'math']),
   description: z.string().max(2000).optional().default(''),
+  difficulty: z.enum(['low', 'medium', 'hard']).nullable().optional(),
 });
 
 router.post('/question-sets', validateBody(createSetSchema), async (req, res) => {
   const teacherId = req.user!.sub;
-  const { title, subject, description } = req.body;
+  const { title, subject, description, difficulty } = req.body;
   try {
-    const [set] = await db.insert(questionSets).values({ title, subject, description, createdBy: teacherId }).returning();
+    const [set] = await db.insert(questionSets).values({ title, subject, description, difficulty: difficulty ?? null, createdBy: teacherId }).returning();
     return res.status(201).json(set);
   } catch (err) {
     console.error(err);

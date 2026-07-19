@@ -302,6 +302,8 @@ const SCHEMA_UPDATES = `
   ALTER TABLE library_items DROP COLUMN IF EXISTS mime_type;
   ALTER TABLE library_items ADD COLUMN IF NOT EXISTS note_content TEXT;
 
+  ALTER TABLE question_sets ADD COLUMN IF NOT EXISTS difficulty TEXT CHECK (difficulty IN ('low', 'medium', 'hard'));
+
   CREATE TABLE IF NOT EXISTS teacher_vocab_words (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     word TEXT NOT NULL,

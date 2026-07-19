@@ -13,6 +13,7 @@ export interface QuestionSet {
   title: string;
   subject: 'english' | 'math';
   description: string;
+  difficulty: 'low' | 'medium' | 'hard' | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -92,7 +93,7 @@ export async function getQuestionSets(): Promise<QuestionSet[]> {
   return data;
 }
 
-export async function createQuestionSet(payload: { title: string; subject: 'english' | 'math'; description: string }): Promise<QuestionSet> {
+export async function createQuestionSet(payload: { title: string; subject: 'english' | 'math'; description: string; difficulty?: 'low' | 'medium' | 'hard' | null }): Promise<QuestionSet> {
   const { data } = await apiClient.post<QuestionSet>('/teacher/question-sets', payload);
   return data;
 }

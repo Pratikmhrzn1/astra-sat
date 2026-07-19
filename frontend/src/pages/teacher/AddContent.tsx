@@ -121,6 +121,7 @@ export default function ContentManager() {
   const [newSetTitle, setNewSetTitle] = useState('');
   const [newSetSubject, setNewSetSubject] = useState<'english' | 'math'>('english');
   const [newSetDesc, setNewSetDesc] = useState('');
+  const [newSetDifficulty, setNewSetDifficulty] = useState<'low' | 'medium' | 'hard' | ''>('');
   const [setError, setSetError] = useState('');
   const [showNewSet, setShowNewSet] = useState(false);
 
@@ -259,10 +260,10 @@ export default function ContentManager() {
 
   // Mutations — sets
   const createSetMutation = useMutation({
-    mutationFn: () => createQuestionSet({ title: newSetTitle.trim(), subject: newSetSubject, description: newSetDesc.trim() }),
+    mutationFn: () => createQuestionSet({ title: newSetTitle.trim(), subject: newSetSubject, description: newSetDesc.trim(), difficulty: newSetDifficulty || null }),
     onSuccess: (set) => {
       queryClient.invalidateQueries({ queryKey: ['teacher', 'question-sets'] });
-      setActiveSet(set); setNewSetTitle(''); setNewSetDesc(''); setShowNewSet(false); setSetError('');
+      setActiveSet(set); setNewSetTitle(''); setNewSetDesc(''); setNewSetDifficulty(''); setShowNewSet(false); setSetError('');
     },
     onError: (err) => setSetError(getApiError(err)),
   });
@@ -472,6 +473,21 @@ export default function ContentManager() {
                   ))}
                 </div>
               </div>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 8 }}>Difficulty <span style={{ fontWeight: 400, color: 'rgba(11,11,14,0.4)' }}>(optional — used for mock test adaptive selection)</span></p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {([
+                    { value: '', label: 'Unset', bg: '#F2F0EC', color: '#8C8880', activeBg: '#0B0B0E', activeColor: '#fff' },
+                    { value: 'low', label: 'Low', bg: '#F2F0EC', color: '#8C8880', activeBg: 'rgba(46,125,90,0.15)', activeColor: '#1A5C38' },
+                    { value: 'medium', label: 'Medium', bg: '#F2F0EC', color: '#8C8880', activeBg: 'rgba(184,137,62,0.15)', activeColor: '#7A5C18' },
+                    { value: 'hard', label: 'Hard', bg: '#F2F0EC', color: '#8C8880', activeBg: 'rgba(192,57,43,0.1)', activeColor: '#8B1A10' },
+                  ] as const).map(({ value, label, activeBg, activeColor }) => (
+                    <button key={value} type="button" onClick={() => setNewSetDifficulty(value)}
+                      style={{ padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: newSetDifficulty === value ? '1.5px solid currentColor' : '1px solid #E7E4DE', background: newSetDifficulty === value ? activeBg : '#F2F0EC', color: newSetDifficulty === value ? activeColor : '#8C8880', transition: 'all 0.15s' }}
+                    >{label}</button>
+                  ))}
+                </div>
+              </div>
               <Textarea label="Description (optional)" value={newSetDesc} onChange={(e) => setNewSetDesc(e.target.value)} placeholder="Brief description…" rows={2} />
               {setError && <p style={{ color: '#C0392B', fontSize: 13 }}>{setError}</p>}
               <div style={{ display: 'flex', gap: 10 }}>
@@ -528,7 +544,17 @@ export default function ContentManager() {
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <SubjectBadge subject={set.subject} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <SubjectBadge subject={set.subject} />
+                      {set.difficulty && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                          padding: '2px 8px', borderRadius: 9999,
+                          background: set.difficulty === 'low' ? 'rgba(46,125,90,0.12)' : set.difficulty === 'medium' ? 'rgba(184,137,62,0.14)' : 'rgba(192,57,43,0.1)',
+                          color: set.difficulty === 'low' ? '#1A5C38' : set.difficulty === 'medium' ? '#7A5C18' : '#8B1A10',
+                        }}>{set.difficulty}</span>
+                      )}
+                    </div>
                     <p style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', margin: '8px 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.title}</p>
                     {set.description && <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.description}</p>}
                   </div>

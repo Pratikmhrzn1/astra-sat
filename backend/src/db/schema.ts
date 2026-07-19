@@ -64,6 +64,7 @@ export const questionSets = pgTable('question_sets', {
   title: varchar('title', { length: 255 }).notNull(),
   subject: subjectEnum('subject').notNull(),
   description: text('description').notNull().default(''),
+  difficulty: text('difficulty'),
   generated: boolean('generated').notNull().default(false),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
