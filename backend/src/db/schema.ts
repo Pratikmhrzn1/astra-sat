@@ -66,6 +66,7 @@ export const questionSets = pgTable('question_sets', {
   description: text('description').notNull().default(''),
   difficulty: text('difficulty'),
   generated: boolean('generated').notNull().default(false),
+  isDraft: boolean('is_draft').notNull().default(false),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),

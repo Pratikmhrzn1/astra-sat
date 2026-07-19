@@ -144,7 +144,7 @@ router.post('/question-sets', validateBody(createSetSchema), async (req, res) =>
   const teacherId = req.user!.sub;
   const { title, subject, description, difficulty } = req.body;
   try {
-    const [set] = await db.insert(questionSets).values({ title, subject, description, difficulty: difficulty ?? null, createdBy: teacherId }).returning();
+    const [set] = await db.insert(questionSets).values({ title, subject, description, difficulty: difficulty ?? null, createdBy: teacherId, isDraft: true }).returning();
     return res.status(201).json(set);
   } catch (err) {
     console.error(err);
@@ -237,6 +237,22 @@ router.put('/question-sets/:setId', validateBody(createSetSchema.partial()), asy
       .where(eq(questionSets.id, setId)).limit(1);
     if (setRows.length === 0) return res.status(404).json({ error: 'Question set not found' });
     const [updated] = await db.update(questionSets).set({ ...req.body, updatedAt: new Date() }).where(eq(questionSets.id, setId)).returning();
+    return res.json(updated);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/question-sets/:setId/publish', async (req, res) => {
+  const { setId } = req.params;
+  try {
+    const setRows = await db.select().from(questionSets).where(eq(questionSets.id, setId)).limit(1);
+    if (setRows.length === 0) return res.status(404).json({ error: 'Question set not found' });
+    const [updated] = await db.update(questionSets)
+      .set({ isDraft: false, updatedAt: new Date() })
+      .where(eq(questionSets.id, setId))
+      .returning();
     return res.json(updated);
   } catch (err) {
     console.error(err);

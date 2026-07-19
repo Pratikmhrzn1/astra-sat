@@ -304,6 +304,8 @@ const SCHEMA_UPDATES = `
 
   ALTER TABLE question_sets ADD COLUMN IF NOT EXISTS difficulty TEXT CHECK (difficulty IN ('low', 'medium', 'hard'));
 
+  ALTER TABLE question_sets ADD COLUMN IF NOT EXISTS is_draft BOOLEAN NOT NULL DEFAULT FALSE;
+
   CREATE TABLE IF NOT EXISTS teacher_vocab_words (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     word TEXT NOT NULL,

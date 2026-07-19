@@ -54,11 +54,12 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_table THEN NULL;
          WHEN duplicate_object THEN NULL; END $$;
 
--- question_sets.description / difficulty / generated / updated_at
+-- question_sets.description / difficulty / generated / updated_at / is_draft
 ALTER TABLE question_sets ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
 ALTER TABLE question_sets ADD COLUMN IF NOT EXISTS difficulty TEXT;
 ALTER TABLE question_sets ADD COLUMN IF NOT EXISTS generated BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE question_sets ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();
+ALTER TABLE question_sets ADD COLUMN IF NOT EXISTS is_draft BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- questions: missing columns
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS question_type question_type NOT NULL DEFAULT 'multiple_choice';

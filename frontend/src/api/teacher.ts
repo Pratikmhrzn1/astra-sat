@@ -14,6 +14,7 @@ export interface QuestionSet {
   subject: 'english' | 'math';
   description: string;
   difficulty: 'low' | 'medium' | 'hard' | null;
+  isDraft: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -100,6 +101,11 @@ export async function createQuestionSet(payload: { title: string; subject: 'engl
 
 export async function deleteQuestionSet(setId: string): Promise<void> {
   await apiClient.delete(`/teacher/question-sets/${setId}`);
+}
+
+export async function publishQuestionSet(setId: string): Promise<QuestionSet> {
+  const { data } = await apiClient.post<QuestionSet>(`/teacher/question-sets/${setId}/publish`);
+  return data;
 }
 
 export async function getSetPassages(setId: string): Promise<Passage[]> {

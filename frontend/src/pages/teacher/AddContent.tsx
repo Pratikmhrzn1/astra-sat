@@ -3,7 +3,7 @@ import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, BookOpen, ChevronLeft, WifiOff, CheckCircle2, FileText, Upload } from 'lucide-react';
 import {
-  getQuestionSets, createQuestionSet, deleteQuestionSet,
+  getQuestionSets, createQuestionSet, deleteQuestionSet, publishQuestionSet,
   getSetPassages, createPassage, deletePassage,
   getSetQuestions, addQuestion, deleteQuestion, updateQuestionSubSkill,
   importQuestionSetFromJSON,
@@ -136,6 +136,7 @@ export default function ContentManager() {
   const [qErrors, setQErrors] = useState<Record<string, string>>({});
   const [qError, setQError] = useState('');
   const [draftSaved, setDraftSaved] = useState(false);
+  const [doneSaving, setDoneSaving] = useState(false);
 
   // JSON import
   const [jsonImporting, setJsonImporting] = useState(false);
@@ -554,6 +555,13 @@ export default function ContentManager() {
                           color: set.difficulty === 'low' ? '#1A5C38' : set.difficulty === 'medium' ? '#7A5C18' : '#8B1A10',
                         }}>{set.difficulty}</span>
                       )}
+                      {set.isDraft && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                          padding: '2px 8px', borderRadius: 9999,
+                          background: 'rgba(192,57,43,0.1)', color: '#C0392B',
+                        }}>DRAFT</span>
+                      )}
                     </div>
                     <p style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', margin: '8px 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.title}</p>
                     {set.description && <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.description}</p>}
@@ -791,6 +799,32 @@ export default function ContentManager() {
               </Button>
             </div>
           </div>
+
+          {/* Save Set button — appears once questions exist */}
+          {questions.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 8px' }}>
+              <button
+                onClick={async () => {
+                  setDoneSaving(true);
+                  try { if (activeSet) await publishQuestionSet(activeSet.id); } catch { /* best-effort */ }
+                  setTimeout(() => { setDoneSaving(false); setActiveSet(null); }, 800);
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  height: 48, padding: '0 36px', borderRadius: 9999,
+                  border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em',
+                  background: doneSaving ? '#2E7D5A' : '#0B0B0E',
+                  color: '#fff',
+                  boxShadow: doneSaving ? '0 4px 20px rgba(46,125,90,0.35)' : '0 4px 16px rgba(11,11,14,0.18)',
+                  transition: 'background 0.2s, box-shadow 0.2s',
+                }}
+              >
+                <CheckCircle2 size={17} />
+                {doneSaving ? 'Set saved!' : `Save Set · ${questions.length} question${questions.length !== 1 ? 's' : ''}`}
+              </button>
+            </div>
+          )}
 
           {/* Question list */}
           {questions.length > 0 && (() => {
