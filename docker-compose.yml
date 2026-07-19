@@ -18,7 +18,7 @@ services:
     build: ./backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-sat_user}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-sat}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sat_user}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-sat}?sslmode=disable
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       FRONTEND_URL: ${FRONTEND_URL}
