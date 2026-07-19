@@ -68,6 +68,7 @@ export default function StudentLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [profileMenu, setProfileMenu] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackCategory, setFeedbackCategory] = useState<FeedbackCategory>('other');
   const [feedbackMessage, setFeedbackMessage] = useState('');
@@ -203,20 +204,110 @@ export default function StudentLayout() {
       <nav className="bottom-nav">
         {[
           { path: '/student/dashboard', label: 'Home', icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/></svg> },
-          { path: '/student/exams', label: 'Practice', icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h8M8 16h4"/></svg> },
-          { path: '/student/mock-test', label: 'Mock', icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 3h6a2 2 0 0 1 2 2H7a2 2 0 0 1 2-2Z"/><rect x="4" y="4" width="16" height="17" rx="2.5"/><path d="M8.5 13l2 2 4-4.5"/></svg> },
-          { path: '/student/results', label: 'History', icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 5.5A9 9 0 1 1 3 12"/><path d="M3 4v4h4"/><path d="M12 8v4.5l3 1.8"/></svg> },
-          { path: '/student/vocab-review', label: 'Vocab', icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/><path d="M7 15h2M12 15h3"/></svg> },
+          { path: '/student/exams',     label: 'Practice', icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h8M8 16h4"/></svg> },
+          { path: '/student/mock-test', label: 'Mock',     icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 3h6a2 2 0 0 1 2 2H7a2 2 0 0 1 2-2Z"/><rect x="4" y="4" width="16" height="17" rx="2.5"/><path d="M8.5 13l2 2 4-4.5"/></svg> },
+          { path: '/student/results',   label: 'History',  icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 5.5A9 9 0 1 1 3 12"/><path d="M3 4v4h4"/><path d="M12 8v4.5l3 1.8"/></svg> },
         ].map(({ path, label, icon }) => {
           const active = location.pathname === path || location.pathname.startsWith(path + '/');
           return (
-            <button key={path} className={`bottom-nav-item${active ? ' active' : ''}`} onClick={() => navigate(path)}>
+            <button key={path} className={`bottom-nav-item${active ? ' active' : ''}`} onClick={() => { setMoreOpen(false); navigate(path); }}>
               {icon}
               {label}
             </button>
           );
         })}
+
+        {/* More button */}
+        <button className={`bottom-nav-item${moreOpen ? ' active' : ''}`} onClick={() => setMoreOpen((o) => !o)}>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+            <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+            <circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+          </svg>
+          More
+        </button>
       </nav>
+
+      {/* More sheet — mobile only */}
+      {moreOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            style={{ position: 'fixed', inset: 0, background: 'rgba(11,11,14,0.35)', zIndex: 48 }}
+            onClick={() => setMoreOpen(false)}
+          />
+
+          {/* Sheet */}
+          <div
+            className="more-sheet"
+            style={{ position: 'fixed', bottom: 60, left: 0, right: 0, background: '#fff', borderRadius: '20px 20px 0 0', zIndex: 49, boxShadow: '0 -4px 32px rgba(11,11,14,0.14)' }}
+          >
+            {/* Handle */}
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
+              <div style={{ width: 36, height: 4, borderRadius: 9999, background: '#E7E4DE' }} />
+            </div>
+
+            {/* User info */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px 16px', borderBottom: '1px solid #F2F0EC' }}>
+              <div style={{ width: 38, height: 38, borderRadius: 9999, background: '#0B0B0E', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, flexShrink: 0 }}>
+                {initials}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0B0B0E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
+                <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
+              </div>
+            </div>
+
+            {/* Nav links */}
+            {[
+              { path: '/student/vocab-review', label: 'Vocab Review', icon: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/><path d="M7 15h2M12 15h3"/></svg> },
+              { path: '/student/library',      label: 'Library',      icon: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg> },
+              { path: '/student/settings',     label: 'Settings',     icon: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2.3" fill="#fff"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="15" cy="17" r="2.3" fill="#fff"/></svg> },
+            ].map(({ path, label, icon }) => {
+              const active = isActive(path);
+              return (
+                <button
+                  key={path}
+                  onClick={() => { setMoreOpen(false); navigate(path); }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '13px 20px', border: 'none', background: active ? 'rgba(226,86,43,0.06)' : 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14.5, fontWeight: active ? 600 : 500, color: active ? '#E2562B' : '#0B0B0E', textAlign: 'left' }}
+                >
+                  <span style={{ color: active ? '#E2562B' : 'rgba(11,11,14,0.5)', flexShrink: 0 }}>{icon}</span>
+                  {label}
+                </button>
+              );
+            })}
+
+            <div style={{ height: 1, background: '#F2F0EC', margin: '4px 0' }} />
+
+            {/* Actions */}
+            <button
+              onClick={() => { setMoreOpen(false); setShowFeedback(true); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '13px 20px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 500, color: '#0B0B0E', textAlign: 'left' }}
+            >
+              <span style={{ color: 'rgba(11,11,14,0.5)', flexShrink: 0 }}>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </span>
+              Send Feedback
+            </button>
+
+            <button
+              onClick={() => { setMoreOpen(false); handleSignOut(); }}
+              style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '13px 20px', border: 'none', background: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 14.5, fontWeight: 500, color: '#C0392B', textAlign: 'left' }}
+            >
+              <span style={{ flexShrink: 0 }}>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>
+                </svg>
+              </span>
+              Sign out
+            </button>
+
+            <div style={{ height: 10 }} />
+          </div>
+        </>
+      )}
 
       <Modal
         isOpen={showFeedback}

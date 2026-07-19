@@ -91,6 +91,14 @@
     40% { transform: translateY(-5px); opacity: 1; }
   }
 
+  @keyframes sheetUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+  .more-sheet {
+    animation: sheetUp 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
   /* Mobile bottom nav — hidden by default, shown via media query */
   .bottom-nav {
     display: none;
