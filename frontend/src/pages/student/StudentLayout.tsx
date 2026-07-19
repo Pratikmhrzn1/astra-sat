@@ -69,6 +69,12 @@ export default function StudentLayout() {
   const location = useLocation();
   const [profileMenu, setProfileMenu] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [moreClosing, setMoreClosing] = useState(false);
+
+  const closeMore = () => {
+    setMoreClosing(true);
+    setTimeout(() => { setMoreOpen(false); setMoreClosing(false); }, 220);
+  };
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackCategory, setFeedbackCategory] = useState<FeedbackCategory>('other');
   const [feedbackMessage, setFeedbackMessage] = useState('');
@@ -218,7 +224,7 @@ export default function StudentLayout() {
         })}
 
         {/* More button */}
-        <button className={`bottom-nav-item${moreOpen ? ' active' : ''}`} onClick={() => setMoreOpen((o) => !o)}>
+        <button className={`bottom-nav-item${moreOpen ? ' active' : ''}`} onClick={() => moreOpen ? closeMore() : setMoreOpen(true)}>
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"/>
             <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>
@@ -234,13 +240,13 @@ export default function StudentLayout() {
           {/* Backdrop */}
           <div
             style={{ position: 'fixed', inset: 0, background: 'rgba(11,11,14,0.35)', zIndex: 48 }}
-            onClick={() => setMoreOpen(false)}
+            onClick={closeMore}
           />
 
           {/* Sheet */}
           <div
-            className="more-sheet"
-            style={{ position: 'fixed', bottom: 60, left: 0, right: 0, background: '#fff', borderRadius: '20px 20px 0 0', zIndex: 49, boxShadow: '0 -4px 32px rgba(11,11,14,0.14)' }}
+            className={`more-sheet${moreClosing ? ' more-sheet-closing' : ''}`}
+            style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderRadius: '20px 20px 0 0', zIndex: 49, boxShadow: '0 -4px 32px rgba(11,11,14,0.14)' }}
           >
             {/* Handle */}
             <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
@@ -304,7 +310,7 @@ export default function StudentLayout() {
               Sign out
             </button>
 
-            <div style={{ height: 10 }} />
+            <div style={{ height: 24 }} />
           </div>
         </>
       )}

@@ -95,8 +95,15 @@
     from { transform: translateY(100%); }
     to   { transform: translateY(0); }
   }
+  @keyframes sheetDown {
+    from { transform: translateY(0); }
+    to   { transform: translateY(100%); }
+  }
   .more-sheet {
     animation: sheetUp 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .more-sheet-closing {
+    animation: sheetDown 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
   }
 
   /* Mobile bottom nav — hidden by default, shown via media query */
