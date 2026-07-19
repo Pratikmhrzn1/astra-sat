@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { login } from '../../api/auth';
 import { useAuthStore } from '../../store/auth';
 import { getApiError } from '../../api/client';
+import { useMobile } from '../../hooks/useMobile';
 
 const schema = z.object({
   email: z.string().email('Invalid email address'),
@@ -20,6 +21,7 @@ export default function Login() {
   const navigate = useNavigate();
   const { login: storeLogin, user } = useAuthStore();
   const [apiError, setApiError] = useState('');
+  const isMobile = useMobile();
 
   React.useEffect(() => {
     if (user) navigate(ROLE_ROUTES[user.role], { replace: true });
@@ -39,38 +41,55 @@ export default function Login() {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 1fr', minHeight: '100vh' }}>
-      {/* Left — dark panel */}
-      <div style={{ background: '#0B0B0E', color: '#fff', padding: '64px 72px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', right: -120, top: -80, width: 360, height: 360, borderRadius: 9999, background: 'radial-gradient(circle, rgba(226,86,43,0.22), transparent 70%)' }} />
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' }}>
-          Digital SAT · Practice Platform
-        </div>
-        <div style={{ position: 'relative' }}>
-          <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 60, lineHeight: 1.05, letterSpacing: '-0.02em', margin: 0 }}>
-            Your best<br />score starts<br />with the next<br />
-            <span style={{ color: '#E2562B', fontStyle: 'italic' }}>practice test.</span>
-          </h1>
-          <p style={{ marginTop: 28, maxWidth: 380, fontSize: 16, lineHeight: 1.65, color: 'rgba(255,255,255,0.6)' }}>
-            Full-length mocks, adaptive sections, and an honest estimate of where you stand — out of 1600.
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 48 }}>
-          <div>
-            <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 34, color: '#fff' }}>1600</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.04em' }}>Top score, scaled</div>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.05fr 1fr', minHeight: '100vh' }}>
+      {/* Left — dark panel (desktop only) */}
+      {!isMobile && (
+        <div style={{ background: '#0B0B0E', color: '#fff', padding: '64px 72px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', right: -120, top: -80, width: 360, height: 360, borderRadius: 9999, background: 'radial-gradient(circle, rgba(226,86,43,0.22), transparent 70%)' }} />
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' }}>
+            Digital SAT · Practice Platform
           </div>
-          <div>
-            <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 34, color: '#B8893E' }}>2h 14m</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.04em' }}>Real test length</div>
+          <div style={{ position: 'relative' }}>
+            <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 60, lineHeight: 1.05, letterSpacing: '-0.02em', margin: 0 }}>
+              Your best<br />score starts<br />with the next<br />
+              <span style={{ color: '#E2562B', fontStyle: 'italic' }}>practice test.</span>
+            </h1>
+            <p style={{ marginTop: 28, maxWidth: 380, fontSize: 16, lineHeight: 1.65, color: 'rgba(255,255,255,0.6)' }}>
+              Full-length mocks, adaptive sections, and an honest estimate of where you stand — out of 1600.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 48 }}>
+            <div>
+              <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 34, color: '#fff' }}>1600</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.04em' }}>Top score, scaled</div>
+            </div>
+            <div>
+              <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 34, color: '#B8893E' }}>2h 14m</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.04em' }}>Real test length</div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Right — form */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48, background: '#FAF9F6' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '40px 24px' : 48, background: '#FAF9F6', minHeight: '100vh' }}>
         <div style={{ width: '100%', maxWidth: 388 }}>
-          <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 40, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Welcome back</h2>
+          {/* Mobile brand header */}
+          {isMobile && (
+            <div style={{ textAlign: 'center', marginBottom: 36 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <div style={{ width: 22, height: 22, borderRadius: 7, background: '#E2562B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 9, height: 9, borderRadius: 2, background: '#fff' }} />
+                </div>
+                <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 20, color: '#0B0B0E' }}>Score Studio</span>
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>
+                Digital SAT · Practice Platform
+              </div>
+            </div>
+          )}
+
+          <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 34 : 40, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Welcome back</h2>
           <p style={{ margin: '0 0 32px', color: 'rgba(11,11,14,0.55)', fontSize: 15 }}>Sign in to continue your prep.</p>
 
           <form onSubmit={handleSubmit(onSubmit)}>

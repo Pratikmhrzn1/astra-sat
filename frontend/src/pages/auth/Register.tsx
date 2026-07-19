@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { register as apiRegister } from '../../api/auth';
 import { useAuthStore } from '../../store/auth';
 import { getApiError } from '../../api/client';
+import { useMobile } from '../../hooks/useMobile';
 
 const schema = z
   .object({
@@ -30,6 +31,7 @@ export default function Register() {
   const navigate = useNavigate();
   const { login: storeLogin } = useAuthStore();
   const [apiError, setApiError] = useState('');
+  const isMobile = useMobile();
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
@@ -50,35 +52,52 @@ export default function Register() {
   const err = (msg?: string) => msg ? <p style={{ margin: '4px 0 0', fontSize: 12, color: '#ef4444' }}>{msg}</p> : null;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 1fr', minHeight: '100vh' }}>
-      {/* Left — dark panel */}
-      <div style={{ background: '#0B0B0E', color: '#fff', padding: '64px 72px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', right: -120, bottom: -100, width: 380, height: 380, borderRadius: 9999, background: 'radial-gradient(circle, rgba(184,137,62,0.20), transparent 70%)' }} />
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' }}>
-          Digital SAT · Practice Platform
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.05fr 1fr', minHeight: '100vh' }}>
+      {/* Left — dark panel (desktop only) */}
+      {!isMobile && (
+        <div style={{ background: '#0B0B0E', color: '#fff', padding: '64px 72px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', right: -120, bottom: -100, width: 380, height: 380, borderRadius: 9999, background: 'radial-gradient(circle, rgba(184,137,62,0.20), transparent 70%)' }} />
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' }}>
+            Digital SAT · Practice Platform
+          </div>
+          <div style={{ position: 'relative' }}>
+            <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 60, lineHeight: 1.05, letterSpacing: '-0.02em', margin: 0 }}>
+              Know exactly<br />where you<br />stand — and<br />
+              <span style={{ color: '#E2562B', fontStyle: 'italic' }}>how to climb.</span>
+            </h1>
+            <p style={{ marginTop: 28, maxWidth: 380, fontSize: 16, lineHeight: 1.65, color: 'rgba(255,255,255,0.6)' }}>
+              Create a free account to start tracking your section scores, accuracy, and estimated SAT total over time.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            {['Full-length mocks', 'Per-topic analysis', 'Score trends'].map((f) => (
+              <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
+                <span style={{ color: '#E2562B' }}>✓</span> {f}
+              </div>
+            ))}
+          </div>
         </div>
-        <div style={{ position: 'relative' }}>
-          <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 60, lineHeight: 1.05, letterSpacing: '-0.02em', margin: 0 }}>
-            Know exactly<br />where you<br />stand — and<br />
-            <span style={{ color: '#E2562B', fontStyle: 'italic' }}>how to climb.</span>
-          </h1>
-          <p style={{ marginTop: 28, maxWidth: 380, fontSize: 16, lineHeight: 1.65, color: 'rgba(255,255,255,0.6)' }}>
-            Create a free account to start tracking your section scores, accuracy, and estimated SAT total over time.
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-          {['Full-length mocks', 'Per-topic analysis', 'Score trends'].map((f) => (
-            <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
-              <span style={{ color: '#E2562B' }}>✓</span> {f}
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Right — form */}
-      <div className="scrollarea" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48, overflowY: 'auto', background: '#FAF9F6' }}>
+      <div className="scrollarea" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '40px 24px' : 48, overflowY: 'auto', background: '#FAF9F6', minHeight: '100vh' }}>
         <div style={{ width: '100%', maxWidth: 388 }}>
-          <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 40, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Create your account</h2>
+          {/* Mobile brand header */}
+          {isMobile && (
+            <div style={{ textAlign: 'center', marginBottom: 32 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <div style={{ width: 22, height: 22, borderRadius: 7, background: '#E2562B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 9, height: 9, borderRadius: 2, background: '#fff' }} />
+                </div>
+                <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 20, color: '#0B0B0E' }}>Score Studio</span>
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>
+                Digital SAT · Practice Platform
+              </div>
+            </div>
+          )}
+
+          <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 34 : 40, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Create your account</h2>
           <p style={{ margin: '0 0 28px', color: 'rgba(11,11,14,0.55)', fontSize: 15 }}>It takes less than a minute.</p>
 
           <form onSubmit={handleSubmit(onSubmit)}>
@@ -94,7 +113,8 @@ export default function Register() {
               {err(errors.email?.message)}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            {/* Password fields — side by side on desktop, stacked on mobile */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 16 }}>
               <div>
                 {label('Password')}
                 <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('password')} style={fieldStyle(!!errors.password)} />

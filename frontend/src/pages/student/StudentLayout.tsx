@@ -195,9 +195,28 @@ export default function StudentLayout() {
       </nav>
 
       {/* Main */}
-      <main className="scrollarea" style={{ marginLeft: 76, minHeight: '100vh', height: '100vh', overflowY: 'auto' }}>
+      <main className="scrollarea main-content" style={{ marginLeft: 76, minHeight: '100vh', height: '100vh', overflowY: 'auto' }}>
         <Outlet />
       </main>
+
+      {/* Bottom nav — mobile only (shown via CSS media query) */}
+      <nav className="bottom-nav">
+        {[
+          { path: '/student/dashboard', label: 'Home', icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/></svg> },
+          { path: '/student/exams', label: 'Practice', icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h8M8 16h4"/></svg> },
+          { path: '/student/mock-test', label: 'Mock', icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 3h6a2 2 0 0 1 2 2H7a2 2 0 0 1 2-2Z"/><rect x="4" y="4" width="16" height="17" rx="2.5"/><path d="M8.5 13l2 2 4-4.5"/></svg> },
+          { path: '/student/results', label: 'History', icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 5.5A9 9 0 1 1 3 12"/><path d="M3 4v4h4"/><path d="M12 8v4.5l3 1.8"/></svg> },
+          { path: '/student/vocab-review', label: 'Vocab', icon: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/><path d="M7 15h2M12 15h3"/></svg> },
+        ].map(({ path, label, icon }) => {
+          const active = location.pathname === path || location.pathname.startsWith(path + '/');
+          return (
+            <button key={path} className={`bottom-nav-item${active ? ' active' : ''}`} onClick={() => navigate(path)}>
+              {icon}
+              {label}
+            </button>
+          );
+        })}
+      </nav>
 
       <Modal
         isOpen={showFeedback}
