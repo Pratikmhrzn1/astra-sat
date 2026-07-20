@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getExams, getMockTests } from '../../api/student';
+import { getLiveExamResults, type LiveExamResult } from '../../api/liveExam';
 import { useMobile } from '../../hooks/useMobile';
 
 function scoreColor(v: number, max: number) {
@@ -13,8 +14,24 @@ type Filter = 'All' | 'individual' | 'mock_english' | 'mock_math';
 
 export default function Results() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [filter, setFilter] = useState<Filter>('All');
   const isMobile = useMobile();
+
+  const searchParams = new URLSearchParams(location.search);
+  const defaultTab = searchParams.get('tab') === 'live' ? 'live' : 'practice';
+  const [mainTab, setMainTab] = useState<'practice' | 'live'>(defaultTab);
+
+  const [liveResults, setLiveResults] = useState<LiveExamResult[]>([]);
+  const [liveLoading, setLiveLoading] = useState(false);
+  useEffect(() => {
+    if (mainTab === 'live') {
+      setLiveLoading(true);
+      getLiveExamResults()
+        .then(setLiveResults)
+        .finally(() => setLiveLoading(false));
+    }
+  }, [mainTab]);
 
   const { data: exams = [], isLoading } = useQuery({ queryKey: ['student', 'exams'], queryFn: getExams });
   useQuery({ queryKey: ['student', 'mock-tests'], queryFn: getMockTests });
@@ -60,7 +77,64 @@ export default function Results() {
   return (
     <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 80px' : '36px 48px 64px' }}>
       <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>History</h1>
-      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.55)', margin: '0 0 20px' }}>Every test you've taken, scored and timestamped.</p>
+      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.55)', margin: '0 0 16px' }}>Every test you've taken, scored and timestamped.</p>
+
+      {/* Main tab switcher */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {(['practice', 'live'] as const).map((t) => (
+          <button key={t} onClick={() => setMainTab(t)} style={{ padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', border: mainTab === t ? '1px solid #0B0B0E' : '1px solid #C8C4BC', background: mainTab === t ? '#0B0B0E' : '#fff', color: mainTab === t ? '#fff' : '#0B0B0E' }}>
+            {t === 'practice' ? 'Practice History' : 'Live Exams'}
+          </button>
+        ))}
+      </div>
+
+      {/* Live Exams tab */}
+      {mainTab === 'live' && (
+        <div>
+          {liveLoading ? (
+            <div style={{ color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>Loading…</div>
+          ) : liveResults.length === 0 ? (
+            <div style={{ ...CARD, padding: '48px 24px', textAlign: 'center', color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>
+              No live exam results yet. Results appear here once your teacher releases them.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {liveResults.map((r) => (
+                <div key={r.participantId} style={{ ...CARD, padding: '16px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <div>
+                      <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>{r.sessionTitle}</p>
+                      <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.5)', margin: '2px 0 0' }}>
+                        {r.startedAt ? new Date(r.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date unknown'}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {r.englishExamId && (
+                        <button onClick={() => navigate(`/student/results/${r.englishExamId}`)} style={{ fontSize: 13, fontWeight: 600, padding: '7px 14px', borderRadius: 9999, border: '1px solid #C8C4BC', background: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+                          R&W Results
+                        </button>
+                      )}
+                      {r.mathExamId && (
+                        <button onClick={() => navigate(`/student/results/${r.mathExamId}`)} style={{ fontSize: 13, fontWeight: 600, padding: '7px 14px', borderRadius: 9999, border: '1px solid #C8C4BC', background: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+                          Math Results
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {r.globalFeedback && (
+                    <div style={{ marginTop: 12, borderTop: '1px solid #F0ECE4', paddingTop: 12 }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', margin: '0 0 4px' }}>Teacher Feedback</p>
+                      <p style={{ fontSize: 14, color: '#0B0B0E', margin: 0, whiteSpace: 'pre-line' }}>{r.globalFeedback}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {mainTab !== 'practice' ? null : <>
 
       {/* Trend cards */}
       {isMobile ? (
@@ -186,6 +260,7 @@ export default function Results() {
           })}
         </div>
       )}
+      </>}
     </div>
   );
 }

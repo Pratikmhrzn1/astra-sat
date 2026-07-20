@@ -32,6 +32,16 @@ const NAV = [
       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>
     </svg>
   )},
+  { path: '/teacher/live-exams', label: 'Live Exams', icon: (
+    <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <circle cx="12" cy="12" r="3"/>
+      <line x1="12" y1="2" x2="12" y2="5"/>
+      <line x1="12" y1="19" x2="12" y2="22"/>
+      <line x1="2" y1="12" x2="5" y2="12"/>
+      <line x1="19" y1="12" x2="22" y2="12"/>
+    </svg>
+  )},
 ];
 
 function useOnlineStatus() {

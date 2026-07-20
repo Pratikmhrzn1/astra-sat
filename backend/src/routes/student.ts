@@ -279,7 +279,7 @@ router.get('/question-sets', async (_req, res) => {
         questionCount: sql<number>`(SELECT COUNT(*) FROM questions WHERE questions.set_id = question_sets.id)::int`,
       })
       .from(questionSets)
-      .where(eq(questionSets.isDraft, false))
+      .where(and(eq(questionSets.isDraft, false), eq(questionSets.isLiveExam, false)))
       .orderBy(desc(questionSets.createdAt));
     return res.json(sets);
   } catch (err) {

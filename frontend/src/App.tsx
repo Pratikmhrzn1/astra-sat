@@ -26,6 +26,10 @@ import StudentDetail from './pages/teacher/StudentDetail';
 import StudentExamDetail from './pages/teacher/StudentExamDetail';
 import AddContent from './pages/teacher/AddContent';
 import TeacherFeedback from './pages/teacher/Feedback';
+import LiveExams from './pages/teacher/LiveExams';
+import LiveExamSessionPage from './pages/teacher/LiveExamSession';
+import LiveExamStudentResult from './pages/teacher/LiveExamStudentResult';
+import LiveExamLobby from './pages/student/LiveExamLobby';
 
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/Dashboard';
@@ -103,6 +107,9 @@ export default function App() {
           <Route path="content" element={<AddContent />} />
           <Route path="feedback" element={<TeacherFeedback />} />
           <Route path="library" element={<TeacherLibrary />} />
+          <Route path="live-exams" element={<LiveExams />} />
+          <Route path="live-exams/:sessionId" element={<LiveExamSessionPage />} />
+          <Route path="live-exams/:sessionId/participants/:participantId" element={<LiveExamStudentResult />} />
         </Route>
 
         <Route
@@ -122,6 +129,7 @@ export default function App() {
           <Route path="library" element={<AdminLibrary />} />
         </Route>
 
+        <Route path="/live/:joinCode" element={<LiveExamLobby />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

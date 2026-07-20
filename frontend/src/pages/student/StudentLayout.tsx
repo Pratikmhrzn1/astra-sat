@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/auth';
@@ -98,6 +98,25 @@ export default function StudentLayout() {
   const isActive = (p: string) => location.pathname === p || location.pathname.startsWith(p + '/');
 
   const handleSignOut = () => { logout(); navigate('/login', { replace: true }); };
+
+  const [notifications, setNotifications] = useState<{ id: string; title: string; message: string; link: string | null }[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    async function checkNotifs() {
+      try {
+        const { getNotifications, markNotificationRead } = await import('../../api/liveExam');
+        const notifs = await getNotifications();
+        if (active && notifs.length > 0) {
+          setNotifications(notifs);
+          for (const n of notifs) markNotificationRead(n.id).catch(() => null);
+        }
+      } catch { /* ignore */ }
+    }
+    checkNotifs();
+    const iv = setInterval(checkNotifs, 30000);
+    return () => { active = false; clearInterval(iv); };
+  }, []);
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAF9F6' }} onClick={() => setProfileMenu(false)}>
@@ -202,6 +221,25 @@ export default function StudentLayout() {
       </nav>
 
       {/* Main */}
+      {notifications.length > 0 && (
+        <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 999, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 420, width: 'calc(100% - 32px)' }}>
+          {notifications.map((n) => (
+            <div key={n.id} style={{ background: '#0B0B0E', color: '#fff', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontWeight: 700, fontSize: 13, margin: 0 }}>{n.title}</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: 0 }}>{n.message}</p>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {n.link && (
+                  <button onClick={() => { setNotifications((prev) => prev.filter((x) => x.id !== n.id)); navigate(n.link!); }} style={{ background: '#fff', color: '#0B0B0E', border: 'none', borderRadius: 9999, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>View</button>
+                )}
+                <button onClick={() => setNotifications((prev) => prev.filter((x) => x.id !== n.id))} style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none', borderRadius: 9999, padding: '6px 10px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <main className="scrollarea main-content" style={{ marginLeft: 76, minHeight: '100vh', height: '100vh', overflowY: 'auto' }}>
         <Outlet />
       </main>

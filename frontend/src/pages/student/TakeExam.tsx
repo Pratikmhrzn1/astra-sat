@@ -10,7 +10,17 @@ export default function TakeExam() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const locationState = location.state as { timerEnabled?: boolean; examTitle?: string; fromMockSection1?: boolean } | null;
+  const locationState = location.state as {
+    timerEnabled?: boolean;
+    examTitle?: string;
+    fromMockSection1?: boolean;
+    liveExam?: boolean;
+    liveJoinCode?: string;
+    sectionStartedAt?: string;
+    englishDurationSeconds?: number;
+    mathExamId?: string;
+    mathDurationSeconds?: number;
+  } | null;
 
   const [answers, setAnswers] = useState<Record<string, string | null>>({});
   const [flags, setFlags] = useState<Record<number, boolean>>({});
@@ -69,7 +79,8 @@ export default function TakeExam() {
   useEffect(() => {
     if (!data) return;
     dataRef.current = data;
-    mathExamIdRef.current = data.mathExamId ?? null;
+    // For live exams, math/english exam IDs come from location state (set by lobby)
+    mathExamIdRef.current = data.mathExamId ?? locationState?.mathExamId ?? null;
     englishExamIdRef.current = data.englishExamId ?? null;
     if (data.mathExamId) {
       queryClient.prefetchQuery({
@@ -89,6 +100,16 @@ export default function TakeExam() {
     if (data.exam.type !== 'individual') {
       setTimerEnabled(true);
       timerEnabledRef.current = true;
+      // Live exam: compute remaining time from server-anchored start
+      if (isLiveExam && locationState?.sectionStartedAt) {
+        const elapsed = Math.floor((Date.now() - new Date(locationState.sectionStartedAt).getTime()) / 1000);
+        const duration = data.exam.type === 'mock_math'
+          ? (locationState?.mathDurationSeconds ?? 4200)
+          : (locationState?.englishDurationSeconds ?? 3840);
+        const remaining = Math.max(0, duration - elapsed);
+        setTimeLeft(remaining);
+        timeLeftRef.current = remaining;
+      }
       return;
     }
     // Individual: load saved progress and override timerEnabled from IDB (resume path)
@@ -127,6 +148,8 @@ export default function TakeExam() {
       }), time),
   });
 
+  const isLiveExam = !!(locationState?.liveExam);
+
   // Final submit (Math section or individual exam) — shows overlay while waiting for server
   const submitMutation = useMutation({
     mutationFn: () => submitExam(examId!, getTimeSpent()),
@@ -134,6 +157,10 @@ export default function TakeExam() {
       if (examId) await clearExamProgress(examId);
       transitioningRef.current = false;
       setTransitioning(false);
+      if (isLiveExam) {
+        navigate('/student/dashboard', { replace: true });
+        return;
+      }
       const suffix = englishExamIdRef.current ? `?englishExamId=${englishExamIdRef.current}` : '';
       navigate(`/student/results/${examId}${suffix}`, { replace: true });
     },
@@ -161,7 +188,10 @@ export default function TakeExam() {
         selectedAnswerText: isSPR ? value : null,
       };
     });
-    navigate(`/student/exams/${mathId}`, { replace: true, state: { fromMockSection1: true } });
+    const nextState = isLiveExam
+      ? { ...locationState, fromMockSection1: true }
+      : { fromMockSection1: true };
+    navigate(`/student/exams/${mathId}`, { replace: true, state: nextState });
     // Save latest answers → submit → clear IDB, all in background
     saveAnswers(currentExamId, formattedAnswers, timeSpent)
       .then(() => submitExam(currentExamId, timeSpent))

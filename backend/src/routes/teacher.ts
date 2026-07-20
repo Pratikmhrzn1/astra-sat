@@ -138,13 +138,14 @@ const createSetSchema = z.object({
   subject: z.enum(['english', 'math']),
   description: z.string().max(2000).optional().default(''),
   difficulty: z.enum(['low', 'medium', 'hard']).nullable().optional(),
+  isLiveExam: z.boolean().optional().default(false),
 });
 
 router.post('/question-sets', validateBody(createSetSchema), async (req, res) => {
   const teacherId = req.user!.sub;
-  const { title, subject, description, difficulty } = req.body;
+  const { title, subject, description, difficulty, isLiveExam } = req.body;
   try {
-    const [set] = await db.insert(questionSets).values({ title, subject, description, difficulty: difficulty ?? null, createdBy: teacherId, isDraft: true }).returning();
+    const [set] = await db.insert(questionSets).values({ title, subject, description, difficulty: difficulty ?? null, createdBy: teacherId, isDraft: true, isLiveExam: isLiveExam ?? false }).returning();
     return res.status(201).json(set);
   } catch (err) {
     console.error(err);

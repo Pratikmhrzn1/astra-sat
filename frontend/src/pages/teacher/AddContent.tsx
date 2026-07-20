@@ -122,6 +122,7 @@ export default function ContentManager() {
   const [newSetSubject, setNewSetSubject] = useState<'english' | 'math'>('english');
   const [newSetDesc, setNewSetDesc] = useState('');
   const [newSetDifficulty, setNewSetDifficulty] = useState<'low' | 'medium' | 'hard' | ''>('');
+  const [newSetIsLiveExam, setNewSetIsLiveExam] = useState(false);
   const [setError, setSetError] = useState('');
   const [showNewSet, setShowNewSet] = useState(false);
 
@@ -261,10 +262,10 @@ export default function ContentManager() {
 
   // Mutations — sets
   const createSetMutation = useMutation({
-    mutationFn: () => createQuestionSet({ title: newSetTitle.trim(), subject: newSetSubject, description: newSetDesc.trim(), difficulty: newSetDifficulty || null }),
+    mutationFn: () => createQuestionSet({ title: newSetTitle.trim(), subject: newSetSubject, description: newSetDesc.trim(), difficulty: newSetDifficulty || null, isLiveExam: newSetIsLiveExam }),
     onSuccess: (set) => {
       queryClient.invalidateQueries({ queryKey: ['teacher', 'question-sets'] });
-      setActiveSet(set); setNewSetTitle(''); setNewSetDesc(''); setNewSetDifficulty(''); setShowNewSet(false); setSetError('');
+      setActiveSet(set); setNewSetTitle(''); setNewSetDesc(''); setNewSetDifficulty(''); setNewSetIsLiveExam(false); setShowNewSet(false); setSetError('');
     },
     onError: (err) => setSetError(getApiError(err)),
   });
@@ -490,6 +491,16 @@ export default function ContentManager() {
                 </div>
               </div>
               <Textarea label="Description (optional)" value={newSetDesc} onChange={(e) => setNewSetDesc(e.target.value)} placeholder="Brief description…" rows={2} />
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+                <div
+                  onClick={() => setNewSetIsLiveExam((v) => !v)}
+                  style={{ width: 40, height: 22, borderRadius: 11, background: newSetIsLiveExam ? '#0B0B0E' : '#D1CEC8', position: 'relative', flexShrink: 0, transition: 'background 0.2s', cursor: 'pointer' }}
+                >
+                  <div style={{ position: 'absolute', top: 3, left: newSetIsLiveExam ? 21 : 3, width: 16, height: 16, borderRadius: 9999, background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                </div>
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: '#0B0B0E' }}>Live Exam Set</span>
+                <span style={{ fontSize: 12, color: '#888' }}>Students won't see this in their normal practice</span>
+              </label>
               {setError && <p style={{ color: '#C0392B', fontSize: 13 }}>{setError}</p>}
               <div style={{ display: 'flex', gap: 10 }}>
                 <Button onClick={() => { setSetError(''); createSetMutation.mutate(); }} loading={createSetMutation.isPending} disabled={!newSetTitle.trim()}>Create & Add Questions</Button>
@@ -561,6 +572,13 @@ export default function ContentManager() {
                           padding: '2px 8px', borderRadius: 9999,
                           background: 'rgba(192,57,43,0.1)', color: '#C0392B',
                         }}>DRAFT</span>
+                      )}
+                      {set.isLiveExam && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                          padding: '2px 8px', borderRadius: 9999,
+                          background: 'rgba(37,99,168,0.1)', color: '#1E5090',
+                        }}>LIVE</span>
                       )}
                     </div>
                     <p style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', margin: '8px 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.title}</p>

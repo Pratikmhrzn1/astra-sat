@@ -326,6 +326,54 @@ const SCHEMA_UPDATES = `
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     UNIQUE(student_id, teacher_vocab_word_id)
   );
+
+  ALTER TABLE question_sets ADD COLUMN IF NOT EXISTS is_live_exam BOOLEAN NOT NULL DEFAULT FALSE;
+
+  CREATE TABLE IF NOT EXISTS live_exam_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255) NOT NULL,
+    teacher_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    join_code VARCHAR(10) NOT NULL UNIQUE,
+    english_set_id UUID REFERENCES question_sets(id) ON DELETE SET NULL,
+    math_set_id UUID REFERENCES question_sets(id) ON DELETE SET NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'waiting',
+    started_at TIMESTAMP,
+    english_duration_seconds INTEGER NOT NULL DEFAULT 3840,
+    math_duration_seconds INTEGER NOT NULL DEFAULT 4200,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS live_exam_participants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES live_exam_sessions(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    english_exam_id UUID REFERENCES exams(id) ON DELETE SET NULL,
+    math_exam_id UUID REFERENCES exams(id) ON DELETE SET NULL,
+    global_feedback TEXT,
+    result_released BOOLEAN NOT NULL DEFAULT FALSE,
+    joined_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(session_id, student_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS live_exam_question_feedback (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    participant_id UUID NOT NULL REFERENCES live_exam_participants(id) ON DELETE CASCADE,
+    question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    feedback TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(participant_id, question_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    link TEXT,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
 `;
 
 const SEED_DEFAULT_ADMIN_CODE = `

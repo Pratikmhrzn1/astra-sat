@@ -15,6 +15,7 @@ export interface QuestionSet {
   description: string;
   difficulty: 'low' | 'medium' | 'hard' | null;
   isDraft: boolean;
+  isLiveExam: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -94,7 +95,7 @@ export async function getQuestionSets(): Promise<QuestionSet[]> {
   return data;
 }
 
-export async function createQuestionSet(payload: { title: string; subject: 'english' | 'math'; description: string; difficulty?: 'low' | 'medium' | 'hard' | null }): Promise<QuestionSet> {
+export async function createQuestionSet(payload: { title: string; subject: 'english' | 'math'; description: string; difficulty?: 'low' | 'medium' | 'hard' | null; isLiveExam?: boolean }): Promise<QuestionSet> {
   const { data } = await apiClient.post<QuestionSet>('/teacher/question-sets', payload);
   return data;
 }
