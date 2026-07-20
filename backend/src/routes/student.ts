@@ -1183,7 +1183,7 @@ router.post('/chat', validateBody(chatSchema), async (req, res) => {
   if (OFF_TOPIC_KEYWORDS.some((kw) => msgLower.includes(kw))) {
     return res.json({
       sessionId: sessionId ?? null,
-      assistantMessage: "I'm here for SAT Reading and Writing questions — what can I help you understand about this question?",
+      assistantMessage: "I'm here for SAT questions — what can I help you understand about this question?",
     });
   }
 
@@ -1232,6 +1232,17 @@ router.post('/chat', validateBody(chatSchema), async (req, res) => {
       }
     }
 
+    // Determine exam subject so the system prompt matches the actual section
+    let examSubject: 'english' | 'math' = 'english';
+    const subjectRows = await db
+      .select({ subject: questionSets.subject })
+      .from(exams)
+      .innerJoin(questionSets, eq(exams.setId, questionSets.id))
+      .where(eq(exams.id, session.examId))
+      .limit(1);
+    if (subjectRows.length > 0) examSubject = subjectRows[0].subject;
+    const isMathExam = examSubject === 'math';
+
     // Build system prompt from live question data (always fresh — not stored in history)
     let questionText = '(question context unavailable)';
     let passageBlock = '';
@@ -1252,7 +1263,11 @@ router.post('/chat', validateBody(chatSchema), async (req, res) => {
       }
     }
 
-    const systemPrompt = `You are an SAT Reading and Writing tutor. You help students understand SAT concepts, question strategies, grammar rules, and reading techniques. You are currently helping a student with this question: ${questionText}.${passageBlock}
+    const systemPrompt = isMathExam
+      ? `You are an SAT Math tutor. You help students understand SAT Math concepts, problem-solving strategies, algebra, geometry, data analysis, and advanced math. You are currently helping a student with this question: ${questionText}.
+
+Answer only questions related to SAT Math — arithmetic, algebra, geometry, trigonometry, data analysis, and test-taking strategy for the Math section. If a student asks about reading, writing, essays, other subjects, or anything unrelated to SAT Math, politely redirect them. Do not write essays, complete assignments, or answer questions from other subjects. Keep answers under 150 words — if more detail is needed, the student should ask a follow-up.`
+      : `You are an SAT Reading and Writing tutor. You help students understand SAT concepts, question strategies, grammar rules, and reading techniques. You are currently helping a student with this question: ${questionText}.${passageBlock}
 
 Answer only questions related to SAT Reading and Writing — grammar, vocabulary, reading comprehension, rhetorical analysis, and test-taking strategy for these sections. If a student asks about math, other subjects, or anything unrelated to SAT Reading and Writing, respond with: "I'm focused on SAT Reading and Writing here — for that I'd suggest [the relevant resource]." Do not write essays, complete assignments, or answer questions from other subjects. Keep answers under 150 words — if more detail is needed, the student should ask a follow-up.`;
 
