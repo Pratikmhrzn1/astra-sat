@@ -81,7 +81,6 @@ export default function App() {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<StudentDashboard />} />
           <Route path="exams" element={<ExamCatalogue />} />
-          <Route path="exams/:examId" element={<TakeExam />} />
           <Route path="mock-test" element={<MockTest />} />
           <Route path="results" element={<Results />} />
           <Route path="results/:examId" element={<ExamDetail />} />
@@ -129,6 +128,14 @@ export default function App() {
           <Route path="library" element={<AdminLibrary />} />
         </Route>
 
+        <Route
+          path="/student/exams/:examId"
+          element={
+            <ProtectedRoute role="student">
+              <TakeExam />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/live/:joinCode" element={<LiveExamLobby />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -290,25 +290,30 @@ export default function TakeExam() {
   };
 
   const renderBottomAction = () => {
+    const btnStyle: React.CSSProperties = {
+      height: isMobile ? 40 : 42,
+      padding: isMobile ? '0 14px' : '0 22px',
+      borderRadius: 9999,
+      fontSize: isMobile ? 13 : 14,
+      fontWeight: 600,
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      whiteSpace: 'nowrap',
+    };
     if (isLast) {
       const isNextSection = !!mathExamIdRef.current;
       return (
         <button
           onClick={isNextSection ? handleNextSection : handleSubmit}
           disabled={transitioning}
-          style={{ height: 42, padding: isMobile ? '0 14px' : '0 22px', borderRadius: 9999, border: 'none', background: isNextSection ? '#2563A8' : '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: transitioning ? 'default' : 'pointer', fontFamily: 'inherit' }}
+          style={{ ...btnStyle, border: 'none', background: isNextSection ? '#2563A8' : '#E2562B', color: '#fff', cursor: transitioning ? 'default' : 'pointer' }}
         >{isNextSection ? 'Next Section →' : 'Submit test'}</button>
       );
     }
     return (
       <button
         onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
-        style={{
-          height: 42, padding: isMobile ? '0 14px' : '0 22px', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-          border: selected ? 'none' : '1px solid #C8C4BC',
-          background: selected ? '#E2562B' : '#fff',
-          color: selected ? '#fff' : '#8C8880',
-        }}
+        style={{ ...btnStyle, border: selected ? 'none' : '1px solid #C8C4BC', background: selected ? '#E2562B' : '#fff', color: selected ? '#fff' : '#8C8880' }}
       >{selected ? 'Next →' : 'Skip →'}</button>
     );
   };
@@ -475,29 +480,31 @@ export default function TakeExam() {
 
       {/* Question navigator popup */}
       {navOpen && (
-        <div style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: 84, width: 'min(560px, 90vw)', background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 16px 48px rgba(11,11,14,0.18)', padding: 20, zIndex: 45 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>Question navigator</span>
-            <div style={{ display: 'flex', gap: 14, fontSize: 11, color: 'rgba(11,11,14,0.5)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 9, height: 9, borderRadius: 3, background: '#0B0B0E', display: 'inline-block' }} />Answered</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 9, height: 9, borderRadius: 3, background: '#fff', border: '1px solid #C8C4BC', display: 'inline-block' }} />Unseen</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 9, height: 9, borderRadius: 3, background: '#E2562B', display: 'inline-block' }} />Flagged</span>
+        <div style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: isMobile ? 78 : 84, width: isMobile ? 'calc(100vw - 28px)' : 'min(560px, 90vw)', background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 16px 48px rgba(11,11,14,0.18)', padding: isMobile ? 14 : 20, zIndex: 45, maxHeight: isMobile ? '60vh' : '70vh', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexShrink: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: 700 }}>Navigator</span>
+            <div style={{ display: 'flex', gap: isMobile ? 8 : 14, fontSize: 10, color: 'rgba(11,11,14,0.5)' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#0B0B0E', display: 'inline-block', flexShrink: 0 }} />Done</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#fff', border: '1px solid #C8C4BC', display: 'inline-block', flexShrink: 0 }} />Unseen</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#E2562B', display: 'inline-block', flexShrink: 0 }} />Flagged</span>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(44px, 1fr))', gap: 8 }}>
-            {questions.map((qq, qi) => {
-              const ans = !!answers[qq.id], fl = !!flags[qi], cur = qi === index;
-              const bg = fl ? '#E2562B' : ans ? '#0B0B0E' : '#fff';
-              const col = (fl || ans) ? '#fff' : '#8C8880';
-              return <button key={qi} onClick={() => { setIndex(qi); setNavOpen(false); }} style={{ height: 44, borderRadius: 9, border: cur ? '2px solid #E2562B' : '1px solid #C8C4BC', background: bg, color: col, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>{qi + 1}</button>;
-            })}
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(6, 1fr)' : 'repeat(auto-fill, minmax(44px, 1fr))', gap: isMobile ? 6 : 8 }}>
+              {questions.map((qq, qi) => {
+                const ans = !!answers[qq.id], fl = !!flags[qi], cur = qi === index;
+                const bg = fl ? '#E2562B' : ans ? '#0B0B0E' : '#fff';
+                const col = (fl || ans) ? '#fff' : '#8C8880';
+                return <button key={qi} onClick={() => { setIndex(qi); setNavOpen(false); }} style={{ height: isMobile ? 36 : 44, borderRadius: 8, border: cur ? '2px solid #E2562B' : '1px solid #C8C4BC', background: bg, color: col, fontWeight: 600, fontSize: isMobile ? 12 : 14, cursor: 'pointer', fontFamily: 'inherit' }}>{qi + 1}</button>;
+              })}
+            </div>
           </div>
           {isMobile && (
-            <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #F0ECE4' }}>
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #F0ECE4', flexShrink: 0 }}>
               <button
                 onClick={() => { setNavOpen(false); handleSubmit(); }}
                 disabled={transitioning}
-                style={{ width: '100%', height: 44, borderRadius: 9999, border: 'none', background: '#0B0B0E', color: '#fff', fontSize: 14, fontWeight: 600, cursor: transitioning ? 'default' : 'pointer', fontFamily: 'inherit' }}
+                style={{ width: '100%', height: 42, borderRadius: 9999, border: 'none', background: '#0B0B0E', color: '#fff', fontSize: 14, fontWeight: 600, cursor: transitioning ? 'default' : 'pointer', fontFamily: 'inherit' }}
               >Submit test</button>
             </div>
           )}
@@ -505,24 +512,24 @@ export default function TakeExam() {
       )}
 
       {/* Bottom bar */}
-      <div style={{ height: 70, flexShrink: 0, background: '#fff', borderTop: '1px solid #E7E4DE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '0 14px' : '0 24px' }}>
+      <div style={{ height: isMobile ? 64 : 70, flexShrink: 0, background: '#fff', borderTop: '1px solid #E7E4DE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '0 12px' : '0 24px', gap: 8 }}>
         <button
           onClick={() => setNavOpen((n) => !n)}
-          style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 7 : 9, border: '1px solid #C8C4BC', background: navOpen ? '#F2F0EC' : '#fff', borderRadius: 10, padding: isMobile ? '8px 12px' : '9px 16px', fontSize: isMobile ? 13 : 13.5, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #C8C4BC', background: navOpen ? '#F2F0EC' : '#fff', borderRadius: 10, padding: isMobile ? '0 10px' : '9px 16px', fontSize: isMobile ? 12 : 13.5, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit', whiteSpace: 'nowrap', height: isMobile ? 40 : 42, flexShrink: 0 }}
         >
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" width={isMobile ? 14 : 16} height={isMobile ? 14 : 16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
             <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
           </svg>
-          {isMobile ? `Q ${index + 1} / ${total}` : `Question ${index + 1} of ${total}`}
+          {isMobile ? `Q ${index + 1}/${total}` : `Question ${index + 1} of ${total}`}
         </button>
 
-        <div style={{ display: 'flex', gap: isMobile ? 8 : 10 }}>
+        <div style={{ display: 'flex', gap: isMobile ? 7 : 10 }}>
           <button
             onClick={() => setIndex((i) => Math.max(0, i - 1))}
             disabled={index === 0}
-            style={{ height: 42, padding: isMobile ? '0 16px' : '0 22px', borderRadius: 9999, border: '1px solid #C8C4BC', background: index === 0 ? '#EDEAE4' : '#fff', color: index === 0 ? '#B0ACA4' : '#0B0B0E', fontSize: 14, fontWeight: 600, cursor: index === 0 ? 'default' : 'pointer', fontFamily: 'inherit' }}
-          >← Back</button>
+            style={{ height: isMobile ? 40 : 42, padding: isMobile ? '0 14px' : '0 22px', borderRadius: 9999, border: '1px solid #C8C4BC', background: index === 0 ? '#EDEAE4' : '#fff', color: index === 0 ? '#B0ACA4' : '#0B0B0E', fontSize: isMobile ? 13 : 14, fontWeight: 600, cursor: index === 0 ? 'default' : 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+          >{isMobile ? '←' : '← Back'}</button>
           {renderBottomAction()}
         </div>
       </div>
