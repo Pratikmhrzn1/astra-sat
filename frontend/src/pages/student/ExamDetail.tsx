@@ -496,13 +496,15 @@ export default function ExamDetail() {
       </div>
 
       {/* Question review */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '6px 0 14px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '6px 0 14px', flexWrap: 'wrap', gap: 8 }}>
         <h3 style={{ fontSize: 16, margin: 0 }}>Question review</h3>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: '#B8893E', background: 'rgba(184,137,62,0.1)', border: '1px solid rgba(184,137,62,0.3)', borderRadius: 9999, padding: '5px 12px' }}>
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="9 18 15 12 9 6"/>
           </svg>
-          {isPractice ? 'Click a question to expand & get AI guidance' : 'Click a question to see the explanation'}
+          {isPractice
+            ? (isMobile ? 'Tap to expand · AI inside' : 'Click a question to expand & get AI guidance')
+            : (isMobile ? 'Tap to expand' : 'Click a question to see the explanation')}
         </span>
       </div>
 
@@ -802,7 +804,7 @@ export default function ExamDetail() {
 
       {/* Chat panel — fixed bottom, practice and mock exams */}
       {(isPractice || isMockExam) && chatQuestionId && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 380, background: '#fff', borderTop: '1px solid #E7E4DE', boxShadow: '0 -8px 32px rgba(11,11,14,0.12)', display: 'flex', flexDirection: 'column', zIndex: 44, animation: 'chatSlideUp 0.2s ease-out' }}>
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: isMobile ? '52vh' : 380, background: '#fff', borderTop: '1px solid #E7E4DE', boxShadow: '0 -8px 32px rgba(11,11,14,0.12)', display: 'flex', flexDirection: 'column', zIndex: 44, animation: 'chatSlideUp 0.2s ease-out' }}>
           <div style={{ height: 48, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', borderBottom: '1px solid #F0ECE4' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#0D7377', flexShrink: 0 }} />
