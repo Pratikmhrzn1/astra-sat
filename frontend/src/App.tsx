@@ -1,7 +1,8 @@
-import React from 'react';
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/auth';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { proactiveRefresh } from './api/client';
 
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -45,6 +46,19 @@ function RootRedirect() {
 }
 
 export default function App() {
+  useEffect(() => {
+    // Refresh the access token whenever the user returns to the tab.
+    // This runs BEFORE React Query's refetchOnWindowFocus fires its burst of
+    // queries, so all of those requests get a fresh token with no 401 cascade.
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') proactiveRefresh();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    // Also run immediately on mount in case the page loaded with an expired token.
+    proactiveRefresh();
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>

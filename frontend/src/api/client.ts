@@ -31,6 +31,48 @@ function processQueue(error: unknown, token: string | null) {
   failedQueue = [];
 }
 
+function decodeTokenExp(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return typeof payload.exp === 'number' ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+async function doRefresh(): Promise<string> {
+  const response = await axios.post(
+    `${API_BASE}/api/auth/refresh`,
+    {},
+    { withCredentials: true },
+  );
+  return response.data.accessToken as string;
+}
+
+// Called on tab-focus before any API calls fire. Refreshes the token silently if
+// it's expired or within 60 seconds of expiry, so React Query's refetchOnWindowFocus
+// burst doesn't hit the backend with a wave of 401s.
+export async function proactiveRefresh(): Promise<void> {
+  if (isRefreshing) return;
+  const { accessToken, setAccessToken } = useAuthStore.getState();
+  if (!accessToken) return;
+  const exp = decodeTokenExp(accessToken);
+  if (exp === null || Date.now() / 1000 < exp - 60) return;
+
+  isRefreshing = true;
+  try {
+    const newToken = await doRefresh();
+    setAccessToken(newToken);
+    processQueue(null, newToken);
+  } catch {
+    // Proactive refresh failed silently. Drain any requests that piled up
+    // so they fall through to the normal 401 → refresh flow on retry.
+    processQueue(new Error('proactive-refresh-failed'), null);
+  } finally {
+    isRefreshing = false;
+  }
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -51,21 +93,19 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // No body — the httpOnly 'rt' cookie is sent automatically via withCredentials
-        const response = await axios.post(
-          `${API_BASE}/api/auth/refresh`,
-          {},
-          { withCredentials: true },
-        );
-        const { accessToken } = response.data;
-        useAuthStore.getState().setAccessToken(accessToken);
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-        processQueue(null, accessToken);
+        const newToken = await doRefresh();
+        useAuthStore.getState().setAccessToken(newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        processQueue(null, newToken);
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        useAuthStore.getState().logout();
-        window.location.href = '/login';
+        // Only force-logout when the refresh endpoint explicitly rejects the session
+        // (401). Network errors or 5xx should not log the user out.
+        if (axios.isAxiosError(refreshError) && refreshError.response?.status === 401) {
+          useAuthStore.getState().logout();
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
