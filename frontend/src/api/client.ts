@@ -104,7 +104,7 @@ apiClient.interceptors.response.use(
         // (401). Network errors or 5xx should not log the user out.
         if (axios.isAxiosError(refreshError) && refreshError.response?.status === 401) {
           useAuthStore.getState().logout();
-          window.location.href = '/login';
+          window.location.href = '/sat/login';
         }
         return Promise.reject(refreshError);
       } finally {

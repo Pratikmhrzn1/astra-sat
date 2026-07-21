@@ -153,7 +153,7 @@ export default function LiveExamSession() {
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Student Join Link</p>
         <p className="font-mono text-sm text-gray-800 break-all">
-          {window.location.origin}/live/{session.joinCode}
+          {window.location.origin}/sat/live/{session.joinCode}
         </p>
       </div>
 

@@ -6,8 +6,9 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-# VITE_API_URL is intentionally left empty: Nginx serves frontend and proxies
-# /api to the backend, so all API calls are relative to the same origin.
+# VITE_API_URL is set via frontend/.env.production (VITE_API_URL=/sat) for the
+# shared domain deployment at mocktest.niec.edu.np/sat/. That file is picked
+# up automatically by Vite during this build step.
 RUN npm run build
 
 # ── production stage ───────────────────────────────────────────────────────────
