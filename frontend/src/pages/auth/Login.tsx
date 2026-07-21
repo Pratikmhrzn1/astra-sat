@@ -41,7 +41,12 @@ export default function Login() {
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.05fr 1fr', minHeight: '100vh' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.05fr 1fr', minHeight: '100vh', position: 'relative' }}>
+      {/* IELTS ↔ SAT toggle */}
+      <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(10px)', borderRadius: 9999, padding: 4, boxShadow: '0 2px 20px rgba(0,0,0,0.14)', display: 'flex' }}>
+        <button onClick={() => { window.location.href = '/'; }} style={{ padding: '8px 26px', border: 'none', borderRadius: 9999, fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.4)', cursor: 'pointer', background: 'transparent', fontFamily: 'inherit' }}>IELTS</button>
+        <button style={{ padding: '8px 26px', border: 'none', borderRadius: 9999, fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#fff', cursor: 'default', background: '#E2562B', boxShadow: '0 2px 8px rgba(226,86,43,0.35)', fontFamily: 'inherit' }}>SAT</button>
+      </div>
       {/* Left — dark panel (desktop only) */}
       {!isMobile && (
         <div style={{ background: '#0B0B0E', color: '#fff', padding: '64px 72px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative', overflow: 'hidden' }}>
