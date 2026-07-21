@@ -87,12 +87,12 @@ export interface ParticipantDetail extends LiveExamParticipant {
 // ── Teacher ───────────────────────────────────────────────────────────────────
 
 export async function getLiveSessions(): Promise<LiveExamSession[]> {
-  const { data } = await apiClient.get<LiveExamSession[]>('/api/teacher/live-exams');
+  const { data } = await apiClient.get<LiveExamSession[]>('/teacher/live-exams');
   return data;
 }
 
 export async function getSessionDetail(sessionId: string): Promise<SessionDetail> {
-  const { data } = await apiClient.get<SessionDetail>(`/api/teacher/live-exams/${sessionId}`);
+  const { data } = await apiClient.get<SessionDetail>(`/teacher/live-exams/${sessionId}`);
   return data;
 }
 
@@ -101,12 +101,12 @@ export async function createSession(body: {
   englishSetId: string;
   mathSetId: string;
 }): Promise<LiveExamSession> {
-  const { data } = await apiClient.post<LiveExamSession>('/api/teacher/live-exams', body);
+  const { data } = await apiClient.post<LiveExamSession>('/teacher/live-exams', body);
   return data;
 }
 
 export async function startSession(sessionId: string): Promise<void> {
-  await apiClient.post(`/api/teacher/live-exams/${sessionId}/start`);
+  await apiClient.post(`/teacher/live-exams/${sessionId}/start`);
 }
 
 export async function getParticipantDetail(
@@ -114,7 +114,7 @@ export async function getParticipantDetail(
   participantId: string
 ): Promise<ParticipantDetail> {
   const { data } = await apiClient.get<ParticipantDetail>(
-    `/api/teacher/live-exams/${sessionId}/participants/${participantId}`
+    `/teacher/live-exams/${sessionId}/participants/${participantId}`
   );
   return data;
 }
@@ -128,26 +128,26 @@ export async function saveFeedback(
   }
 ): Promise<void> {
   await apiClient.post(
-    `/api/teacher/live-exams/${sessionId}/participants/${participantId}/feedback`,
+    `/teacher/live-exams/${sessionId}/participants/${participantId}/feedback`,
     body
   );
 }
 
 export async function releaseOne(sessionId: string, participantId: string): Promise<void> {
   await apiClient.post(
-    `/api/teacher/live-exams/${sessionId}/participants/${participantId}/release`
+    `/teacher/live-exams/${sessionId}/participants/${participantId}/release`
   );
 }
 
 export async function releaseAll(sessionId: string): Promise<{ released: number }> {
   const { data } = await apiClient.post<{ released: number }>(
-    `/api/teacher/live-exams/${sessionId}/release-all`
+    `/teacher/live-exams/${sessionId}/release-all`
   );
   return data;
 }
 
 export async function getLiveExamSets(): Promise<LiveExamSet[]> {
-  const { data } = await apiClient.get<LiveExamSet[]>('/api/teacher/live-exam-sets');
+  const { data } = await apiClient.get<LiveExamSet[]>('/teacher/live-exam-sets');
   return data;
 }
 
@@ -156,30 +156,30 @@ export async function getLiveExamSets(): Promise<LiveExamSet[]> {
 export async function checkSessionStatus(
   joinCode: string
 ): Promise<{ id: string; title: string; status: string }> {
-  const { data } = await apiClient.get(`/api/live/${joinCode}/status`);
+  const { data } = await apiClient.get(`/live/${joinCode}/status`);
   return data;
 }
 
 export async function joinSession(joinCode: string): Promise<JoinResponse> {
-  const { data } = await apiClient.post<JoinResponse>(`/api/live/${joinCode}/join`);
+  const { data } = await apiClient.post<JoinResponse>(`/live/${joinCode}/join`);
   return data;
 }
 
 export async function pollSession(joinCode: string): Promise<PollResponse> {
-  const { data } = await apiClient.get<PollResponse>(`/api/live/${joinCode}/poll`);
+  const { data } = await apiClient.get<PollResponse>(`/live/${joinCode}/poll`);
   return data;
 }
 
 export async function getLiveExamResults(): Promise<LiveExamResult[]> {
-  const { data } = await apiClient.get<LiveExamResult[]>('/api/student/live-exam-results');
+  const { data } = await apiClient.get<LiveExamResult[]>('/student/live-exam-results');
   return data;
 }
 
 export async function getNotifications(): Promise<LiveNotification[]> {
-  const { data } = await apiClient.get<LiveNotification[]>('/api/student/notifications');
+  const { data } = await apiClient.get<LiveNotification[]>('/student/notifications');
   return data;
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
-  await apiClient.post(`/api/student/notifications/${id}/read`);
+  await apiClient.post(`/student/notifications/${id}/read`);
 }
