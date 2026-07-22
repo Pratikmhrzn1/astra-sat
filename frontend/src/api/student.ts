@@ -17,6 +17,7 @@ export interface Question {
   optionB: string | null;
   optionC: string | null;
   optionD: string | null;
+  imageUrl: string | null;
   passageId: string | null;
   passageText: string | null;
   passageTitle: string | null;

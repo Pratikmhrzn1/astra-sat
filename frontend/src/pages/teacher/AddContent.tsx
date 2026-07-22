@@ -9,6 +9,8 @@ import {
   importQuestionSetFromJSON,
   getTeacherVocabWords, createTeacherVocabWord, deleteTeacherVocabWord,
 } from '../../api/teacher';
+import { getLibraryItems } from '../../api/library';
+import type { LibraryItem } from '../../api/library';
 import type { QuestionSet, Passage, Question, SubSkill, TeacherVocabWord } from '../../api/teacher';
 import { saveTeacherDraft, loadTeacherDraft, clearTeacherDraft } from '../../lib/offline';
 import { Button } from '../../components/ui/Button';
@@ -37,6 +39,7 @@ interface MCForm {
   optionA: string; optionB: string; optionC: string; optionD: string;
   correctAnswer: 'a' | 'b' | 'c' | 'd';
   explanation: string;
+  imageUrl: string | null;
 }
 
 interface SPRForm {
@@ -46,12 +49,13 @@ interface SPRForm {
   questionText: string;
   correctAnswerText: string;
   explanation: string;
+  imageUrl: string | null;
 }
 
 type QuestionForm = MCForm | SPRForm;
 
-const emptyMC: MCForm = { questionType: 'multiple_choice', passageId: '', subSkill: '', questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'a', explanation: '' };
-const emptySPR: SPRForm = { questionType: 'student_produced_response', passageId: '', subSkill: '', questionText: '', correctAnswerText: '', explanation: '' };
+const emptyMC: MCForm = { questionType: 'multiple_choice', passageId: '', subSkill: '', questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'a', explanation: '', imageUrl: null };
+const emptySPR: SPRForm = { questionType: 'student_produced_response', passageId: '', subSkill: '', questionText: '', correctAnswerText: '', explanation: '', imageUrl: null };
 
 // ── Math Symbol Toolbar ──────────────────────────────────────────────────────
 
@@ -195,6 +199,14 @@ export default function ContentManager() {
   type QFilter = 'all' | 'ai_suggested' | 'untagged';
   const [qFilter, setQFilter] = useState<QFilter>('all');
 
+  // Image picker
+  const [showImagePicker, setShowImagePicker] = useState(false);
+  const { data: libraryImages, isLoading: libraryLoading } = useQuery({
+    queryKey: ['library-items'],
+    queryFn: () => getLibraryItems().then((items) => items.filter((i) => i.fileType === 'image' && i.fileUrl)),
+    enabled: showImagePicker,
+  });
+
   // Symbol insertion — track active textarea by field name
   const [activeField, setActiveField] = useState<string | null>(null);
   const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
@@ -297,7 +309,7 @@ export default function ContentManager() {
   // Mutations — questions
   const addQuestionMutation = useMutation({
     mutationFn: () => {
-      const base = { passageId: (qForm as any).passageId || null, subSkill: (qForm.subSkill || null) as SubSkill | null, questionText: qForm.questionText, explanation: qForm.explanation || null, orderIndex: questions.length };
+      const base = { passageId: (qForm as any).passageId || null, subSkill: (qForm.subSkill || null) as SubSkill | null, questionText: qForm.questionText, explanation: qForm.explanation || null, imageUrl: qForm.imageUrl || null, orderIndex: questions.length };
       if (qForm.questionType === 'multiple_choice') {
         const f = qForm as MCForm;
         return addQuestion(activeSet!.id, { ...base, questionType: 'multiple_choice', optionA: f.optionA, optionB: f.optionB, optionC: f.optionC, optionD: f.optionD, correctAnswer: f.correctAnswer, correctAnswerText: null });
@@ -810,6 +822,72 @@ export default function ContentManager() {
 
               {/* Explanation */}
               <Textarea label="Explanation (optional)" value={qForm.explanation} onChange={(e) => updateQ('explanation', e.target.value)} placeholder="Why is the correct answer correct?" rows={2} />
+
+              {/* Image attachment */}
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 8 }}>Diagram / Image (optional)</p>
+                {qForm.imageUrl ? (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <img src={qForm.imageUrl} alt="Question diagram" style={{ width: 120, height: 90, objectFit: 'cover', borderRadius: 8, border: '1px solid #E7E4DE', flexShrink: 0 }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <button type="button" onClick={() => setShowImagePicker(true)}
+                        style={{ padding: '6px 14px', fontSize: 12.5, fontWeight: 600, border: '1px solid #E7E4DE', borderRadius: 8, background: '#F2F0EC', color: '#0B0B0E', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Change image
+                      </button>
+                      <button type="button" onClick={() => updateQ('imageUrl', '')}
+                        style={{ padding: '6px 14px', fontSize: 12.5, fontWeight: 600, border: '1px solid rgba(192,57,43,0.25)', borderRadius: 8, background: 'transparent', color: '#C0392B', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Remove image
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setShowImagePicker(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', fontSize: 13, fontWeight: 600, border: '1.5px dashed #C8C4BC', borderRadius: 10, background: 'transparent', color: 'rgba(11,11,14,0.55)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    Attach image from library
+                  </button>
+                )}
+              </div>
+
+              {/* Image picker modal */}
+              {showImagePicker && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(11,11,14,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                  onClick={() => setShowImagePicker(false)}>
+                  <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 680, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(11,11,14,0.3)' }}
+                    onClick={(e) => e.stopPropagation()}>
+                    <div style={{ padding: '18px 24px', borderBottom: '1px solid #E7E4DE', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
+                        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0B0B0E', margin: 0 }}>Choose an image from library</h3>
+                        <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', margin: '3px 0 0' }}>Upload images in the Library first, then select them here.</p>
+                      </div>
+                      <button onClick={() => setShowImagePicker(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(11,11,14,0.4)', padding: 4, lineHeight: 1, fontFamily: 'inherit' }}>×</button>
+                    </div>
+                    <div className="scrollarea" style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+                      {libraryLoading ? (
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>Loading images…</div>
+                      ) : !libraryImages || libraryImages.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>
+                          No images in library yet. Upload images in the Library page first.
+                        </div>
+                      ) : (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
+                          {(libraryImages as LibraryItem[]).map((img) => (
+                            <button
+                              key={img.id}
+                              type="button"
+                              onClick={() => { updateQ('imageUrl', img.fileUrl!); setShowImagePicker(false); }}
+                              style={{ border: qForm.imageUrl === img.fileUrl ? '2.5px solid #E2562B' : '1.5px solid #E7E4DE', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: '#F8F7F4', padding: 0, display: 'flex', flexDirection: 'column' }}
+                            >
+                              <img src={img.fileUrl!} alt={img.title} style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }} />
+                              <div style={{ padding: '7px 10px', fontSize: 11.5, fontWeight: 600, color: '#0B0B0E', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{img.title}</div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {qError && <p style={{ color: '#C0392B', fontSize: 13 }}>{qError}</p>}
               <Button onClick={validateAndAdd} loading={addQuestionMutation.isPending} style={{ alignSelf: 'flex-start' }}>

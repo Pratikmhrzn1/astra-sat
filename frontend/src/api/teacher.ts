@@ -48,6 +48,7 @@ export interface Question {
   correctAnswer: 'a' | 'b' | 'c' | 'd' | null;
   correctAnswerText: string | null;
   explanation: string | null;
+  imageUrl: string | null;
   orderIndex: number;
 }
 

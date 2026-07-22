@@ -104,6 +104,7 @@ export const questions = pgTable('questions', {
   subSkill: subSkillEnum('sub_skill'),
   // Tracks origin of subSkill tag: null = teacher set before tracking existed, 'ai_suggested' = batch classifier, 'human_confirmed' = teacher confirmed/overrode
   subSkillSource: subSkillSourceEnum('sub_skill_source'),
+  imageUrl: text('image_url'),
   generated: boolean('generated').notNull().default(false),
   orderIndex: integer('order_index').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),

@@ -377,6 +377,7 @@ const createQuestionSchema = z.discriminatedUnion('questionType', [
     optionD: z.string().min(1, 'Option D is required'),
     correctAnswer: z.enum(['a', 'b', 'c', 'd']),
     explanation: z.string().optional().nullable(),
+    imageUrl: z.string().url().nullable().optional(),
     orderIndex: z.number().int().min(0).default(0),
   }),
   z.object({
@@ -391,6 +392,7 @@ const createQuestionSchema = z.discriminatedUnion('questionType', [
     correctAnswer: z.enum(['a', 'b', 'c', 'd']).optional().nullable(),
     correctAnswerText: z.string().min(1, 'Correct answer is required for SPR'),
     explanation: z.string().optional().nullable(),
+    imageUrl: z.string().url().nullable().optional(),
     orderIndex: z.number().int().min(0).default(0),
   }),
 ]);

@@ -261,6 +261,7 @@ const questionSelect = {
   optionB: questions.optionB,
   optionC: questions.optionC,
   optionD: questions.optionD,
+  imageUrl: questions.imageUrl,
   passageId: questions.passageId,
   passageText: passages.passageText,
   passageTitle: passages.title,

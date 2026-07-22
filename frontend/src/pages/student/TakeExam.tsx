@@ -433,6 +433,11 @@ export default function TakeExam() {
               {isSPR && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'rgba(226,86,43,0.08)', color: '#E2562B' }}>Grid-in</span>}
             </div>
             <p style={{ fontSize: largeFontSize ? 20 : 16.5, lineHeight: 1.55, fontWeight: 500, color: '#0B0B0E', margin: '0 0 22px' }}>{q.questionText}</p>
+            {q.imageUrl && (
+              <div style={{ marginBottom: 22 }}>
+                <img src={q.imageUrl} alt="Question diagram" style={{ maxWidth: '100%', maxHeight: 400, borderRadius: 10, border: '1px solid #E7E4DE', objectFit: 'contain', display: 'block' }} />
+              </div>
+            )}
 
             {/* SPR input */}
             {isSPR && (

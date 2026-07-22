@@ -329,6 +329,8 @@ const SCHEMA_UPDATES = `
 
   ALTER TABLE question_sets ADD COLUMN IF NOT EXISTS is_live_exam BOOLEAN NOT NULL DEFAULT FALSE;
 
+  ALTER TABLE questions ADD COLUMN IF NOT EXISTS image_url TEXT;
+
   CREATE TABLE IF NOT EXISTS live_exam_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
