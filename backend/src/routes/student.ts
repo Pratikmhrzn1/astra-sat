@@ -17,6 +17,39 @@ import {
   generateChatResponse,
 } from '../services/aiClient';
 
+// ── Per-user AI request rate limiter ─────────────────────────────────────────
+// 300 AI calls per user per rolling 15-minute window. Each /confirm fires up to
+// 3 parallel AI calls; each /chat fires 1. The counter tracks actual AI calls
+// dispatched, not HTTP requests.
+
+const AI_RATE_LIMIT = 300;
+const AI_RATE_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+interface AiRateRecord {
+  count: number;
+  windowStart: number; // epoch ms
+}
+const aiRateMap = new Map<string, AiRateRecord>();
+
+function checkAiRateLimit(userId: string, cost: number): { allowed: boolean; retryAfterSeconds?: number } {
+  const now = Date.now();
+  let rec = aiRateMap.get(userId);
+
+  if (!rec || now - rec.windowStart >= AI_RATE_WINDOW_MS) {
+    // Window expired or first call — start fresh
+    rec = { count: 0, windowStart: now };
+    aiRateMap.set(userId, rec);
+  }
+
+  if (rec.count + cost > AI_RATE_LIMIT) {
+    const retryAfterSeconds = Math.ceil((rec.windowStart + AI_RATE_WINDOW_MS - now) / 1000);
+    return { allowed: false, retryAfterSeconds };
+  }
+
+  rec.count += cost;
+  return { allowed: true };
+}
+
 // ── Phase 8: Weak-skill passage generation ────────────────────────────────────
 // Fires async after confirm response — never blocks the student session.
 
@@ -541,6 +574,15 @@ router.post('/exams/:examId/questions/:questionId/confirm', validateBody(confirm
     const uncachedTypes = applicableTypes.filter((t) => !cachedByType.has(t)) as FeedbackType[];
 
     if (uncachedTypes.length > 0) {
+      // Charge the exact number of AI calls about to fire, not the theoretical max
+      const aiCheck = checkAiRateLimit(studentId, uncachedTypes.length);
+      if (!aiCheck.allowed) {
+        return res.status(429).json({
+          error: `AI request limit reached. Please wait ${Math.ceil(aiCheck.retryAfterSeconds! / 60)} minute${Math.ceil(aiCheck.retryAfterSeconds! / 60) === 1 ? '' : 's'} before confirming more answers.`,
+          retryAfterSeconds: aiCheck.retryAfterSeconds,
+        });
+      }
+
       // All uncached calls run in parallel — Promise.all, not sequential awaits
       const results = await orchestrateConfirmFeedback(ctx, uncachedTypes);
 
@@ -1185,6 +1227,15 @@ router.post('/chat', validateBody(chatSchema), async (req, res) => {
     return res.json({
       sessionId: sessionId ?? null,
       assistantMessage: "I'm here for SAT questions — what can I help you understand about this question?",
+    });
+  }
+
+  // Rate limit AI chat calls (1 per message)
+  const chatAiCheck = checkAiRateLimit(studentId, 1);
+  if (!chatAiCheck.allowed) {
+    return res.status(429).json({
+      error: `AI request limit reached. Please wait ${Math.ceil(chatAiCheck.retryAfterSeconds! / 60)} minute${Math.ceil(chatAiCheck.retryAfterSeconds! / 60) === 1 ? '' : 's'} before sending more messages.`,
+      retryAfterSeconds: chatAiCheck.retryAfterSeconds,
     });
   }
 

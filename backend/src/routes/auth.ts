@@ -36,13 +36,13 @@ function setRefreshCookie(res: Response, token: string): void {
     httpOnly: true,
     secure: cookieSecure,
     sameSite: isProd ? 'none' : 'lax',
-    path: '/api/auth',
+    path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 }
 
 function clearRefreshCookie(res: Response): void {
-  res.clearCookie('rt', { httpOnly: true, path: '/api/auth' });
+  res.clearCookie('rt', { httpOnly: true, path: '/' });
 }
 
 async function mintAndStoreRefreshToken(userId: string): Promise<string> {
@@ -60,6 +60,34 @@ async function mintAndStoreRefreshToken(userId: string): Promise<string> {
 // without being forced to log out.
 const recentlyRotated = new Map<string, { accessToken: string; rawToken: string; expiresAt: number }>();
 const GRACE_MS = 30_000;
+
+// ── Per-account login failure tracking ───────────────────────────────────────
+// Keyed by lowercase email. Resets on successful login or after lockout expires.
+const LOGIN_MAX_FAILURES = 10;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
+
+interface LoginAttemptRecord {
+  failures: number;
+  lockedUntil: number; // epoch ms; 0 = not locked
+}
+const loginAttempts = new Map<string, LoginAttemptRecord>();
+
+function getLoginRecord(email: string): LoginAttemptRecord {
+  let rec = loginAttempts.get(email);
+  if (!rec) { rec = { failures: 0, lockedUntil: 0 }; loginAttempts.set(email, rec); }
+  return rec;
+}
+
+function recordLoginFailure(email: string): LoginAttemptRecord {
+  const rec = getLoginRecord(email);
+  rec.failures += 1;
+  if (rec.failures >= LOGIN_MAX_FAILURES) rec.lockedUntil = Date.now() + LOGIN_LOCKOUT_MS;
+  return rec;
+}
+
+function resetLoginRecord(email: string): void {
+  loginAttempts.delete(email);
+}
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -122,6 +150,16 @@ router.post('/register', authLimiter, validateBody(registerSchema), async (req: 
 router.post('/login', authLimiter, validateBody(loginSchema), async (req: Request, res: Response) => {
   const { email, password } = req.body;
   try {
+    // Per-account lockout check — must run before bcrypt to prevent brute-force
+    const attemptRec = getLoginRecord(email);
+    if (attemptRec.lockedUntil > Date.now()) {
+      const secondsLeft = Math.ceil((attemptRec.lockedUntil - Date.now()) / 1000);
+      return res.status(429).json({
+        error: `Too many failed login attempts. Please try again in ${Math.ceil(secondsLeft / 60)} minute${Math.ceil(secondsLeft / 60) === 1 ? '' : 's'}.`,
+        retryAfterSeconds: secondsLeft,
+      });
+    }
+
     const userRows = await db.select().from(users).where(eq(users.email, email)).limit(1);
     const user = userRows[0];
 
@@ -130,8 +168,22 @@ router.post('/login', authLimiter, validateBody(loginSchema), async (req: Reques
     const valid = await comparePassword(password, hashToCheck);
 
     if (!user || !valid) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      const updated = recordLoginFailure(email);
+      const remaining = LOGIN_MAX_FAILURES - updated.failures;
+      if (updated.lockedUntil > 0) {
+        return res.status(429).json({
+          error: 'Too many failed login attempts. Account locked for 15 minutes.',
+          retryAfterSeconds: Math.ceil(LOGIN_LOCKOUT_MS / 1000),
+        });
+      }
+      return res.status(401).json({
+        error: 'Invalid email or password',
+        attemptsRemaining: remaining > 0 ? remaining : 0,
+      });
     }
+
+    // Successful login — clear failure record
+    resetLoginRecord(email);
 
     const accessToken = signAccessToken({ sub: user.id, email: user.email, name: user.name, role: user.role });
     const rawRefreshToken = await mintAndStoreRefreshToken(user.id);

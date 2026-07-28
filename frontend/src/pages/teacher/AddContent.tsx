@@ -1,11 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, BookOpen, ChevronLeft, WifiOff, CheckCircle2, FileText, Upload } from 'lucide-react';
+import { Plus, Trash2, BookOpen, ChevronLeft, WifiOff, CheckCircle2, FileText, Upload, Pencil } from 'lucide-react';
 import {
   getQuestionSets, createQuestionSet, deleteQuestionSet, publishQuestionSet,
   getSetPassages, createPassage, deletePassage,
-  getSetQuestions, addQuestion, deleteQuestion, updateQuestionSubSkill,
+  getSetQuestions, addQuestion, deleteQuestion, updateQuestion, updateQuestionSubSkill,
   importQuestionSetFromJSON,
   getTeacherVocabWords, createTeacherVocabWord, deleteTeacherVocabWord,
 } from '../../api/teacher';
@@ -63,9 +63,10 @@ const SYMBOL_GROUPS = [
   { label: 'Sup', tip: 'Superscripts', symbols: ['²', '³', '¹', '⁰', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹', '⁻', '⁺', 'ⁿ'] },
   { label: 'Sub', tip: 'Subscripts', symbols: ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉'] },
   { label: 'Ops', tip: 'Operations', symbols: ['×', '÷', '±', '√', '∛', '∜', '∞', '·'] },
+  { label: 'Frac', tip: 'Fractions — ⁄ is the fraction slash for arbitrary fractions (e.g. 22⁄7). For mixed fractions, type the whole number first then pick a fraction character (e.g. 3½)', symbols: ['⁄', '½', '⅓', '⅔', '¼', '¾', '⅕', '⅖', '⅗', '⅘', '⅙', '⅚', '⅛', '⅜', '⅝', '⅞'] },
   { label: 'Rel', tip: 'Relations', symbols: ['≤', '≥', '≠', '≈', '≡', '∝'] },
   { label: 'Grk', tip: 'Greek letters', symbols: ['π', 'θ', 'α', 'β', 'γ', 'δ', 'λ', 'μ', 'σ', 'φ', 'ω'] },
-  { label: '…', tip: 'Other symbols', symbols: ['°', '∠', '△', '∑', '∫', '½', '⅓', '⅔', '¼', '¾'] },
+  { label: '…', tip: 'Other symbols', symbols: ['°', '∠', '△', '∑', '∫'] },
 ];
 
 function MathToolbar({ onInsert }: { onInsert: (s: string) => void }) {
@@ -142,6 +143,10 @@ export default function ContentManager() {
   const [qError, setQError] = useState('');
   const [draftSaved, setDraftSaved] = useState(false);
   const [doneSaving, setDoneSaving] = useState(false);
+
+  // Edit mode
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+  const formCardRef = useRef<HTMLDivElement | null>(null);
 
   // JSON import
   const [jsonImporting, setJsonImporting] = useState(false);
@@ -231,11 +236,11 @@ export default function ContentManager() {
 
   // Draft auto-save (question form)
   const saveDraft = useCallback(async () => {
-    if (!activeSet) return;
+    if (!activeSet || editingQuestion) return;
     await saveTeacherDraft(`q-draft-${activeSet.id}`, activeSet.id, qForm as unknown as Record<string, unknown>);
     setDraftSaved(true);
     setTimeout(() => setDraftSaved(false), 1500);
-  }, [activeSet, qForm]);
+  }, [activeSet, qForm, editingQuestion]);
 
   useEffect(() => { const t = setTimeout(saveDraft, 900); return () => clearTimeout(t); }, [qForm, saveDraft]);
 
@@ -332,6 +337,26 @@ export default function ContentManager() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet?.id] }); setDeleteTarget(null); },
   });
 
+  const updateQuestionMutation = useMutation({
+    mutationFn: () => {
+      const base = { passageId: (qForm as any).passageId || null, subSkill: (qForm.subSkill || null) as SubSkill | null, questionText: qForm.questionText, explanation: qForm.explanation || null, imageUrl: qForm.imageUrl || null, orderIndex: editingQuestion!.orderIndex };
+      if (qForm.questionType === 'multiple_choice') {
+        const f = qForm as MCForm;
+        return updateQuestion(editingQuestion!.id, { ...base, questionType: 'multiple_choice', optionA: f.optionA, optionB: f.optionB, optionC: f.optionC, optionD: f.optionD, correctAnswer: f.correctAnswer, correctAnswerText: null });
+      } else {
+        const f = qForm as SPRForm;
+        return updateQuestion(editingQuestion!.id, { ...base, questionType: 'student_produced_response', optionA: null, optionB: null, optionC: null, optionD: null, correctAnswer: null, correctAnswerText: f.correctAnswerText });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet?.id] });
+      setEditingQuestion(null);
+      setQForm(qType === 'multiple_choice' ? { ...emptyMC } : { ...emptySPR });
+      setQErrors({}); setQError('');
+    },
+    onError: (err) => setQError(getApiError(err)),
+  });
+
   const confirmSubSkillMutation = useMutation({
     mutationFn: (questionId: string) => updateQuestionSubSkill(questionId, { subSkillSource: 'human_confirmed' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet?.id] }),
@@ -343,7 +368,7 @@ export default function ContentManager() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet?.id] }),
   });
 
-  function validateAndAdd() {
+  function validateAndSubmit() {
     const errors: Record<string, string> = {};
     if (!qForm.questionText.trim()) errors.questionText = 'Required';
     if (qForm.questionType === 'multiple_choice') {
@@ -357,7 +382,49 @@ export default function ContentManager() {
       if (!f.correctAnswerText.trim()) errors.correctAnswerText = 'Required';
     }
     setQErrors(errors);
-    if (Object.keys(errors).length === 0) addQuestionMutation.mutate();
+    if (Object.keys(errors).length === 0) {
+      if (editingQuestion) updateQuestionMutation.mutate();
+      else addQuestionMutation.mutate();
+    }
+  }
+
+  function startEdit(q: Question) {
+    const qtype = q.questionType;
+    setQType(qtype);
+    if (qtype === 'multiple_choice') {
+      setQForm({
+        questionType: 'multiple_choice',
+        passageId: q.passageId ?? '',
+        subSkill: (q.subSkill ?? '') as SubSkill | '',
+        questionText: q.questionText,
+        optionA: q.optionA ?? '',
+        optionB: q.optionB ?? '',
+        optionC: q.optionC ?? '',
+        optionD: q.optionD ?? '',
+        correctAnswer: q.correctAnswer ?? 'a',
+        explanation: q.explanation ?? '',
+        imageUrl: q.imageUrl ?? null,
+      });
+    } else {
+      setQForm({
+        questionType: 'student_produced_response',
+        passageId: q.passageId ?? '',
+        subSkill: (q.subSkill ?? '') as SubSkill | '',
+        questionText: q.questionText,
+        correctAnswerText: q.correctAnswerText ?? '',
+        explanation: q.explanation ?? '',
+        imageUrl: q.imageUrl ?? null,
+      });
+    }
+    setEditingQuestion(q);
+    setQErrors({}); setQError('');
+    requestAnimationFrame(() => formCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+
+  function cancelEdit() {
+    setEditingQuestion(null);
+    setQForm(qType === 'multiple_choice' ? { ...emptyMC } : { ...emptySPR });
+    setQErrors({}); setQError('');
   }
 
   // ── Render: Vocab Bank ───────────────────────────────────────────────────────
@@ -697,9 +764,16 @@ export default function ContentManager() {
       {editorTab === 'questions' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Question form */}
-          <div style={{ ...CARD, overflow: 'hidden' }}>
+          <div ref={formCardRef} style={{ ...CARD, overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px', borderBottom: '1px solid #EEEBE5' }}>
-              <h3 style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', margin: '0 0 12px' }}>Add Question</h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 600, color: editingQuestion ? '#E2562B' : '#0B0B0E', margin: 0 }}>
+                  {editingQuestion ? `Edit Question #${questions.findIndex((q) => q.id === editingQuestion.id) + 1}` : 'Add Question'}
+                </h3>
+                {editingQuestion && (
+                  <button onClick={cancelEdit} style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(11,11,14,0.5)', border: '1px solid #E7E4DE', borderRadius: 8, background: '#F2F0EC', padding: '4px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                )}
+              </div>
 
               {/* Question type selector */}
               <div style={{ display: 'flex', gap: 8 }}>
@@ -890,8 +964,10 @@ export default function ContentManager() {
               )}
 
               {qError && <p style={{ color: '#C0392B', fontSize: 13 }}>{qError}</p>}
-              <Button onClick={validateAndAdd} loading={addQuestionMutation.isPending} style={{ alignSelf: 'flex-start' }}>
-                <Plus size={15} style={{ marginRight: 6 }} />Add Question
+              <Button onClick={validateAndSubmit} loading={addQuestionMutation.isPending || updateQuestionMutation.isPending} style={{ alignSelf: 'flex-start' }}>
+                {editingQuestion
+                  ? <><Pencil size={15} style={{ marginRight: 6 }} />Save Changes</>
+                  : <><Plus size={15} style={{ marginRight: 6 }} />Add Question</>}
               </Button>
             </div>
           </div>
@@ -955,7 +1031,9 @@ export default function ContentManager() {
                 </div>
                 {filtered.map((q, i) => (
                   <QuestionRow key={q.id} q={q} index={questions.indexOf(q)} isLast={i === filtered.length - 1} passages={passages}
+                    isEditing={editingQuestion?.id === q.id}
                     onDelete={() => setDeleteTarget({ type: 'question', id: q.id })}
+                    onEdit={() => startEdit(q)}
                     onConfirm={q.subSkillSource === 'ai_suggested' ? () => confirmSubSkillMutation.mutate(q.id) : undefined}
                     onOverride={q.subSkillSource === 'ai_suggested' ? (sk) => overrideSubSkillMutation.mutate({ questionId: q.id, subSkill: sk }) : undefined}
                   />
@@ -986,9 +1064,11 @@ export default function ContentManager() {
 
 // ── Question Row ──────────────────────────────────────────────────────────────
 
-function QuestionRow({ q, index, isLast, passages, onDelete, onConfirm, onOverride }: {
+function QuestionRow({ q, index, isLast, passages, isEditing, onDelete, onEdit, onConfirm, onOverride }: {
   q: Question; index: number; isLast: boolean; passages: Passage[];
+  isEditing?: boolean;
   onDelete: () => void;
+  onEdit: () => void;
   onConfirm?: () => void;
   onOverride?: (subSkill: SubSkill) => void;
 }) {
@@ -997,7 +1077,7 @@ function QuestionRow({ q, index, isLast, passages, onDelete, onConfirm, onOverri
   const isAiSuggested = q.subSkillSource === 'ai_suggested';
 
   return (
-    <div style={{ borderBottom: isLast ? 'none' : '1px solid #F2F0EC', background: isAiSuggested ? 'rgba(184,137,62,0.03)' : undefined }}>
+    <div style={{ borderBottom: isLast ? 'none' : '1px solid #F2F0EC', background: isEditing ? 'rgba(226,86,43,0.04)' : isAiSuggested ? 'rgba(184,137,62,0.03)' : undefined, outline: isEditing ? '2px solid rgba(226,86,43,0.25)' : 'none', outlineOffset: -1 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 22px' }}>
         <span style={{ width: 24, height: 24, borderRadius: 7, background: '#F2F0EC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: 'rgba(11,11,14,0.5)', flexShrink: 0, marginTop: 2 }}>{index + 1}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1017,11 +1097,18 @@ function QuestionRow({ q, index, isLast, passages, onDelete, onConfirm, onOverri
             <p style={{ fontSize: 12, color: '#E2562B', margin: 0, fontWeight: 600 }}>Answer: {q.correctAnswerText}</p>
           )}
         </div>
-        <button onClick={onDelete}
-          style={{ padding: 6, borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.3)', flexShrink: 0 }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.3)'; }}
-        ><Trash2 size={14} /></button>
+        <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+          <button onClick={onEdit} title="Edit question"
+            style={{ padding: 6, borderRadius: 7, border: 'none', background: isEditing ? 'rgba(226,86,43,0.1)' : 'transparent', cursor: 'pointer', color: isEditing ? '#E2562B' : 'rgba(11,11,14,0.3)' }}
+            onMouseEnter={(e) => { if (!isEditing) { e.currentTarget.style.background = 'rgba(37,99,168,0.08)'; e.currentTarget.style.color = '#2563A8'; } }}
+            onMouseLeave={(e) => { if (!isEditing) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.3)'; } }}
+          ><Pencil size={14} /></button>
+          <button onClick={onDelete} title="Delete question"
+            style={{ padding: 6, borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.3)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.3)'; }}
+          ><Trash2 size={14} /></button>
+        </div>
       </div>
 
       {/* AI review bar — only for ai_suggested questions */}

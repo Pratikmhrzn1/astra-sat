@@ -139,6 +139,11 @@ export async function addQuestion(setId: string, payload: Omit<Question, 'id' | 
   return data;
 }
 
+export async function updateQuestion(questionId: string, payload: Omit<Question, 'id' | 'setId' | 'subSkillSource'>): Promise<Question> {
+  const { data } = await apiClient.put<Question>(`/teacher/questions/${questionId}`, payload);
+  return data;
+}
+
 export async function updateQuestionSubSkill(
   questionId: string,
   payload: { subSkill?: SubSkill | null; subSkillSource: SubSkillSource },
