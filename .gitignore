@@ -6,6 +6,9 @@ dist/
 frontend/dist/
 
 CLAUDE.md
+render.yaml
+math-questions.json
+english-questions.json
 
 # Environment files
 .env
