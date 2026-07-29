@@ -8,6 +8,7 @@ import { db } from '../db';
 import { libraryItems, users } from '../db/schema';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { UPLOAD_DIR } from '../index';
+import { normalizeFileUrl } from '../lib/url';
 
 const router = Router();
 
@@ -28,7 +29,8 @@ const upload = multer({
 
 router.post('/upload', requireAuth, requireRole(['teacher', 'admin']), upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  // Use PUBLIC_BASE_URL (e.g. https://host/sat) when set; fall back to the request origin for local dev.
+  const baseUrl = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
   return res.json({
     url: `${baseUrl}/uploads/${req.file.filename}`,
     fileName: req.file.originalname,
@@ -56,10 +58,10 @@ router.get('/', requireAuth, async (req, res) => {
 
     if (isAdmin) {
       const rows = await db.select(sel).from(libraryItems).leftJoin(users, eq(libraryItems.uploadedBy, users.id)).orderBy(desc(libraryItems.createdAt));
-      return res.json(rows);
+      return res.json(rows.map((r) => ({ ...r, fileUrl: normalizeFileUrl(r.fileUrl) })));
     }
     const rows = await db.select(sel).from(libraryItems).leftJoin(users, eq(libraryItems.uploadedBy, users.id)).where(eq(libraryItems.hidden, false)).orderBy(desc(libraryItems.createdAt));
-    return res.json(rows);
+    return res.json(rows.map((r) => ({ ...r, fileUrl: normalizeFileUrl(r.fileUrl) })));
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });

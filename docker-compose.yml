@@ -29,6 +29,7 @@ services:
       AI_MODEL_FEEDBACK: ${AI_MODEL_FEEDBACK:-}
       AI_MODEL_NARRATIVE: ${AI_MODEL_NARRATIVE:-}
       AI_MODEL_CLASSIFY: ${AI_MODEL_CLASSIFY:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
     volumes:
       - uploads_data:/app/uploads
     depends_on:
@@ -38,11 +39,17 @@ services:
   frontend:
     build: ./frontend
     restart: unless-stopped
-    ports:
-      - "80:80"
+    container_name: sat-frontend
+    networks:
+      - default
+      - shared_net
     depends_on:
       - backend
 
 volumes:
   postgres_data:
   uploads_data:
+
+networks:
+  shared_net:
+    external: true

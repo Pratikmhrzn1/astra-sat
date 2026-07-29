@@ -5,6 +5,7 @@ import { db } from '../db';
 import { users, questionSets, questions, passages, exams, examAnswers, feedback, teacherVocabWords } from '../db/schema';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
+import { normalizeFileUrl } from '../lib/url';
 
 const router = Router();
 router.use(requireAuth, requireRole(['teacher']));
@@ -353,7 +354,7 @@ router.get('/question-sets/:setId/questions', async (req, res) => {
     if (!(await assertSetExists(setId, res))) return;
     const qs = await db.select().from(questions)
       .where(eq(questions.setId, setId)).orderBy(questions.orderIndex);
-    return res.json(qs);
+    return res.json(qs.map((q) => ({ ...q, imageUrl: normalizeFileUrl(q.imageUrl) })));
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });

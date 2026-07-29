@@ -5,6 +5,7 @@ import { db } from '../db';
 import { users, questionSets, questions, passages, exams, examAnswers, aiFeedback, mockTests, feedback, studentVocab, generatedContent, mockNarratives, studentSkillTriggers, chatSessions, chatMessages, teacherVocabWords, studentTeacherVocabProgress } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
 import { requireRole } from '../middleware/auth';
+import { normalizeFileUrl } from '../lib/url';
 import { validateBody } from '../middleware/validate';
 import {
   FeedbackContext,
@@ -333,7 +334,7 @@ router.get('/question-sets/:setId', async (req, res) => {
       .leftJoin(passages, eq(questions.passageId, passages.id))
       .where(eq(questions.setId, req.params.setId))
       .orderBy(questions.orderIndex);
-    return res.json({ ...setRows[0], questions: qs });
+    return res.json({ ...setRows[0], questions: qs.map((q) => ({ ...q, imageUrl: normalizeFileUrl(q.imageUrl) })) });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -363,7 +364,7 @@ router.post('/exams', validateBody(startExamSchema), async (req, res) => {
 
     const [exam] = await db.insert(exams).values({ studentId, setId, type, totalQuestions: qs.length }).returning();
     await db.insert(examAnswers).values(qs.map((q) => ({ examId: exam.id, questionId: q.id })));
-    return res.status(201).json({ exam, questions: qs });
+    return res.status(201).json({ exam, questions: qs.map((q) => ({ ...q, imageUrl: normalizeFileUrl(q.imageUrl) })) });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -417,7 +418,7 @@ router.get('/exams/:examId', async (req, res) => {
       if (mtRows.length > 0) englishExamId = mtRows[0].englishExamId ?? null;
     }
 
-    return res.json({ exam, questions: qs, answers, mathExamId, englishExamId });
+    return res.json({ exam, questions: qs.map((q) => ({ ...q, imageUrl: normalizeFileUrl(q.imageUrl) })), answers, mathExamId, englishExamId });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });
@@ -938,7 +939,7 @@ router.post('/mock-tests', async (req, res) => {
     if (mathQs.length > 0) await db.insert(examAnswers).values(mathQs.map((q) => ({ examId: mathExam.id, questionId: q.id })));
 
     const [mockTest] = await db.insert(mockTests).values({ studentId, englishExamId: englishExam.id, mathExamId: mathExam.id }).returning();
-    return res.status(201).json({ mockTest, englishExam, mathExam, englishQuestions: englishQs, mathQuestions: mathQs });
+    return res.status(201).json({ mockTest, englishExam, mathExam, englishQuestions: englishQs.map((q) => ({ ...q, imageUrl: normalizeFileUrl(q.imageUrl) })), mathQuestions: mathQs.map((q) => ({ ...q, imageUrl: normalizeFileUrl(q.imageUrl) })) });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });
