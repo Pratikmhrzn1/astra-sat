@@ -294,6 +294,7 @@ export default function ContentManager() {
       if (activeSet?.id === deleteTarget?.id) setActiveSet(null);
       setDeleteTarget(null);
     },
+    onError: (err) => alert(getApiError(err)),
   });
 
   // Mutations — passages
@@ -677,7 +678,7 @@ export default function ContentManager() {
 
         <ConfirmModal isOpen={deleteTarget?.type === 'set'} onClose={() => setDeleteTarget(null)}
           onConfirm={() => deleteSetMutation.mutate(deleteTarget!.id)} loading={deleteSetMutation.isPending}
-          title="Delete Question Set?" message="This will delete all questions and passages in this set. This cannot be undone." confirmLabel="Delete Set" />
+          title="Delete Question Set?" message="This will permanently delete all questions, passages, and any student exam records associated with this set. This cannot be undone." confirmLabel="Delete Set" />
       </div>
     );
   }

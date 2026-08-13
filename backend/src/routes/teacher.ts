@@ -268,8 +268,6 @@ router.delete('/question-sets/:setId', async (req, res) => {
     const setRows = await db.select().from(questionSets)
       .where(eq(questionSets.id, setId)).limit(1);
     if (setRows.length === 0) return res.status(404).json({ error: 'Question set not found' });
-    const examUsage = await db.select({ id: exams.id }).from(exams).where(eq(exams.setId, setId)).limit(1);
-    if (examUsage.length > 0) return res.status(400).json({ error: 'Cannot delete a set that has been used in exams' });
     await db.delete(questionSets).where(eq(questionSets.id, setId));
     return res.json({ ok: true });
   } catch (err) {
