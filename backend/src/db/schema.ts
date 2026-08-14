@@ -139,6 +139,8 @@ export const mockTests = pgTable('mock_tests', {
   studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   englishExamId: uuid('english_exam_id').references(() => exams.id, { onDelete: 'set null' }),
   mathExamId: uuid('math_exam_id').references(() => exams.id, { onDelete: 'set null' }),
+  englishM2ExamId: uuid('english_m2_exam_id').references(() => exams.id, { onDelete: 'set null' }),
+  mathM2ExamId: uuid('math_m2_exam_id').references(() => exams.id, { onDelete: 'set null' }),
   status: mockStatusEnum('status').notNull().default('in_progress'),
   startedAt: timestamp('started_at').notNull().defaultNow(),
   completedAt: timestamp('completed_at'),

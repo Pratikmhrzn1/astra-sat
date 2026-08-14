@@ -56,6 +56,8 @@ export interface MockTest {
   studentId: string;
   englishExamId: string | null;
   mathExamId: string | null;
+  englishM2ExamId: string | null;
+  mathM2ExamId: string | null;
   status: 'in_progress' | 'completed';
   startedAt: string;
   completedAt: string | null;
@@ -145,6 +147,16 @@ export async function getMockTest(mockTestId: string): Promise<{
   mathExam: Exam | null;
 }> {
   const { data } = await apiClient.get(`/student/mock-tests/${mockTestId}`);
+  return data;
+}
+
+export async function nextModule(mockTestId: string, submittedExamId: string): Promise<{
+  m2ExamId: string;
+  m2Questions: Question[];
+  m2Difficulty: 'hard' | 'low';
+  percentage: number;
+}> {
+  const { data } = await apiClient.post(`/student/mock-tests/${mockTestId}/next-module`, { submittedExamId });
   return data;
 }
 

@@ -902,29 +902,21 @@ router.post('/exams/:examId/narrative/retry', async (req, res) => {
 router.post('/mock-tests', async (req, res) => {
   const studentId = req.user!.sub;
   try {
-    // Pick math set first, then choose English with opposing difficulty
-    const mathSetRows = await db.execute(sql`SELECT id, difficulty FROM question_sets WHERE subject = 'math' ORDER BY RANDOM() LIMIT 1`);
-    if (mathSetRows.rows.length === 0) return res.status(400).json({ error: 'No Math question sets available' });
-
-    const mathSetId = (mathSetRows.rows[0] as any).id;
-    const mathDifficulty: string | null = (mathSetRows.rows[0] as any).difficulty ?? null;
-
-    // Opposing difficulty matrix: LOW↔HARD, MEDIUM→random extreme
-    let opposingDifficulty: string | null = null;
-    if (mathDifficulty === 'low') opposingDifficulty = 'hard';
-    else if (mathDifficulty === 'hard') opposingDifficulty = 'low';
-    else if (mathDifficulty === 'medium') opposingDifficulty = Math.random() < 0.5 ? 'low' : 'hard';
-
-    // Try opposing difficulty first, fallback to any English set
-    let englishSetRows = opposingDifficulty
-      ? await db.execute(sql`SELECT id FROM question_sets WHERE subject = 'english' AND difficulty = ${opposingDifficulty} ORDER BY RANDOM() LIMIT 1`)
-      : { rows: [] };
+    // Module 1 always uses medium-difficulty sets (same starting point for all students)
+    let englishSetRows = await db.execute(sql`SELECT id FROM question_sets WHERE subject = 'english' AND difficulty = 'medium' AND is_draft = false AND is_live_exam = false ORDER BY RANDOM() LIMIT 1`);
     if (englishSetRows.rows.length === 0) {
-      englishSetRows = await db.execute(sql`SELECT id FROM question_sets WHERE subject = 'english' ORDER BY RANDOM() LIMIT 1`);
+      englishSetRows = await db.execute(sql`SELECT id FROM question_sets WHERE subject = 'english' AND is_draft = false AND is_live_exam = false ORDER BY RANDOM() LIMIT 1`);
     }
     if (englishSetRows.rows.length === 0) return res.status(400).json({ error: 'No English question sets available' });
 
+    let mathSetRows = await db.execute(sql`SELECT id FROM question_sets WHERE subject = 'math' AND difficulty = 'medium' AND is_draft = false AND is_live_exam = false ORDER BY RANDOM() LIMIT 1`);
+    if (mathSetRows.rows.length === 0) {
+      mathSetRows = await db.execute(sql`SELECT id FROM question_sets WHERE subject = 'math' AND is_draft = false AND is_live_exam = false ORDER BY RANDOM() LIMIT 1`);
+    }
+    if (mathSetRows.rows.length === 0) return res.status(400).json({ error: 'No Math question sets available' });
+
     const englishSetId = (englishSetRows.rows[0] as any).id;
+    const mathSetId = (mathSetRows.rows[0] as any).id;
 
     const englishQs = await db.select(questionSelect).from(questions)
       .leftJoin(passages, eq(questions.passageId, passages.id))
@@ -933,13 +925,112 @@ router.post('/mock-tests', async (req, res) => {
       .leftJoin(passages, eq(questions.passageId, passages.id))
       .where(eq(questions.setId, mathSetId)).orderBy(questions.orderIndex);
 
+    if (englishQs.length === 0) return res.status(400).json({ error: 'English Module 1 set has no questions' });
+    if (mathQs.length === 0) return res.status(400).json({ error: 'Math Module 1 set has no questions' });
+
     const [englishExam] = await db.insert(exams).values({ studentId, setId: englishSetId, type: 'mock_english', totalQuestions: englishQs.length }).returning();
     const [mathExam] = await db.insert(exams).values({ studentId, setId: mathSetId, type: 'mock_math', totalQuestions: mathQs.length }).returning();
-    if (englishQs.length > 0) await db.insert(examAnswers).values(englishQs.map((q) => ({ examId: englishExam.id, questionId: q.id })));
-    if (mathQs.length > 0) await db.insert(examAnswers).values(mathQs.map((q) => ({ examId: mathExam.id, questionId: q.id })));
+    await db.insert(examAnswers).values(englishQs.map((q) => ({ examId: englishExam.id, questionId: q.id })));
+    await db.insert(examAnswers).values(mathQs.map((q) => ({ examId: mathExam.id, questionId: q.id })));
 
     const [mockTest] = await db.insert(mockTests).values({ studentId, englishExamId: englishExam.id, mathExamId: mathExam.id }).returning();
     return res.status(201).json({ mockTest, englishExam, mathExam, englishQuestions: englishQs.map((q) => ({ ...q, imageUrl: normalizeFileUrl(q.imageUrl) })), mathQuestions: mathQs.map((q) => ({ ...q, imageUrl: normalizeFileUrl(q.imageUrl) })) });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const nextModuleSchema = z.object({ submittedExamId: z.string().uuid() });
+
+router.post('/mock-tests/:mockTestId/next-module', validateBody(nextModuleSchema), async (req, res) => {
+  const studentId = req.user!.sub;
+  const { mockTestId } = req.params;
+  const { submittedExamId } = req.body;
+  try {
+    const mtRows = await db.select().from(mockTests)
+      .where(and(eq(mockTests.id, mockTestId), eq(mockTests.studentId, studentId))).limit(1);
+    if (mtRows.length === 0) return res.status(404).json({ error: 'Mock test not found' });
+    const mt = mtRows[0];
+
+    const isEnglish = mt.englishExamId === submittedExamId;
+    const isMath = mt.mathExamId === submittedExamId;
+    if (!isEnglish && !isMath) return res.status(400).json({ error: 'Exam does not belong to this mock test' });
+
+    // Idempotency: return existing M2 if already created
+    const existingM2Id = isEnglish ? mt.englishM2ExamId : mt.mathM2ExamId;
+    if (existingM2Id) {
+      const m2Rows = await db.select().from(exams).where(eq(exams.id, existingM2Id)).limit(1);
+      if (m2Rows.length > 0) {
+        const m2Qs = await db.select(questionSelect).from(questions)
+          .leftJoin(passages, eq(questions.passageId, passages.id))
+          .where(eq(questions.setId, m2Rows[0].setId)).orderBy(questions.orderIndex);
+        return res.json({ m2ExamId: existingM2Id, m2Questions: m2Qs.map((q) => ({ ...q, imageUrl: normalizeFileUrl(q.imageUrl) })) });
+      }
+    }
+
+    // Verify M1 is completed and get score
+    const m1Rows = await db.select().from(exams)
+      .where(and(eq(exams.id, submittedExamId), eq(exams.studentId, studentId))).limit(1);
+    if (m1Rows.length === 0) return res.status(404).json({ error: 'M1 exam not found' });
+    const m1 = m1Rows[0];
+    if (m1.status !== 'completed') return res.status(400).json({ error: 'M1 exam not yet submitted' });
+
+    // 60% threshold: ≥60% → hard, <60% → low (easy)
+    const percentage = m1.totalQuestions > 0 ? (m1.score ?? 0) / m1.totalQuestions : 0;
+    const m2Difficulty = percentage >= 0.6 ? 'hard' : 'low';
+    const subject = isEnglish ? 'english' : 'math';
+    const m2Type = isEnglish ? 'mock_english' : 'mock_math';
+
+    // Pick M2 set by difficulty, excluding the M1 set
+    let m2SetRows = await db.execute(sql`
+      SELECT id FROM question_sets
+      WHERE subject = ${subject} AND difficulty = ${m2Difficulty}
+      AND is_draft = false AND is_live_exam = false
+      AND id != ${m1.setId}
+      ORDER BY RANDOM() LIMIT 1
+    `);
+    // Fallback: any set of correct difficulty (including M1 set if nothing else)
+    if (m2SetRows.rows.length === 0) {
+      m2SetRows = await db.execute(sql`
+        SELECT id FROM question_sets
+        WHERE subject = ${subject} AND difficulty = ${m2Difficulty}
+        AND is_draft = false AND is_live_exam = false
+        ORDER BY RANDOM() LIMIT 1
+      `);
+    }
+    // Final fallback: any set of that subject
+    if (m2SetRows.rows.length === 0) {
+      m2SetRows = await db.execute(sql`
+        SELECT id FROM question_sets
+        WHERE subject = ${subject} AND is_draft = false AND is_live_exam = false
+        AND id != ${m1.setId}
+        ORDER BY RANDOM() LIMIT 1
+      `);
+    }
+    if (m2SetRows.rows.length === 0) return res.status(400).json({ error: `No ${subject} Module 2 question set available` });
+
+    const m2SetId = (m2SetRows.rows[0] as any).id;
+    const m2Qs = await db.select(questionSelect).from(questions)
+      .leftJoin(passages, eq(questions.passageId, passages.id))
+      .where(eq(questions.setId, m2SetId)).orderBy(questions.orderIndex);
+    if (m2Qs.length === 0) return res.status(400).json({ error: 'Module 2 set has no questions' });
+
+    const [m2Exam] = await db.insert(exams).values({ studentId, setId: m2SetId, type: m2Type, totalQuestions: m2Qs.length }).returning();
+    await db.insert(examAnswers).values(m2Qs.map((q) => ({ examId: m2Exam.id, questionId: q.id })));
+
+    if (isEnglish) {
+      await db.update(mockTests).set({ englishM2ExamId: m2Exam.id }).where(eq(mockTests.id, mockTestId));
+    } else {
+      await db.update(mockTests).set({ mathM2ExamId: m2Exam.id, status: 'completed', completedAt: new Date() }).where(eq(mockTests.id, mockTestId));
+    }
+
+    return res.json({
+      m2ExamId: m2Exam.id,
+      m2Questions: m2Qs.map((q) => ({ ...q, imageUrl: normalizeFileUrl(q.imageUrl) })),
+      m2Difficulty,
+      percentage: Math.round(percentage * 100),
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'Internal server error' });

@@ -27,7 +27,15 @@ export default function MockTest() {
 
   const startMutation = useMutation({
     mutationFn: startMockTest,
-    onSuccess: (data) => navigate(`/student/exams/${data.englishExam.id}`),
+    onSuccess: (data) => navigate(`/student/exams/${data.englishExam.id}`, {
+      state: {
+        mockTestId: data.mockTest.id,
+        mockSection: 'english_m1',
+        mathM1ExamId: data.mathExam.id,
+        timerEnabled: true,
+        examTitle: 'Module 1 · Reading & Writing',
+      },
+    }),
   });
 
   return (

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getExam, saveAnswers, submitExam } from '../../api/student';
+import { getExam, saveAnswers, submitExam, nextModule } from '../../api/student';
 import { saveExamProgress, loadExamProgress, clearExamProgress } from '../../lib/offline';
 import { useMobile } from '../../hooks/useMobile';
 
@@ -20,6 +20,9 @@ export default function TakeExam() {
     englishDurationSeconds?: number;
     mathExamId?: string;
     mathDurationSeconds?: number;
+    mockTestId?: string;
+    mockSection?: 'english_m1' | 'english_m2' | 'math_m1' | 'math_m2';
+    mathM1ExamId?: string;
   } | null;
 
   const [answers, setAnswers] = useState<Record<string, string | null>>({});
@@ -45,6 +48,7 @@ export default function TakeExam() {
   const mathExamIdRef = useRef<string | null>(null);
   const englishExamIdRef = useRef<string | null>(null);
   const transitioningRef = useRef(false);
+  const mockSectionRef = useRef(locationState?.mockSection);
   // Always-current answers for use inside timer/IDB closures
   const answersRef = useRef<Record<string, string | null>>({});
   const dataRef = useRef<{ exam: import('../../api/student').Exam; questions: import('../../api/student').Question[]; answers: { questionId: string; selectedAnswer: string | null; selectedAnswerText: string | null }[]; mathExamId: string | null; englishExamId: string | null } | undefined>(undefined);
@@ -161,6 +165,20 @@ export default function TakeExam() {
         navigate('/student/dashboard', { replace: true });
         return;
       }
+      // Adaptive: English M2 done → start Math M1
+      if (locationState?.mockSection === 'english_m2' && locationState.mathM1ExamId) {
+        navigate(`/student/exams/${locationState.mathM1ExamId}`, {
+          replace: true,
+          state: {
+            mockTestId: locationState.mockTestId,
+            mockSection: 'math_m1',
+            fromMockSection1: false,
+            timerEnabled: true,
+            examTitle: 'Module 1 · Math',
+          },
+        });
+        return;
+      }
       const suffix = englishExamIdRef.current ? `?englishExamId=${englishExamIdRef.current}` : '';
       navigate(`/student/results/${examId}${suffix}`, { replace: true });
     },
@@ -199,6 +217,52 @@ export default function TakeExam() {
       .catch(() => {});
   }, [examId, navigate, getTimeSpent]);
 
+  // Adaptive M1→M2 transition: submit M1, call next-module API, navigate to M2
+  const handleAdaptiveNextSection = useCallback(async () => {
+    const mt = locationState?.mockTestId;
+    const ms = mockSectionRef.current;
+    if (!mt || !ms) return;
+
+    transitioningRef.current = true;
+    setTransitioning(true);
+
+    const currentExamId = examId!;
+    const timeSpent = getTimeSpent();
+    const currentData = dataRef.current!;
+    const formattedAnswers = Object.entries(answersRef.current).map(([questionId, value]) => {
+      const q = currentData.questions.find((qq) => qq.id === questionId);
+      const isSPR = q?.questionType === 'student_produced_response';
+      return {
+        questionId,
+        selectedAnswer: isSPR ? null : (value as 'a' | 'b' | 'c' | 'd' | null),
+        selectedAnswerText: isSPR ? value : null,
+      };
+    });
+
+    try {
+      await saveAnswers(currentExamId, formattedAnswers, timeSpent);
+      await submitExam(currentExamId, timeSpent);
+      await clearExamProgress(currentExamId);
+      const { m2ExamId } = await nextModule(mt, currentExamId);
+
+      const isMathM1 = ms === 'math_m1';
+      navigate(`/student/exams/${m2ExamId}`, {
+        replace: true,
+        state: {
+          mockTestId: mt,
+          mockSection: isMathM1 ? 'math_m2' : 'english_m2',
+          mathM1ExamId: locationState?.mathM1ExamId,
+          fromMockSection1: true,
+          timerEnabled: true,
+          examTitle: isMathM1 ? 'Module 2 · Math' : 'Module 2 · Reading & Writing',
+        },
+      });
+    } catch {
+      transitioningRef.current = false;
+      setTransitioning(false);
+    }
+  }, [examId, locationState, navigate, getTimeSpent]);
+
   // Countdown timer — only when timerEnabled
   useEffect(() => {
     if (!timerEnabled) return;
@@ -208,7 +272,11 @@ export default function TakeExam() {
         timeLeftRef.current = next;
         if (next <= 0) {
           clearInterval(timerRef.current!);
-          if (mathExamIdRef.current) {
+          const ms = mockSectionRef.current;
+          if (ms === 'english_m1' || ms === 'math_m1') {
+            handleAdaptiveNextSection().catch(() => {});
+          } else if (mathExamIdRef.current && !ms) {
+            // Legacy non-adaptive mock: English → Math directly
             handleNextSection();
           } else {
             transitioningRef.current = true;
@@ -289,6 +357,8 @@ export default function TakeExam() {
     });
   };
 
+  const mockSection = locationState?.mockSection;
+
   const renderBottomAction = () => {
     const btnStyle: React.CSSProperties = {
       height: isMobile ? 40 : 42,
@@ -301,7 +371,18 @@ export default function TakeExam() {
       whiteSpace: 'nowrap',
     };
     if (isLast) {
-      const isNextSection = !!mathExamIdRef.current;
+      // Adaptive: M1 sections go to M2
+      if (mockSection === 'english_m1' || mockSection === 'math_m1') {
+        return (
+          <button
+            onClick={() => handleAdaptiveNextSection().catch(() => {})}
+            disabled={transitioning}
+            style={{ ...btnStyle, border: 'none', background: '#2563A8', color: '#fff', cursor: transitioning ? 'default' : 'pointer' }}
+          >{transitioning ? 'Loading…' : 'Next Module →'}</button>
+        );
+      }
+      // Legacy non-adaptive mock: English → Math directly
+      const isNextSection = !mockSection && !!mathExamIdRef.current;
       return (
         <button
           onClick={isNextSection ? handleNextSection : handleSubmit}
@@ -409,7 +490,13 @@ export default function TakeExam() {
         <div style={{ flexShrink: 0, background: 'rgba(37,99,168,0.07)', borderBottom: '1px solid rgba(37,99,168,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '10px 14px' : '10px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#2563A8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#1D4ED8' }}>{isMobile ? 'Section 1 done — now on Section 2: Math' : "Section 1 (Reading & Writing) complete — you're now on Section 2: Math"}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#1D4ED8' }}>
+              {mockSection === 'english_m2'
+                ? (isMobile ? 'R&W Module 1 done — Module 2 starts' : 'Reading & Writing Module 1 complete — now on Module 2')
+                : mockSection === 'math_m2'
+                ? (isMobile ? 'Math Module 1 done — Module 2 starts' : 'Math Module 1 complete — now on Module 2')
+                : (isMobile ? 'Section 1 done — now on Section 2: Math' : "Section 1 (Reading & Writing) complete — you're now on Section 2: Math")}
+            </span>
           </div>
           <button onClick={() => setSectionBanner(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#6B7280', fontSize: 18, lineHeight: 1, padding: '0 4px', fontFamily: 'inherit' }}>×</button>
         </div>
