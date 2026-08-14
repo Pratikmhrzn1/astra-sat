@@ -370,6 +370,14 @@ export default function ContentManager() {
   });
 
   function validateAndSubmit() {
+    // Block adding new questions when module limit is reached (editing existing is always allowed)
+    if (!editingQuestion) {
+      const limit = activeSet!.subject === 'english' ? 27 : 22;
+      if (questions.length >= limit) {
+        setQError(`This module is full (${limit} questions maximum for ${activeSet!.subject === 'english' ? 'Reading & Writing' : 'Math'}). Delete an existing question to add a new one.`);
+        return;
+      }
+    }
     const errors: Record<string, string> = {};
     if (!qForm.questionText.trim()) errors.questionText = 'Required';
     if (qForm.questionType === 'multiple_choice') {
@@ -704,9 +712,19 @@ export default function ContentManager() {
         </div>
       </div>
 
-      <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.45)', marginBottom: 20 }}>
-        {questions.length} question{questions.length !== 1 ? 's' : ''} · {passages.length} passage{passages.length !== 1 ? 's' : ''}
-      </div>
+      {(() => {
+        const limit = activeSet.subject === 'english' ? 27 : 22;
+        const atLimit = questions.length >= limit;
+        return (
+          <div style={{ fontSize: 13, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: atLimit ? '#C0392B' : 'rgba(11,11,14,0.45)', fontWeight: atLimit ? 700 : 400 }}>
+              {questions.length}/{limit} question{questions.length !== 1 ? 's' : ''}
+            </span>
+            <span style={{ color: 'rgba(11,11,14,0.45)' }}>· {passages.length} passage{passages.length !== 1 ? 's' : ''}</span>
+            {atLimit && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#C0392B', background: 'rgba(192,57,43,0.08)', padding: '2px 8px', borderRadius: 6 }}>Module full</span>}
+          </div>
+        );
+      })()}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #E7E4DE', marginBottom: 24 }}>
