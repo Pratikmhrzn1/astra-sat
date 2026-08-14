@@ -101,6 +101,11 @@ export async function createQuestionSet(payload: { title: string; subject: 'engl
   return data;
 }
 
+export async function updateQuestionSet(setId: string, payload: Partial<{ title: string; description: string; difficulty: 'low' | 'medium' | 'hard' | null }>): Promise<QuestionSet> {
+  const { data } = await apiClient.put<QuestionSet>(`/teacher/question-sets/${setId}`, payload);
+  return data;
+}
+
 export async function deleteQuestionSet(setId: string): Promise<void> {
   await apiClient.delete(`/teacher/question-sets/${setId}`);
 }

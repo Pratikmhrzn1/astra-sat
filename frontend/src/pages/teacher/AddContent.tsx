@@ -3,7 +3,7 @@ import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, BookOpen, ChevronLeft, WifiOff, CheckCircle2, FileText, Upload, Pencil } from 'lucide-react';
 import {
-  getQuestionSets, createQuestionSet, deleteQuestionSet, publishQuestionSet,
+  getQuestionSets, createQuestionSet, updateQuestionSet, deleteQuestionSet, publishQuestionSet,
   getSetPassages, createPassage, deletePassage,
   getSetQuestions, addQuestion, deleteQuestion, updateQuestion, updateQuestionSubSkill,
   importQuestionSetFromJSON,
@@ -293,6 +293,15 @@ export default function ContentManager() {
       queryClient.invalidateQueries({ queryKey: ['teacher', 'question-sets'] });
       if (activeSet?.id === deleteTarget?.id) setActiveSet(null);
       setDeleteTarget(null);
+    },
+    onError: (err) => alert(getApiError(err)),
+  });
+
+  const updateSetMutation = useMutation({
+    mutationFn: (payload: { difficulty: 'low' | 'medium' | 'hard' | null }) => updateQuestionSet(activeSet!.id, payload),
+    onSuccess: (updated) => {
+      setActiveSet(updated);
+      queryClient.invalidateQueries({ queryKey: ['teacher', 'question-sets'] });
     },
     onError: (err) => alert(getApiError(err)),
   });
@@ -709,6 +718,17 @@ export default function ContentManager() {
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
           {!online && <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#C0392B' }}><WifiOff size={13} />Offline</span>}
           {draftSaved && <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#2E7D5A' }}><CheckCircle2 size={13} />Draft saved</span>}
+          <select
+            value={activeSet.difficulty ?? ''}
+            disabled={updateSetMutation.isPending}
+            onChange={(e) => updateSetMutation.mutate({ difficulty: (e.target.value as 'low' | 'medium' | 'hard') || null })}
+            style={{ fontSize: 12, fontWeight: 600, fontFamily: 'inherit', border: '1px solid #E7E4DE', borderRadius: 8, padding: '4px 8px', background: '#fff', cursor: 'pointer', color: '#0B0B0E' }}
+          >
+            <option value="">No difficulty</option>
+            <option value="low">Low (M2 easy)</option>
+            <option value="medium">Medium (M1)</option>
+            <option value="hard">Hard (M2 hard)</option>
+          </select>
         </div>
       </div>
 
