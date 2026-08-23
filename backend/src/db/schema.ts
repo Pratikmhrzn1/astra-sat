@@ -33,6 +33,7 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   name: varchar('name', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 30 }),
   passwordHash: text('password_hash').notNull(),
   role: roleEnum('role').notNull().default('student'),
   teacherId: uuid('teacher_id').references((): any => users.id, { onDelete: 'set null' }),
@@ -353,3 +354,12 @@ export type LiveExamSession = typeof liveExamSessions.$inferSelect;
 export type LiveExamParticipant = typeof liveExamParticipants.$inferSelect;
 export type LiveExamQuestionFeedback = typeof liveExamQuestionFeedback.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+
+export const passwordResetTokens = pgTable('password_reset_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  usedAt: timestamp('used_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});

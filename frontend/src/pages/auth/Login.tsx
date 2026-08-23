@@ -141,6 +141,12 @@ export default function Login() {
             New here?{' '}
             <Link to="/register" style={{ color: '#E2562B', fontWeight: 600, textDecoration: 'none' }}>Create an account</Link>
           </div>
+          <div style={{ textAlign: 'center', marginTop: 10, fontSize: 13, color: 'rgba(11,11,14,0.4)' }}>
+            <Link to="/forgot-password" style={{ color: 'rgba(11,11,14,0.4)', textDecoration: 'none' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#E2562B')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(11,11,14,0.4)')}
+            >Forgot your password?</Link>
+          </div>
         </div>
       </div>
     </div>

@@ -379,6 +379,17 @@ const SCHEMA_UPDATES = `
 
   ALTER TABLE mock_tests ADD COLUMN IF NOT EXISTS english_m2_exam_id UUID REFERENCES exams(id) ON DELETE SET NULL;
   ALTER TABLE mock_tests ADD COLUMN IF NOT EXISTS math_m2_exam_id UUID REFERENCES exams(id) ON DELETE SET NULL;
+
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(30);
+
+  CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
 `;
 
 const SEED_DEFAULT_ADMIN_CODE = `

@@ -12,6 +12,7 @@ const schema = z
   .object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
     email: z.string().email('Invalid email address'),
+    phone: z.string().max(30).optional(),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     accessCode: z.string().min(1, 'Access code is required'),
@@ -38,7 +39,7 @@ export default function Register() {
   const onSubmit = async (data: FormData) => {
     setApiError('');
     try {
-      const result = await apiRegister(data.email, data.name, data.password, data.accessCode);
+      const result = await apiRegister(data.email, data.name, data.password, data.accessCode, data.phone);
       storeLogin(result.user, result.accessToken);
       navigate(ROLE_ROUTES[result.user.role], { replace: true });
     } catch (err) {
@@ -116,6 +117,13 @@ export default function Register() {
               {label('Email')}
               <input type="email" autoComplete="email" placeholder="you@email.com" {...register('email')} style={fieldStyle(!!errors.email)} />
               {err(errors.email?.message)}
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              {label('Phone number')}
+              <input type="tel" autoComplete="tel" placeholder="+977 98XXXXXXXX" {...register('phone')} style={fieldStyle(!!errors.phone)} />
+              {err(errors.phone?.message)}
+              {!errors.phone && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(11,11,14,0.4)' }}>Required for student accounts.</p>}
             </div>
 
             {/* Password fields — side by side on desktop, stacked on mobile */}

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { eq, and, sql, desc, lte, ne, isNotNull } from 'drizzle-orm';
+import { eq, and, sql, desc, lte, ne, isNotNull, or, isNull } from 'drizzle-orm';
 import { db } from '../db';
 import { users, questionSets, questions, passages, exams, examAnswers, aiFeedback, mockTests, feedback, studentVocab, generatedContent, mockNarratives, studentSkillTriggers, chatSessions, chatMessages, teacherVocabWords, studentTeacherVocabProgress } from '../db/schema';
 import { requireAuth } from '../middleware/auth';
@@ -314,7 +314,11 @@ router.get('/question-sets', async (_req, res) => {
         questionCount: sql<number>`(SELECT COUNT(*) FROM questions WHERE questions.set_id = question_sets.id)::int`,
       })
       .from(questionSets)
-      .where(and(eq(questionSets.isDraft, false), eq(questionSets.isLiveExam, false)))
+      .where(and(
+        eq(questionSets.isDraft, false),
+        eq(questionSets.isLiveExam, false),
+        or(eq(questionSets.difficulty, 'medium'), isNull(questionSets.difficulty)),
+      ))
       .orderBy(desc(questionSets.createdAt));
     return res.json(sets);
   } catch (err) {

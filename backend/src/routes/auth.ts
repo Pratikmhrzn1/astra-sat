@@ -1,15 +1,16 @@
 import crypto from 'crypto';
 import { Router } from 'express';
 import { z } from 'zod';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, gt } from 'drizzle-orm';
 import { db } from '../db';
-import { users, accessCodes, refreshTokens } from '../db/schema';
+import { users, accessCodes, refreshTokens, passwordResetTokens } from '../db/schema';
 import { hashPassword, comparePassword } from '../lib/password';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../lib/jwt';
 import { requireAuth } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import type { Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
+import { sendWelcomeEmail, sendPasswordResetEmail } from '../lib/email';
 
 const router = Router();
 
@@ -94,6 +95,7 @@ function resetLoginRecord(email: string): void {
 const registerSchema = z.object({
   email: z.string().email('Invalid email address').toLowerCase(),
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
+  phone: z.string().max(30).optional(),
   password: z.string().min(8, 'Password must be at least 8 characters').max(128),
   accessCode: z.string().min(1, 'Access code is required'),
 });
@@ -106,7 +108,7 @@ const loginSchema = z.object({
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 router.post('/register', authLimiter, validateBody(registerSchema), async (req: Request, res: Response) => {
-  const { email, name, password, accessCode } = req.body;
+  const { email, name, phone, password, accessCode } = req.body;
   try {
     const codeRows = await db
       .select()
@@ -128,13 +130,21 @@ router.post('/register', authLimiter, validateBody(registerSchema), async (req: 
       return res.status(409).json({ error: 'An account with this email already exists' });
     }
 
+    if (codeRow.role === 'student' && !phone?.trim()) {
+      return res.status(400).json({ error: 'Phone number is required for student accounts' });
+    }
+
     const passwordHash = await hashPassword(password);
     const [newUser] = await db
       .insert(users)
-      .values({ email, name, passwordHash, role: codeRow.role })
+      .values({ email, name, phone: phone?.trim() ?? null, passwordHash, role: codeRow.role })
       .returning({ id: users.id, email: users.email, name: users.name, role: users.role });
 
     await db.update(accessCodes).set({ useCount: codeRow.useCount + 1 }).where(eq(accessCodes.id, codeRow.id));
+
+    sendWelcomeEmail(newUser.email, newUser.name, password).catch((err) =>
+      console.error('Welcome email failed:', err),
+    );
 
     const accessToken = signAccessToken({ sub: newUser.id, email: newUser.email, name: newUser.name, role: newUser.role });
     const rawRefreshToken = await mintAndStoreRefreshToken(newUser.id);
@@ -344,6 +354,63 @@ router.patch('/profile', requireAuth, validateBody(updateProfileSchema), async (
     return res.json(updated);
   } catch (err) {
     console.error('Update profile error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email().toLowerCase(),
+});
+
+router.post('/forgot-password', authLimiter, validateBody(forgotPasswordSchema), async (req: Request, res: Response) => {
+  const { email } = req.body;
+  try {
+    const [user] = await db.select({ id: users.id, email: users.email, name: users.name })
+      .from(users).where(eq(users.email, email)).limit(1);
+
+    // Always return 200 so we don't reveal whether the email exists
+    if (!user) return res.json({ ok: true });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await db.insert(passwordResetTokens).values({ userId: user.id, token, expiresAt });
+
+    sendPasswordResetEmail(user.email, user.name, token).catch((err) =>
+      console.error('Password reset email failed:', err),
+    );
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+});
+
+router.post('/reset-password', validateBody(resetPasswordSchema), async (req: Request, res: Response) => {
+  const { token, password } = req.body;
+  try {
+    const now = new Date();
+    const [row] = await db.select().from(passwordResetTokens)
+      .where(and(eq(passwordResetTokens.token, token), gt(passwordResetTokens.expiresAt, now)))
+      .limit(1);
+
+    if (!row) return res.status(400).json({ error: 'Reset link is invalid or has expired' });
+    if (row.usedAt) return res.status(400).json({ error: 'Reset link has already been used' });
+
+    const passwordHash = await hashPassword(password);
+
+    await db.update(users).set({ passwordHash }).where(eq(users.id, row.userId));
+    await db.update(passwordResetTokens).set({ usedAt: now }).where(eq(passwordResetTokens.id, row.id));
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('Reset password error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
