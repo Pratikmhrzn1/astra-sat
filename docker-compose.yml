@@ -30,6 +30,8 @@ services:
       AI_MODEL_NARRATIVE: ${AI_MODEL_NARRATIVE:-}
       AI_MODEL_CLASSIFY: ${AI_MODEL_CLASSIFY:-}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
     volumes:
       - uploads_data:/app/uploads
     depends_on:
