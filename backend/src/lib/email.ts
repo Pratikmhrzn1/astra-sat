@@ -1,13 +1,16 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM ?? 'noreply@mocktest.niec.edu.np';
 const BASE_URL = process.env.PUBLIC_BASE_URL ?? 'https://mocktest.niec.edu.np/sat';
+
+function getResend(): Resend {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 export async function sendWelcomeEmail(to: string, name: string, password: string): Promise<void> {
   if (!process.env.RESEND_API_KEY) return;
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: `SAT Prep <${FROM}>`,
     to,
     subject: 'Welcome to SAT Prep — your account details',
@@ -78,7 +81,7 @@ export async function sendPasswordResetEmail(to: string, name: string, token: st
 
   const resetUrl = `${BASE_URL}/reset-password?token=${token}`;
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: `SAT Prep <${FROM}>`,
     to,
     subject: 'Reset your SAT Prep password',
