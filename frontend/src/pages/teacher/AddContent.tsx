@@ -456,7 +456,10 @@ export default function ContentManager() {
 
   // Mutations — passages
   const createPassageMutation = useMutation({
-    mutationFn: () => createPassage(activeSet!.id, { title: passageTitle.trim(), passageText: passageText.trim(), orderIndex: passages.length }),
+    mutationFn: () => {
+      const pText = passageDivRef.current?.innerHTML ?? passageText;
+      return createPassage(activeSet!.id, { title: passageTitle.trim(), passageText: pText, orderIndex: passages.length });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teacher', 'passages', activeSet?.id] });
       setPassageTitle(''); setPassageText(''); setPassageError('');
@@ -472,7 +475,8 @@ export default function ContentManager() {
   // Mutations — questions
   const addQuestionMutation = useMutation({
     mutationFn: () => {
-      const base = { passageId: (qForm as any).passageId || null, subSkill: (qForm.subSkill || null) as SubSkill | null, questionText: qForm.questionText, explanation: qForm.explanation || null, imageUrl: qForm.imageUrl || null, orderIndex: questions.length };
+      const questionText = questionTextDivRef.current?.innerHTML ?? qForm.questionText;
+      const base = { passageId: (qForm as any).passageId || null, subSkill: (qForm.subSkill || null) as SubSkill | null, questionText, explanation: qForm.explanation || null, imageUrl: qForm.imageUrl || null, orderIndex: questions.length };
       if (qForm.questionType === 'multiple_choice') {
         const f = qForm as MCForm;
         return addQuestion(activeSet!.id, { ...base, questionType: 'multiple_choice', optionA: f.optionA, optionB: f.optionB, optionC: f.optionC, optionD: f.optionD, correctAnswer: f.correctAnswer, correctAnswerText: null });
@@ -497,7 +501,8 @@ export default function ContentManager() {
 
   const updateQuestionMutation = useMutation({
     mutationFn: () => {
-      const base = { passageId: (qForm as any).passageId || null, subSkill: (qForm.subSkill || null) as SubSkill | null, questionText: qForm.questionText, explanation: qForm.explanation || null, imageUrl: qForm.imageUrl || null, orderIndex: editingQuestion!.orderIndex };
+      const questionText = questionTextDivRef.current?.innerHTML ?? qForm.questionText;
+      const base = { passageId: (qForm as any).passageId || null, subSkill: (qForm.subSkill || null) as SubSkill | null, questionText, explanation: qForm.explanation || null, imageUrl: qForm.imageUrl || null, orderIndex: editingQuestion!.orderIndex };
       if (qForm.questionType === 'multiple_choice') {
         const f = qForm as MCForm;
         return updateQuestion(editingQuestion!.id, { ...base, questionType: 'multiple_choice', optionA: f.optionA, optionB: f.optionB, optionC: f.optionC, optionD: f.optionD, correctAnswer: f.correctAnswer, correctAnswerText: null });
