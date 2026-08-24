@@ -69,6 +69,25 @@ const SYMBOL_GROUPS = [
   { label: '…', tip: 'Other symbols', symbols: ['°', '∠', '△', '∑', '∫'] },
 ];
 
+function UnderlineBtn({ onApply }: { onApply: () => void }) {
+  return (
+    <button
+      type="button"
+      title="Underline selected text — select text in any field below, then click this button"
+      onMouseDown={(e) => { e.preventDefault(); onApply(); }}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        padding: '3px 10px', fontSize: 12, fontWeight: 700,
+        border: '1px solid #E7E4DE', borderRadius: 6,
+        background: '#F2F0EC', color: '#0B0B0E', cursor: 'pointer', fontFamily: 'inherit',
+      }}
+    >
+      <span style={{ textDecoration: 'underline' }}>U</span>
+      <span style={{ fontSize: 10, fontWeight: 400, color: 'rgba(11,11,14,0.45)' }}>Underline</span>
+    </button>
+  );
+}
+
 function MathToolbar({ onInsert }: { onInsert: (s: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
   return (
@@ -147,6 +166,7 @@ export default function ContentManager() {
   // Edit mode
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const formCardRef = useRef<HTMLDivElement | null>(null);
+  const passageTextRef = useRef<HTMLTextAreaElement | null>(null);
 
   // JSON import
   const [jsonImporting, setJsonImporting] = useState(false);
@@ -263,6 +283,38 @@ export default function ContentManager() {
     setQForm((prev) => ({ ...prev, [activeField]: newValue } as QuestionForm));
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(newCursorPos, newCursorPos); });
   }, [activeField]);
+
+  // Underline: wraps selected text in <u>…</u> using onMouseDown+preventDefault so selection isn't lost
+  const handleUnderline = useCallback(() => {
+    if (!activeField) return;
+    const el = textareaRefs.current[activeField];
+    if (!el) return;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+    if (start === end) return;
+    const before = el.value.substring(0, start);
+    const selected = el.value.substring(start, end);
+    const after = el.value.substring(end);
+    const newValue = `${before}<u>${selected}</u>${after}`;
+    const cursor = before.length + 3 + selected.length + 4; // position after </u>
+    setQForm((prev) => ({ ...prev, [activeField]: newValue } as QuestionForm));
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(cursor, cursor); });
+  }, [activeField]);
+
+  const handlePassageUnderline = useCallback(() => {
+    const el = passageTextRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? 0;
+    if (start === end) return;
+    const before = el.value.substring(0, start);
+    const selected = el.value.substring(start, end);
+    const after = el.value.substring(end);
+    const newValue = `${before}<u>${selected}</u>${after}`;
+    const cursor = before.length + 3 + selected.length + 4;
+    setPassageText(newValue);
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(cursor, cursor); });
+  }, []);
 
   function registerRef(field: string) {
     return (el: HTMLTextAreaElement | null) => { textareaRefs.current[field] = el; };
@@ -766,7 +818,13 @@ export default function ContentManager() {
             </div>
             <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <Input label="Passage title (optional)" value={passageTitle} onChange={(e) => setPassageTitle(e.target.value)} placeholder="e.g. The following passage is adapted from a 2022 scientific article…" />
-              <Textarea label="Passage text" value={passageText} onChange={(e) => setPassageText(e.target.value)} placeholder="Paste or type the reading passage here…" rows={8} />
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <UnderlineBtn onApply={handlePassageUnderline} />
+                  <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.38)' }}>Select text in the passage, then click</span>
+                </div>
+                <Textarea label="Passage text" value={passageText} onChange={(e) => setPassageText(e.target.value)} placeholder="Paste or type the reading passage here…" rows={8} ref={passageTextRef} />
+              </div>
               {passageError && <p style={{ color: '#C0392B', fontSize: 13 }}>{passageError}</p>}
               <Button onClick={() => { setPassageError(''); createPassageMutation.mutate(); }} loading={createPassageMutation.isPending} disabled={!passageText.trim()} style={{ alignSelf: 'flex-start' }}>
                 <Plus size={15} style={{ marginRight: 6 }} />Save Passage
@@ -865,6 +923,10 @@ export default function ContentManager() {
               {/* Question text */}
               <div>
                 {isMath && <MathToolbar onInsert={handleSymbolInsert} />}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <UnderlineBtn onApply={handleUnderline} />
+                  <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.38)' }}>Select text in any field below, then click</span>
+                </div>
                 <Textarea
                   label="Question text"
                   value={qForm.questionText}

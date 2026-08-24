@@ -509,7 +509,7 @@ export default function TakeExam() {
           {q.passageText && (
             <div style={{ paddingRight: isMobile ? 0 : 40, borderRight: isMobile ? 'none' : '1px solid #EAE7E1', paddingBottom: isMobile ? 20 : 0, borderBottom: isMobile ? '1px solid #EAE7E1' : 'none', marginBottom: isMobile ? 24 : 0 }}>
               {q.passageTitle && <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 10 }}>{q.passageTitle}</div>}
-              <p style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 16 : 19, lineHeight: 1.7, color: '#0B0B0E', margin: 0, whiteSpace: 'pre-wrap' }}>{q.passageText}</p>
+              <p style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 16 : 19, lineHeight: 1.7, color: '#0B0B0E', margin: 0, whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: q.passageText }} />
             </div>
           )}
 
@@ -519,7 +519,7 @@ export default function TakeExam() {
               <span style={{ width: 26, height: 26, borderRadius: 7, background: '#0B0B0E', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{index + 1}</span>
               {isSPR && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'rgba(226,86,43,0.08)', color: '#E2562B' }}>Grid-in</span>}
             </div>
-            <p style={{ fontSize: largeFontSize ? 20 : 16.5, lineHeight: 1.55, fontWeight: 500, color: '#0B0B0E', margin: '0 0 22px' }}>{q.questionText}</p>
+            <p style={{ fontSize: largeFontSize ? 20 : 16.5, lineHeight: 1.55, fontWeight: 500, color: '#0B0B0E', margin: '0 0 22px' }} dangerouslySetInnerHTML={{ __html: q.questionText }} />
             {q.imageUrl && (
               <div style={{ marginBottom: 22 }}>
                 <img src={q.imageUrl} alt="Question diagram" style={{ maxWidth: '100%', maxHeight: 400, borderRadius: 10, border: '1px solid #E7E4DE', objectFit: 'contain', display: 'block' }} />

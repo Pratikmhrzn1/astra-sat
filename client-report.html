@@ -1,0 +1,803 @@
+<title>SAT Prep Platform — NIEC</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Source+Sans+3:wght@300;400;600;700&display=swap">
+<style>
+  :root {
+    --navy:        #0F1923;
+    --orange:      #E2562B;
+    --orange-soft: rgba(226,86,43,0.09);
+    --ground:      #F8F6F1;
+    --surface:     #FFFFFF;
+    --rule:        #DDD8D0;
+    --text:        #2C3E50;
+    --text-muted:  #506070;
+    --text-faint:  #8FA3B4;
+    --navy-text:   #0F1923;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --navy:        #060D13;
+      --orange:      #E2562B;
+      --orange-soft: rgba(226,86,43,0.12);
+      --ground:      #0E1820;
+      --surface:     #162030;
+      --rule:        #1F3040;
+      --text:        #C8D8E4;
+      --text-muted:  #7A9BB0;
+      --text-faint:  #4A6070;
+      --navy-text:   #E8EEF3;
+    }
+  }
+  :root[data-theme="dark"] {
+    --navy:        #060D13;
+    --orange:      #E2562B;
+    --orange-soft: rgba(226,86,43,0.12);
+    --ground:      #0E1820;
+    --surface:     #162030;
+    --rule:        #1F3040;
+    --text:        #C8D8E4;
+    --text-muted:  #7A9BB0;
+    --text-faint:  #4A6070;
+    --navy-text:   #E8EEF3;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    background: var(--ground);
+    color: var(--text);
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 880px; margin: 0 auto; padding-bottom: 100px; }
+
+  /* Cover */
+  .cover {
+    background: var(--navy);
+    color: #fff;
+    padding: 80px 68px 68px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    right: -100px; top: -100px;
+    width: 500px; height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(226,86,43,0.16) 0%, transparent 65%);
+    pointer-events: none;
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; left: 60px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(226,86,43,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .cover-eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--orange); margin-bottom: 18px;
+  }
+  .cover-bar { width: 44px; height: 3px; background: var(--orange); margin-bottom: 28px; }
+  .cover-title {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 62px; font-weight: 600; line-height: 1.06;
+    letter-spacing: -0.015em; color: #fff; margin-bottom: 22px; text-wrap: balance;
+  }
+  .cover-subtitle {
+    font-size: 17px; font-weight: 300; color: rgba(255,255,255,0.58);
+    max-width: 540px; line-height: 1.7; margin-bottom: 56px;
+  }
+  .cover-meta { display: flex; gap: 44px; flex-wrap: wrap; }
+  .cover-meta-item { display: flex; flex-direction: column; gap: 5px; }
+  .cover-meta-label { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.32); }
+  .cover-meta-value { font-size: 14px; color: rgba(255,255,255,0.72); }
+
+  /* Content */
+  .content { padding: 0 68px; }
+
+  /* Section */
+  .section { padding-top: 60px; margin-top: 60px; border-top: 1px solid var(--rule); }
+  .section:first-child { border-top: none; margin-top: 0; }
+
+  .eyebrow {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--orange); margin-bottom: 10px;
+  }
+  h2.section-title {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 36px; font-weight: 600; line-height: 1.12;
+    letter-spacing: -0.01em; color: var(--navy-text);
+    margin-bottom: 18px; text-wrap: balance;
+  }
+  h3.sub-title {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 24px; font-weight: 600; line-height: 1.2;
+    color: var(--navy-text); margin: 36px 0 10px; text-wrap: balance;
+  }
+  .lead {
+    font-size: 17px; font-weight: 300; color: var(--text-muted);
+    max-width: 680px; line-height: 1.75; margin-bottom: 28px;
+  }
+  p.body-text {
+    font-size: 15.5px; color: var(--text-muted); line-height: 1.78;
+    margin-bottom: 16px; max-width: 720px;
+  }
+
+  /* Callout */
+  .callout {
+    background: var(--orange-soft);
+    border-left: 3px solid var(--orange);
+    padding: 20px 26px; margin: 28px 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .callout p { font-size: 15px; color: var(--text-muted); line-height: 1.7; }
+  .callout strong { color: var(--text); }
+  .callout-title {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--orange); margin-bottom: 8px;
+  }
+
+  /* Stats */
+  .stat-row {
+    display: grid; grid-template-columns: repeat(3,1fr);
+    gap: 2px; margin: 32px 0;
+    background: var(--rule); border-radius: 4px; overflow: hidden;
+  }
+  .stat-cell { background: var(--surface); padding: 28px 24px; }
+  .stat-number {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 46px; font-weight: 700; color: var(--orange);
+    line-height: 1; font-variant-numeric: tabular-nums;
+  }
+  .stat-label { font-size: 13px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+
+  /* Feature block */
+  .feature-block {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--orange);
+    padding: 24px 26px 24px 24px;
+    border-radius: 0 4px 4px 0;
+    margin: 20px 0;
+  }
+  .feature-block-title {
+    font-size: 15px; font-weight: 700; color: var(--text);
+    margin-bottom: 10px; letter-spacing: 0.01em;
+  }
+  .feature-block p { font-size: 14.5px; color: var(--text-muted); line-height: 1.72; margin-bottom: 10px; }
+  .feature-block p:last-child { margin-bottom: 0; }
+
+  /* Two-col grid */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+
+  /* Step list */
+  .step-list { list-style: none; margin: 20px 0; display: flex; flex-direction: column; gap: 0; }
+  .step-item { display: grid; grid-template-columns: 40px 1fr; gap: 12px; align-items: start; padding: 14px 0; border-bottom: 1px solid var(--rule); }
+  .step-item:last-child { border-bottom: none; }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--orange); color: #fff;
+    font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 2px;
+  }
+  .step-content { display: flex; flex-direction: column; gap: 4px; }
+  .step-title { font-size: 15px; font-weight: 700; color: var(--text); }
+  .step-body { font-size: 14.5px; color: var(--text-muted); line-height: 1.65; }
+
+  /* Role cards */
+  .role-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin: 24px 0; }
+  .role-card { background: var(--surface); border: 1px solid var(--rule); padding: 24px; border-radius: 4px; }
+  .role-badge {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; padding: 4px 10px; border-radius: 2px; margin-bottom: 14px;
+  }
+  .role-badge.student { background: var(--orange-soft); color: var(--orange); }
+  .role-badge.teacher { background: rgba(90,112,128,0.10); color: var(--text-muted); }
+  .role-badge.admin   { background: rgba(90,112,128,0.10); color: var(--text-muted); }
+  .role-card-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .role-card-body { font-size: 14px; color: var(--text-muted); line-height: 1.65; }
+
+  /* AI model cards */
+  .model-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+  .model-card { background: var(--surface); border: 1px solid var(--rule); padding: 26px; border-radius: 4px; }
+  .model-role { font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--orange); margin-bottom: 6px; }
+  .model-name { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+  .model-desc { font-size: 14.5px; color: var(--text-muted); line-height: 1.7; margin-bottom: 18px; }
+  .model-price { display: flex; gap: 24px; padding-top: 16px; border-top: 1px solid var(--rule); }
+  .model-price-item { display: flex; flex-direction: column; gap: 3px; }
+  .model-price-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); }
+  .model-price-value { font-size: 16px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+
+  /* Cost table */
+  .cost-table { width: 100%; border-collapse: collapse; margin: 24px 0; font-variant-numeric: tabular-nums; }
+  .cost-table th {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--text-faint); text-align: left; padding: 12px 18px;
+    border-bottom: 2px solid var(--rule); background: var(--surface);
+  }
+  .cost-table td {
+    padding: 18px 18px; font-size: 14.5px; color: var(--text-muted);
+    border-bottom: 1px solid var(--rule); vertical-align: top;
+    background: var(--surface);
+  }
+  .cost-table tr:last-child td { border-bottom: none; }
+  .cost-table td:first-child { font-weight: 700; color: var(--text); width: 180px; }
+  .cost-highlight { color: var(--orange); font-weight: 700; }
+
+  /* Partner list */
+  .partner-list { margin: 24px 0; display: flex; flex-direction: column; gap: 0; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+  .partner-item { display: grid; grid-template-columns: 180px 1fr; background: var(--surface); border-bottom: 1px solid var(--rule); }
+  .partner-item:last-child { border-bottom: none; }
+  .partner-name { padding: 24px 22px; font-size: 14px; font-weight: 700; color: var(--text); border-right: 1px solid var(--rule); display: flex; flex-direction: column; gap: 5px; }
+  .partner-tag { font-size: 11px; font-weight: 600; color: var(--orange); letter-spacing: 0.07em; text-transform: uppercase; }
+  .partner-desc { padding: 24px 24px; font-size: 14.5px; color: var(--text-muted); line-height: 1.72; }
+
+  /* Separator */
+  .sep { width: 40px; height: 2px; background: var(--orange); margin: 28px 0; }
+
+  /* Footer */
+  .footer { margin-top: 80px; padding: 28px 68px; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  .footer-brand { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; font-weight: 600; color: var(--text-muted); }
+  .footer-note { font-size: 12px; color: var(--text-faint); }
+
+  /* Print */
+  @media print {
+    body { background: #fff; }
+    .cover, .stat-cell, .feature-block, .role-card, .model-card, .cost-table td, .cost-table th, .partner-item, .partner-name { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .section { page-break-before: auto; }
+  }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .cover { padding: 48px 24px 44px; }
+    .cover-title { font-size: 40px; }
+    .content { padding: 0 24px; }
+    .footer { padding: 24px; }
+    .stat-row, .role-row, .two-col, .model-row { grid-template-columns: 1fr; }
+    .partner-item { grid-template-columns: 1fr; }
+    .partner-name { border-right: none; border-bottom: 1px solid var(--rule); }
+  }
+</style>
+
+<div class="page">
+
+  <!-- Cover -->
+  <div class="cover">
+    <div class="cover-eyebrow">Platform Overview · NIEC</div>
+    <div class="cover-bar"></div>
+    <h1 class="cover-title">Digital SAT<br>Preparation<br>Platform</h1>
+    <p class="cover-subtitle">A complete online exam preparation system built exclusively for NIEC — covering every stage of SAT preparation from daily practice to full-length adaptive mock exams, with AI-powered feedback that works around the clock.</p>
+    <div class="cover-meta">
+      <div class="cover-meta-item">
+        <span class="cover-meta-label">Live at</span>
+        <span class="cover-meta-value">mocktest.niec.edu.np/sat</span>
+      </div>
+      <div class="cover-meta-item">
+        <span class="cover-meta-label">Prepared for</span>
+        <span class="cover-meta-value">NIEC Management</span>
+      </div>
+      <div class="cover-meta-item">
+        <span class="cover-meta-label">Date</span>
+        <span class="cover-meta-value">August 2026</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- What this is -->
+    <div class="section" style="border-top:none;margin-top:0;">
+      <p class="eyebrow">Overview</p>
+      <h2 class="section-title">What this platform is</h2>
+      <p class="lead">NIEC's SAT Prep Platform is a fully custom-built online system designed from the ground up for your students and teachers. It was not adapted from generic software — every feature, every screen, and every workflow was built specifically for how NIEC prepares students for the SAT.</p>
+
+      <p class="body-text">Students can access it from any device at any time — a laptop, phone, or tablet — simply by visiting the website. There is nothing to download or install. When a student logs in, everything they have ever done on the platform is exactly where they left it: their scores, their practice history, their vocabulary progress, everything.</p>
+
+      <p class="body-text">The platform covers the full preparation cycle. On any given day, a student might do a short reading practice set, request AI feedback on the questions they got wrong, review vocabulary words, and check their progress dashboard — all in one place. Teachers can monitor this activity, add new content, write personal feedback, and run live mock exam sessions. Admins have a separate panel to manage accounts and keep the platform running smoothly.</p>
+
+      <div class="stat-row">
+        <div class="stat-cell">
+          <div class="stat-number">3</div>
+          <div class="stat-label">User types — each with their own portal and tools</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-number">3</div>
+          <div class="stat-label">AI models running in the background at all times</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-number">24/7</div>
+          <div class="stat-label">Available to students anywhere, on any device</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Who uses it -->
+    <div class="section">
+      <p class="eyebrow">Users</p>
+      <h2 class="section-title">Who the platform serves</h2>
+      <p class="lead">The platform has three separate user types. Each one logs into a completely different interface with tools suited to their role. A student never sees the teacher's content manager; a teacher never has access to admin settings.</p>
+
+      <div class="role-row">
+        <div class="role-card">
+          <span class="role-badge student">Student</span>
+          <div class="role-card-title">SAT Aspirants</div>
+          <div class="role-card-body">Students use the platform for all their preparation. They take practice sets, receive AI feedback, do full-length mock exams, study vocabulary, and track their improvement over time. Everything is designed to feel as close to the real SAT as possible.</div>
+        </div>
+        <div class="role-card">
+          <span class="role-badge teacher">Teacher</span>
+          <div class="role-card-title">Instructors</div>
+          <div class="role-card-body">Teachers build the content students practice on, monitor individual student performance in detail, write personalised feedback, and run live synchronized mock exams. They have full visibility into what each student is doing and how they are progressing.</div>
+        </div>
+        <div class="role-card">
+          <span class="role-badge admin">Admin</span>
+          <div class="role-card-title">Management</div>
+          <div class="role-card-body">Admins control who can register on the platform and manage all user accounts. They can create access codes for new student batches, deactivate old ones, and download a full backup of all platform data at any time. No technical knowledge is required for any of this.</div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">How new students join</div>
+        <p>Students cannot simply sign up on their own. Every new account requires a valid access code, which is generated by an admin and given to the student directly. This means the platform remains completely private — only the students NIEC has specifically enrolled can access it. Codes can be set to expire after a certain number of uses, so a code given to one batch of students cannot be used again by a future batch.</p>
+      </div>
+    </div>
+
+    <!-- Student experience -->
+    <div class="section">
+      <p class="eyebrow">Student Experience</p>
+      <h2 class="section-title">What a student's day on the platform looks like</h2>
+      <p class="lead">The student experience is designed to be simple on the surface and powerful underneath. A student who has never used the platform before can navigate it without any instructions.</p>
+
+      <ul class="step-list">
+        <li class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">They receive their access code from NIEC</div>
+            <div class="step-body">NIEC gives each new student an access code. The student visits mocktest.niec.edu.np/sat, clicks "Create an account," and enters the code along with their name, email address, phone number, and a password of their choice.</div>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">They receive a welcome email instantly</div>
+            <div class="step-body">The moment their account is created, a welcome email is sent to their inbox. The email contains their email address and the password they chose — a convenient record of their login details they can refer back to at any time.</div>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">They land on their personal dashboard</div>
+            <div class="step-body">The dashboard is the student's home screen. It shows a summary of their recent activity — which sets they have completed, their latest scores, and any new feedback or notifications from their teacher. Everything is visible at a glance.</div>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">They choose what to practice</div>
+            <div class="step-body">From the navigation, students can go to Practice Sets for focused question-by-question practice, or to Mock Tests for a full-length timed exam experience. They can also visit Vocabulary Review, the Library, or their Results history.</div>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <div class="step-title">They answer questions and request AI feedback</div>
+            <div class="step-body">During a practice session, the student answers questions one at a time. When they get something wrong, they can request feedback. The AI analyses their answer, their reasoning, and the question — and responds with a personalised explanation within seconds.</div>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">6</div>
+          <div class="step-content">
+            <div class="step-title">Their work is always saved</div>
+            <div class="step-body">If the student's browser crashes mid-exam or they accidentally close the tab, their answers up to that point are saved automatically. They can return to the exam and pick up where they left off without losing any work.</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Practice Sets -->
+    <div class="section">
+      <p class="eyebrow">Practice</p>
+      <h2 class="section-title">Practice question sets</h2>
+      <p class="lead">Practice sets are the core day-to-day preparation tool. They let students work through SAT questions at their own pace, in a focused, distraction-free environment that closely mirrors the real exam.</p>
+
+      <p class="body-text">The SAT has two main sections: Reading &amp; Writing, and Math. The platform has separate question sets for each. Teachers create these sets and publish them when they are ready — students see only the published sets, never the drafts a teacher is still working on.</p>
+
+      <p class="body-text">When a student opens a practice set, they see the same layout they will encounter on the real digital SAT: for reading questions, the passage appears on the left side of the screen and the question on the right. Students can highlight text in the passage, cross out answer options they have ruled out, and flag questions they want to come back to — all features that exist in the official exam software. The goal is to make students feel completely at home on test day.</p>
+
+      <div class="callout">
+        <div class="callout-title">Timed or untimed</div>
+        <p>Students can choose whether to practice with a countdown timer running (to build speed under pressure) or without one (to focus on accuracy and understanding). This setting is remembered by the platform, so students do not need to choose it every time. Both modes are valuable at different stages of preparation — untimed for learning concepts, timed for building exam readiness.</p>
+      </div>
+
+      <p class="body-text">After completing a set, the student sees a results page with their score and a breakdown of each question. They can click any question to review it, see what they answered, see the correct answer, and — if they requested it during the session — read their AI feedback. These results are saved permanently and can be revisited from the Results section at any time.</p>
+    </div>
+
+    <!-- Adaptive Mock Test -->
+    <div class="section">
+      <p class="eyebrow">Mock Testing</p>
+      <h2 class="section-title">Adaptive full-length mock exams</h2>
+      <p class="lead">The mock exam feature replicates the real SAT experience as closely as possible — including the adaptive scoring system that determines a student's final score on the actual exam.</p>
+
+      <h3 class="sub-title">How the real SAT scoring works</h3>
+      <p class="body-text">Most students do not know this: the SAT is not a fixed exam. Every student takes the same Module 1 questions. But based on how well they do in Module 1, they are given a different Module 2 — either a harder set or an easier set. This is what makes the SAT "adaptive."</p>
+
+      <p class="body-text">Students who perform well in Module 1 are given the harder Module 2. If they then do well in that harder set, they can reach the highest possible scores. Students who struggle in Module 1 are given the easier Module 2 — which gives them a better chance of showing what they know, but caps the maximum score they can achieve that day. This is not publicly advertised by the College Board, but it is a critical part of how the exam works and how scores are calculated.</p>
+
+      <h3 class="sub-title">How the platform replicates this</h3>
+      <p class="body-text">The platform's mock test works exactly the same way. A student begins Module 1. When they finish, the platform automatically calculates their score. If they got more than 60% correct, they are assigned the harder Module 2 questions. If they scored below 60%, they receive the easier Module 2 questions. This happens instantly and automatically — the student is simply taken to Module 2 without any interruption.</p>
+
+      <p class="body-text">At the end of the exam, the student sees their combined score and a full breakdown — how they did in each module, which questions they got right and wrong, and where they can improve. This is a meaningful estimate of where they currently stand on the real exam, under realistic conditions.</p>
+
+      <div class="callout">
+        <div class="callout-title">Why this matters</div>
+        <p>Many SAT preparation tools give students a set of random practice questions and call it a "mock test." That is not how the real SAT works. Students who practice on a non-adaptive exam are being prepared for a test that does not exist. NIEC's platform prepares students for the actual test they will sit — including the pressure of knowing their Module 1 performance determines the difficulty of what comes next.</p>
+      </div>
+    </div>
+
+    <!-- AI Feedback -->
+    <div class="section">
+      <p class="eyebrow">Artificial Intelligence</p>
+      <h2 class="section-title">How AI feedback works</h2>
+      <p class="lead">The AI feedback system is the most distinctive feature of the platform. When a student asks for help on a question they got wrong, three separate AI checks run simultaneously — producing a complete, personalised explanation within a few seconds.</p>
+
+      <p class="body-text">This is not a simple "here is the correct answer and why" response. The AI reads the specific question, reads the student's stated reasoning, and responds to <em>that student's thinking</em>. Two students who got the same question wrong but for different reasons will receive different feedback. The goal is not to just tell students the answer — it is to help them understand <em>why they thought the way they did</em> and where that thinking went wrong.</p>
+
+      <h3 class="sub-title">The three types of feedback</h3>
+
+      <div class="feature-block">
+        <div class="feature-block-title">1. Reasoning Check — runs on every wrong answer</div>
+        <p>Before a student can request AI feedback, they are asked one question: "What was your thinking when you chose that answer?" The student writes a short explanation in their own words. This short step is important — it forces the student to articulate their logic, which reveals where the misunderstanding actually lives.</p>
+        <p>The AI then reads both the original question and the student's reasoning, and responds specifically to what that student wrote. If the student misread the passage, the AI addresses that. If the student had the right idea but misapplied it, the AI identifies exactly where the logic broke down. This is the feedback type that runs every single time a student asks for help.</p>
+      </div>
+
+      <div class="feature-block">
+        <div class="feature-block-title">2. Grammar Diagnosis — runs on grammar and writing questions</div>
+        <p>The Reading &amp; Writing section of the SAT includes questions about punctuation, sentence structure, transitions, and standard English grammar rules. These are some of the most rule-based questions on the exam — a student either knows the rule or they do not.</p>
+        <p>When a student gets a grammar question wrong, a second AI specifically diagnoses <em>which grammar rule</em> they are breaking. It does not just say the answer is wrong — it names the concept, explains the rule in plain language, and gives the student context for when that rule applies. Over time, this builds a genuine understanding of grammar rather than memorised answer patterns that fall apart under new question formats.</p>
+      </div>
+
+      <div class="feature-block">
+        <div class="feature-block-title">3. Trap Explainer — runs on English multiple-choice questions</div>
+        <p>One of the most important things students need to understand about the SAT is that it is deliberately designed to mislead. Every wrong answer in a multiple-choice question was carefully written to look plausible to students who are thinking in a certain way. These are called "trap" answers, and they are responsible for a significant portion of the score gap between average and high-scoring students.</p>
+        <p>When a student picks a wrong answer on an English question, this AI identifies whether the student fell for a trap — and if so, explains exactly how that trap was constructed and why their thinking led them there. Learning to recognise common trap patterns is one of the highest-value skills a student can develop for the SAT, and this feature directly builds that skill through experience.</p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">Speed and convenience</div>
+        <p>All three feedback types run at the same time, not one after another. The student does not wait for one to finish before the next begins. Within a few seconds of submitting their reasoning, they see a complete, multi-part feedback response covering all three angles simultaneously. There is no "loading" screen, no delay, no interruption to their study flow.</p>
+      </div>
+
+      <h3 class="sub-title">AI-powered question categorisation</h3>
+      <p class="body-text">There is also an AI working in the background for teachers. When a teacher adds new questions to the platform, they do not need to manually tag each question with its skill type (identifying evidence, vocabulary in context, transitions, standard English conventions, and so on). An AI automatically categorises each question the moment it is saved. This saves teachers a significant amount of manual work and ensures that skill tags are consistent across all content on the platform.</p>
+    </div>
+
+    <!-- Vocabulary -->
+    <div class="section">
+      <p class="eyebrow">Vocabulary</p>
+      <h2 class="section-title">The vocabulary review system</h2>
+      <p class="lead">The SAT requires a strong academic vocabulary. The platform includes a dedicated vocabulary study system built around the most effective known method for long-term word retention: spaced repetition.</p>
+
+      <p class="body-text">Spaced repetition is a learning technique based on the fact that we forget things on a predictable curve. The most effective time to review something is right before you are about to forget it — not immediately after learning it (when it is still fresh) and not weeks later (when it has already been forgotten). By showing a word at exactly the right moment, the memory is strengthened most efficiently.</p>
+
+      <p class="body-text">The platform tracks every vocabulary word for every student individually. Words that a student consistently gets right are shown less frequently — the system trusts that those words are secure. Words a student keeps getting wrong are shown more often — the system focuses effort where it is needed most. The student never has to manage this themselves. They simply open the Vocabulary Review section and study whatever the system presents to them that day.</p>
+
+      <p class="body-text">The format is active recall — the student sees the word and has to retrieve the meaning from memory, rather than reading a definition passively. Research consistently shows that active retrieval is far more effective at building lasting memory than reading a list. Students who use the vocabulary feature consistently will find that high-level academic words they previously found difficult become genuinely familiar over time.</p>
+    </div>
+
+    <!-- Library -->
+    <div class="section">
+      <p class="eyebrow">Resources</p>
+      <h2 class="section-title">The resource library</h2>
+      <p class="lead">The library is a shared resource space where teachers and admins can upload study materials that all students can access whenever they need them.</p>
+
+      <p class="body-text">This might include official SAT preparation guides, custom notes prepared by NIEC teachers, PDF worksheets, past papers, or links to useful reference materials. Instead of sending materials through WhatsApp or email where they can be lost or hard to find, everything lives in one organised place on the platform.</p>
+
+      <p class="body-text">Students access the library from their navigation menu and can view or download any material that has been uploaded. Teachers and admins can add new materials at any time and remove old ones. There is no limit on the number of files that can be stored.</p>
+    </div>
+
+    <!-- Teacher tools -->
+    <div class="section">
+      <p class="eyebrow">Teacher Tools</p>
+      <h2 class="section-title">What teachers can do</h2>
+      <p class="lead">The teacher portal gives instructors full control over content, student monitoring, personalised feedback, and live examination. Every tool is designed to work without any technical knowledge — teachers work with familiar concepts like forms, lists, and buttons.</p>
+
+      <h3 class="sub-title">Building question content</h3>
+      <p class="body-text">Teachers add questions through a built-in form. For a reading question, the teacher pastes the passage, types the question, adds the four answer options, and marks which option is correct. For a math question, the same form adapts accordingly. Questions can also be given a difficulty level, which the platform uses to decide which module a question belongs to in the adaptive mock test system.</p>
+
+      <p class="body-text">New question sets are created in "draft" mode. A set in draft is completely invisible to students — the teacher can work on it over several days, adding questions one by one, reviewing them, and editing them, without students ever seeing incomplete content. When the set is ready, the teacher publishes it with a single click, and it immediately becomes available to students.</p>
+
+      <p class="body-text">The platform also auto-saves the teacher's work as they type. If they close the browser accidentally while building a question, their work is still there when they return. Nothing is lost.</p>
+
+      <h3 class="sub-title">Monitoring student performance</h3>
+      <p class="body-text">The teacher panel shows a list of all students assigned to them. Clicking on any student opens their full profile: every exam they have taken, when they took it, what they scored in each section, and how their scores have changed over time.</p>
+
+      <p class="body-text">Teachers can click into any individual exam result to see a question-by-question breakdown — which questions the student answered correctly, which they got wrong, what they answered, and what the AI told them. This level of detail allows a teacher to have a very specific, informed conversation with a student rather than a general one: "I can see you are consistently misidentifying the author's tone in reading passages — let us work on that."</p>
+
+      <h3 class="sub-title">Writing personalised feedback</h3>
+      <p class="body-text">After reviewing a student's exam, the teacher can write a personal feedback note directly on that result. This note is sent to the student as a notification — they receive an alert in the platform and can read the feedback from their teacher. This creates a direct feedback loop between teacher and student that goes beyond automated AI responses.</p>
+
+      <h3 class="sub-title">Live exam sessions</h3>
+      <p class="body-text">The live exam feature allows a teacher to run a synchronized mock test where all participating students start at exactly the same moment. This is designed for simulated test days — where the experience of sitting an exam under real time pressure, with everyone else doing the same thing at the same time, is part of the preparation.</p>
+
+      <ul class="step-list">
+        <li class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Teacher creates the session</div>
+            <div class="step-body">The teacher selects which English and Math question sets to use for the live exam. The platform generates a unique join code for the session.</div>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Students join the lobby</div>
+            <div class="step-body">Students enter the join code on their device and are taken to a waiting lobby. They can see that they are connected and ready. The teacher can see each student appear in their session panel.</div>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Teacher starts the exam</div>
+            <div class="step-body">When the teacher clicks "Start," all connected students are taken into the exam simultaneously. The timer begins for everyone at the same moment.</div>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">Students complete the exam</div>
+            <div class="step-body">Students work through the exam individually on their own device. The teacher can monitor how many students have finished from their panel.</div>
+          </div>
+        </li>
+        <li class="step-item">
+          <div class="step-num">5</div>
+          <div class="step-content">
+            <div class="step-title">Teacher reviews and releases results</div>
+            <div class="step-body">After the exam, the teacher reviews each student's result one by one, can write personal feedback notes, and then clicks "Release Results" to make them available. Students receive a notification that their results are ready to view.</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Admin -->
+    <div class="section">
+      <p class="eyebrow">Admin Panel</p>
+      <h2 class="section-title">What admins can do</h2>
+      <p class="lead">The admin panel gives NIEC management oversight and control of the entire platform without needing any technical assistance.</p>
+
+      <div class="two-col">
+        <div class="feature-block">
+          <div class="feature-block-title">User Management</div>
+          <p>Admins can see every registered account on the platform — their name, email, role (student, teacher, or admin), when they joined, and which teacher they are assigned to. Accounts can be reviewed and managed at any time. If a student leaves NIEC or a teacher's employment ends, their account can be managed accordingly.</p>
+        </div>
+        <div class="feature-block">
+          <div class="feature-block-title">Access Code System</div>
+          <p>Admins create access codes for each new batch of students. A code can be set to allow only a specific number of registrations — for example, a code for a batch of 30 students will stop working after 30 people have used it. Old codes can be deactivated immediately at any time.</p>
+        </div>
+        <div class="feature-block">
+          <div class="feature-block-title">Database Backup</div>
+          <p>At any time, an admin can download a complete copy of all platform data — every student account, every exam result, every question, every piece of feedback. This backup can be stored securely by NIEC and used to restore the platform in the unlikely event of a technical problem. No data is ever at risk of being lost permanently.</p>
+        </div>
+        <div class="feature-block">
+          <div class="feature-block-title">Library Management</div>
+          <p>Admins can upload, organise, and remove files in the shared resource library. They have the same library management access as teachers, giving them full control over what resources students see.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Email -->
+    <div class="section">
+      <p class="eyebrow">Email &amp; Notifications</p>
+      <h2 class="section-title">Automated email and in-platform notifications</h2>
+      <p class="lead">The platform sends emails automatically when important things happen, and maintains an in-platform notification system so students never miss updates from their teachers.</p>
+
+      <h3 class="sub-title">Welcome email on registration</h3>
+      <p class="body-text">The moment a new student creates their account, a professionally designed welcome email is sent to their inbox. The email is sent from <strong>noreply@mocktest.niec.edu.np</strong> — using NIEC's own domain, so it looks professional and familiar rather than coming from an unfamiliar third-party address.</p>
+      <p class="body-text">The email contains a record of the student's email address and the password they chose when registering — a convenient reference they can keep for future use. It also links directly to the platform so they can log in immediately.</p>
+
+      <h3 class="sub-title">Password reset emails</h3>
+      <p class="body-text">Students who forget their password can click "Forgot your password?" on the login page. They enter their email address, and within seconds they receive a password reset email. The email contains a secure link they click to choose a new password. The link expires after one hour for security reasons — if they do not use it in time, they simply request a new one. The entire process takes under two minutes and requires no assistance from a teacher or admin.</p>
+
+      <h3 class="sub-title">In-platform notifications for students</h3>
+      <p class="body-text">When a teacher releases results from a live exam, the affected students receive an in-platform notification. A banner appears the next time they open the platform alerting them that new results are available. Similarly, if a teacher writes personal feedback on one of their exam results, the student is notified. This ensures important communications are never missed.</p>
+    </div>
+
+    <!-- AI models and costs -->
+    <div class="section">
+      <p class="eyebrow">AI System</p>
+      <h2 class="section-title">The AI models powering the platform</h2>
+      <p class="lead">The platform uses two AI models, both from Anthropic — one of the world's leading AI companies, known for building AI that is reliable, accurate, and safe. The two models are different strengths of the same family: one is optimised for speed and quick tasks, the other for depth and quality.</p>
+
+      <div class="model-row">
+        <div class="model-card">
+          <div class="model-role">Quick Feedback</div>
+          <div class="model-name">Claude Haiku 4.5</div>
+          <div class="model-desc">Haiku is Anthropic's fast, efficient model. It is used for per-question AI feedback — the reasoning checks, grammar diagnosis, and trap explanations that students receive when they get a question wrong. Speed matters here: students should not be waiting. Haiku responds within a couple of seconds, keeping the study flow uninterrupted. It is also the most cost-efficient model, which matters because it is used very frequently.</div>
+          <div class="model-price">
+            <div class="model-price-item">
+              <span class="model-price-label">Cost per 1M words (in)</span>
+              <span class="model-price-value">$1.00</span>
+            </div>
+            <div class="model-price-item">
+              <span class="model-price-label">Cost per 1M words (out)</span>
+              <span class="model-price-value">$5.00</span>
+            </div>
+          </div>
+        </div>
+        <div class="model-card">
+          <div class="model-role">Deep Analysis</div>
+          <div class="model-name">Claude Sonnet 4.6</div>
+          <div class="model-desc">Sonnet is Anthropic's more capable model. It is used for tasks that require deeper reasoning and higher accuracy — specifically, the automatic categorisation of teacher-uploaded questions by skill type, and the generation of richer narrative feedback. These tasks run less frequently than per-question feedback, and quality matters more than raw speed, so Sonnet is the right choice.</div>
+          <div class="model-price">
+            <div class="model-price-item">
+              <span class="model-price-label">Cost per 1M words (in)</span>
+              <span class="model-price-value">$3.00</span>
+            </div>
+            <div class="model-price-item">
+              <span class="model-price-label">Cost per 1M words (out)</span>
+              <span class="model-price-value">$15.00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">What "per million words" means in practice</div>
+        <p>These prices sound large but the numbers involved are very small. "One million words" is roughly equivalent to the entire Harry Potter series five times over. A single AI feedback response — reading a question and a student's reasoning, then producing an explanation — uses approximately 300–600 words total. At Haiku's pricing, that costs less than <strong>one-tenth of a cent</strong>.</p>
+        <p style="margin-top:10px;">For a realistic estimate: if 100 students each complete two practice sessions per week and request AI feedback on an average of 6 wrong answers per session, that is roughly 4,800 feedback requests per month. The total AI cost for that level of activity would be approximately <strong>$5 to $15 per month</strong>. Even with 300 very active students, total monthly AI costs would be unlikely to exceed <strong>$50</strong>. You pay only for what is used — there is no AI cost on any day when no students are active.</p>
+      </div>
+    </div>
+
+    <!-- Monthly costs -->
+    <div class="section">
+      <p class="eyebrow">Monthly Investment</p>
+      <h2 class="section-title">Where your money goes each month</h2>
+      <p class="lead">The platform has no large software licence fee. The costs are split between three external services, each serving a specific purpose. Below is a plain-language breakdown of what you are paying for and why.</p>
+
+      <div style="overflow-x:auto;">
+        <table class="cost-table">
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>What your money pays for</th>
+              <th>How it is billed</th>
+              <th>Estimated monthly cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Cloud Server<br><span style="font-size:12px;font-weight:400;color:var(--text-faint)">Yeti Host (Nepal)</span></td>
+              <td>This is the foundation of everything. Without this server, there is no platform. It runs the website, stores all student data in a secure database, handles all logins and exam submissions, and keeps the platform online 24 hours a day. This is a fixed monthly fee — it does not go up or down based on student activity.</td>
+              <td>Fixed monthly rate</td>
+              <td class="cost-highlight">Your current plan rate</td>
+            </tr>
+            <tr>
+              <td>AI Service<br><span style="font-size:12px;font-weight:400;color:var(--text-faint)">OpenRouter</span></td>
+              <td>This is what powers all AI feedback students receive. Every time a student requests feedback on a wrong answer, a small AI processing cost is incurred. If no students are using the platform, this cost is zero. The busier the platform, the higher this cost — but it scales very slowly, as explained above.</td>
+              <td>Pay per use — no flat fee</td>
+              <td class="cost-highlight">~$5 – $30 / month</td>
+            </tr>
+            <tr>
+              <td>Email Service<br><span style="font-size:12px;font-weight:400;color:var(--text-faint)">Resend</span></td>
+              <td>Every welcome email and password reset email sent by the platform passes through Resend. This ensures emails arrive reliably in inboxes — not in spam folders — and are sent from NIEC's own domain. The free tier allows up to 3,000 emails per month, which is more than enough for most student cohorts. If your student numbers grow significantly, the paid plan is $20 per month for up to 50,000 emails.</td>
+              <td>Free up to 3,000/month</td>
+              <td class="cost-highlight">$0 – $20 / month</td>
+            </tr>
+            <tr>
+              <td>Domain<br><span style="font-size:12px;font-weight:400;color:var(--text-faint)">mocktest.niec.edu.np</span></td>
+              <td>The web address students visit to access the platform. This is part of NIEC's existing domain and requires no separate payment. The SAT platform sits at /sat, and the IELTS platform sits at the same address — two platforms, one domain, no duplication of cost.</td>
+              <td>Included in NIEC domain</td>
+              <td class="cost-highlight">No extra cost</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <div class="callout-title">Summary</div>
+        <p>Your primary fixed monthly cost is the cloud server. Everything else scales with usage and stays modest at typical student volumes. For a batch of 100–200 active students, total monthly running costs (server + AI + email) are likely to be <strong>well under $100 per month</strong>, with the server fee making up the majority of that figure.</p>
+      </div>
+    </div>
+
+    <!-- Partners -->
+    <div class="section">
+      <p class="eyebrow">Technology Partners</p>
+      <h2 class="section-title">Who powers the platform behind the scenes</h2>
+      <p class="lead">The platform is built on top of four external services, each chosen for reliability, reputation, and suitability for an educational platform at NIEC's scale.</p>
+
+      <div class="partner-list">
+        <div class="partner-item">
+          <div class="partner-name">
+            Yeti Host
+            <span class="partner-tag">Cloud Hosting — Nepal</span>
+          </div>
+          <div class="partner-desc">
+            Yeti Host is a Nepal-based cloud hosting provider. The SAT platform runs on a dedicated virtual server on their infrastructure. All student data — accounts, exam results, question content, everything — is stored on this server. Because the server is hosted locally in Nepal, the platform is fast and responsive for Nepali users, with no international latency adding delay to page loads or exam submissions.
+            <br><br>
+            Both the NIEC IELTS platform and the SAT platform share this same server and are served under the same domain (mocktest.niec.edu.np). This keeps hosting costs consolidated and management simple — one server to maintain, one monthly bill.
+          </div>
+        </div>
+        <div class="partner-item">
+          <div class="partner-name">
+            OpenRouter
+            <span class="partner-tag">AI Gateway</span>
+          </div>
+          <div class="partner-desc">
+            OpenRouter is a service that provides access to the world's leading AI models through a single connection. Think of it like a universal adaptor: rather than building a separate technical integration with each AI company individually, the platform connects once to OpenRouter and can access any AI model through that single connection.
+            <br><br>
+            This is a significant practical advantage: if a better AI model becomes available in the future, the platform can switch to it with minimal effort. If one AI provider has an outage, another can be used as a fallback. OpenRouter also passes through AI costs at the same price as going directly to the AI company — there is no markup or extra charge for using this gateway.
+          </div>
+        </div>
+        <div class="partner-item">
+          <div class="partner-name">
+            Anthropic / Claude
+            <span class="partner-tag">AI Models</span>
+          </div>
+          <div class="partner-desc">
+            Anthropic is one of the leading AI companies in the world, founded by former members of OpenAI with a specific focus on building AI that is safe, reliable, and accurate. Their AI model family is called Claude. The platform uses two Claude models — Haiku 4.5 for fast per-question feedback, and Sonnet 4.6 for deeper analysis.
+            <br><br>
+            Claude models are particularly well-regarded for tasks involving reading comprehension, careful reasoning, and explanation — exactly the skills needed for an educational feedback system. They are also known for being honest about what they do not know rather than producing plausible-sounding but inaccurate responses, which is important in an educational context where accuracy matters.
+          </div>
+        </div>
+        <div class="partner-item">
+          <div class="partner-name">
+            Resend
+            <span class="partner-tag">Email Delivery</span>
+          </div>
+          <div class="partner-desc">
+            Resend is a professional email delivery service. Sending email reliably is harder than it appears — emails sent from a regular server are often flagged as spam or silently blocked by email providers. Resend is a dedicated service used by thousands of companies specifically to ensure their transactional emails (account creation, password resets, notifications) arrive reliably in inboxes.
+            <br><br>
+            The platform uses Resend to send all welcome emails and password reset emails. These are sent from noreply@mocktest.niec.edu.np — NIEC's own email domain — so students receive emails that look professional and trustworthy, not from an unfamiliar third-party address. The free plan allows up to 3,000 emails per month.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Access & Security -->
+    <div class="section">
+      <p class="eyebrow">Access &amp; Security</p>
+      <h2 class="section-title">How the platform is accessed and kept secure</h2>
+      <p class="lead">The platform is designed to be easy for authorised users to access and effectively locked to everyone else.</p>
+
+      <div class="two-col">
+        <div class="feature-block">
+          <div class="feature-block-title">Invite-only registration</div>
+          <p>Nobody can create an account on the platform without a valid access code. Access codes are generated exclusively by NIEC admins and given directly to students. This means there is no risk of unauthorised users finding the website and creating accounts. The platform is as private as NIEC wants it to be.</p>
+        </div>
+        <div class="feature-block">
+          <div class="feature-block-title">Encrypted passwords</div>
+          <p>All passwords are stored using industry-standard encryption. This means that even if someone were to access the database, they could not read any user's password. Each password is converted into a scrambled code that cannot be reversed.</p>
+        </div>
+        <div class="feature-block">
+          <div class="feature-block-title">Automatic account lockout</div>
+          <p>If someone tries to log into an account with the wrong password repeatedly, the platform automatically locks that account for 15 minutes. This prevents brute-force attacks — where someone tries thousands of password combinations to gain access to an account.</p>
+        </div>
+        <div class="feature-block">
+          <div class="feature-block-title">Session security</div>
+          <p>When a user logs in, their session is secured with a time-limited token that expires automatically. If a user leaves the platform open on a shared device and someone else tries to use it later, they are redirected to the login screen rather than getting access to the first user's account.</p>
+        </div>
+        <div class="feature-block">
+          <div class="feature-block-title">HTTPS encryption</div>
+          <p>All communication between a student's device and the platform is encrypted via HTTPS. This is the same standard used by banks and secure websites. Any data sent or received — including exam answers, login credentials, and personal information — cannot be intercepted by a third party.</p>
+        </div>
+        <div class="feature-block">
+          <div class="feature-block-title">Works on all devices</div>
+          <p>Students can access the platform from any device with a modern browser — a Windows laptop, a Mac, an Android phone, or an iPhone. Nothing needs to be installed. The interface adapts to the screen size so it is readable and usable regardless of device.</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <div class="footer">
+    <span class="footer-brand">NIEC · SAT Prep Platform</span>
+    <span class="footer-note">Prepared August 2026 · Confidential — for NIEC management only</span>
+  </div>
+
+</div>

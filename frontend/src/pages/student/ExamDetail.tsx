@@ -548,7 +548,7 @@ export default function ExamDetail() {
 
               {open && (
                 <div style={{ padding: isMobile ? '0 14px 18px 14px' : '0 18px 20px 64px' }}>
-                  <p style={{ fontSize: 14.5, fontWeight: 500, lineHeight: 1.5, margin: '0 0 14px' }}>{r.questionText}</p>
+                  <p style={{ fontSize: 14.5, fontWeight: 500, lineHeight: 1.5, margin: '0 0 14px' }} dangerouslySetInnerHTML={{ __html: r.questionText }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 14 }}>
                     {opts.map(({ key, text }) => {
                       const isCorrect = r.correctAnswer === key;
@@ -692,7 +692,7 @@ export default function ExamDetail() {
 
               {open && (
                 <div style={{ padding: isMobile ? '0 14px 18px 14px' : '0 18px 20px 64px' }}>
-                  <p style={{ fontSize: 14.5, fontWeight: 500, lineHeight: 1.5, margin: '0 0 14px' }}>{r.questionText}</p>
+                  <p style={{ fontSize: 14.5, fontWeight: 500, lineHeight: 1.5, margin: '0 0 14px' }} dangerouslySetInnerHTML={{ __html: r.questionText }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 14 }}>
                     {opts.map(({ key, text }) => {
                       const isCorrect = r.correctAnswer === key;

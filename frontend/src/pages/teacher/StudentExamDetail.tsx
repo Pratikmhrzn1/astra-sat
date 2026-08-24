@@ -96,7 +96,7 @@ export default function StudentExamDetail() {
                 {r.isCorrect === true ? <CheckCircle2 size={20} color="#2E7D5A" style={{ flexShrink: 0, marginTop: 2 }} /> : r.isCorrect === false ? <XCircle size={20} color="#C0392B" style={{ flexShrink: 0, marginTop: 2 }} /> : <MinusCircle size={20} color="rgba(11,11,14,0.3)" style={{ flexShrink: 0, marginTop: 2 }} />}
                 <div style={{ flex: 1 }}>
                   <p style={{ fontSize: 12, fontWeight: 600, color: 'rgba(11,11,14,0.4)', marginBottom: 4 }}>Question {i + 1}</p>
-                  <p style={{ fontSize: 14.5, color: '#0B0B0E', margin: 0, lineHeight: 1.5 }}>{r.questionText}</p>
+                  <p style={{ fontSize: 14.5, color: '#0B0B0E', margin: 0, lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: r.questionText }} />
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 32 }}>
