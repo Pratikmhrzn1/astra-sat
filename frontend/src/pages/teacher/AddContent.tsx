@@ -474,8 +474,7 @@ export default function ContentManager() {
 
   // Mutations — questions
   const addQuestionMutation = useMutation({
-    mutationFn: () => {
-      const questionText = questionTextDivRef.current?.innerHTML ?? qForm.questionText;
+    mutationFn: (questionText: string) => {
       const base = { passageId: (qForm as any).passageId || null, subSkill: (qForm.subSkill || null) as SubSkill | null, questionText, explanation: qForm.explanation || null, imageUrl: qForm.imageUrl || null, orderIndex: questions.length };
       if (qForm.questionType === 'multiple_choice') {
         const f = qForm as MCForm;
@@ -500,8 +499,7 @@ export default function ContentManager() {
   });
 
   const updateQuestionMutation = useMutation({
-    mutationFn: () => {
-      const questionText = questionTextDivRef.current?.innerHTML ?? qForm.questionText;
+    mutationFn: (questionText: string) => {
       const base = { passageId: (qForm as any).passageId || null, subSkill: (qForm.subSkill || null) as SubSkill | null, questionText, explanation: qForm.explanation || null, imageUrl: qForm.imageUrl || null, orderIndex: editingQuestion!.orderIndex };
       if (qForm.questionType === 'multiple_choice') {
         const f = qForm as MCForm;
@@ -540,8 +538,10 @@ export default function ContentManager() {
         return;
       }
     }
+    // Read directly from DOM so any HTML formatting (underlines etc.) is captured regardless of React state timing
+    const questionText = questionTextDivRef.current?.innerHTML ?? qForm.questionText;
     const errors: Record<string, string> = {};
-    if (!qForm.questionText.trim()) errors.questionText = 'Required';
+    if (!(questionTextDivRef.current?.innerText.trim() ?? qForm.questionText.trim())) errors.questionText = 'Required';
     if (qForm.questionType === 'multiple_choice') {
       const f = qForm as MCForm;
       if (!f.optionA.trim()) errors.optionA = 'Required';
@@ -554,8 +554,8 @@ export default function ContentManager() {
     }
     setQErrors(errors);
     if (Object.keys(errors).length === 0) {
-      if (editingQuestion) updateQuestionMutation.mutate();
-      else addQuestionMutation.mutate();
+      if (editingQuestion) updateQuestionMutation.mutate(questionText);
+      else addQuestionMutation.mutate(questionText);
     }
   }
 
