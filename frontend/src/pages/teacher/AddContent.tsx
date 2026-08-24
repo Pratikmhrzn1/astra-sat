@@ -1180,6 +1180,30 @@ export default function ContentManager() {
               <button
                 onClick={async () => {
                   setDoneSaving(true);
+
+                  // Auto-save the current question form if it has content
+                  const qt = questionTextDivRef.current?.innerHTML ?? qForm.questionText;
+                  const hasText = !!(questionTextDivRef.current?.innerText?.trim() || qForm.questionText.trim());
+                  if (hasText) {
+                    let valid = true;
+                    if (qForm.questionType === 'multiple_choice') {
+                      const f = qForm as MCForm;
+                      if (!f.optionA.trim() || !f.optionB.trim() || !f.optionC.trim() || !f.optionD.trim()) valid = false;
+                    } else {
+                      if (!(qForm as SPRForm).correctAnswerText.trim()) valid = false;
+                    }
+                    if (valid) {
+                      try {
+                        if (editingQuestion) {
+                          await updateQuestionMutation.mutateAsync(qt);
+                        } else {
+                          const limit = activeSet!.subject === 'english' ? 27 : 22;
+                          if (questions.length < limit) await addQuestionMutation.mutateAsync(qt);
+                        }
+                      } catch { /* best-effort — proceed to publish regardless */ }
+                    }
+                  }
+
                   try { if (activeSet) await publishQuestionSet(activeSet.id); } catch { /* best-effort */ }
                   setTimeout(() => { setDoneSaving(false); setActiveSet(null); }, 800);
                 }}
