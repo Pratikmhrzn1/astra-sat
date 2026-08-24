@@ -73,7 +73,7 @@ function UnderlineBtn({ onApply }: { onApply: () => void }) {
   return (
     <button
       type="button"
-      title="Underline selected text — select text in any field below, then click this button"
+      title="Underline selected text"
       onMouseDown={(e) => { e.preventDefault(); onApply(); }}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -87,6 +87,80 @@ function UnderlineBtn({ onApply }: { onApply: () => void }) {
     </button>
   );
 }
+
+// Rich text field (contenteditable) — supports underline formatting
+const RichTextArea = React.forwardRef<HTMLDivElement, {
+  label?: string;
+  value: string;
+  onChange: (html: string) => void;
+  placeholder?: string;
+  rows?: number;
+  onFocus?: () => void;
+  error?: string;
+}>(({ label, value, onChange, placeholder, rows = 3, onFocus, error }, ref) => {
+  const innerRef = React.useRef<HTMLDivElement>(null);
+  React.useImperativeHandle(ref, () => innerRef.current!);
+  const editing = React.useRef(false);
+
+  // Sync external value → innerHTML only when not actively typing
+  React.useEffect(() => {
+    const el = innerRef.current;
+    if (!el || editing.current) return;
+    if (el.innerHTML !== value) el.innerHTML = value;
+  }, [value]);
+
+  const minH = rows * 28;
+  const borderColor = error ? '#ef4444' : '#C8C4BC';
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {label && <label className="text-[13px] font-semibold text-ink/70">{label}</label>}
+      <div style={{ position: 'relative' }}>
+        {!value && placeholder && (
+          <div style={{ position: 'absolute', top: 12, left: 15, right: 15, color: 'rgba(11,11,14,0.3)', fontSize: 15, pointerEvents: 'none', userSelect: 'none', lineHeight: 1.6 }}>
+            {placeholder}
+          </div>
+        )}
+        <div
+          ref={innerRef}
+          contentEditable
+          suppressContentEditableWarning
+          onFocus={(e) => {
+            editing.current = true;
+            e.currentTarget.style.borderColor = '#E2562B';
+            e.currentTarget.style.boxShadow = '0 0 0 3px rgba(226,86,43,0.18)';
+            onFocus?.();
+          }}
+          onBlur={(e) => {
+            editing.current = false;
+            e.currentTarget.style.borderColor = borderColor;
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+          onInput={() => {
+            if (innerRef.current) onChange(innerRef.current.innerHTML);
+          }}
+          style={{
+            minHeight: minH,
+            padding: '12px 15px',
+            border: `1px solid ${borderColor}`,
+            borderRadius: '0.75rem',
+            fontSize: 15,
+            background: '#fff',
+            color: '#0B0B0E',
+            outline: 'none',
+            lineHeight: 1.6,
+            overflowY: 'auto',
+            wordBreak: 'break-word',
+            whiteSpace: 'pre-wrap',
+            transition: 'border-color 0.15s, box-shadow 0.15s',
+          }}
+        />
+      </div>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+    </div>
+  );
+});
+RichTextArea.displayName = 'RichTextArea';
 
 function MathToolbar({ onInsert }: { onInsert: (s: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
@@ -166,7 +240,8 @@ export default function ContentManager() {
   // Edit mode
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const formCardRef = useRef<HTMLDivElement | null>(null);
-  const passageTextRef = useRef<HTMLTextAreaElement | null>(null);
+  const questionTextDivRef = useRef<HTMLDivElement | null>(null);
+  const passageDivRef = useRef<HTMLDivElement | null>(null);
 
   // JSON import
   const [jsonImporting, setJsonImporting] = useState(false);
@@ -274,46 +349,67 @@ export default function ContentManager() {
   // Symbol toolbar insertion
   const handleSymbolInsert = useCallback((symbol: string) => {
     if (!activeField) return;
-    const el = textareaRefs.current[activeField];
-    if (!el) return;
-    const start = el.selectionStart ?? el.value.length;
-    const end = el.selectionEnd ?? el.value.length;
-    const newCursorPos = start + symbol.length;
-    const newValue = el.value.substring(0, start) + symbol + el.value.substring(end);
-    setQForm((prev) => ({ ...prev, [activeField]: newValue } as QuestionForm));
-    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(newCursorPos, newCursorPos); });
+    if (activeField === 'questionText') {
+      // contenteditable: insert via Selection API
+      const el = questionTextDivRef.current;
+      if (!el) return;
+      el.focus();
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        const node = document.createTextNode(symbol);
+        range.insertNode(node);
+        range.setStartAfter(node);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      requestAnimationFrame(() => {
+        if (questionTextDivRef.current) setQForm((prev) => ({ ...prev, questionText: questionTextDivRef.current!.innerHTML } as QuestionForm));
+      });
+    } else {
+      const el = textareaRefs.current[activeField];
+      if (!el) return;
+      const start = el.selectionStart ?? el.value.length;
+      const end = el.selectionEnd ?? el.value.length;
+      const newCursorPos = start + symbol.length;
+      const newValue = el.value.substring(0, start) + symbol + el.value.substring(end);
+      setQForm((prev) => ({ ...prev, [activeField]: newValue } as QuestionForm));
+      requestAnimationFrame(() => { el.focus(); el.setSelectionRange(newCursorPos, newCursorPos); });
+    }
   }, [activeField]);
 
-  // Underline: wraps selected text in <u>…</u> using onMouseDown+preventDefault so selection isn't lost
+  // Underline: uses execCommand on contenteditable (question text),
+  // or wraps <u>…</u> for plain textareas (options, explanation)
   const handleUnderline = useCallback(() => {
-    if (!activeField) return;
-    const el = textareaRefs.current[activeField];
-    if (!el) return;
-    const start = el.selectionStart ?? 0;
-    const end = el.selectionEnd ?? 0;
-    if (start === end) return;
-    const before = el.value.substring(0, start);
-    const selected = el.value.substring(start, end);
-    const after = el.value.substring(end);
-    const newValue = `${before}<u>${selected}</u>${after}`;
-    const cursor = before.length + 3 + selected.length + 4; // position after </u>
-    setQForm((prev) => ({ ...prev, [activeField]: newValue } as QuestionForm));
-    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(cursor, cursor); });
+    if (activeField === 'questionText') {
+      const el = questionTextDivRef.current;
+      if (!el) return;
+      document.execCommand('underline', false);
+      setQForm((prev) => ({ ...prev, questionText: el.innerHTML } as QuestionForm));
+    } else {
+      if (!activeField) return;
+      const el = textareaRefs.current[activeField];
+      if (!el) return;
+      const start = el.selectionStart ?? 0;
+      const end = el.selectionEnd ?? 0;
+      if (start === end) return;
+      const before = el.value.substring(0, start);
+      const selected = el.value.substring(start, end);
+      const after = el.value.substring(end);
+      const newValue = `${before}<u>${selected}</u>${after}`;
+      const cursor = before.length + 3 + selected.length + 4;
+      setQForm((prev) => ({ ...prev, [activeField]: newValue } as QuestionForm));
+      requestAnimationFrame(() => { el.focus(); el.setSelectionRange(cursor, cursor); });
+    }
   }, [activeField]);
 
   const handlePassageUnderline = useCallback(() => {
-    const el = passageTextRef.current;
+    const el = passageDivRef.current;
     if (!el) return;
-    const start = el.selectionStart ?? 0;
-    const end = el.selectionEnd ?? 0;
-    if (start === end) return;
-    const before = el.value.substring(0, start);
-    const selected = el.value.substring(start, end);
-    const after = el.value.substring(end);
-    const newValue = `${before}<u>${selected}</u>${after}`;
-    const cursor = before.length + 3 + selected.length + 4;
-    setPassageText(newValue);
-    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(cursor, cursor); });
+    document.execCommand('underline', false);
+    setPassageText(el.innerHTML);
   }, []);
 
   function registerRef(field: string) {
@@ -823,7 +919,7 @@ export default function ContentManager() {
                   <UnderlineBtn onApply={handlePassageUnderline} />
                   <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.38)' }}>Select text in the passage, then click</span>
                 </div>
-                <Textarea label="Passage text" value={passageText} onChange={(e) => setPassageText(e.target.value)} placeholder="Paste or type the reading passage here…" rows={8} ref={passageTextRef} />
+                <RichTextArea label="Passage text" value={passageText} onChange={(html) => setPassageText(html)} placeholder="Paste or type the reading passage here…" rows={8} ref={passageDivRef} />
               </div>
               {passageError && <p style={{ color: '#C0392B', fontSize: 13 }}>{passageError}</p>}
               <Button onClick={() => { setPassageError(''); createPassageMutation.mutate(); }} loading={createPassageMutation.isPending} disabled={!passageText.trim()} style={{ alignSelf: 'flex-start' }}>
@@ -927,14 +1023,14 @@ export default function ContentManager() {
                   <UnderlineBtn onApply={handleUnderline} />
                   <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.38)' }}>Select text in any field below, then click</span>
                 </div>
-                <Textarea
+                <RichTextArea
                   label="Question text"
                   value={qForm.questionText}
-                  onChange={(e) => updateQ('questionText', e.target.value)}
+                  onChange={(html) => updateQ('questionText', html)}
                   error={qErrors.questionText}
                   placeholder="Enter the question…"
                   rows={3}
-                  ref={registerRef('questionText')}
+                  ref={questionTextDivRef}
                   onFocus={focusField('questionText')}
                 />
               </div>
