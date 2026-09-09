@@ -23,6 +23,20 @@ const optionalString = z
   .transform((v) => (v === '' ? undefined : v))
   .optional();
 
+/** Same rules the API enforces, so a seeded password can also be typed at login. */
+const optionalPassword = z
+  .string()
+  .min(8, 'must be at least 8 characters')
+  .max(128)
+  .optional();
+
+const optionalEmail = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email('must be a valid email address')
+  .optional();
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().max(65535).default(3001),
@@ -56,6 +70,17 @@ const envSchema = z.object({
   // ── Email (Resend) ──────────────────────────────────────────────────────────
   RESEND_API_KEY: optionalString,
   RESEND_FROM: optionalString,
+
+  // ── Seed accounts (used only by `npm run seed`) ─────────────────────────────
+  // Bootstrap logins for a fresh database. Never read at runtime — the seed
+  // script is the only consumer, so leaving these set does not affect a
+  // running server.
+  SEED_ADMIN_EMAIL: optionalEmail,
+  SEED_ADMIN_PASSWORD: optionalPassword,
+  SEED_ADMIN_NAME: optionalString,
+  SEED_STUDENT_EMAIL: optionalEmail,
+  SEED_STUDENT_PASSWORD: optionalPassword,
+  SEED_STUDENT_NAME: optionalString,
 });
 
 export type RawEnv = z.infer<typeof envSchema>;
@@ -168,6 +193,29 @@ export const env = {
     apiKey: raw.RESEND_API_KEY,
     from: raw.RESEND_FROM ?? 'noreply@mocktest.niec.edu.np',
   },
+
+  /** Consumed by `npm run seed`; null for any account left unconfigured. */
+  seed: {
+    admin: seedAccount(raw.SEED_ADMIN_EMAIL, raw.SEED_ADMIN_PASSWORD, raw.SEED_ADMIN_NAME, 'Admin'),
+    student: seedAccount(raw.SEED_STUDENT_EMAIL, raw.SEED_STUDENT_PASSWORD, raw.SEED_STUDENT_NAME, 'Student'),
+  },
 } as const;
+
+export interface SeedAccount {
+  email: string;
+  password: string;
+  name: string;
+}
+
+/** An account is seedable only when it has both an email and a password. */
+function seedAccount(
+  email: string | undefined,
+  password: string | undefined,
+  name: string | undefined,
+  fallbackName: string,
+): SeedAccount | null {
+  if (!email || !password) return null;
+  return { email, password, name: name ?? fallbackName };
+}
 
 export type Env = typeof env;

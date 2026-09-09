@@ -7,7 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "migrate": "drizzle-kit push"
+    "migrate": "drizzle-kit push",
+    "seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
     "@types/cookie-parser": "^1.4.10",
