@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authRouter } from './auth/auth.routes';
+import { studentRouter } from './student/student.routes';
 
 /**
  * Everything under `/api`. Mount paths are part of the public contract the
@@ -10,3 +11,4 @@ import { authRouter } from './auth/auth.routes';
 export const apiRouter = Router();
 
 apiRouter.use('/auth', authRouter);
+apiRouter.use('/student', studentRouter);
