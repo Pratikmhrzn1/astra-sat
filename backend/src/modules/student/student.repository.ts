@@ -116,38 +116,6 @@ export async function listExamsForStudent(studentId: string) {
     .orderBy(desc(exams.startedAt));
 }
 
-/**
- * Creates an exam together with its answer sheet.
- *
- * The blank `exam_answers` rows are the invariant the rest of the module relies
- * on: saving an answer only ever UPDATEs one of these rows, and grading joins
- * over them. An exam created without them silently accepts no answers and
- * scores zero, so the two inserts belong in one transaction rather than in
- * whichever caller remembers to do both.
- */
-export async function createExamWithAnswerSheet(input: {
-  studentId: string;
-  setId: string;
-  type: 'individual' | 'mock_english' | 'mock_math';
-  questionIds: string[];
-}) {
-  return db.transaction(async (tx) => {
-    const [exam] = await tx
-      .insert(exams)
-      .values({
-        studentId: input.studentId,
-        setId: input.setId,
-        type: input.type,
-        totalQuestions: input.questionIds.length,
-      })
-      .returning();
-
-    if (input.questionIds.length > 0) {
-      await tx.insert(examAnswers).values(
-        input.questionIds.map((questionId) => ({ examId: exam.id, questionId })),
-      );
-    }
-
-    return exam;
-  });
-}
+// Exam provisioning lives in modules/exams so live exams create their answer
+// sheets the same way practice and mock exams do.
+export { createExamWithAnswerSheet } from '../exams/exam-provisioning';

@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
 import type { ZodSchema } from 'zod';
+import { badRequest } from '../errors';
 
 /**
  * Request validation. A failure is a 422 carrying per-field messages, matching
@@ -31,3 +32,19 @@ export const validateParams = <T>(schema: ZodSchema<T>): RequestHandler => valid
 export const body = <T>(req: { body: unknown }): T => req.body as T;
 export const query = <T>(req: { query: unknown }): T => req.query as T;
 export const params = <T>(req: { params: unknown }): T => req.params as T;
+
+/**
+ * Parses a payload inside a service, reporting the first message as a 400.
+ *
+ * Most routes validate at the edge with `validateBody`, which answers 422 with
+ * per-field details. A few endpoints predate that and their clients read a
+ * single message from a 400 instead; this keeps that contract intact without
+ * spreading two validation styles through the routing layer.
+ */
+export function parseOrBadRequest<T>(schema: ZodSchema<T>, payload: unknown): T {
+  const result = schema.safeParse(payload);
+  if (!result.success) {
+    throw badRequest(result.error.errors[0]?.message ?? 'Invalid request body');
+  }
+  return result.data;
+}

@@ -1,75 +1,294 @@
-# Flow — entry point to zoom out
+# Architecture — what is actually going on
 
-Follow the request through the system. Each section names the exact file to open.
+This document explains the *mechanisms*: where state lives, which invariants hold, and why
+the code is shaped the way it is. For a file-by-file index see `backend/README.md` and
+`frontend/README.md`. Where this document and `sat-platform-prompt.md` disagree, the code wins.
 
-## 1. Reading a request (backend boot → route)
+---
 
-```
-npm run dev → tsx src/index.ts
-```
+## 1. The shape of the system
 
-`backend/src/index.ts` builds the app: middleware (`helmet` → `cors` FRONTEND_URL → 50mb JSON → cookie-parser), **runs `runMigrations()` before listening**, then:
-
-- `app.use('/api', apiRouter)` — the mount point for every feature router (`backend/src/routes/index.ts`); `apiRouter` in turn mounts `/auth`, `/student`, `/teacher`, `/admin`, `/feedback`, `/library`, and `/` (liveExam).
-- `app.use('/uploads', express.static(UPLOAD_DIR))` — files multer wrote locally.
-
-Inside a feature router:
+Two deployables and one database. There is no queue, no cache server, no websocket layer,
+no background worker, and no shared type package.
 
 ```
-router.use(requireAuth, requireRole(['student']))     // middleware/auth.ts — JWT → req.user
-router.post('/exams/:id/submit', validateBody(SubmitAnswersSchema), handler)
-                                                        // middleware/validate.ts — zod, 422 on failure
+React SPA (Vite, served under /sat)          Express 4 (single process)          Postgres
+   one axios instance ──────── /api ───────────► one router tree ────────────────► one Pool
+   one Zustand store (auth)                        │
+   TanStack Query = all server state               ├──► OpenRouter (via aiClient.ts only)
+   IndexedDB = exam progress + drafts               └──► Resend (email)
 ```
 
-The handler is a bare `async (req, res) => { try { ... } catch (err) { console.error; res.status(500).json({ error: "Internal server error" }) } }` — convention, because **Express 4 / mongoose-db-express does not catch rejected promises**.
+Three consequences follow from "single Express process, no queue", and they explain most of
+the design decisions further down:
 
-## 2. Backend → database → AI
+1. **Background work is a non-awaited promise inside the request process.** There is no job
+   runner, so "async AI" means: send the HTTP response, then keep working in the same process.
+   If the process restarts mid-flight, that work is simply lost (a `mock_narratives` row stuck
+   at `pending` is the visible symptom).
+2. **Rate limiting and the refresh grace window are in-memory `Map`s.** `aiRateMap` in
+   `routes/student.ts:33`, the login-lockout map in `routes/auth.ts`, and `recentlyRotated`
+   in the refresh path all live in process memory. They reset on restart and they are
+   **wrong under horizontal scaling** — two instances would each grant a full AI budget.
+   This is a deliberate single-instance tradeoff, not an oversight to "fix" by adding a
+   second replica.
+3. **Schema changes are applied at boot.** `start()` in `src/index.ts` awaits `runMigrations()`
+   *before* `listen()`, and exits the process on failure. A broken statement in
+   `db/migrate.ts` does not degrade the app — it prevents it from starting at all.
 
-- Queries: `import { db } from '../db'` (drizzle) with tables from `../db/schema`. Raw SQL via `db.execute(sql\`...\`)` only where needed.
-- AI: any model call goes through `backend/src/services/aiClient.ts` → `generateStructuredFeedback` (JSON, retry-on-parse, cost/latency rows) or `generateChatResponse` (free text). Cache: read `ai_feedback` before firing (student.ts confirm).
+---
 
-## 3. Frontend boot → rendering
+## 2. Two sources of schema truth (and which one matters)
 
-```
-npm run dev → vite on :5173 (proxy /api → :3001)
-```
+`db/schema.ts` is Drizzle table definitions: it produces TypeScript types and the query
+builder. It never touches the database.
 
-`frontend/src/main.tsx` (QueryClientProvider, retry 1, staleTime 30s) → `frontend/src/App.tsx`. `App.tsx` is the route table: role-protected `/student/*`, `/teacher/*`, `/admin/*`, plus the public `/live/:joinCode` lobby. On mount it calls `proactiveRefresh()` (visibility-focus refresh too).
+`db/migrate.ts` is ~400 lines of hand-written idempotent SQL — `DO $$ … EXCEPTION WHEN
+duplicate_object` for enums, `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE … ADD COLUMN IF NOT
+EXISTS`. This is what actually shapes production, and it runs on **every** boot and again
+whenever an admin clicks "Run migrations".
 
-Page → data:
+So a new column needs **two edits**, and they can silently diverge: add it only to
+`schema.ts` and every query referencing it fails at runtime against a column that does not
+exist; add it only to `migrate.ts` and Drizzle cannot see it. `npm run migrate`
+(`drizzle-kit push`) exists in package.json but is not the production mechanism — it has no
+history and is not what boot runs.
 
-```
-Page component (useQuery/useMutation + hook from src/api/<feature>.ts)
-  → src/api/client.ts (the one axios instance; injects Bearer, queues 401s, silent-refreshes via /auth/refresh)
-  → GET/POST /api/...
-```
+---
 
-`src/store/auth.ts` is the only persisted global state (`sat-prep-auth` in localStorage). Everything server-derived lives in TanStack Query.
+## 3. Auth: short access tokens, rotating refresh tokens, and the races that creates
 
-## 4. The three most important flows
+The access token is a 15-minute JWT held in the Zustand store (persisted to `localStorage`
+under `sat-prep-auth`) and attached by an axios request interceptor. The refresh token is a
+7-day JWT delivered as an httpOnly cookie `rt` on `path: '/'`, and its **sha256 hash** is
+stored in `refresh_tokens` — the raw token never touches the database.
 
-### Practice exam with AI feedback
-1. `frontend/src/pages/student/Dashboard.tsx` or `ExamCatalogue.tsx` → `POST /api/student/exams` (start) creates the exam + per-question `exam_answers` rows.
-2. `TakeExam.tsx` runs the player: every answer goes to IndexedDB (`lib/offline.ts`) and the server every 30s (`PUT /student/exams/:id/answers`).
-3. Student clicks **confirm** → `POST /student/exams/:id/questions/:qid/confirm` → `student.ts` checks the `ai_feedback` cache → `orchestrateConfirmFeedback()` fires the applicable types in parallel → rows written → responses returned → feedback cards render in `ExamDetail.tsx`.
-4. Submit → whole exam graded server-side → narrative AI runs **after the response is already sent** (never block the student on a model call).
+Refresh is *rotating*: each use deletes the old hash and inserts a new one. Rotation is what
+makes stolen-token reuse detectable, and it is also what makes concurrency hard, because a
+browser with four tabs will fire four refreshes with the same cookie. Both sides defend:
 
-### Adaptive mock test
-1. `MockTest.tsx` → `POST /student/mock-tests` → creates English M1 + Math M1 exams, returns IDs.
-2. Router navigates into `TakeExam` with `location.state` (`mockSection: 'english_m1'`, `mathM1ExamId`, ...). The player is a pure function of that state — that's how one component serves practice, mock, and live exams.
-3. English M1 submit → background-submit Math M1, navigate to it. Math M1 submit → `POST /mock-tests/:id/next-module` (M2 difficulty from the ≥60% M1 threshold) → English M2 → Math M2 → results with narrative.
+**Server** (`routes/auth.ts` `POST /refresh`) verifies the JWT signature first (cheap
+rejection), then runs the swap inside `db.transaction`: `DELETE … RETURNING`, and if zero
+rows came back, another request already rotated this token, so this one lost the race and
+returns `null` from the transaction. The winner writes its result into a 30-second in-memory
+`recentlyRotated` map keyed by the *old* hash. A loser waits 50 ms, re-reads that map, and
+serves the winner's token instead of failing. Without this map, opening a second tab would
+log you out.
 
-### Live (in-class) exam
-1. Teacher creates a session (`POST /live-exam/session` → 6-char join code); students load `/live/:joinCode`.
-2. Students poll the lobby (`GET /live-exam/session/:code/status`) — **no websockets anywhere**.
-3. Teacher starts → server creates exams for all participants → students vote into `TakeExam` via `LiveExamLobby.tsx` → timed sections → submit.
-4. Teacher adds per-participant/question feedback, releases results → notifications → student `Results.tsx` tab.
+**Client** (`api/client.ts`) keeps a module-level `isRefreshing` flag and a `failedQueue`. The
+first 401 triggers the refresh; every concurrent 401 parks a promise in the queue and is
+replayed with the new token. Two further details matter:
 
-## 5. Deployment (for when you finally touch it)
+- `proactiveRefresh()` runs on `visibilitychange` (wired in `App.tsx`) and refreshes when the
+  token is expired or within 60s of expiring. This exists specifically because TanStack
+  Query's `refetchOnWindowFocus` fires a *burst* of queries the instant a tab regains focus;
+  without the pre-emptive refresh that burst becomes a 401 cascade.
+- Force-logout happens **only** when the refresh endpoint itself answers 401. A network error
+  or a 5xx deliberately does not log out — a flaky connection must not evict a student
+  mid-exam.
 
-- Prod runs the docker-compose stack (postgres 16 + backend + nginx frontend) on a VPS; `render.yaml` is a legacy alternative.
-- `./deploy.sh` from the repo root **deletes the source `backend/` and `frontend/` dirs** after publishing; it copies each `.env` to `~/.sat-deploy-backup` first. Don't run it from your workstation expecting the repo to survive, and never re-create env files without checking that backup dir.
+Authorization itself is two middlewares: `requireAuth` (Bearer → `req.user`) and
+`requireRole([...])`. Student/teacher/admin routers apply both at the router root, so every
+route inherits the gate. **`liveExam.ts` is the exception** — it is mounted at `/` (not under
+a prefix) and applies `requireAuth` per-route with hand-written `if (req.user!.role !==
+'teacher')` checks inside each handler. New live-exam routes must repeat that check by hand;
+forgetting it leaves the route open to any authenticated user.
 
-## Mental model in one line
+---
 
-A stateless-ish React app whose only global state is auth, talking over one axios instance to one Express app whose only external dependencies are Postgres, OpenRouter, and Resend — and whose two hardest parts are the exam player and the scoring/AI orchestration around it.
+## 4. The exam engine
+
+### The core invariant
+
+**An exam's answer sheet is materialized at creation time.** `POST /student/exams` inserts the
+`exams` row *and* one `exam_answers` row per question in the set. Everything downstream
+assumes those rows exist: `PUT /exams/:id/answers` only ever `UPDATE`s them (an answer for a
+question with no row is silently discarded), submit grades by joining them, and `ai_feedback`
+hangs off `exam_answers.id`.
+
+This is the single most important thing to know about the exam code — and it is exactly what
+the live-exam path gets wrong (see §6).
+
+### Grading
+
+Grading is server-side and happens twice, by design. `POST /exams/:id/submit` recomputes
+`isCorrect` for every row and derives `score` as a plain count of correct rows; multiple
+choice compares the `answer_choice` enum, and student-produced responses go through
+`sprIsCorrect()`, which parses fractions and decimals and compares with a 0.001 tolerance.
+Practice-mode `/confirm` grades a *single* question early so it can hand the AI a correct/wrong
+context, and writes `isCorrect` at that point too. Submit later overwrites it with the same
+verdict. Nothing trusts a client-supplied score.
+
+`totalQuestions` is stored on the exam at creation and used as the denominator for the
+reported percentage — it is not recounted at submit time.
+
+### Client state: why `TakeExam` is full of refs
+
+`TakeExam.tsx` is a single component serving practice, both mock modules, and live exams. It
+does not branch on a mode prop; it branches on `location.state` (`mockSection`, `mockTestId`,
+`liveExam`, `sectionStartedAt`, …). Router state *is* the exam mode.
+
+Every value the exam needs is mirrored into a `useRef` — `answersRef`, `timeLeftRef`,
+`mockSectionRef`, `dataRef`, `timerEnabledRef`. This is not redundancy: the countdown
+`setInterval`, the 30-second sync interval, and the auto-submit path all run inside closures
+created once, and a plain state variable read there would be permanently stale. **Any new
+state that the timer or submit path touches must be mirrored to a ref as well**, or it will
+read its initial value at exactly the moment it matters.
+
+Two timers run concurrently: the countdown (only when `timerEnabled`) and an unconditional
+elapsed-seconds ticker used for time-spent on untimed practice. `getTimeSpent()` picks between
+`20*60 - timeLeftRef.current` and `savedTimeSpent + elapsed` accordingly.
+
+Durability is layered: every answer change writes to IndexedDB immediately (best-effort, all
+failures swallowed), and a 30-second interval pushes to the server — plus an immediate push
+when the browser fires `online`. IDB is the resume path for practice exams; on mount, saved
+progress *overrides* server answers, including the timer flag. IDB is cleared on submit.
+
+Live exams derive remaining time from a **server-anchored** `sectionStartedAt` rather than a
+local countdown start, so a student who reloads mid-section does not gain time.
+
+---
+
+## 5. Mock tests: the adaptive chain
+
+A mock is four exams chained through one `mock_tests` row (`english_exam_id`, `math_exam_id`,
+`english_m2_exam_id`, `math_m2_exam_id`).
+
+`POST /mock-tests` picks Module-1 sets with `ORDER BY RANDOM() LIMIT 1` over
+`difficulty = 'medium'` — everyone starts at the same difficulty — falling back to any set of
+that subject if no medium one exists. Both M1 exams and all their answer rows are created up
+front.
+
+`POST /mock-tests/:id/next-module` is the adaptive step. It reads the submitted M1's
+`score/totalQuestions` and picks `hard` at **≥60%**, `low` below it, then selects a set of that
+difficulty *excluding the M1 set*, with two progressively looser fallbacks. It is
+**idempotent**: if the M2 exam already exists on the mock row it is returned as-is, which is
+what makes a double-submit or a reload during the transition safe. Submitting Math M2 is also
+what flips the mock to `completed`.
+
+The client-side chain lives in `TakeExam` and is deliberately ordered
+**English M1 → English M2 → Math M1 → Math M2**: `handleAdaptiveNextSection` submits the
+current module, calls `next-module`, and navigates to the returned M2; the `english_m2`
+completion branch inside `submitMutation.onSuccess` then jumps to the `mathM1ExamId` carried
+in router state. The timer's expiry handler calls the same functions, which is why they are
+`useCallback`s reading refs.
+
+An older non-adaptive path (`handleNextSection`, straight English→Math with a background
+submit while the pre-fetched Math exam renders instantly) still exists for sessions whose
+router state has no `mockSection`. Don't extend it.
+
+---
+
+## 6. Live exams — and a real gap in them
+
+Teacher creates a session with a 6-character join code; students open the public
+`/live/:joinCode` lobby and **poll** for status. There are no websockets anywhere in this
+codebase — every "realtime" surface is polling.
+
+Starting a session (`POST /teacher/live-exams/:sessionId/start`) loops over participants and
+inserts an English and a Math exam for each, then flips the session to `active` and stamps
+`startedAt` (the anchor the client's timer uses). Results are gated: a teacher writes
+per-question and global feedback, then explicitly releases, which writes a `notifications` row.
+
+**The gap:** that start handler inserts `exams` rows with neither `exam_answers` rows nor a
+`totalQuestions` value (`routes/liveExam.ts`, the start loop — grep confirms the file never
+references either). Because the student player submits through the ordinary
+`/student/exams/:id/answers` and `/submit` routes, and those routes only *update* pre-existing
+answer rows, a live-exam attempt has nothing to save into and nothing to grade: submit sees
+zero rows, stores `score = 0`, and computes `score / totalQuestions` against a default of `0`.
+Live exams therefore work as a proctored session with teacher-written feedback, but their
+automatic scoring cannot be correct. Fix it in the start handler by mirroring what
+`POST /student/exams` does — insert the answer rows and set `totalQuestions` — rather than by
+special-casing the student submit path.
+
+---
+
+## 7. AI: one client, six feedback types, cache-first, never on the critical path
+
+`services/aiClient.ts` is the only module that talks to OpenRouter (OpenAI-compatible SDK,
+lazily constructed so a missing key fails per-request rather than at boot). Models are chosen
+by **env var name**, not value — callers pass `'AI_MODEL_FEEDBACK'` / `'AI_MODEL_NARRATIVE'`
+/ `'AI_MODEL_CLASSIFY'` and the client reads it. Those vars double as feature flags: unset
+`AI_MODEL_NARRATIVE` and no narrative row is ever created, and the whole narrative UI goes
+away.
+
+`generateStructuredFeedback()` asks for JSON, strips code fences, and on a parse failure
+re-prompts once with the bad output attached ("return ONLY the JSON object"), throwing
+`AIParseError` if that also fails. It requests `usage: { include: true }` so OpenRouter returns
+a per-request cost, and every call's model, latency, token counts and cost are persisted on the
+row it produces — that is where the admin AI-cost stats come from.
+
+**The confirm flow** (`POST /exams/:id/questions/:qid/confirm`) is the most intricate path in
+the product, and the ordering is deliberate:
+
+1. Grade the single question and persist the answer (skipped when the exam is already
+   completed — reviewing a finished exam must not mutate it).
+2. `getApplicableFeedbackTypes()` decides which of the six types apply from
+   (subject, subSkill, questionType, isCorrect). Only `reasoning_checkpoint` always fires;
+   `vocab_drill` is the only one that fires on correct answers too.
+3. Read every cached `ai_feedback` row for this answer in **one** query and subtract them.
+4. Charge the rate limiter *the exact number of calls about to fire*, not a worst case.
+5. `orchestrateConfirmFeedback()` fans out via `Promise.all`, each type with its own
+   purpose-built prompt and its own try/catch, so one failing type degrades to `null` in the
+   response instead of failing the request. Prompt builders pass **minimum context** on
+   purpose — only `trap_explainer` and `command_of_evidence` receive passage text, and both
+   excerpt long passages (paragraph reference, or a ±150-word window around a keyword anchor).
+6. Respond.
+7. *Then* run the weak-skill check.
+
+The cache key is `(exam_answer_id, feedback_type)`, so re-confirming the same question is free.
+
+**Background AI** follows one rule — respond first, then work:
+
+- *Narrative*: submit inserts a `pending` `mock_narratives` row **before** responding (so the
+  UI has something to poll), responds, then generates. Failure flips the row to `failed`, which
+  is what the retry endpoint acts on.
+- *Weak-skill passages*: after every wrong practice answer with a tagged subSkill, count that
+  student's lifetime wrong answers for that skill; fire only on exact multiples of 3. The claim
+  is an atomic upsert on `student_skill_triggers` whose `DO UPDATE … WHERE trigger_count <
+  EXCLUDED.trigger_count` returns zero rows to concurrent losers, so two simultaneous confirms
+  cannot both generate. The result lands in `generated_content` as `pending` and is invisible
+  to students until an admin approves it, at which point it is promoted into real
+  `question_sets`/`passages`/`questions` inside a transaction.
+
+Everything AI-generated is human-gated before a student sees it. That is the point of
+`generated_content.quality_flag`.
+
+---
+
+## 8. Where each kind of state lives
+
+| State | Home | Lifetime |
+|---|---|---|
+| Access token, current user | Zustand `sat-prep-auth`, localStorage | until logout |
+| Refresh token | httpOnly cookie + sha256 in `refresh_tokens` | 7 days, rotated per use |
+| All server-derived data | TanStack Query cache (`staleTime` 30s, retry 1) | per session |
+| In-flight exam answers | IndexedDB `exam-progress` + server every 30s | cleared on submit |
+| Unsaved teacher question forms | IndexedDB `teacher-drafts` | until saved |
+| AI budget, login lockouts, refresh grace | in-memory Maps in the Express process | until restart |
+| Everything else | Postgres | — |
+
+Frontend and backend types are hand-mirrored per endpoint in `src/api/*.ts`. Nothing enforces
+that they agree — changing a response shape means editing both sides.
+
+---
+
+## 9. Deployment
+
+Production is the `docker-compose.yml` stack (postgres 16 + backend + nginx-served frontend
+build) on a VPS; `render.yaml` is a legacy alternative.
+
+`deploy.sh` runs **on the VPS**. It deletes the `backend/` and `frontend/` source directories
+after building (the images are self-contained), so it first mirrors `backend/.env` (required —
+compose reads it via `env_file` and the build hard-fails without it) and `frontend/.env`
+(optional) to `~/.sat-deploy-backup`, outside the repo where `rm -rf` cannot reach, and
+restores them before each build. Running it on a workstation will delete your source tree.
+
+---
+
+## The one-line version
+
+A React SPA whose only global state is auth talks through one axios instance to one Express
+process that owns Postgres, OpenRouter and Resend — and whose two hard parts are an exam
+player driven by router state and refs, and a scoring/AI layer that grades on the server,
+caches every model call, and does all expensive work after the response has already been sent.

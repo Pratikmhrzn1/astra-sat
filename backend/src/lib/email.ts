@@ -1,14 +1,23 @@
 import { Resend } from 'resend';
+import { env } from '../config/env';
 
-const FROM = process.env.RESEND_FROM ?? 'noreply@mocktest.niec.edu.np';
-const BASE_URL = process.env.PUBLIC_BASE_URL ?? 'https://mocktest.niec.edu.np/sat';
+/**
+ * Transactional email.
+ *
+ * Sending is optional: with no Resend key configured every send is a silent
+ * no-op, so a deployment without mail still registers users and issues password
+ * resets — the recipient simply never gets the message. Callers therefore treat
+ * these as fire-and-forget and never fail a request on them.
+ */
+const FROM = env.email.from;
+const BASE_URL = env.http.publicBaseUrl ?? 'https://mocktest.niec.edu.np/sat';
 
 function getResend(): Resend {
-  return new Resend(process.env.RESEND_API_KEY);
+  return new Resend(env.email.apiKey);
 }
 
 export async function sendWelcomeEmail(to: string, name: string, password: string): Promise<void> {
-  if (!process.env.RESEND_API_KEY) return;
+  if (!env.email.enabled) return;
 
   await getResend().emails.send({
     from: `SAT Prep <${FROM}>`,
@@ -77,7 +86,7 @@ export async function sendWelcomeEmail(to: string, name: string, password: strin
 }
 
 export async function sendPasswordResetEmail(to: string, name: string, token: string): Promise<void> {
-  if (!process.env.RESEND_API_KEY) return;
+  if (!env.email.enabled) return;
 
   const resetUrl = `${BASE_URL}/reset-password?token=${token}`;
 
