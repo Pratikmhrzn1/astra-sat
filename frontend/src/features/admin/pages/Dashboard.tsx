@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Users, BookOpen, BarChart2, GraduationCap, UserCog, HelpCircle } from 'lucide-react';
 import { getStats } from '@/features/admin/api/admin.api';
-import { Spinner } from '@/shared/ui/Spinner';
+import { Spinner } from '@/shared/ui';
 
 export default function AdminDashboard() {
   const { data: stats, isLoading } = useQuery({

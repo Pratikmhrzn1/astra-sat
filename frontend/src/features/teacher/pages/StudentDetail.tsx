@@ -3,11 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 import { getStudents, getStudentExams, sendFeedback, getSentFeedback } from '@/features/teacher/api/teacher.api';
-import { Button } from '@/shared/ui/Button';
-import { Modal } from '@/shared/ui/Modal';
-import { Textarea } from '@/shared/ui/Input';
-import { SubjectBadge, Badge } from '@/shared/ui/Badge';
-import { Spinner } from '@/shared/ui/Spinner';
+import { Button, Modal, Textarea, SubjectBadge, Badge, Spinner } from '@/shared/ui';
 import { formatDate } from '@/shared/lib/utils';
 import { getApiError } from '@/shared/api/client';
 

@@ -3,11 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle2, XCircle, MinusCircle, MessageSquare } from 'lucide-react';
 import { getStudentExamResults, sendFeedback } from '@/features/teacher/api/teacher.api';
-import { Button } from '@/shared/ui/Button';
-import { Modal } from '@/shared/ui/Modal';
-import { Textarea } from '@/shared/ui/Input';
-import { SubjectBadge } from '@/shared/ui/Badge';
-import { Spinner } from '@/shared/ui/Spinner';
+import { Button, Modal, Textarea, SubjectBadge, Spinner } from '@/shared/ui';
 import { getApiError } from '@/shared/api/client';
 
 function scoreColor(pct: number) {

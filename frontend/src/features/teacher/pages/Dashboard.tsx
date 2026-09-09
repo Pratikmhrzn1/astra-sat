@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Users, MessageSquare, BookOpen } from 'lucide-react';
 import { getStudents, getSentFeedback, getQuestionSets } from '@/features/teacher/api/teacher.api';
 import { useAuthStore } from '@/shared/store/auth';
-import { Spinner } from '@/shared/ui/Spinner';
+import { Spinner } from '@/shared/ui';
 import { useNavigate } from 'react-router-dom';
 
 export default function TeacherDashboard() {

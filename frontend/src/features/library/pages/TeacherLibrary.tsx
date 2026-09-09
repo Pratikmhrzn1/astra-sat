@@ -3,9 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Pencil, Trash2, EyeOff, Upload, FileText } from 'lucide-react';
 import { getLibraryItems, createLibraryItem, updateLibraryItem, deleteLibraryItem, uploadFile } from '@/features/library/api/library.api';
 import type { LibraryItem, FileType } from '@/features/library/api/library.api';
-import { Modal, ConfirmModal } from '@/shared/ui/Modal';
-import { Button } from '@/shared/ui/Button';
-import { Spinner } from '@/shared/ui/Spinner';
+import { Modal, ConfirmModal, Button, Spinner } from '@/shared/ui';
 import { getApiError } from '@/shared/api/client';
 import { useAuthStore } from '@/shared/store/auth';
 

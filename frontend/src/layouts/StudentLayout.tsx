@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/store/auth';
-import { Modal } from '@/shared/ui/Modal';
-import { Button } from '@/shared/ui/Button';
+import { Modal, Button } from '@/shared/ui';
 import { submitFeedback } from '@/features/feedback/api/feedback.api';
 
 const NAV = [

@@ -1,110 +1,84 @@
 # SAT Prep — Frontend
 
-React 18 + Vite + TypeScript + TanStack Query v5 + Zustand + Axios, served under `/sat`, styled with Tailwind + heavily inline-styled components. Talks only to the backend via `/api`.
+React 18 + Vite + TypeScript + TanStack Query + Zustand, served under `/sat`.
 
-## How to run
+## Running
 
 ```bash
-cp .env.example .env    # VITE_API_URL — leave empty in dev (Vite proxies /api → :3001)
+cp .env.example .env      # VITE_API_URL — leave empty in dev
 npm install
-npm run dev             # vite on :5173
+npm run dev               # vite on :5173, proxies /api -> :3001
+npm run build             # tsc && vite build
+npx tsc --noEmit          # the only automated gate — there is no test suite yet
 ```
 
-`vite.config.ts` proxies `/api` → `http://localhost:3001`. The axios `baseURL` is `${VITE_API_URL || ''}/api`, so in dev all requests stay same-origin.
-
-## Entry point → routing (zoom out)
+## Layout
 
 ```
-src/main.tsx                    QueryClientProvider (retry:1, staleTime 30s) → <App/>
-  └─ src/App.tsx                 BrowserRouter basename="/sat" — all routes
-       ├─ /login /register /forgot-password /reset-password   (public)
-       ├─ /student/*             wrapped in <ProtectedRoute role="student"> + <StudentLayout>
-       ├─ /teacher/*             ProtectedRoute role="teacher" + <TeacherLayout>
-       ├─ /admin/*               ProtectedRoute role="admin" + <AdminLayout>
-       ├─ /student/exams/:examId  ProtectedRoute → <TakeExam/>  (the exam player, full-screen)
-       ├─ /live/:joinCode         public lobby for live exams
-       └─ * → <Navigate to="/"/>
+src/
+  main.tsx          mounts <App/>
+  app/              composition root
+    App.tsx           providers + session refresh + routes
+    providers.tsx     the React Query client
+    router.tsx        the entire route table
+    guards/           ProtectedRoute
+  layouts/          the three role shells (nav + <Outlet/>)
+  shared/           anything two features may both use
+    api/client.ts     the single axios instance
+    ui/               design-system primitives, imported via '@/shared/ui'
+    hooks/ lib/ store/
+  features/
+    auth/ student/ teacher/ admin/ live-exam/ library/ feedback/
+      api/            typed wrappers around the endpoints
+      pages/          route targets
+      components/     pieces used by that feature's pages
+      hooks/          feature-specific behaviour
 ```
 
-`ProtectedRoute` reads the Zustand store — no user + no accessToken → redirect to `/login`; wrong role → redirect to that role's dashboard.
+Imports use the `@` alias for `src/`, so a module's import path states where it
+sits in the architecture rather than how far away it is.
 
-## Files — what does what
+A feature owns its pages even when several roles open them: the three Library
+screens live in `features/library`, not under whichever role reaches them, and
+the live-exam screens are one feature rather than being split between the
+teacher and student folders.
 
-### Boot & infrastructure
-| File | Role |
-|---|---|
-| `src/main.tsx` | React root + Query client config. Central place for global query defaults. |
-| `src/App.tsx` | Route table. Also mounts a `visibilitychange` listener that calls `proactiveRefresh()` on tab focus so React Query's refetch burst never starts with a stale token. |
-| `src/index.css` | Tailwind directives + global styles (fonts, `.screen-fade`, scrollbars). |
-| `src/vite-env.d.ts` | Vite types. |
+## The parts worth knowing before you change them
 
-### API layer (`src/api/`)
-Thin typed wrappers around `apiClient`. One file per feature, each export an interface mirroring the backend response + async functions.
+**`shared/api/client.ts` is the only place HTTP happens.** It attaches the
+bearer token, queues concurrent 401s behind one refresh, and retries the
+original request. Never call `fetch` or a bare axios instance — you would lose
+the refresh handling, and a request would fail the moment a token expired. It
+force-logs-out only when the refresh endpoint itself returns 401, so a network
+blip or a 5xx never evicts someone mid-exam.
 
-| File | Backend endpoints |
-|---|---|
-| `src/api/client.ts` | **The axios instance + all token logic.** Injects `Bearer`, queues concurrent 401s, silently refreshes via `/auth/refresh`, only force-logs-out on a 401 from refresh (network/5xx never log out). `getApiError()` for error messages. **~Everything depends on this file.** |
-| `src/api/auth.ts` | login / register / me / logout / password & profile |
-| `src/api/student.ts` | question catalogue, exam lifecycle (start / get / save / submit / results), confirm-feedback types, mock tests + adaptive next-module, vocab (due/review/teacher), narratives, skill-passages, chat |
-| `src/api/teacher.ts` | students, question sets/passages/questions CRUD, import-json, subSkill tagging, vocab word bank, feedback |
-| `src/api/admin.ts` | stats, users, access codes, backup/restore, run-sql, migrations |
-| `src/api/library.ts` | library items + upload |
-| `src/api/feedback.ts` | platform feedback (bug/suggestion) |
-| `src/api/liveExam.ts` | live-exam sessions, poll, join, results, notifications |
+**Server state belongs to React Query; only auth is global.** `shared/store/auth`
+(Zustand, persisted to localStorage) holds the user and access token. Everything
+else is a query keyed by feature, and writes invalidate rather than hand-patching
+caches.
 
-### Global state
-| File | Role |
-|---|---|
-| `src/store/auth.ts` | Zustand auth store, **persisted to localStorage** (`sat-prep-auth`). Holds `user` + `accessToken`. `login/logout/setAccessToken/setUser`. |
+**`features/student/pages/TakeExam.tsx` is the exam player** and the most
+delicate file here. One component serves practice, both mock modules and live
+exams, switching on `location.state` rather than props. Every value the countdown
+or the submit path needs is mirrored into a ref, because those run inside
+closures created once — **state added for them must be mirrored too**, or it will
+read its initial value at the moment it matters.
 
-### Local storage / offline (`src/lib/`)
-| File | Role |
-|---|---|
-| `src/lib/offline.ts` | IndexedDB (via `idb`) — `exam-progress` store (answers, elapsed time, timer flag — resume path for practice exams) and `teacher-drafts` store (unsaved question forms). Best-effort, failures are silent. |
-| `src/lib/utils.ts` | `cn()`, `formatDate`, `formatDateTime`, `formatDuration`, score color helpers. |
+**Exam progress is written to IndexedDB** (`shared/lib/offline`) on every answer
+and synced to the server every 30 seconds. It is best-effort by design: all
+failures are swallowed, because losing a cache write must never interrupt a test.
 
-### Shared UI (`src/components/ui/`)
-`Button`, `Input` (+`Textarea`), `Card`, `Badge`, `Modal` (+`ConfirmModal`), `Spinner` (`PageLoader`). Tailwind classes here; most pages style with inline `React.CSSProperties` in a `CARD`/style-const pattern — follow the page-local style, not the other way around.
+**Styling is inline `React.CSSProperties`, not Tailwind, on most pages.** The
+`ui/` primitives use Tailwind classes; pages use `style` objects and a local
+`CARD` constant. Follow whichever the file you are editing already uses rather
+than converting between them.
 
-### Student pages (`src/pages/student/`)
-| File | Role |
-|---|---|
-| `StudentLayout.tsx` | Sidebar/nav shell + platform-feedback modal. |
-| `Dashboard.tsx` | Landing: resume-able practice from IDB, quick actions, stats. |
-| `ExamCatalogue.tsx` | List of published practice sets (`/student/question-sets`). |
-| `MockTest.tsx` | "Begin Mock SAT" → calls `startMockTest`, navigates into `TakeExam` with `mockSection: 'english_m1'` + `mathM1ExamId` in router state. |
-| `TakeExam.tsx` | **The exam player.** One component handles practice, mock module 1/2, and live exams — behavior driven entirely by router `location.state`. Timer auto-submits; adaptive transitions call `handleAdaptiveNextSection`; English M1→Math M1 is a background submit + instant navigation; saves every answer to IDB and syncs to server every 30s. Read it before touching anything exam-shaped. |
-| `Results.tsx` | History: practice vs live tabs, score trend sparklines, per-test rows → `ExamDetail`. |
-| `ExamDetail.tsx` | Per-exam report. Practice-mode per-question "confirm" (reasoning chip, confidence, AI feedback cards), vocab drill follower, mock narrative panel with retry, chat panel. The AI client is exercised here. |
-| `LiveExamLobby.tsx` | Public join-code lobby; polls session status, then routes into `TakeExam`. |
-| `VocabReview.tsx` | SM-2 spaced-repetition review of due words. |
-| `Feedback.tsx`, `Library.tsx`, `Settings.tsx` | Inbox, shared library, account settings (password, profile, font size pref). |
+## Conventions
 
-### Teacher pages (`src/pages/teacher/`)
-| File | Role |
-|---|---|
-| `TeacherLayout.tsx` | Shell. |
-| `Dashboard.tsx` | Stats + student list. |
-| `Students.tsx` / `StudentDetail.tsx` / `StudentExamDetail.tsx` | Rosters, per-student exam list, per-exam results. |
-| `AddContent.tsx` | **1362 lines — the content authoring monolith.** Question sets, passages, MC + SPR question forms (with rich-text + math-symbol toolbar), JSON import, publish/delete, teacher vocab word bank, draft autosave to IDB. |
-| `LiveExams.tsx` / `LiveExamSession.tsx` / `LiveExamStudentResult.tsx` | Create/manage live sessions, start, per-participant feedback, release results. |
-| `Feedback.tsx`, `Library.tsx` | Sent feedback, library management. |
-
-### Admin pages (`src/pages/admin/`)
-`AdminLayout`, `Dashboard` (stats), `Users`, `AccessCodes`, `Database` (backup/download, restore, run SQL, run migrations — the dangerous buttons), `Feedback` (platform feedback), `Library`.
-
-## Golden rules (conventions to follow)
-
-1. **All HTTP goes through `apiClient`** (axios). Never `fetch` or a bare axios call — bearer injection + silent refresh + 401 queueing live there.
-2. **All server state goes through TanStack Query.** `useQuery` for reads (queryKeys namespaced like `['student', 'exam', id]`), `useMutation` for writes, `queryClient.invalidateQueries` on success. `src/api/*` holds the query functions + response types; pages consume them.
-3. **Auth-gated pages are `ProtectedRoute`-wrapped in `App.tsx`.** Don't hand-roll role checks in a page; extend `App.tsx` + re-use `ProtectedRoute`.
-4. **Exam flows are driven by `location.state` + refs, not derive-from-props.** `TakeExam` mirrors mutable values (`answersRef`, `timeLeftRef`, `mockSectionRef`) because timers and IDB sync run in closures. If you add state that the timer/submit path needs, mirror it to a ref too.
-5. **Offline exam progress:** save to IDB on every change (`saveExamProgress`), reload on mount for individual exams, clear on submit. Follow the existing best-effort/quiet-failure pattern.
-6. **New features get a wrapper in `src/api/<feature>.ts`** that mirrors back the exact response types — the frontend contract is hand-typed per endpoint (no shared types with backend).
-7. **Styling:** page-level CSS in `React.CSSProperties` style-consts; shared primitives in `components/ui`. Tailwind utility classes are easiest to use inside the `ui/` components.
-
-## Legacy you can ignore
-
-- The **legacy non-adaptive mock path** in `TakeExam` (`handleNextSection`, straight English→Math) only exists for older sessions where router state lacks `mockSection`. New work goes through `mockSection` + `handleAdaptiveNextSection` (M1→M2). Don't build on the legacy branch.
-- `sat-prep-auth` users persisted in localStorage: fine, but accessToken is also in localStorage by design — don't "harden" it by moving it to memory without also updating the refresh flow (`api/client.ts` reads via the store).
-- Root-level `*.json` question files (`english-questions.json`, `math-questions.json`) are seed data, not a runtime source — imports come from the DB via teacher JSON import.
+- New endpoint: add a typed wrapper in that feature's `api/`, mirroring the
+  response shape. There is no shared type package with the backend — the two
+  sides are hand-matched, so changing a response means editing both.
+- New page: add it to `features/<feature>/pages/` and register it in
+  `app/router.tsx` under the right role's `ProtectedRoute`. Do not hand-roll
+  role checks inside a page.
+- Query keys are namespaced by feature, e.g. `['student', 'exam', id]`.

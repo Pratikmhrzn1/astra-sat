@@ -13,23 +13,16 @@ import { getLibraryItems } from '@/features/library/api/library.api';
 import type { LibraryItem } from '@/features/library/api/library.api';
 import type { QuestionSet, Passage, Question, SubSkill, TeacherVocabWord } from '@/features/teacher/api/teacher.api';
 import { saveTeacherDraft, loadTeacherDraft, clearTeacherDraft } from '@/shared/lib/offline';
-import { Button } from '@/shared/ui/Button';
-import { Input, Textarea } from '@/shared/ui/Input';
-import { SubjectBadge } from '@/shared/ui/Badge';
-import { ConfirmModal } from '@/shared/ui/Modal';
-import { Spinner } from '@/shared/ui/Spinner';
+import { Button, Input, Textarea, SubjectBadge, ConfirmModal, Spinner } from '@/shared/ui';
 import { getApiError } from '@/shared/api/client';
+import { useOnlineStatus } from '@/shared/hooks/useOnlineStatus';
+import { UnderlineBtn, RichTextArea } from '@/features/teacher/components/RichTextArea';
+import { MathToolbar } from '@/features/teacher/components/MathToolbar';
+import { SUB_SKILL_OPTIONS } from '@/features/teacher/constants';
 
 type EditorTab = 'questions' | 'passages';
 type QuestionType = 'multiple_choice' | 'student_produced_response';
 
-const SUB_SKILL_OPTIONS: { value: SubSkill; label: string }[] = [
-  { value: 'grammar', label: 'Grammar' },
-  { value: 'inference', label: 'Inference / Main Idea' },
-  { value: 'command_of_evidence', label: 'Command of Evidence' },
-  { value: 'vocab_in_context', label: 'Vocabulary in Context' },
-  { value: 'transitions', label: 'Transitions / Rhetoric' },
-];
 
 interface MCForm {
   questionType: 'multiple_choice';
@@ -56,152 +49,6 @@ type QuestionForm = MCForm | SPRForm;
 
 const emptyMC: MCForm = { questionType: 'multiple_choice', passageId: '', subSkill: '', questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'a', explanation: '', imageUrl: null };
 const emptySPR: SPRForm = { questionType: 'student_produced_response', passageId: '', subSkill: '', questionText: '', correctAnswerText: '', explanation: '', imageUrl: null };
-
-// ── Math Symbol Toolbar ──────────────────────────────────────────────────────
-
-const SYMBOL_GROUPS = [
-  { label: 'Sup', tip: 'Superscripts', symbols: ['²', '³', '¹', '⁰', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹', '⁻', '⁺', 'ⁿ'] },
-  { label: 'Sub', tip: 'Subscripts', symbols: ['₀', '₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉'] },
-  { label: 'Ops', tip: 'Operations', symbols: ['×', '÷', '±', '√', '∛', '∜', '∞', '·'] },
-  { label: 'Frac', tip: 'Fractions — ⁄ is the fraction slash for arbitrary fractions (e.g. 22⁄7). For mixed fractions, type the whole number first then pick a fraction character (e.g. 3½)', symbols: ['⁄', '½', '⅓', '⅔', '¼', '¾', '⅕', '⅖', '⅗', '⅘', '⅙', '⅚', '⅛', '⅜', '⅝', '⅞'] },
-  { label: 'Rel', tip: 'Relations', symbols: ['≤', '≥', '≠', '≈', '≡', '∝'] },
-  { label: 'Grk', tip: 'Greek letters', symbols: ['π', 'θ', 'α', 'β', 'γ', 'δ', 'λ', 'μ', 'σ', 'φ', 'ω'] },
-  { label: '…', tip: 'Other symbols', symbols: ['°', '∠', '△', '∑', '∫'] },
-];
-
-function UnderlineBtn({ onApply }: { onApply: () => void }) {
-  return (
-    <button
-      type="button"
-      title="Underline selected text"
-      onMouseDown={(e) => { e.preventDefault(); onApply(); }}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 5,
-        padding: '3px 10px', fontSize: 12, fontWeight: 700,
-        border: '1px solid #E7E4DE', borderRadius: 6,
-        background: '#F2F0EC', color: '#0B0B0E', cursor: 'pointer', fontFamily: 'inherit',
-      }}
-    >
-      <span style={{ textDecoration: 'underline' }}>U</span>
-      <span style={{ fontSize: 10, fontWeight: 400, color: 'rgba(11,11,14,0.45)' }}>Underline</span>
-    </button>
-  );
-}
-
-// Rich text field (contenteditable) — supports underline formatting
-const RichTextArea = React.forwardRef<HTMLDivElement, {
-  label?: string;
-  value: string;
-  onChange: (html: string) => void;
-  placeholder?: string;
-  rows?: number;
-  onFocus?: () => void;
-  error?: string;
-}>(({ label, value, onChange, placeholder, rows = 3, onFocus, error }, ref) => {
-  const innerRef = React.useRef<HTMLDivElement>(null);
-  React.useImperativeHandle(ref, () => innerRef.current!);
-  const editing = React.useRef(false);
-
-  // Sync external value → innerHTML only when not actively typing
-  React.useEffect(() => {
-    const el = innerRef.current;
-    if (!el || editing.current) return;
-    if (el.innerHTML !== value) el.innerHTML = value;
-  }, [value]);
-
-  const minH = rows * 28;
-  const borderColor = error ? '#ef4444' : '#C8C4BC';
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      {label && <label className="text-[13px] font-semibold text-ink/70">{label}</label>}
-      <div style={{ position: 'relative' }}>
-        {!value && placeholder && (
-          <div style={{ position: 'absolute', top: 12, left: 15, right: 15, color: 'rgba(11,11,14,0.3)', fontSize: 15, pointerEvents: 'none', userSelect: 'none', lineHeight: 1.6 }}>
-            {placeholder}
-          </div>
-        )}
-        <div
-          ref={innerRef}
-          contentEditable
-          suppressContentEditableWarning
-          onFocus={(e) => {
-            editing.current = true;
-            e.currentTarget.style.borderColor = '#E2562B';
-            e.currentTarget.style.boxShadow = '0 0 0 3px rgba(226,86,43,0.18)';
-            onFocus?.();
-          }}
-          onBlur={(e) => {
-            editing.current = false;
-            e.currentTarget.style.borderColor = borderColor;
-            e.currentTarget.style.boxShadow = 'none';
-          }}
-          onInput={() => {
-            if (innerRef.current) onChange(innerRef.current.innerHTML);
-          }}
-          style={{
-            minHeight: minH,
-            padding: '12px 15px',
-            border: `1px solid ${borderColor}`,
-            borderRadius: '0.75rem',
-            fontSize: 15,
-            background: '#fff',
-            color: '#0B0B0E',
-            outline: 'none',
-            lineHeight: 1.6,
-            overflowY: 'auto',
-            wordBreak: 'break-word',
-            whiteSpace: 'pre-wrap',
-            transition: 'border-color 0.15s, box-shadow 0.15s',
-          }}
-        />
-      </div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
-    </div>
-  );
-});
-RichTextArea.displayName = 'RichTextArea';
-
-function MathToolbar({ onInsert }: { onInsert: (s: string) => void }) {
-  const [open, setOpen] = useState<string | null>(null);
-  return (
-    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
-      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', alignSelf: 'center', marginRight: 4 }}>Math</span>
-      {SYMBOL_GROUPS.map((g) => (
-        <div key={g.label} style={{ position: 'relative' }}>
-          <button
-            type="button"
-            title={g.tip}
-            onClick={() => setOpen(open === g.label ? null : g.label)}
-            style={{ padding: '3px 8px', fontSize: 11, fontWeight: 600, border: '1px solid #E7E4DE', borderRadius: 6, background: open === g.label ? '#0B0B0E' : '#F2F0EC', color: open === g.label ? '#fff' : '#0B0B0E', cursor: 'pointer', fontFamily: 'inherit' }}
-          >{g.label} ▾</button>
-          {open === g.label && (
-            <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: '#fff', border: '1px solid #E7E4DE', borderRadius: 10, padding: 8, zIndex: 50, display: 'flex', flexWrap: 'wrap', gap: 4, width: 200, boxShadow: '0 8px 24px rgba(11,11,14,0.12)' }}>
-              {g.symbols.map((sym) => (
-                <button
-                  key={sym}
-                  type="button"
-                  onClick={() => { onInsert(sym); setOpen(null); }}
-                  style={{ minWidth: 30, height: 30, padding: '0 6px', border: '1px solid #E7E4DE', borderRadius: 7, background: '#F8F7F4', color: '#0B0B0E', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >{sym}</button>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function useOnlineStatus() {
-  const [online, setOnline] = React.useState(navigator.onLine);
-  React.useEffect(() => {
-    const on = () => setOnline(true); const off = () => setOnline(false);
-    window.addEventListener('online', on); window.addEventListener('offline', off);
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
-  }, []);
-  return online;
-}
 
 const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)' };
 

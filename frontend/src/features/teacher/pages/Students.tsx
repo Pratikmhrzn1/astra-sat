@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
 import { getStudents } from '@/features/teacher/api/teacher.api';
-import { Spinner } from '@/shared/ui/Spinner';
+import { Spinner } from '@/shared/ui';
 import { formatDate } from '@/shared/lib/utils';
 
 export default function Students() {

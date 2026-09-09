@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getLibraryItems } from '@/features/library/api/library.api';
 import type { FileType, LibraryItem } from '@/features/library/api/library.api';
-import { Modal } from '@/shared/ui/Modal';
-import { Spinner } from '@/shared/ui/Spinner';
+import { Modal, Spinner } from '@/shared/ui';
 import { useMobile } from '@/shared/hooks/useMobile';
 
 const TYPE_META: Record<FileType, { color: string; label: string; icon: string }> = {

@@ -3,8 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { getAdminFeedback, markFeedbackRead, deleteFeedback } from '@/features/feedback/api/feedback.api';
 import type { FeedbackItem } from '@/features/feedback/api/feedback.api';
-import { ConfirmModal } from '@/shared/ui/Modal';
-import { Spinner } from '@/shared/ui/Spinner';
+import { ConfirmModal, Spinner } from '@/shared/ui';
 import { formatDate } from '@/shared/lib/utils';
 
 const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)' };

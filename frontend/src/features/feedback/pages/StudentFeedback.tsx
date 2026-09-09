@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MessageSquare } from 'lucide-react';
 import { getFeedback, markFeedbackRead } from '@/features/student/api/student.api';
-import { Spinner } from '@/shared/ui/Spinner';
+import { Spinner } from '@/shared/ui';
 import { formatDateTime } from '@/shared/lib/utils';
 
 export default function StudentFeedback() {

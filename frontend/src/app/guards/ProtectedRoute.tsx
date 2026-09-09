@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore, type Role } from '@/shared/store/auth';
-import { PageLoader } from '@/shared/ui/Spinner';
+import { PageLoader } from '@/shared/ui';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;

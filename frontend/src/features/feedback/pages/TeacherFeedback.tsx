@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { MessageSquare } from 'lucide-react';
 import { getSentFeedback } from '@/features/teacher/api/teacher.api';
-import { Badge } from '@/shared/ui/Badge';
-import { Spinner } from '@/shared/ui/Spinner';
+import { Badge, Spinner } from '@/shared/ui';
 import { formatDateTime } from '@/shared/lib/utils';
 
 export default function TeacherFeedback() {

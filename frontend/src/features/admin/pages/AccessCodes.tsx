@@ -2,11 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Key, RefreshCw } from 'lucide-react';
 import { getAccessCodes, createAccessCode, deleteAccessCode } from '@/features/admin/api/admin.api';
-import { Button } from '@/shared/ui/Button';
-import { Input } from '@/shared/ui/Input';
-import { Modal, ConfirmModal } from '@/shared/ui/Modal';
-import { RoleBadge } from '@/shared/ui/Badge';
-import { Spinner } from '@/shared/ui/Spinner';
+import { Button, Input, Modal, ConfirmModal, RoleBadge, Spinner } from '@/shared/ui';
 import { formatDate } from '@/shared/lib/utils';
 import { getApiError } from '@/shared/api/client';
 

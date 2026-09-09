@@ -2,8 +2,7 @@ import { useState, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Download, Upload, Play, AlertTriangle, Terminal } from 'lucide-react';
 import { downloadBackup, restoreBackup, runMigrations, runSql } from '@/features/admin/api/admin.api';
-import { Button } from '@/shared/ui/Button';
-import { ConfirmModal } from '@/shared/ui/Modal';
+import { Button, ConfirmModal } from '@/shared/ui';
 import { getApiError } from '@/shared/api/client';
 
 const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)', overflow: 'hidden', marginBottom: 16 };

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/shared/store/auth';
+import { useOnlineStatus } from '@/shared/hooks/useOnlineStatus';
 
 const NAV = [
   { path: '/teacher/dashboard', label: 'Dashboard', icon: (
@@ -44,17 +45,6 @@ const NAV = [
   )},
 ];
 
-function useOnlineStatus() {
-  const [online, setOnline] = useState(navigator.onLine);
-  useEffect(() => {
-    const on = () => setOnline(true);
-    const off = () => setOnline(false);
-    window.addEventListener('online', on);
-    window.addEventListener('offline', off);
-    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
-  }, []);
-  return online;
-}
 
 export default function TeacherLayout() {
   const { user, logout } = useAuthStore();
