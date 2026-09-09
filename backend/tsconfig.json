@@ -16,5 +16,8 @@
     "types": ["node"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  // src/routes and src/middleware are the pre-rewrite implementation, kept in
+  // the tree only as a reference while modules are ported. They are superseded
+  // by src/modules and src/http, and are deleted once the port is complete.
+  "exclude": ["node_modules", "dist", "src/routes", "src/middleware"]
 }
