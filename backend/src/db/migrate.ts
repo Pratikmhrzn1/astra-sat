@@ -29,6 +29,9 @@ const CREATE_ENUMS = `
     CREATE TYPE sub_skill_source AS ENUM ('ai_suggested', 'human_confirmed');
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
   DO $$ BEGIN
+    CREATE TYPE question_difficulty AS ENUM ('easy', 'medium', 'hard');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  DO $$ BEGIN
     CREATE TYPE feedback_type AS ENUM ('reasoning_checkpoint', 'grammar_diagnosis', 'trap_explainer', 'command_of_evidence', 'transitions_coach', 'vocab_drill');
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
   DO $$ BEGIN
@@ -392,6 +395,132 @@ const SCHEMA_UPDATES = `
   );
 `;
 
+/**
+ * Phase 2 foundation.
+ *
+ * Ordering inside this block matters: every statement runs in the same
+ * transaction as the rest of the migration, so a table has to exist before
+ * anything references it. Organizations before `users.organization_id`, skills
+ * before `questions.skill_code`.
+ *
+ * Every statement is idempotent — this runs on every server boot.
+ */
+const PHASE2_FOUNDATION = `
+  -- Multi-tenancy insurance. One organization, every user in it, nothing scoped
+  -- by it yet. Carrying the column from now on makes the real migration additive.
+  CREATE TABLE IF NOT EXISTS organizations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    slug VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES organizations(id) ON DELETE SET NULL;
+
+  -- The SAT domain/skill tree. A domain has no parent; a skill is a child of one.
+  CREATE TABLE IF NOT EXISTS skills (
+    code VARCHAR(64) PRIMARY KEY,
+    label TEXT NOT NULL,
+    subject subject NOT NULL,
+    parent_code VARCHAR(64) REFERENCES skills(code) ON DELETE SET NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
+  );
+
+  -- Supersedes the five-value, Reading-&-Writing-only \`sub_skill\` enum, which
+  -- left every Math question untaggable. \`sub_skill\` stays for now because the
+  -- AI orchestrator still reads it; it is backfilled into this column below.
+  ALTER TABLE questions ADD COLUMN IF NOT EXISTS skill_code VARCHAR(64) REFERENCES skills(code) ON DELETE SET NULL;
+  ALTER TABLE questions ADD COLUMN IF NOT EXISTS difficulty question_difficulty;
+
+  -- Scaled SAT scores. Until now the only score in the database was a raw count
+  -- of correct answers, and the 200-800 number was computed in the browser.
+  ALTER TABLE exams ADD COLUMN IF NOT EXISTS scaled_score INTEGER;
+  ALTER TABLE mock_tests ADD COLUMN IF NOT EXISTS rw_score INTEGER;
+  ALTER TABLE mock_tests ADD COLUMN IF NOT EXISTS math_score INTEGER;
+  ALTER TABLE mock_tests ADD COLUMN IF NOT EXISTS total_score INTEGER;
+
+  CREATE TABLE IF NOT EXISTS student_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    target_score INTEGER,
+    test_date DATE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  -- One row per (student, question): a worklist, not a log.
+  CREATE TABLE IF NOT EXISTS mistakes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    exam_answer_id UUID REFERENCES exam_answers(id) ON DELETE SET NULL,
+    miss_count INTEGER NOT NULL DEFAULT 1,
+    first_missed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_missed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    resolved_at TIMESTAMP,
+    CONSTRAINT mistakes_student_question_unique UNIQUE (student_id, question_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS mistakes_student_unresolved_idx
+    ON mistakes (student_id) WHERE resolved_at IS NULL;
+  CREATE INDEX IF NOT EXISTS questions_skill_code_idx ON questions (skill_code);
+
+  -- An exam assembled by topic draws from many sets and belongs to none, so the
+  -- set reference stops being mandatory. The answer sheet is what defines an
+  -- exam's questions; order_index makes it fully self-describing.
+  ALTER TABLE exams ALTER COLUMN set_id DROP NOT NULL;
+  ALTER TABLE exam_answers ADD COLUMN IF NOT EXISTS order_index INTEGER NOT NULL DEFAULT 0;
+`;
+
+/**
+ * Seeds the eight official SAT domains, then re-parents the five legacy
+ * `sub_skill` values underneath the domain each belongs to, so existing tagged
+ * questions keep their meaning instead of being orphaned by the change.
+ */
+const SEED_SAT_TAXONOMY = `
+  INSERT INTO skills (code, label, subject, parent_code, sort_order) VALUES
+    ('algebra',                       'Algebra',                            'math',    NULL, 1),
+    ('advanced_math',                 'Advanced Math',                      'math',    NULL, 2),
+    ('problem_solving_data_analysis', 'Problem-Solving and Data Analysis',  'math',    NULL, 3),
+    ('geometry_trigonometry',         'Geometry and Trigonometry',          'math',    NULL, 4),
+    ('information_and_ideas',         'Information and Ideas',              'english', NULL, 1),
+    ('craft_and_structure',           'Craft and Structure',                'english', NULL, 2),
+    ('expression_of_ideas',           'Expression of Ideas',                'english', NULL, 3),
+    ('standard_english_conventions',  'Standard English Conventions',       'english', NULL, 4)
+  ON CONFLICT (code) DO NOTHING;
+
+  INSERT INTO skills (code, label, subject, parent_code, sort_order) VALUES
+    ('inference',           'Inference',              'english', 'information_and_ideas',        1),
+    ('command_of_evidence', 'Command of Evidence',    'english', 'information_and_ideas',        2),
+    ('vocab_in_context',    'Words in Context',       'english', 'craft_and_structure',          1),
+    ('transitions',         'Transitions',            'english', 'expression_of_ideas',          1),
+    ('grammar',             'Grammar and Usage',      'english', 'standard_english_conventions', 1)
+  ON CONFLICT (code) DO NOTHING;
+`;
+
+/**
+ * Backfills. Both are one-shot in effect but safe to re-run: each is guarded by
+ * an IS NULL check, so a boot after the first is a no-op.
+ */
+const BACKFILL_FOUNDATION = `
+  INSERT INTO organizations (name, slug)
+  SELECT 'Default Organization', 'default'
+  WHERE NOT EXISTS (SELECT 1 FROM organizations WHERE slug = 'default');
+
+  UPDATE users SET organization_id = (SELECT id FROM organizations WHERE slug = 'default')
+  WHERE organization_id IS NULL;
+
+  UPDATE questions SET skill_code = sub_skill::TEXT
+  WHERE skill_code IS NULL AND sub_skill IS NOT NULL;
+
+  -- Existing answer sheets all default to 0; restore their real order from the
+  -- question rows they point at, so pre-existing exams keep rendering in order.
+  UPDATE exam_answers ea
+  SET order_index = q.order_index
+  FROM questions q
+  WHERE q.id = ea.question_id AND ea.order_index = 0 AND q.order_index <> 0;
+`;
+
 const SEED_DEFAULT_ADMIN_CODE = `
   INSERT INTO access_codes (code, role, description, is_active)
   SELECT '000000', 'admin', 'Default admin access code', TRUE
@@ -405,6 +534,9 @@ export async function runMigrations() {
     await client.query(CREATE_ENUMS);
     await client.query(CREATE_TABLES);
     await client.query(SCHEMA_UPDATES);
+    await client.query(PHASE2_FOUNDATION);
+    await client.query(SEED_SAT_TAXONOMY);
+    await client.query(BACKFILL_FOUNDATION);
     await client.query(SEED_DEFAULT_ADMIN_CODE);
     await client.query('COMMIT');
     console.log('Migrations completed successfully');

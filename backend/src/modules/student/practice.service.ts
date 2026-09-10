@@ -80,8 +80,14 @@ export async function confirmAnswer(
     .from(questions)
     .leftJoin(passages, eq(questions.passageId, passages.id))
     .innerJoin(questionSets, eq(questions.setId, questionSets.id))
-    // Scoped to this exam's set, so a question id from elsewhere is rejected.
-    .where(and(eq(questions.id, questionId), eq(questions.setId, exam.setId)))
+    // Scoped to this exam's answer sheet, so a question id from elsewhere is
+    // rejected. Stronger than scoping by set: the sheet is per-exam, and it is
+    // still correct for an exam drawn from several sets.
+    .innerJoin(
+      examAnswers,
+      and(eq(examAnswers.questionId, questions.id), eq(examAnswers.examId, examId)),
+    )
+    .where(eq(questions.id, questionId))
     .limit(1);
   if (!question) throw notFound('Question not found');
 

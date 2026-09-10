@@ -123,7 +123,7 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
   if (existingM2Id) {
     const [existing] = await db.select().from(exams).where(eq(exams.id, existingM2Id)).limit(1);
     if (existing) {
-      const questionRows = await repo.findQuestionsForSet(existing.setId);
+      const questionRows = await repo.findQuestionsForExam(existing.id);
       return { m2ExamId: existingM2Id, m2Questions: repo.withPublicImageUrls(questionRows) };
     }
   }
@@ -140,9 +140,9 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
 
   const setId =
     // Prefer a set at the chosen difficulty that the student has not just sat.
-    (await pickRandomSetId({ subject, difficulty, excludeSetId: module1.setId })) ??
+    (await pickRandomSetId({ subject, difficulty, excludeSetId: module1.setId ?? undefined })) ??
     (await pickRandomSetId({ subject, difficulty })) ??
-    (await pickRandomSetId({ subject, excludeSetId: module1.setId }));
+    (await pickRandomSetId({ subject, excludeSetId: module1.setId ?? undefined }));
 
   if (!setId) {
     throw badRequest(`No ${subject} Module 2 question set available`);

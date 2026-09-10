@@ -18,7 +18,8 @@ export interface NarrativeExam {
   score: number | null;
   totalQuestions: number;
   timeSpentSeconds: number | null;
-  setId: string;
+  /** Null for an exam assembled across sets, such as topic practice. */
+  setId: string | null;
 }
 
 /** Narratives are optional: with no model configured, none are ever created. */
@@ -83,6 +84,10 @@ async function loadSubSkillBreakdown(examId: string) {
 async function resolveSectionLabel(exam: NarrativeExam): Promise<string> {
   if (exam.type === 'mock_english') return 'English (Reading & Writing)';
   if (exam.type === 'mock_math') return 'Math';
+
+  // An exam drawn from across sets has no single subject to look up; the
+  // generic label is correct for it.
+  if (!exam.setId) return 'Practice';
 
   const [set] = await db
     .select({ subject: questionSets.subject })

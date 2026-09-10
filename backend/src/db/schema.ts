@@ -9,6 +9,7 @@ import {
   pgEnum,
   jsonb,
   numeric,
+  date,
   unique,
 } from 'drizzle-orm/pg-core';
 
@@ -21,6 +22,7 @@ export const answerEnum = pgEnum('answer_choice', ['a', 'b', 'c', 'd']);
 export const questionTypeEnum = pgEnum('question_type', ['multiple_choice', 'student_produced_response']);
 export const subSkillEnum = pgEnum('sub_skill', ['grammar', 'inference', 'command_of_evidence', 'vocab_in_context', 'transitions']);
 export const subSkillSourceEnum = pgEnum('sub_skill_source', ['ai_suggested', 'human_confirmed']);
+export const questionDifficultyEnum = pgEnum('question_difficulty', ['easy', 'medium', 'hard']);
 export const feedbackTypeEnum = pgEnum('feedback_type', ['reasoning_checkpoint', 'grammar_diagnosis', 'trap_explainer', 'command_of_evidence', 'transitions_coach', 'vocab_drill']);
 export const contentTypeEnum = pgEnum('content_type', ['vocab_quiz', 'skill_passage']);
 export const qualityFlagEnum = pgEnum('quality_flag', ['pending', 'approved', 'rejected']);
@@ -37,6 +39,12 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash').notNull(),
   role: roleEnum('role').notNull().default('student'),
   teacherId: uuid('teacher_id').references((): any => users.id, { onDelete: 'set null' }),
+  // Multi-tenancy insurance. Every user is backfilled to a single default
+  // organization so that adding a second tenant later is an additive migration
+  // rather than a rewrite. NOTHING scopes queries by this yet — do not start
+  // filtering on it until the whole data layer does, or isolation will be
+  // half-applied, which is worse than not having it.
+  organizationId: uuid('organization_id').references((): any => organizations.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -101,8 +109,18 @@ export const questions = pgTable('questions', {
   // For SPR: accepted answer text (decimal, fraction, or integer)
   correctAnswerText: text('correct_answer_text'),
   explanation: text('explanation'),
-  // SAT Reading & Writing sub-skill — drives Phase 2–6 AI features
+  // LEGACY. A five-value enum covering only Reading & Writing, so Math questions
+  // could never be tagged. Superseded by `skillCode` below, which points at the
+  // real SAT domain/skill tree. Still read by the AI feedback orchestrator and
+  // backfilled into `skillCode`; remove once every reader has migrated.
   subSkill: subSkillEnum('sub_skill'),
+  // The SAT domain or skill this question tests, e.g. 'algebra' or 'transitions'.
+  // See the `skills` table: a domain is a row with no parent, a skill is a child
+  // of one. Tagging at domain level is enough for topic practice and analytics.
+  skillCode: text('skill_code').references((): any => skills.code, { onDelete: 'set null' }),
+  // Per-question difficulty. `question_sets.difficulty` is a property of the whole
+  // set and drives adaptive module selection; this one drives topic practice.
+  difficulty: questionDifficultyEnum('difficulty'),
   // Tracks origin of subSkill tag: null = teacher set before tracking existed, 'ai_suggested' = batch classifier, 'human_confirmed' = teacher confirmed/overrode
   subSkillSource: subSkillSourceEnum('sub_skill_source'),
   imageUrl: text('image_url'),
@@ -114,10 +132,18 @@ export const questions = pgTable('questions', {
 export const exams = pgTable('exams', {
   id: uuid('id').primaryKey().defaultRandom(),
   studentId: uuid('student_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  setId: uuid('set_id').notNull().references(() => questionSets.id, { onDelete: 'cascade' }),
+  // Nullable: an exam assembled from a single set records it here, but topic
+  // practice draws questions from across many sets and belongs to none. The
+  // authoritative list of questions in an exam is its `exam_answers` rows, not
+  // this column — see `findQuestionsForExam`.
+  setId: uuid('set_id').references(() => questionSets.id, { onDelete: 'cascade' }),
   type: examTypeEnum('type').notNull(),
   status: examStatusEnum('status').notNull().default('in_progress'),
   score: integer('score'),
+  // Section score on the SAT 200-800 scale, written at submit time by
+  // modules/scoring. Null for an exam graded before scaled scoring existed, and
+  // for practice sets too short to scale meaningfully.
+  scaledScore: integer('scaled_score'),
   totalQuestions: integer('total_questions').notNull().default(0),
   timeSpentSeconds: integer('time_spent_seconds'),
   startedAt: timestamp('started_at').notNull().defaultNow(),
@@ -129,6 +155,8 @@ export const examAnswers = pgTable('exam_answers', {
   id: uuid('id').primaryKey().defaultRandom(),
   examId: uuid('exam_id').notNull().references(() => exams.id, { onDelete: 'cascade' }),
   questionId: uuid('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
+  /** Presentation order within this exam. Set from the answer sheet at creation. */
+  orderIndex: integer('order_index').notNull().default(0),
   selectedAnswer: answerEnum('selected_answer'),
   selectedAnswerText: text('selected_answer_text'),
   isCorrect: boolean('is_correct'),
@@ -143,6 +171,12 @@ export const mockTests = pgTable('mock_tests', {
   englishM2ExamId: uuid('english_m2_exam_id').references(() => exams.id, { onDelete: 'set null' }),
   mathM2ExamId: uuid('math_m2_exam_id').references(() => exams.id, { onDelete: 'set null' }),
   status: mockStatusEnum('status').notNull().default('in_progress'),
+  // Composite scores, written when the final module is submitted. `totalScore`
+  // is the 400-1600 headline number; the two section scores are 200-800 each and
+  // sum to it. Null until the mock completes.
+  rwScore: integer('rw_score'),
+  mathScore: integer('math_score'),
+  totalScore: integer('total_score'),
   startedAt: timestamp('started_at').notNull().defaultNow(),
   completedAt: timestamp('completed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -363,3 +397,102 @@ export const passwordResetTokens = pgTable('password_reset_tokens', {
   usedAt: timestamp('used_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Organizations — multi-tenancy insurance, not multi-tenancy.
+//
+// The platform serves one consultancy. Retrofitting a tenant boundary across
+// every table and query later is a rewrite; carrying a nullable reference from
+// now on makes it an additive migration instead. One default row exists and
+// every user points at it. No query filters by organization yet, deliberately.
+// ─────────────────────────────────────────────────────────────────────────────
+export const organizations = pgTable('organizations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  slug: varchar('slug', { length: 100 }).notNull().unique(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The SAT domain/skill tree.
+//
+// Two levels, in one self-referencing table: a *domain* is a row with no parent
+// (the eight official ones, four per section), a *skill* is a child of a domain.
+// Questions tag against either level, so domain-level tagging is enough to make
+// topic practice and weakness analytics work while finer skills get added.
+//
+// This replaces the old `sub_skill` enum, which had five values and covered only
+// Reading & Writing — Math questions could not be tagged at all. A reference
+// table rather than a wider enum because `migrate.ts` runs on every boot and
+// `ALTER TYPE ... ADD VALUE` cannot be used in the same transaction that then
+// references the new value.
+// ─────────────────────────────────────────────────────────────────────────────
+export const skills = pgTable('skills', {
+  /** Stable identifier used by questions, e.g. 'algebra', 'transitions'. */
+  code: varchar('code', { length: 64 }).primaryKey(),
+  label: text('label').notNull(),
+  subject: subjectEnum('subject').notNull(),
+  /** Null for a domain; the owning domain's code for a skill. */
+  parentCode: varchar('parent_code', { length: 64 }),
+  sortOrder: integer('sort_order').notNull().default(0),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Student profile — the goal a student is working towards.
+//
+// Separate from `users` because it is student-only and expected to grow (study
+// intensity, preferred pace). Until this existed the dashboard compared every
+// student against a hardcoded target of 1500.
+// ─────────────────────────────────────────────────────────────────────────────
+export const studentProfiles = pgTable('student_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  studentId: uuid('student_id')
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /** Target total on the 400-1600 scale. */
+  targetScore: integer('target_score'),
+  /** The SAT sitting the student is preparing for. */
+  testDate: date('test_date'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mistake bank — every question a student has got wrong, once each.
+//
+// One row per (student, question), not per attempt: missing the same question
+// three times bumps `missCount` rather than creating three entries, so the bank
+// stays a worklist instead of a log. `resolvedAt` is stamped when the student
+// later answers it correctly, which is what lets the bank drain.
+//
+// Modelled on `student_vocab`, which already does spaced repetition over words;
+// this generalises the same idea to every question type.
+// ─────────────────────────────────────────────────────────────────────────────
+export const mistakes = pgTable(
+  'mistakes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    questionId: uuid('question_id')
+      .notNull()
+      .references(() => questions.id, { onDelete: 'cascade' }),
+    /** The attempt that most recently got it wrong; kept for provenance. */
+    examAnswerId: uuid('exam_answer_id').references(() => examAnswers.id, { onDelete: 'set null' }),
+    missCount: integer('miss_count').notNull().default(1),
+    firstMissedAt: timestamp('first_missed_at').notNull().defaultNow(),
+    lastMissedAt: timestamp('last_missed_at').notNull().defaultNow(),
+    /** Set when the student later answers this question correctly. */
+    resolvedAt: timestamp('resolved_at'),
+  },
+  (table) => ({
+    studentQuestionUnique: unique().on(table.studentId, table.questionId),
+  }),
+);
+
+export type Organization = typeof organizations.$inferSelect;
+export type Skill = typeof skills.$inferSelect;
+export type StudentProfile = typeof studentProfiles.$inferSelect;
+export type Mistake = typeof mistakes.$inferSelect;

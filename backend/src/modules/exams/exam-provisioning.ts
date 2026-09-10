@@ -30,7 +30,8 @@ export async function findQuestionIdsForSet(setId: string): Promise<string[]> {
 
 export async function createExamWithAnswerSheet(input: {
   studentId: string;
-  setId: string;
+  /** Null for an exam assembled across sets, such as topic practice. */
+  setId: string | null;
   type: ExamType;
   questionIds: string[];
 }) {
@@ -48,7 +49,13 @@ export async function createExamWithAnswerSheet(input: {
     if (input.questionIds.length > 0) {
       await tx
         .insert(examAnswers)
-        .values(input.questionIds.map((questionId) => ({ examId: exam.id, questionId })));
+        .values(
+          input.questionIds.map((questionId, index) => ({
+            examId: exam.id,
+            questionId,
+            orderIndex: index,
+          })),
+        );
     }
 
     return exam;

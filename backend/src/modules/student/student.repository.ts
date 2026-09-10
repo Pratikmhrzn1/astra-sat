@@ -37,6 +37,24 @@ export function withPublicImageUrls<T extends { imageUrl: string | null }>(rows:
 }
 
 /** Questions of one set, in presentation order, with passage text joined in. */
+/**
+ * The questions in an exam, in presentation order, read from its answer sheet.
+ *
+ * Prefer this over `findQuestionsForSet`: the answer sheet is materialised when
+ * the exam is created and is the authoritative record of what the student was
+ * asked, so it stays correct for an exam drawn from several sets (topic
+ * practice) and is unaffected by later edits to a set.
+ */
+export async function findQuestionsForExam(examId: string) {
+  return db
+    .select(studentQuestionColumns)
+    .from(examAnswers)
+    .innerJoin(questions, eq(examAnswers.questionId, questions.id))
+    .leftJoin(passages, eq(questions.passageId, passages.id))
+    .where(eq(examAnswers.examId, examId))
+    .orderBy(examAnswers.orderIndex);
+}
+
 export async function findQuestionsForSet(setId: string) {
   return db
     .select(studentQuestionColumns)

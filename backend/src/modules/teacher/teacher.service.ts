@@ -106,17 +106,20 @@ export async function getStudentExamResults(teacherId: string, studentId: string
         selectedAnswer: examAnswers.selectedAnswer,
         selectedAnswerText: examAnswers.selectedAnswerText,
         isCorrect: examAnswers.isCorrect,
-        orderIndex: questions.orderIndex,
+        orderIndex: examAnswers.orderIndex,
       })
       .from(examAnswers)
       .innerJoin(questions, eq(examAnswers.questionId, questions.id))
       .where(eq(examAnswers.examId, exam.id))
-      .orderBy(questions.orderIndex),
-    db
-      .select({ title: questionSets.title, subject: questionSets.subject })
-      .from(questionSets)
-      .where(eq(questionSets.id, exam.setId))
-      .limit(1),
+      .orderBy(examAnswers.orderIndex),
+    // An exam assembled across sets has no owning set to describe.
+    exam.setId
+      ? db
+          .select({ title: questionSets.title, subject: questionSets.subject })
+          .from(questionSets)
+          .where(eq(questionSets.id, exam.setId))
+          .limit(1)
+      : Promise.resolve([]),
   ]);
 
   return { exam, set: set[0] ?? null, student, results };
