@@ -27,7 +27,7 @@ the design decisions further down:
    If the process restarts mid-flight, that work is simply lost (a `mock_narratives` row stuck
    at `pending` is the visible symptom).
 2. **Rate limiting and the refresh grace window are in-memory `Map`s.** `aiRateMap` in
-   `routes/student.ts:33`, the login-lockout map in `routes/auth.ts`, and `recentlyRotated`
+   `modules/student/student.routes.ts`, the login-lockout map in `modules/auth/auth.service.ts`, and `recentlyRotated`
    in the refresh path all live in process memory. They reset on restart and they are
    **wrong under horizontal scaling** — two instances would each grant a full AI budget.
    This is a deliberate single-instance tradeoff, not an oversight to "fix" by adding a
@@ -67,7 +67,7 @@ Refresh is *rotating*: each use deletes the old hash and inserts a new one. Rota
 makes stolen-token reuse detectable, and it is also what makes concurrency hard, because a
 browser with four tabs will fire four refreshes with the same cookie. Both sides defend:
 
-**Server** (`routes/auth.ts` `POST /refresh`) verifies the JWT signature first (cheap
+**Server** (`modules/auth/auth.routes.ts` `POST /refresh`) verifies the JWT signature first (cheap
 rejection), then runs the swap inside `db.transaction`: `DELETE … RETURNING`, and if zero
 rows came back, another request already rotated this token, so this one lost the race and
 returns `null` from the transaction. The winner writes its result into a 30-second in-memory
@@ -179,7 +179,7 @@ router state has no `mockSection`. Don't extend it.
 
 ---
 
-## 6. Live exams — and a real gap in them
+## 6. Live exams
 
 Teacher creates a session with a 6-character join code; students open the public
 `/live/:joinCode` lobby and **poll** for status. There are no websockets anywhere in this
@@ -190,22 +190,22 @@ inserts an English and a Math exam for each, then flips the session to `active` 
 `startedAt` (the anchor the client's timer uses). Results are gated: a teacher writes
 per-question and global feedback, then explicitly releases, which writes a `notifications` row.
 
-**The gap:** that start handler inserts `exams` rows with neither `exam_answers` rows nor a
-`totalQuestions` value (`routes/liveExam.ts`, the start loop — grep confirms the file never
-references either). Because the student player submits through the ordinary
-`/student/exams/:id/answers` and `/submit` routes, and those routes only *update* pre-existing
-answer rows, a live-exam attempt has nothing to save into and nothing to grade: submit sees
-zero rows, stores `score = 0`, and computes `score / totalQuestions` against a default of `0`.
-Live exams therefore work as a proctored session with teacher-written feedback, but their
-automatic scoring cannot be correct. Fix it in the start handler by mirroring what
-`POST /student/exams` does — insert the answer rows and set `totalQuestions` — rather than by
-special-casing the student submit path.
+**A scoring bug used to live here, and is now fixed.** The start handler previously inserted
+`exams` rows with neither `exam_answers` rows nor a `totalQuestions` value, so a live attempt had
+nothing to save into and nothing to grade — submit saw zero rows and stored `score = 0` out of a
+`totalQuestions` default of `0`.
+
+Both the practice/mock path and live exams now provision through one helper,
+`modules/exams/exam-provisioning.ts` → `createExamWithAnswerSheet()`, which inserts the exam row,
+its blank answer sheet and `totalQuestions` **in a single transaction**. That is the invariant from
+§4 made unbreakable: no caller can half-apply it by forgetting a step. If you add another way to
+start an exam, provision it through that helper too.
 
 ---
 
 ## 7. AI: one client, six feedback types, cache-first, never on the critical path
 
-`services/aiClient.ts` is the only module that talks to OpenRouter (OpenAI-compatible SDK,
+`modules/ai/ai.client.ts` is the only module that talks to OpenRouter (OpenAI-compatible SDK,
 lazily constructed so a missing key fails per-request rather than at boot). Models are chosen
 by **env var name**, not value — callers pass `'AI_MODEL_FEEDBACK'` / `'AI_MODEL_NARRATIVE'`
 / `'AI_MODEL_CLASSIFY'` and the client reads it. Those vars double as feature flags: unset
