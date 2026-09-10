@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import type { CreateEmailOptions } from 'resend';
 import { env } from '../config/env';
 
 /**
@@ -16,10 +17,21 @@ function getResend(): Resend {
   return new Resend(env.email.apiKey);
 }
 
+/**
+ * The Resend SDK *resolves* with `{ data: null, error }` on an API rejection
+ * rather than throwing, so a caller's `.catch()` never runs and a misconfigured
+ * sender (unverified domain, revoked key) fails completely silently. Turn that
+ * back into a rejection so the fire-and-forget callers at least log it.
+ */
+async function send(payload: CreateEmailOptions): Promise<void> {
+  const { error } = await getResend().emails.send(payload);
+  if (error) throw new Error(`Resend rejected the message: ${error.name} — ${error.message}`);
+}
+
 export async function sendWelcomeEmail(to: string, name: string, password: string): Promise<void> {
   if (!env.email.enabled) return;
 
-  await getResend().emails.send({
+  await send({
     from: `SAT Prep <${FROM}>`,
     to,
     subject: 'Welcome to SAT Prep — your account details',
@@ -90,7 +102,7 @@ export async function sendPasswordResetEmail(to: string, name: string, token: st
 
   const resetUrl = `${BASE_URL}/reset-password?token=${token}`;
 
-  await getResend().emails.send({
+  await send({
     from: `SAT Prep <${FROM}>`,
     to,
     subject: 'Reset your SAT Prep password',
