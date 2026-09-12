@@ -22,6 +22,10 @@ export type CreateAccessCodeInput = z.infer<typeof createAccessCodeSchema>;
 export const restoreSchema = z.object({
   version: z.number(),
   data: z.object({
+    // Optional: added to backups after the Phase 2 migration, so a file exported
+    // before it has no such key and must still restore. Users then land with a
+    // null organization_id, which is what that column already tolerates.
+    organizations: z.array(z.any()).optional(),
     users: z.array(z.any()),
     accessCodes: z.array(z.any()),
     questionSets: z.array(z.any()),
