@@ -71,9 +71,9 @@ export default function StudentDetail() {
             const pct = exam.score !== null ? Math.round((exam.score / exam.totalQuestions) * 100) : null;
             return (
               <div key={exam.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: i < completedExams.length - 1 ? '1px solid #F2F0EC' : 'none' }}>
-                <SubjectBadge subject={exam.subject as 'english' | 'math'} />
+                {exam.subject && <SubjectBadge subject={exam.subject as 'english' | 'math'} />}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0B0B0E' }}>{exam.setTitle}</div>
+                  <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0B0B0E' }}>{exam.setTitle ?? exam.label ?? 'Practice'}</div>
                   <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)' }}>{formatDate(exam.startedAt)}</div>
                 </div>
                 {pct !== null && (

@@ -158,18 +158,15 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
     questionIds: questionRows.map((q) => q.id),
   });
 
-  if (isEnglish) {
-    await db
-      .update(mockTests)
-      .set({ englishM2ExamId: module2.id })
-      .where(eq(mockTests.id, mockTestId));
-  } else {
-    // Math Module 2 is the last section, so issuing it completes the mock.
-    await db
-      .update(mockTests)
-      .set({ mathM2ExamId: module2.id, status: 'completed', completedAt: new Date() })
-      .where(eq(mockTests.id, mockTestId));
-  }
+  // Issuing a module only records which exam it is. Completion belongs to the
+  // submit path: marking the mock `completed` here meant it was complete the
+  // instant Math Module 2 was *handed out*, so a student who abandoned it still
+  // counted as having sat the mock — and there was no point in the lifecycle
+  // left at which a composite score could be computed.
+  await db
+    .update(mockTests)
+    .set(isEnglish ? { englishM2ExamId: module2.id } : { mathM2ExamId: module2.id })
+    .where(eq(mockTests.id, mockTestId));
 
   return {
     m2ExamId: module2.id,

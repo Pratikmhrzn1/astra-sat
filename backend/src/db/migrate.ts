@@ -521,6 +521,50 @@ const BACKFILL_FOUNDATION = `
   WHERE q.id = ea.question_id AND ea.order_index = 0 AND q.order_index <> 0;
 `;
 
+/**
+ * M0 foundation: the columns the rest of this wave writes to.
+ *
+ * Gathered into one block so that feature work never has to touch this file
+ * again — the milestones that follow (scaled scoring, topic practice, the
+ * mistake bank, the server timer, question versioning, the audit log) all write
+ * to columns created here. Nothing reads them yet; that is deliberate.
+ */
+const M0_FOUNDATION = `
+  -- Display name for an exam with no owning set: "Topic: Algebra",
+  -- "Mistake review". Set-backed exams leave it null and show the set title.
+  ALTER TABLE exams ADD COLUMN IF NOT EXISTS label TEXT;
+
+  -- Server-authoritative timing. The limit is fixed at creation; the deadline is
+  -- stamped on first open, because a mock's Math Module 1 is created when the
+  -- mock starts but may be sat much later.
+  ALTER TABLE exams ADD COLUMN IF NOT EXISTS time_limit_seconds INTEGER;
+  ALTER TABLE exams ADD COLUMN IF NOT EXISTS deadline_at TIMESTAMP;
+
+  -- Copy-on-write question versioning. Editing a question that a completed exam
+  -- references retires it and inserts a replacement, so past attempts keep
+  -- meaning what they meant. Assemblers filter retired_at IS NULL.
+  ALTER TABLE questions ADD COLUMN IF NOT EXISTS retired_at TIMESTAMP;
+  ALTER TABLE questions ADD COLUMN IF NOT EXISTS supersedes_id UUID REFERENCES questions(id) ON DELETE SET NULL;
+
+  -- Soft delete for sets with attempt history: deleting one cascades through
+  -- exams -> exam_answers -> ai_feedback and destroys graded results.
+  ALTER TABLE question_sets ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP;
+
+  -- Who did the irreversible thing. actor_id is SET NULL rather than CASCADE:
+  -- deleting a user must not delete the record of what they did.
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    action TEXT NOT NULL,
+    target_type TEXT,
+    target_id UUID,
+    payload JSONB,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  CREATE INDEX IF NOT EXISTS audit_log_created_at_idx ON audit_log (created_at DESC);
+`;
+
 const SEED_DEFAULT_ADMIN_CODE = `
   INSERT INTO access_codes (code, role, description, is_active)
   SELECT '000000', 'admin', 'Default admin access code', TRUE
@@ -535,6 +579,7 @@ export async function runMigrations() {
     await client.query(CREATE_TABLES);
     await client.query(SCHEMA_UPDATES);
     await client.query(PHASE2_FOUNDATION);
+    await client.query(M0_FOUNDATION);
     await client.query(SEED_SAT_TAXONOMY);
     await client.query(BACKFILL_FOUNDATION);
     await client.query(SEED_DEFAULT_ADMIN_CODE);

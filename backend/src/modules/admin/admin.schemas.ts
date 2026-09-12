@@ -50,6 +50,7 @@ export const restoreSchema = z.object({
     liveExamParticipants: backupRows.optional(),
     liveExamQuestionFeedback: backupRows.optional(),
     platformFeedback: backupRows.optional(),
+    auditLog: backupRows.optional(),
   }),
 });
 export type RestoreInput = z.infer<typeof restoreSchema>;

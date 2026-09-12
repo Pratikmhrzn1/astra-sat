@@ -12,6 +12,7 @@ import {
 } from '../../db/schema';
 import { forbidden, notFound } from '../../http/errors';
 import { normalizeFileUrl } from '../../lib/url';
+import { publicUserColumns } from '../auth/auth.repository';
 import type {
   CreatePassageInput,
   CreateQuestionInput,
@@ -41,10 +42,18 @@ import type {
 
 // ── Roster ────────────────────────────────────────────────────────────────────
 
-/** Fails unless this student is assigned to this teacher. */
+/**
+ * Fails unless this student is assigned to this teacher.
+ *
+ * The projection is not decoration. `getStudentExamResults` returns this row to
+ * the teacher's browser verbatim, so the bare `select()` this used to be shipped
+ * the student's `password_hash` to the client on every results page.
+ * `publicUserColumns` is the shared definition of what is safe to put on the
+ * wire — widen that, never this call site.
+ */
 async function assertOwnsStudent(teacherId: string, studentId: string) {
   const [student] = await db
-    .select()
+    .select(publicUserColumns)
     .from(users)
     .where(and(eq(users.id, studentId), eq(users.teacherId, teacherId)))
     .limit(1);
@@ -59,6 +68,16 @@ export async function listStudents(teacherId: string) {
     .where(and(eq(users.teacherId, teacherId), eq(users.role, 'student')));
 }
 
+/**
+ * Every exam this student has sat, newest first.
+ *
+ * The join is a `leftJoin` because an exam need not belong to a set: topic
+ * practice and mistake reviews are assembled across many sets and own none. An
+ * `innerJoin` here silently dropped those rows, so a teacher would have seen an
+ * incomplete history the moment set-less exams existed —
+ * `getStudentExamResults` below already tolerated a null `setId`, so the two
+ * disagreed. Such an exam carries its own `label` instead of a set title.
+ */
 export async function listStudentExams(teacherId: string, studentId: string) {
   await assertOwnsStudent(teacherId, studentId);
 
@@ -72,10 +91,11 @@ export async function listStudentExams(teacherId: string, studentId: string) {
       startedAt: exams.startedAt,
       completedAt: exams.completedAt,
       setTitle: questionSets.title,
+      label: exams.label,
       subject: questionSets.subject,
     })
     .from(exams)
-    .innerJoin(questionSets, eq(exams.setId, questionSets.id))
+    .leftJoin(questionSets, eq(exams.setId, questionSets.id))
     .where(eq(exams.studentId, studentId))
     .orderBy(desc(exams.startedAt));
 }

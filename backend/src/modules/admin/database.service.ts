@@ -4,6 +4,7 @@ import { db, pool } from '../../db';
 import * as schema from '../../db/schema';
 import {
   accessCodes,
+  auditLog,
   examAnswers,
   exams,
   feedback,
@@ -93,6 +94,11 @@ const BACKUP_TABLES = [
     sqlName: 'live_exam_question_feedback',
   },
   { key: 'platformFeedback', table: platformFeedback, sqlName: 'platform_feedback' },
+  // Accountability for irreversible admin actions. Backed up rather than
+  // excluded because an audit trail that disappears on restore cannot serve its
+  // purpose — and the restore is itself one of the actions it records. Depends
+  // only on `users`, so it can sit last.
+  { key: 'auditLog', table: auditLog, sqlName: 'audit_log' },
 ] as const;
 
 /**

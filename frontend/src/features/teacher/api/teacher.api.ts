@@ -67,7 +67,14 @@ export async function getStudents(): Promise<Student[]> {
   return data;
 }
 
-export async function getStudentExams(studentId: string): Promise<(Exam & { setTitle: string; subject: string })[]> {
+/**
+ * `setTitle` and `subject` are null for an exam that belongs to no set — topic
+ * practice and mistake reviews are assembled across many sets. Those carry a
+ * `label` of their own instead.
+ */
+export async function getStudentExams(
+  studentId: string,
+): Promise<(Exam & { setTitle: string | null; label: string | null; subject: string | null })[]> {
   const { data } = await apiClient.get(`/teacher/students/${studentId}/exams`);
   return data;
 }

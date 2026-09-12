@@ -79,6 +79,11 @@ export const questionSets = pgTable('question_sets', {
   isDraft: boolean('is_draft').notNull().default(false),
   isLiveExam: boolean('is_live_exam').notNull().default(false),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  // Soft delete. Deleting a set cascades through exams -> exam_answers ->
+  // ai_feedback, so one teacher DELETE can wipe graded attempt history. A set
+  // with attempts against it is archived instead; catalogues and mock set
+  // selection must exclude archived sets.
+  archivedAt: timestamp('archived_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -126,6 +131,13 @@ export const questions = pgTable('questions', {
   imageUrl: text('image_url'),
   generated: boolean('generated').notNull().default(false),
   orderIndex: integer('order_index').notNull().default(0),
+  // Copy-on-write versioning. Editing a question that a completed exam already
+  // references inserts a replacement row and retires this one, so a past
+  // attempt's results page keeps meaning what it meant when it was sat.
+  // Assemblers must filter `retired_at IS NULL`; `exam_answers` deliberately
+  // keeps pointing at the retired row.
+  retiredAt: timestamp('retired_at'),
+  supersedesId: uuid('supersedes_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -137,6 +149,10 @@ export const exams = pgTable('exams', {
   // authoritative list of questions in an exam is its `exam_answers` rows, not
   // this column — see `findQuestionsForExam`.
   setId: uuid('set_id').references(() => questionSets.id, { onDelete: 'cascade' }),
+  // Display name for an exam that has no owning set to borrow a title from —
+  // "Topic: Algebra", "Mistake review". Null for set-backed exams, which show
+  // `question_sets.title` instead.
+  label: text('label'),
   type: examTypeEnum('type').notNull(),
   status: examStatusEnum('status').notNull().default('in_progress'),
   score: integer('score'),
@@ -146,6 +162,12 @@ export const exams = pgTable('exams', {
   scaledScore: integer('scaled_score'),
   totalQuestions: integer('total_questions').notNull().default(0),
   timeSpentSeconds: integer('time_spent_seconds'),
+  // Server-authoritative timing. `timeLimitSeconds` is fixed when the exam is
+  // created (null means untimed, e.g. self-study practice); `deadlineAt` is
+  // stamped on first open rather than at creation, because a mock's Math Module 1
+  // is created when the mock starts but may be sat much later.
+  timeLimitSeconds: integer('time_limit_seconds'),
+  deadlineAt: timestamp('deadline_at'),
   startedAt: timestamp('started_at').notNull().defaultNow(),
   completedAt: timestamp('completed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -433,7 +455,9 @@ export const skills = pgTable('skills', {
   label: text('label').notNull(),
   subject: subjectEnum('subject').notNull(),
   /** Null for a domain; the owning domain's code for a skill. */
-  parentCode: varchar('parent_code', { length: 64 }),
+  parentCode: varchar('parent_code', { length: 64 }).references((): any => skills.code, {
+    onDelete: 'set null',
+  }),
   sortOrder: integer('sort_order').notNull().default(0),
 });
 
@@ -492,7 +516,31 @@ export const mistakes = pgTable(
   }),
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Audit log — who did the irreversible thing.
+//
+// This deployment hands admins a production console: role changes, access-code
+// changes, a full database restore and an unrestricted SQL runner. None of that
+// left a trace, so there was no way to answer "who ran this, and when".
+//
+// `actorId` is ON DELETE SET NULL rather than CASCADE on purpose: deleting a
+// user must not delete the record of what they did. The payload is jsonb so each
+// action can record whatever context it has without a migration per action.
+// ─────────────────────────────────────────────────────────────────────────────
+export const auditLog = pgTable('audit_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+  /** Verb, e.g. 'user.role_changed', 'db.restore', 'db.sql'. */
+  action: text('action').notNull(),
+  /** What it acted on, e.g. 'user', 'question_set'. Null for global actions. */
+  targetType: text('target_type'),
+  targetId: uuid('target_id'),
+  payload: jsonb('payload'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
 export type Organization = typeof organizations.$inferSelect;
 export type Skill = typeof skills.$inferSelect;
 export type StudentProfile = typeof studentProfiles.$inferSelect;
 export type Mistake = typeof mistakes.$inferSelect;
+export type AuditLogEntry = typeof auditLog.$inferSelect;

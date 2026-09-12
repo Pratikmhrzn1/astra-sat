@@ -69,6 +69,15 @@ a single transaction. Everything downstream assumes all three exist: saving an
 answer only UPDATEs an existing row and grading joins over them, so an exam
 created any other way silently accepts no answers and scores zero.
 
+**There are two difficulty scales, on purpose.** `question_sets.difficulty` is
+`low | medium | hard` (TEXT + CHECK) and describes a whole module; it is what the
+adaptive mock routes on, so `pathFromModuleDifficulty` in `modules/scoring` reads
+it to decide which score band a student can reach. `questions.difficulty` is
+`easy | medium | hard` (a pgEnum) and describes one question; it is what topic
+practice filters on. They differ in both their values (`low` vs `easy`) and their
+type, which looks like a bug and is not. Never convert one into the other, and
+never widen one to match the other — a set is not hard because its questions are.
+
 **Students never receive answers.** `modules/student/student.repository.ts`
 selects question columns explicitly, so `correctAnswer`, `correctAnswerText` and
 `explanation` are absent by construction rather than deleted afterwards. Add
@@ -88,7 +97,13 @@ these to Postgres or Redis first.
 
 **`modules/admin/database.service.ts` is a production console.** Backup, restore
 (truncates and replaces), arbitrary SQL and the migration runner, gated on the
-admin role alone. Treat edits there accordingly.
+admin role alone. Treat edits there accordingly. **Every new table must be listed
+in either `BACKUP_TABLES` (in foreign-key order) or `EXCLUDED_TABLES` with a
+reason** — a load-time assertion refuses to boot otherwise. That check exists
+because the backup set was previously hand-maintained with no cross-check, so
+tables added later were silently never exported, and reading passages, the
+resource library and all vocabulary were missing from every backup until it was
+noticed during a restore.
 
 ## Environment
 
