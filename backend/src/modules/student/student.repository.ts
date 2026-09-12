@@ -130,10 +130,31 @@ export async function listExamsForStudent(studentId: string) {
       startedAt: exams.startedAt,
       completedAt: exams.completedAt,
       setTitle: questionSets.title,
-      subject: questionSets.subject,
+      /** Set-less exams carry their own name: "Topic: Algebra", "Mistake review". */
+      label: exams.label,
+      // Derived rather than left null for a set-less exam, because a null subject
+      // is not merely missing here — it is wrong in every consumer. The History
+      // page filters both trend lines on it, so a Math topic-practice exam would
+      // silently drop out of the Math trend, and the dashboard's `subject ===
+      // 'math'` checks would label it "R&W". The answer sheet is the
+      // authoritative question list for any exam, so the first question's set
+      // gives the subject; a topic exam is single-subject by construction.
+      subject: sql<'english' | 'math'>`COALESCE(
+        ${questionSets.subject},
+        (SELECT qs.subject
+           FROM ${examAnswers} ea
+           JOIN ${questions} q ON q.id = ea.question_id
+           JOIN ${questionSets} qs ON qs.id = q.set_id
+          WHERE ea.exam_id = ${exams.id}
+          ORDER BY ea.order_index
+          LIMIT 1)
+      )`,
     })
     .from(exams)
-    .innerJoin(questionSets, eq(exams.setId, questionSets.id))
+    // leftJoin, not inner: an exam assembled across sets — topic practice, a
+    // mistake review — belongs to no set and would otherwise vanish from the
+    // student's own history entirely.
+    .leftJoin(questionSets, eq(exams.setId, questionSets.id))
     .where(eq(exams.studentId, studentId))
     .orderBy(desc(exams.startedAt));
 }

@@ -239,7 +239,7 @@ export default function Results() {
               >
                 <span style={{ width: 8, height: 8, borderRadius: 9999, background: dotColor, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.setTitle}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.setTitle ?? e.label ?? 'Practice'}</div>
                   <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.5)', marginTop: 2 }}>
                     {kindLabel} · {new Date(e.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </div>
@@ -279,7 +279,7 @@ export default function Results() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                   <span style={{ width: 8, height: 8, borderRadius: 9999, background: dotColor, flexShrink: 0 }} />
-                  <span style={{ fontSize: 14.5, fontWeight: 600 }}>{e.setTitle}</span>
+                  <span style={{ fontSize: 14.5, fontWeight: 600 }}>{e.setTitle ?? e.label ?? 'Practice'}</span>
                 </div>
                 <span style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.6)' }}>{new Date(e.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                 <span style={{ fontSize: 13, color: 'rgba(11,11,14,0.6)' }}>{kindLabel}</span>

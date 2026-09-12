@@ -58,8 +58,13 @@ export interface Exam {
 }
 
 export interface ExamWithSet extends Exam {
+  /** Null for an exam that belongs to no set; `label` names those instead. */
   setTitle: string | null;
-  subject: 'english' | 'math' | null;
+  /**
+   * Never null: for a set-less exam the server derives it from the exam's own
+   * questions, because every consumer here filters or labels on it.
+   */
+  subject: 'english' | 'math';
 }
 
 export interface MockTest {

@@ -204,7 +204,7 @@ export default function Dashboard() {
                     {iconChar}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.setTitle}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.setTitle ?? e.label ?? 'Practice'}</div>
                     <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)' }}>{e.subject === 'math' ? 'Math' : 'R&W'}</div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
