@@ -1,10 +1,10 @@
-import { desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../db';
 import { accessCodes, aiFeedback, exams, questionSets, questions, users } from '../../db/schema';
 import { badRequest, conflict, notFound } from '../../http/errors';
 import { hashPassword } from '../../lib/password';
 import { getTaggingCoverage } from '../skills/skills.service';
-import type { CreateAccessCodeInput, UpdateUserInput } from './admin.schemas';
+import type { AssignStudentsInput, CreateAccessCodeInput, UpdateUserInput } from './admin.schemas';
 
 /** Platform administration: people, registration codes, and AI spend. */
 
@@ -79,6 +79,48 @@ export async function updateUser(userId: string, input: UpdateUserInput) {
     });
 
   return updated;
+}
+
+/**
+ * Assigns many students to a teacher at once, or clears their assignment.
+ *
+ * `users.teacher_id` is what every teacher-scoped read filters on — the roster,
+ * per-student results, feedback — so a student with none is invisible to every
+ * teacher. Nothing sets it at signup, and setting it one student at a time is
+ * the only way it could be done before, which is how a whole cohort ends up
+ * unassigned and a teacher's dashboard ends up empty.
+ *
+ * Both sides are validated rather than trusted: every id must name a student,
+ * and the target must be a teacher. Silently assigning a class to a deleted user,
+ * or filing an admin under a teacher, would be invisible until someone noticed
+ * the roster was wrong.
+ */
+export async function assignStudentsToTeacher(input: AssignStudentsInput) {
+  if (input.teacherId) {
+    const [teacher] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.id, input.teacherId), eq(users.role, 'teacher')))
+      .limit(1);
+    if (!teacher) throw badRequest('That teacher does not exist');
+  }
+
+  const targets = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(inArray(users.id, input.studentIds), eq(users.role, 'student')));
+
+  if (targets.length !== input.studentIds.length) {
+    throw badRequest('Every selected user must be a student');
+  }
+
+  const updated = await db
+    .update(users)
+    .set({ teacherId: input.teacherId, updatedAt: new Date() })
+    .where(inArray(users.id, input.studentIds))
+    .returning({ id: users.id });
+
+  return { ok: true as const, assigned: updated.length };
 }
 
 /**

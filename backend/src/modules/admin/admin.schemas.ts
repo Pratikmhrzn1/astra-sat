@@ -16,6 +16,16 @@ export const createAccessCodeSchema = z.object({
 export type CreateAccessCodeInput = z.infer<typeof createAccessCodeSchema>;
 
 /**
+ * A bulk teacher assignment. `teacherId: null` clears it, which is how a student
+ * is moved out of a class without deleting anything.
+ */
+export const assignStudentsSchema = z.object({
+  studentIds: z.array(z.string().uuid()).min(1).max(500),
+  teacherId: z.string().uuid().nullable(),
+});
+export type AssignStudentsInput = z.infer<typeof assignStudentsSchema>;
+
+/**
  * A backup payload. Rows are `z.any()` on purpose: this validates the envelope
  * shape, and the database itself enforces the columns on insert.
  *

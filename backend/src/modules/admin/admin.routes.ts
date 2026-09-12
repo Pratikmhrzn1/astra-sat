@@ -8,12 +8,14 @@ import * as database from './database.service';
 import * as scoringBackfill from './scoring-backfill.service';
 import * as service from './admin.service';
 import {
+  assignStudentsSchema,
   createAccessCodeSchema,
   flagContentSchema,
   listContentQuerySchema,
   restoreSchema,
   runSqlSchema,
   updateUserSchema,
+  type AssignStudentsInput,
   type CreateAccessCodeInput,
   type FlagContentInput,
   type ListContentQuery,
@@ -41,6 +43,15 @@ adminRouter.get(
   '/users',
   asyncHandler(async (_req, res) => {
     res.json(await service.listUsers());
+  }),
+);
+
+/** Bulk roster assignment. Registered before /users/:userId so it is not eaten by it. */
+adminRouter.put(
+  '/users/assign-teacher',
+  validateBody(assignStudentsSchema),
+  asyncHandler(async (req, res) => {
+    res.json(await service.assignStudentsToTeacher(body<AssignStudentsInput>(req)));
   }),
 );
 

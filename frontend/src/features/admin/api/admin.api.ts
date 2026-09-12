@@ -58,6 +58,21 @@ export async function updateUser(
   return data;
 }
 
+/**
+ * Assigns many students to a teacher at once, or clears it with `teacherId: null`.
+ *
+ * A teacher only ever sees students whose `teacherId` is theirs, and nothing sets
+ * that at signup — so without this an admin has to edit every student one at a
+ * time, and a teacher's dashboard stays empty until they do.
+ */
+export async function assignStudentsToTeacher(payload: {
+  studentIds: string[];
+  teacherId: string | null;
+}): Promise<{ ok: boolean; assigned: number }> {
+  const { data } = await apiClient.put('/admin/users/assign-teacher', payload);
+  return data;
+}
+
 export async function deleteUser(userId: string): Promise<void> {
   await apiClient.delete(`/admin/users/${userId}`);
 }
