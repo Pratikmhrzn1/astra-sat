@@ -137,7 +137,12 @@ export async function createQuestionSet(payload: { title: string; subject: 'engl
   return data;
 }
 
-export async function updateQuestionSet(setId: string, payload: Partial<{ title: string; description: string; difficulty: 'low' | 'medium' | 'hard' | null }>): Promise<QuestionSet> {
+/**
+ * `isLiveExam` is editable here, not only at creation. Live sessions are offered
+ * only sets carrying that flag, so without a way to set it on an existing set a
+ * teacher has to re-author their whole paper to run one.
+ */
+export async function updateQuestionSet(setId: string, payload: Partial<{ title: string; description: string; difficulty: 'low' | 'medium' | 'hard' | null; isLiveExam: boolean }>): Promise<QuestionSet> {
   const { data } = await apiClient.put<QuestionSet>(`/teacher/question-sets/${setId}`, payload);
   return data;
 }

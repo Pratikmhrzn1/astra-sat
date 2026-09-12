@@ -298,7 +298,8 @@ export default function ContentManager() {
   });
 
   const updateSetMutation = useMutation({
-    mutationFn: (payload: { difficulty: 'low' | 'medium' | 'hard' | null }) => updateQuestionSet(activeSet!.id, payload),
+    mutationFn: (payload: { difficulty?: 'low' | 'medium' | 'hard' | null; isLiveExam?: boolean }) =>
+      updateQuestionSet(activeSet!.id, payload),
     onSuccess: (updated) => {
       setActiveSet(updated);
       queryClient.invalidateQueries({ queryKey: ['teacher', 'question-sets'] });
@@ -777,6 +778,23 @@ export default function ContentManager() {
             <option value="medium">Medium (M1)</option>
             <option value="hard">Hard (M2 hard)</option>
           </select>
+
+          {/* A live session can only be built from sets marked here, so this has
+              to be changeable on a set that already exists — otherwise running
+              one means re-authoring the whole paper. */}
+          <label
+            title="Make this set selectable when creating a live exam"
+            style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: activeSet.isLiveExam ? '#E2562B' : 'rgba(11,11,14,0.55)', cursor: updateSetMutation.isPending ? 'default' : 'pointer', border: '1px solid #E7E4DE', borderRadius: 8, padding: '4px 10px', background: activeSet.isLiveExam ? 'rgba(226,86,43,0.07)' : '#fff' }}
+          >
+            <input
+              type="checkbox"
+              checked={activeSet.isLiveExam}
+              disabled={updateSetMutation.isPending}
+              onChange={(e) => updateSetMutation.mutate({ isLiveExam: e.target.checked })}
+              style={{ width: 14, height: 14, cursor: 'inherit' }}
+            />
+            Live exam set
+          </label>
         </div>
       </div>
 

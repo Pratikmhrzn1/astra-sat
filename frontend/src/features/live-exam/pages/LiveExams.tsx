@@ -25,6 +25,13 @@ export default function LiveExams() {
   const englishSets = sets.filter((s) => s.subject === 'english');
   const mathSets = sets.filter((s) => s.subject === 'math');
 
+  // A session needs one of each, so either side being empty blocks creation.
+  const noSets = englishSets.length === 0 || mathSets.length === 0;
+  const missingSubjects = [
+    englishSets.length === 0 ? 'a Reading & Writing set' : null,
+    mathSets.length === 0 ? 'a Math set' : null,
+  ].filter(Boolean).join(' and ');
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!form.title || !form.englishSetId || !form.mathSetId) {
@@ -92,10 +99,22 @@ export default function LiveExams() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
                 />
               </div>
+              {noSets && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 leading-relaxed">
+                  <strong>No sets are marked for live exams yet.</strong> A session needs one
+                  Reading &amp; Writing set and one Math set, and only sets flagged as live-exam
+                  material can be used — so a class never sits a paper they could have practised.
+                  <br />
+                  Open <strong>Content Manager</strong>, pick a set, and tick{' '}
+                  <strong>Live exam set</strong> in its header. Existing sets can be converted;
+                  you do not have to author a new one.
+                  {missingSubjects && <><br />Still needed: <strong>{missingSubjects}</strong>.</>}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Reading & Writing Set</label>
                 {englishSets.length === 0 ? (
-                  <p className="text-xs text-gray-400">No live-exam English sets found. Create one in Content Manager.</p>
+                  <p className="text-xs text-gray-400">None marked yet.</p>
                 ) : (
                   <select
                     value={form.englishSetId}
@@ -104,7 +123,7 @@ export default function LiveExams() {
                   >
                     <option value="">Select a set…</option>
                     {englishSets.map((s) => (
-                      <option key={s.id} value={s.id}>{s.title}</option>
+                      <option key={s.id} value={s.id}>{s.title}{s.isDraft ? ' (draft)' : ''}</option>
                     ))}
                   </select>
                 )}
@@ -112,7 +131,7 @@ export default function LiveExams() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Math Set</label>
                 {mathSets.length === 0 ? (
-                  <p className="text-xs text-gray-400">No live-exam Math sets found. Create one in Content Manager.</p>
+                  <p className="text-xs text-gray-400">None marked yet.</p>
                 ) : (
                   <select
                     value={form.mathSetId}
@@ -121,7 +140,7 @@ export default function LiveExams() {
                   >
                     <option value="">Select a set…</option>
                     {mathSets.map((s) => (
-                      <option key={s.id} value={s.id}>{s.title}</option>
+                      <option key={s.id} value={s.id}>{s.title}{s.isDraft ? ' (draft)' : ''}</option>
                     ))}
                   </select>
                 )}
@@ -136,7 +155,7 @@ export default function LiveExams() {
                 </button>
                 <button
                   type="submit"
-                  disabled={creating}
+                  disabled={creating || noSets}
                   className="flex-1 bg-black text-white text-sm font-semibold py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50"
                 >
                   {creating ? 'Creating…' : 'Create Session'}
