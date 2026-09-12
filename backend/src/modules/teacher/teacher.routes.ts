@@ -40,6 +40,13 @@ teacherRouter.get(
 );
 
 teacherRouter.get(
+  '/students/:studentId',
+  asyncHandler(async (req, res) => {
+    res.json(await service.getStudentDetail(currentUserId(req), req.params.studentId));
+  }),
+);
+
+teacherRouter.get(
   '/students/:studentId/exams',
   asyncHandler(async (req, res) => {
     res.json(await service.listStudentExams(currentUserId(req), req.params.studentId));

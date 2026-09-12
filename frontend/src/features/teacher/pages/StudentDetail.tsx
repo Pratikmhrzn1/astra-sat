@@ -2,14 +2,11 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
-import { getStudents, getStudentExams, sendFeedback, getSentFeedback } from '@/features/teacher/api/teacher.api';
+import { getStudents, getStudentExams, getStudentDetail, sendFeedback, getSentFeedback } from '@/features/teacher/api/teacher.api';
 import { Button, Modal, Textarea, SubjectBadge, Badge, Spinner } from '@/shared/ui';
 import { formatDate } from '@/shared/lib/utils';
 import { getApiError } from '@/shared/api/client';
-
-function scoreColor(pct: number) {
-  return pct >= 80 ? '#1A6B3C' : pct >= 65 ? '#2E7D5A' : pct >= 50 ? '#B8893E' : '#C47A1B';
-}
+import { accuracyColor as scoreColor, daysUntil } from '@/shared/lib/score';
 
 const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)', overflow: 'hidden' };
 
@@ -26,6 +23,7 @@ export default function StudentDetail() {
 
   const { data: exams = [], isLoading } = useQuery({ queryKey: ['teacher', 'student-exams', studentId], queryFn: () => getStudentExams(studentId!), enabled: !!studentId });
   const { data: myFeedback = [] } = useQuery({ queryKey: ['teacher', 'feedback'], queryFn: getSentFeedback });
+  const { data: detail } = useQuery({ queryKey: ['teacher', 'student', studentId], queryFn: () => getStudentDetail(studentId!), enabled: !!studentId });
 
   const studentFeedback = myFeedback.filter((f) => f.studentEmail === student?.email || f.studentName === student?.name);
 
@@ -58,6 +56,35 @@ export default function StudentDetail() {
         <button onClick={() => { setShowFeedback(true); setFeedbackError(''); }}
           style={{ display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 18px', background: '#E2562B', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
         ><MessageSquare size={15} /> Send Feedback</button>
+      </div>
+
+      <div style={{ ...CARD, marginBottom: 20, padding: '16px 22px' }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#0B0B0E', margin: '0 0 10px' }}>Goal</h2>
+        {detail?.profile?.targetScore || detail?.profile?.testDate ? (
+          <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)' }}>Target score</div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{detail.profile.targetScore ?? '—'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)' }}>Test date</div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>
+                {detail.profile.testDate ? formatDate(detail.profile.testDate) : '—'}
+                {(() => {
+                  const days = daysUntil(detail.profile.testDate);
+                  if (days === null) return null;
+                  return (
+                    <span style={{ fontSize: 13, fontWeight: 400, color: 'rgba(11,11,14,0.45)', marginLeft: 8 }}>
+                      {days >= 0 ? `${days} ${days === 1 ? 'day' : 'days'} away` : 'passed'}
+                    </span>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: 14, color: 'rgba(11,11,14,0.45)' }}>This student hasn't set a target score yet.</div>
+        )}
       </div>
 
       <div style={{ ...CARD, marginBottom: 20 }}>

@@ -1,7 +1,9 @@
 import { eq, sql } from 'drizzle-orm';
 import { db } from '../../db';
-import { examAnswers, exams, mockTests, questionSets, questions } from '../../db/schema';
+import { examAnswers, exams, questionSets, questions } from '../../db/schema';
 import { badRequest, notFound } from '../../http/errors';
+import { toSectionScore } from '../scoring';
+import * as mock from './mock.service';
 import * as narrative from './narrative.service';
 import * as repo from './student.repository';
 import { gradeAnswer, hasAnswer, percentage } from './scoring';
@@ -29,8 +31,8 @@ export async function startExam(studentId: string, { setId, type }: StartExamInp
 }
 
 /**
- * Loads an exam for the player, including the sibling section of a mock so the
- * client can chain modules and combine results without a second round trip.
+ * Loads an exam for the player, plus the mock it belongs to (if any) so the
+ * client can chain from one section to the next without a second round trip.
  */
 export async function getExam(examId: string, studentId: string) {
   const exam = await repo.findOwnedExam(examId, studentId);
@@ -49,37 +51,19 @@ export async function getExam(examId: string, studentId: string) {
       .where(eq(examAnswers.examId, exam.id)),
   ]);
 
-  const { mathExamId, englishExamId } = await findSiblingExamIds(exam.id, exam.type);
+  // Only the Math section start is needed here: the player chains English ->
+  // Math at the section boundary. It comes from the mock rather than from a
+  // sibling lookup keyed on this exam, so it resolves from either English
+  // module rather than only from Module 1.
+  const mockContext = await mock.findMockContextForExam(exam.id);
 
   return {
     exam,
     questions: repo.withPublicImageUrls(questionRows),
     answers,
-    mathExamId,
-    englishExamId,
+    mockTestId: mockContext?.mockTest.id ?? null,
+    mathExamId: mockContext?.mockTest.mathExamId ?? null,
   };
-}
-
-async function findSiblingExamIds(examId: string, type: string) {
-  if (type === 'mock_english') {
-    const [row] = await db
-      .select({ mathExamId: mockTests.mathExamId })
-      .from(mockTests)
-      .where(eq(mockTests.englishExamId, examId))
-      .limit(1);
-    return { mathExamId: row?.mathExamId ?? null, englishExamId: null };
-  }
-
-  if (type === 'mock_math') {
-    const [row] = await db
-      .select({ englishExamId: mockTests.englishExamId })
-      .from(mockTests)
-      .where(eq(mockTests.mathExamId, examId))
-      .limit(1);
-    return { mathExamId: null, englishExamId: row?.englishExamId ?? null };
-  }
-
-  return { mathExamId: null, englishExamId: null };
 }
 
 /**
@@ -182,16 +166,32 @@ export async function submitExam(
     `);
   }
 
+  // A mock module is not a section — half of one — so it never carries a scaled
+  // score of its own; the mock's own row gets the two section scores once all
+  // four modules are in. Membership is the test rather than `exam.type`, because
+  // live exams are created with the same mock_* types and no mock row.
+  const mockContext = await mock.findMockContextForExam(exam.id);
+  const scaledScore = mockContext
+    ? null
+    : toSectionScore(score, exam.totalQuestions, 'none');
+
   const [updated] = await db
     .update(exams)
     .set({
       status: 'completed',
       score,
+      scaledScore,
       completedAt: new Date(),
       timeSpentSeconds: timeSpentSeconds ?? exam.timeSpentSeconds,
     })
     .where(eq(exams.id, exam.id))
     .returning();
+
+  // On the critical path on purpose: the student goes straight to a results page
+  // that reports the mock total, so it must be written before the response
+  // rather than behind it like the AI work below. It re-reads the mock because
+  // the lookup above ran before this module was marked completed.
+  if (mockContext) await mock.finalizeMockIfComplete(exam.id);
 
   // Created before responding so the client always has a row to poll.
   const narrativeId = await narrative.createPendingNarrative(exam.id);
@@ -243,7 +243,29 @@ export async function getResults(examId: string, studentId: string) {
       : Promise.resolve([]),
   ]);
 
-  return { exam, set: set[0] ?? null, results };
+  // A module of a mock is reported as part of its mock, not on its own: the
+  // headline is the mock's 400-1600 total and the review runs across all four
+  // modules. The client used to be told which sibling to fetch through an
+  // `?englishExamId=` query parameter it had carried since the player, which
+  // silently produced a single-module /800 report whenever it went missing.
+  const mockContext = await mock.findMockContextForExam(exam.id);
+
+  return {
+    exam,
+    set: set[0] ?? null,
+    results,
+    mock: mockContext
+      ? {
+          id: mockContext.mockTest.id,
+          status: mockContext.mockTest.status,
+          rwScore: mockContext.mockTest.rwScore,
+          mathScore: mockContext.mockTest.mathScore,
+          totalScore: mockContext.mockTest.totalScore,
+          completedAt: mockContext.mockTest.completedAt,
+          modules: mockContext.modules,
+        }
+      : null,
+  };
 }
 
 /** Narrative retry — resets the row and regenerates behind the response. */

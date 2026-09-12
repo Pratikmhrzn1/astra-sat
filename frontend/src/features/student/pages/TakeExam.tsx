@@ -46,12 +46,11 @@ export default function TakeExam() {
   const timerEnabledRef = useRef<boolean>(locationState?.timerEnabled ?? false);
   const timeLeftRef = useRef<number>(20 * 60);
   const mathExamIdRef = useRef<string | null>(null);
-  const englishExamIdRef = useRef<string | null>(null);
   const transitioningRef = useRef(false);
   const mockSectionRef = useRef(locationState?.mockSection);
   // Always-current answers for use inside timer/IDB closures
   const answersRef = useRef<Record<string, string | null>>({});
-  const dataRef = useRef<{ exam: import('@/features/student/api/student.api').Exam; questions: import('@/features/student/api/student.api').Question[]; answers: { questionId: string; selectedAnswer: string | null; selectedAnswerText: string | null }[]; mathExamId: string | null; englishExamId: string | null } | undefined>(undefined);
+  const dataRef = useRef<{ exam: import('@/features/student/api/student.api').Exam; questions: import('@/features/student/api/student.api').Question[]; answers: { questionId: string; selectedAnswer: string | null; selectedAnswerText: string | null }[]; mockTestId: string | null; mathExamId: string | null } | undefined>(undefined);
 
   // Keep refs in sync with state/query
   useEffect(() => { timerEnabledRef.current = timerEnabled; }, [timerEnabled]);
@@ -68,7 +67,6 @@ export default function TakeExam() {
     timeLeftRef.current = 20 * 60;
     setTimeLeft(20 * 60);
     mathExamIdRef.current = null;
-    englishExamIdRef.current = null;
     setSectionBanner(!!(locationState?.fromMockSection1));
   }, [examId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -78,14 +76,14 @@ export default function TakeExam() {
     enabled: !!examId,
   });
 
-  // Capture sibling exam IDs; pre-fetch Math exam so English→Math transition is instant;
-  // also clear any overlay once new exam data has arrived (for regular submit path).
+  // Capture where the Math section starts; pre-fetch it so the English→Math
+  // transition is instant; also clear any overlay once new exam data has arrived
+  // (for the regular submit path).
   useEffect(() => {
     if (!data) return;
     dataRef.current = data;
     // For live exams, math/english exam IDs come from location state (set by lobby)
     mathExamIdRef.current = data.mathExamId ?? locationState?.mathExamId ?? null;
-    englishExamIdRef.current = data.englishExamId ?? null;
     if (data.mathExamId) {
       queryClient.prefetchQuery({
         queryKey: ['student', 'exam', data.mathExamId],
@@ -179,8 +177,10 @@ export default function TakeExam() {
         });
         return;
       }
-      const suffix = englishExamIdRef.current ? `?englishExamId=${englishExamIdRef.current}` : '';
-      navigate(`/student/results/${examId}${suffix}`, { replace: true });
+      // No query parameter: the results endpoint reports the mock this exam
+      // belongs to, so the page no longer depends on the player having carried
+      // a sibling id across the section transition.
+      navigate(`/student/results/${examId}`, { replace: true });
     },
   });
 

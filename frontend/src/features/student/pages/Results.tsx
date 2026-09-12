@@ -4,11 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getExams, getMockTests } from '@/features/student/api/student.api';
 import { getLiveExamResults, type LiveExamResult } from '@/features/live-exam/api/live-exam.api';
 import { useMobile } from '@/shared/hooks/useMobile';
-
-function scoreColor(v: number, max: number) {
-  const pct = v / max;
-  return pct >= 0.85 ? '#1A6B3C' : pct >= 0.775 ? '#2E7D5A' : pct >= 0.70 ? '#B8893E' : '#C47A1B';
-}
+import { NO_SCORE, SECTION_MAX, formatExamScore, scoreColor } from '@/shared/lib/score';
 
 type Filter = 'All' | 'individual' | 'mock_english' | 'mock_math';
 
@@ -45,14 +41,22 @@ export default function Results() {
     { label: 'Individual', value: 'individual' },
   ];
 
-  const bestScore = completed.reduce<number | null>((best, e) => {
-    if (e.score === null) return best;
-    const scaled = Math.round(200 + (e.score / e.totalQuestions) * 600);
-    return best === null || scaled > best ? scaled : best;
-  }, null);
+  // Trends read the persisted scaled score, so an exam too short to scale is
+  // left out of the series rather than contributing a number invented here.
+  const scaledOf = (subject: 'english' | 'math') =>
+    completed
+      .filter((e) => e.subject === subject && e.scaledScore !== null)
+      .map((e) => e.scaledScore!)
+      .reverse();
 
-  const rwSeries = completed.filter((e) => e.subject === 'english' && e.score !== null).map((e) => Math.round(200 + (e.score! / e.totalQuestions) * 600)).reverse();
-  const mathSeries = completed.filter((e) => e.subject === 'math' && e.score !== null).map((e) => Math.round(200 + (e.score! / e.totalQuestions) * 600)).reverse();
+  const bestScore = completed.reduce<number | null>(
+    (best, e) =>
+      e.scaledScore !== null && (best === null || e.scaledScore > best) ? e.scaledScore : best,
+    null,
+  );
+
+  const rwSeries = scaledOf('english');
+  const mathSeries = scaledOf('math');
 
   const Spark = ({ series, color }: { series: number[]; color: string }) => {
     if (series.length < 2) return <div style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(11,11,14,0.3)', fontSize: 12 }}>Not enough data</div>;
@@ -143,7 +147,7 @@ export default function Results() {
           <div style={{ ...CARD, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 16 }}>
             <div>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 2 }}>Best score</div>
-              <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 38, lineHeight: 1, color: '#1A6B3C' }}>{bestScore ?? '—'}</div>
+              <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 38, lineHeight: 1, color: '#1A6B3C' }}>{bestScore ?? NO_SCORE}</div>
               <div style={{ fontSize: 11, color: 'rgba(11,11,14,0.4)', marginTop: 4 }}>out of 800</div>
             </div>
           </div>
@@ -162,7 +166,7 @@ export default function Results() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 28 }}>
           <div style={{ ...CARD, padding: '20px 22px' }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 4 }}>Best score</div>
-            <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 46, lineHeight: 1, color: '#1A6B3C' }}>{bestScore ?? '—'}</div>
+            <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 46, lineHeight: 1, color: '#1A6B3C' }}>{bestScore ?? NO_SCORE}</div>
             <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)', marginTop: 6 }}>out of 800</div>
           </div>
           <div style={{ ...CARD, padding: '20px 22px' }}>
@@ -194,7 +198,7 @@ export default function Results() {
         /* Mobile: card list */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {shown.map((e) => {
-            const score = e.score !== null ? Math.round(200 + (e.score / e.totalQuestions) * 600) : null;
+            const score = formatExamScore(e.scaledScore, e.score, e.totalQuestions);
             const accuracy = e.score !== null ? Math.round((e.score / e.totalQuestions) * 100) : null;
             const isMath = e.subject === 'math';
             const dotColor = e.type === 'individual' ? (isMath ? '#2563A8' : '#2E7D5A') : '#E2562B';
@@ -215,7 +219,7 @@ export default function Results() {
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, lineHeight: 1, color: score !== null ? scoreColor(score, 800) : 'rgba(11,11,14,0.2)' }}>{score ?? '—'}</div>
+                  <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, lineHeight: 1, color: scoreColor(e.scaledScore, SECTION_MAX) }}>{score}</div>
                   <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.5)', marginTop: 2 }}>{accuracy !== null ? accuracy + '%' : '—'}</div>
                 </div>
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(11,11,14,0.25)', flexShrink: 0 }}>
@@ -234,7 +238,7 @@ export default function Results() {
             ))}
           </div>
           {shown.map((e, i) => {
-            const score = e.score !== null ? Math.round(200 + (e.score / e.totalQuestions) * 600) : null;
+            const score = formatExamScore(e.scaledScore, e.score, e.totalQuestions);
             const accuracy = e.score !== null ? Math.round((e.score / e.totalQuestions) * 100) : null;
             const isMath = e.subject === 'math';
             const dotColor = e.type === 'individual' ? (isMath ? '#2563A8' : '#2E7D5A') : '#E2562B';
@@ -253,7 +257,7 @@ export default function Results() {
                 </div>
                 <span style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.6)' }}>{new Date(e.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                 <span style={{ fontSize: 13, color: 'rgba(11,11,14,0.6)' }}>{kindLabel}</span>
-                <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, textAlign: 'right', color: score !== null ? scoreColor(score, 800) : 'rgba(11,11,14,0.2)' }}>{score ?? '—'}</span>
+                <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, textAlign: 'right', color: scoreColor(e.scaledScore, SECTION_MAX) }}>{score}</span>
                 <span style={{ fontSize: 14, fontWeight: 600, textAlign: 'right', color: 'rgba(11,11,14,0.7)' }}>{accuracy !== null ? accuracy + '%' : '—'}</span>
               </div>
             );

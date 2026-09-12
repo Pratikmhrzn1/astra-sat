@@ -67,6 +67,24 @@ export async function getStudents(): Promise<Student[]> {
   return data;
 }
 
+export interface StudentProfile {
+  id: string;
+  studentId: string;
+  targetScore: number | null;
+  testDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** `profile` is null until the student sets a goal — show that, don't substitute one. */
+export async function getStudentDetail(studentId: string): Promise<{
+  student: { id: string; name: string; email: string; role: string };
+  profile: StudentProfile | null;
+}> {
+  const { data } = await apiClient.get(`/teacher/students/${studentId}`);
+  return data;
+}
+
 /**
  * `setTitle` and `subject` are null for an exam that belongs to no set — topic
  * practice and mistake reviews are assembled across many sets. Those carry a

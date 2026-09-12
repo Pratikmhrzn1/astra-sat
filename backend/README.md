@@ -78,6 +78,15 @@ practice filters on. They differ in both their values (`low` vs `easy`) and thei
 type, which looks like a bug and is not. Never convert one into the other, and
 never widen one to match the other — a set is not hard because its questions are.
 
+**Scores are computed once, on the server.** `modules/scoring` owns the 200-800 and 400-1600
+scales; nothing else may reimplement them, and the browser must never derive a score from a
+raw count. A mock module never carries its own `scaled_score` — it is half a section, and the
+mock row holds the two section scores. **Test mock membership with
+`findMockContextForExam`, never `exam.type`**: live exams use the same `mock_english` /
+`mock_math` types, have no `mock_tests` row, and do get a scaled score. When a score cannot
+honestly be produced — too few questions, an unfinished mock — the column stays NULL and the
+UI shows a dash or a raw tally rather than a number.
+
 **Students never receive answers.** `modules/student/student.repository.ts`
 selects question columns explicitly, so `correctAnswer`, `correctAnswerText` and
 `explanation` are absent by construction rather than deleted afterwards. Add

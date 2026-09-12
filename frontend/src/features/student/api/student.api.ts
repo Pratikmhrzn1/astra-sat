@@ -36,10 +36,21 @@ export interface QuestionWithAnswer extends Question {
 export interface Exam {
   id: string;
   studentId: string;
-  setId: string;
+  /** Null for an exam assembled across sets rather than from one. */
+  setId: string | null;
+  /** Display name for a set-less exam, e.g. "Topic: Algebra". */
+  label: string | null;
   type: 'individual' | 'mock_english' | 'mock_math';
   status: 'in_progress' | 'completed' | 'abandoned';
   score: number | null;
+  /**
+   * Section score on the 200-800 scale, written by the server at submit time.
+   *
+   * Null in three cases, all of which mean "do not show a scaled number":
+   * the exam predates scaled scoring, it is too short to scale, or it is one
+   * module of a mock — half a section, scored on the mock's own row instead.
+   */
+  scaledScore: number | null;
   totalQuestions: number;
   timeSpentSeconds: number | null;
   startedAt: string;
@@ -47,8 +58,8 @@ export interface Exam {
 }
 
 export interface ExamWithSet extends Exam {
-  setTitle: string;
-  subject: 'english' | 'math';
+  setTitle: string | null;
+  subject: 'english' | 'math' | null;
 }
 
 export interface MockTest {
@@ -59,8 +70,53 @@ export interface MockTest {
   englishM2ExamId: string | null;
   mathM2ExamId: string | null;
   status: 'in_progress' | 'completed';
+  /**
+   * Composite scores, written when the final module is submitted. Each section
+   * is Module 1 + Module 2 scaled against the adaptive path the student earned;
+   * `totalScore` is their sum on the 400-1600 scale. Null until the mock is
+   * finished, or if a section was too short to scale.
+   */
+  rwScore: number | null;
+  mathScore: number | null;
+  totalScore: number | null;
   startedAt: string;
   completedAt: string | null;
+}
+
+/** One module of a mock, as reported alongside an exam's results. */
+export interface MockModule {
+  examId: string;
+  subject: 'english' | 'math';
+  module: 1 | 2;
+  status: 'in_progress' | 'completed' | 'abandoned';
+  score: number | null;
+  totalQuestions: number;
+  setDifficulty: string | null;
+}
+
+/**
+ * The mock an exam belongs to. Present on a results response whenever the exam
+ * is one of a mock's four modules, so the client never has to work out
+ * membership from the exam type — live exams share those types.
+ */
+export interface MockContext {
+  id: string;
+  status: 'in_progress' | 'completed';
+  rwScore: number | null;
+  mathScore: number | null;
+  totalScore: number | null;
+  completedAt: string | null;
+  modules: MockModule[];
+}
+
+/** The goal a student is working towards. Null until they set one. */
+export interface StudentProfile {
+  id: string;
+  studentId: string;
+  targetScore: number | null;
+  testDate: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface FeedbackItem {
@@ -88,8 +144,10 @@ export async function getExam(examId: string): Promise<{
   exam: Exam;
   questions: Question[];
   answers: { questionId: string; selectedAnswer: string | null; selectedAnswerText: string | null }[];
+  /** The mock this exam belongs to, if any. */
+  mockTestId: string | null;
+  /** Where the Math section starts, so the player can chain English -> Math. */
   mathExamId: string | null;
-  englishExamId: string | null;
 }> {
   const { data } = await apiClient.get(`/student/exams/${examId}`);
   return data;
@@ -120,6 +178,8 @@ export async function getExamResults(examId: string): Promise<{
   exam: Exam;
   set: { title: string; subject: string } | null;
   results: QuestionWithAnswer[];
+  /** Non-null when this exam is one module of a mock; carries the mock's scores. */
+  mock: MockContext | null;
 }> {
   const { data } = await apiClient.get(`/student/exams/${examId}/results`);
   return data;
@@ -343,5 +403,21 @@ export async function sendChatMessage(params: {
 
 export async function getChatMessages(sessionId: string): Promise<ChatMessage[]> {
   const { data } = await apiClient.get<ChatMessage[]>(`/student/chat/${sessionId}/messages`);
+  return data;
+}
+
+// ── Profile ──────────────────────────────────────────────────────────────────
+
+/** Null when the student has not set a goal — callers must prompt, not guess. */
+export async function getProfile(): Promise<StudentProfile | null> {
+  const { data } = await apiClient.get<StudentProfile | null>('/student/profile');
+  return data;
+}
+
+export async function updateProfile(payload: {
+  targetScore?: number | null;
+  testDate?: string | null;
+}): Promise<StudentProfile> {
+  const { data } = await apiClient.put<StudentProfile>('/student/profile', payload);
   return data;
 }

@@ -82,3 +82,10 @@ than converting between them.
   `app/router.tsx` under the right role's `ProtectedRoute`. Do not hand-roll
   role checks inside a page.
 - Query keys are namespaced by feature, e.g. `['student', 'exam', id]`.
+- **Never compute a score.** `shared/lib/score.ts` is the only place that formats
+  or colours one, and the numbers themselves come from the server —
+  `exam.scaledScore` for a single exam, `mock.totalScore` / `rwScore` /
+  `mathScore` for a mock. `Math.round(200 + pct * 600)` used to live in ten
+  places across three pages and could not know which adaptive module the student
+  was routed to. A null score renders as `—` or a raw `x / y`; never substitute a
+  default, and label every score "Estimated".

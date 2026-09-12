@@ -2,12 +2,12 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/store/auth';
-import { getExams, getMockTests, getFeedback, getAvailableSkillPassages, startExam } from '@/features/student/api/student.api';
+import { getExams, getMockTests, getFeedback, getAvailableSkillPassages, getProfile, startExam } from '@/features/student/api/student.api';
 import { useMobile } from '@/shared/hooks/useMobile';
-
-function scoreColorSection(v: number) {
-  return v >= 680 ? '#1A6B3C' : v >= 620 ? '#2E7D5A' : v >= 560 ? '#B8893E' : '#C47A1B';
-}
+import {
+  NO_SCORE, SECTION_MAX,
+  daysUntil, formatExamScore, formatScore, scoreColor,
+} from '@/shared/lib/score';
 
 export default function Dashboard() {
   const { user } = useAuthStore();
@@ -18,34 +18,39 @@ export default function Dashboard() {
   const { data: mockTests = [] } = useQuery({ queryKey: ['student', 'mock-tests'], queryFn: getMockTests });
   const { data: feedback = [] } = useQuery({ queryKey: ['student', 'feedback'], queryFn: getFeedback });
   const { data: weakAreaPassages = [] } = useQuery({ queryKey: ['student', 'skill-passages'], queryFn: getAvailableSkillPassages });
+  const { data: profile } = useQuery({ queryKey: ['student', 'profile'], queryFn: getProfile });
   const [weakAreaError, setWeakAreaError] = React.useState<string | null>(null);
-
-  // suppress unused variable warning — mockTests is fetched to warm the cache
-  void mockTests;
 
   const completedExams = exams.filter((e) => e.status === 'completed');
   const unreadFeedback = feedback.filter((f) => !f.isRead).length;
 
-  const rwExams = completedExams.filter((e) => e.subject === 'english' && e.score !== null);
-  const mathExams = completedExams.filter((e) => e.subject === 'math' && e.score !== null);
-  const latestRW = rwExams[0];
-  const latestMath = mathExams[0];
+  // The headline is the most recent finished mock, because a mock is the only
+  // thing here that measures both sections under test conditions. It used to be
+  // assembled from the latest single-section practice exam of each subject, with
+  // `?? 600` standing in for a section never sat — which told a student with no
+  // completed exams at all that they had scored 1200.
+  const latestMock = mockTests
+    .filter((m) => m.status === 'completed' && m.totalScore !== null)
+    .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))[0];
 
-  const estRW = latestRW ? Math.round(200 + (latestRW.score! / latestRW.totalQuestions) * 600) : null;
-  const estMath = latestMath ? Math.round(200 + (latestMath.score! / latestMath.totalQuestions) * 600) : null;
-  const estTotal = (estRW ?? 600) + (estMath ?? 600);
+  const estTotal = latestMock?.totalScore ?? null;
+  const estRW = latestMock?.rwScore ?? null;
+  const estMath = latestMock?.mathScore ?? null;
 
   const firstName = user?.name.split(' ')[0] ?? 'there';
   const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const target = 1500;
-  const targetGap = Math.max(0, target - estTotal);
+
+  // No invented target: without a profile the hero prompts the student to set
+  // one rather than measuring them against a number they never chose.
+  const target = profile?.targetScore ?? null;
+  const targetGap = target !== null && estTotal !== null ? Math.max(0, target - estTotal) : null;
+  const daysToTest = daysUntil(profile?.testDate);
 
   const recentTests = completedExams.slice(0, 4).map((e) => {
     const isMock = e.type !== 'individual';
     const isMathExam = e.subject === 'math';
-    const pct = e.score !== null ? e.score / e.totalQuestions : 0;
-    const score = Math.round(200 + pct * 600);
-    const color = scoreColorSection(score);
+    const score = formatExamScore(e.scaledScore, e.score, e.totalQuestions);
+    const color = scoreColor(e.scaledScore, SECTION_MAX);
     const iconBg = isMock ? 'rgba(226,86,43,0.10)' : isMathExam ? 'rgba(37,99,168,0.10)' : 'rgba(46,125,90,0.10)';
     const iconColor = isMock ? '#E2562B' : isMathExam ? '#2563A8' : '#2E7D5A';
     const iconChar = isMock ? 'M' : isMathExam ? '∑' : 'A';
@@ -102,9 +107,27 @@ export default function Dashboard() {
         {/* Score */}
         <div style={{ position: 'relative', marginBottom: isMobile ? 20 : 0 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Estimated SAT score</div>
-          <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 68 : 88, lineHeight: 1, letterSpacing: '-0.03em', color: '#fff', marginTop: 4 }}>{estTotal}</div>
+          <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 68 : 88, lineHeight: 1, letterSpacing: '-0.03em', color: estTotal === null ? 'rgba(255,255,255,0.35)' : '#fff', marginTop: 4 }}>{formatScore(estTotal)}</div>
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 6 }}>
-            Target <span style={{ color: '#B8893E', fontWeight: 600 }}>{target}</span> · {targetGap > 0 ? `${targetGap} to go` : 'Goal reached! 🎉'}
+            {estTotal === null ? (
+              'Finish a full mock to see your estimated score'
+            ) : target === null ? (
+              <button
+                onClick={() => navigate('/student/settings')}
+                style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: '#B8893E', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Set your target score
+              </button>
+            ) : (
+              <>
+                Target <span style={{ color: '#B8893E', fontWeight: 600 }}>{target}</span>
+                {' · '}
+                {targetGap && targetGap > 0 ? `${targetGap} to go` : 'Goal reached! 🎉'}
+                {daysToTest !== null && (daysToTest >= 0
+                  ? ` · ${daysToTest} ${daysToTest === 1 ? 'day' : 'days'} to test day`
+                  : ' · test date has passed')}
+              </>
+            )}
           </div>
         </div>
 
@@ -116,19 +139,19 @@ export default function Dashboard() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Reading &amp; Writing</span>
-              <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, color: '#fff' }}>{estRW ?? '—'}</span>
+              <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, color: '#fff' }}>{estRW ?? NO_SCORE}</span>
             </div>
             <div style={{ height: 5, background: 'rgba(255,255,255,0.1)', borderRadius: 9999 }}>
-              <div style={{ height: 5, width: `${((estRW ?? 600) / 800) * 100}%`, background: '#E2562B', borderRadius: 9999 }} />
+              <div style={{ height: 5, width: `${((estRW ?? 0) / SECTION_MAX) * 100}%`, background: '#E2562B', borderRadius: 9999 }} />
             </div>
           </div>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Math</span>
-              <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, color: '#fff' }}>{estMath ?? '—'}</span>
+              <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, color: '#fff' }}>{estMath ?? NO_SCORE}</span>
             </div>
             <div style={{ height: 5, background: 'rgba(255,255,255,0.1)', borderRadius: 9999 }}>
-              <div style={{ height: 5, width: `${((estMath ?? 600) / 800) * 100}%`, background: '#3D8C60', borderRadius: 9999 }} />
+              <div style={{ height: 5, width: `${((estMath ?? 0) / SECTION_MAX) * 100}%`, background: '#3D8C60', borderRadius: 9999 }} />
             </div>
           </div>
         </div>

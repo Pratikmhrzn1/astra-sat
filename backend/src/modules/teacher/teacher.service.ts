@@ -13,6 +13,7 @@ import {
 import { forbidden, notFound } from '../../http/errors';
 import { normalizeFileUrl } from '../../lib/url';
 import { publicUserColumns } from '../auth/auth.repository';
+import { getProfile } from '../student/profile.service';
 import type {
   CreatePassageInput,
   CreateQuestionInput,
@@ -66,6 +67,18 @@ export async function listStudents(teacherId: string) {
     .select({ id: users.id, email: users.email, name: users.name, createdAt: users.createdAt })
     .from(users)
     .where(and(eq(users.teacherId, teacherId), eq(users.role, 'student')));
+}
+
+/**
+ * One student, with the goal they are working towards.
+ *
+ * The profile is null until the student sets one, and the teacher view must show
+ * that as "no target set" rather than substituting a number — the same rule the
+ * student's own dashboard follows.
+ */
+export async function getStudentDetail(teacherId: string, studentId: string) {
+  const student = await assertOwnsStudent(teacherId, studentId);
+  return { student, profile: await getProfile(studentId) };
 }
 
 /**

@@ -9,6 +9,7 @@ import * as inbox from './inbox.service';
 import * as mock from './mock.service';
 import * as narrative from './narrative.service';
 import * as practice from './practice.service';
+import * as profile from './profile.service';
 import * as skillPassages from './skill-passage.service';
 import * as vocab from './vocab.service';
 import {
@@ -19,6 +20,7 @@ import {
   saveAnswersSchema,
   startExamSchema,
   submitExamSchema,
+  updateProfileSchema,
   type ChatInput,
   type ConfirmAnswerInput,
   type NextModuleInput,
@@ -26,6 +28,7 @@ import {
   type SaveAnswersInput,
   type StartExamInput,
   type SubmitExamInput,
+  type UpdateProfileInput,
 } from './student.schemas';
 
 export const studentRouter = Router();
@@ -151,6 +154,24 @@ studentRouter.get(
   '/exams/:examId/results',
   asyncHandler(async (req, res) => {
     res.json(await exams.getResults(req.params.examId, currentUserId(req)));
+  }),
+);
+
+// ── Profile ──────────────────────────────────────────────────────────────────
+
+/** Null when no goal has been set — the dashboard prompts rather than guessing. */
+studentRouter.get(
+  '/profile',
+  asyncHandler(async (req, res) => {
+    res.json(await profile.getProfile(currentUserId(req)));
+  }),
+);
+
+studentRouter.put(
+  '/profile',
+  validateBody(updateProfileSchema),
+  asyncHandler(async (req, res) => {
+    res.json(await profile.upsertProfile(currentUserId(req), body<UpdateProfileInput>(req)));
   }),
 );
 

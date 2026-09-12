@@ -5,6 +5,7 @@ import { body, query, validateBody, validateQuery } from '../../http/middleware/
 import * as classification from './classification.service';
 import * as contentReview from './content-review.service';
 import * as database from './database.service';
+import * as scoringBackfill from './scoring-backfill.service';
 import * as service from './admin.service';
 import {
   createAccessCodeSchema,
@@ -134,6 +135,20 @@ adminRouter.post(
   '/questions/auto-tag-subskill',
   asyncHandler(async (_req, res) => {
     res.json(await classification.autoTagSubSkills());
+  }),
+);
+
+/**
+ * Scores exams and mocks that finished before scaled scoring existed.
+ *
+ * Blocks the request thread while it walks the corpus, like the auto-tag job
+ * above — fine at the current size, and it returns real counts rather than a job
+ * id. Safe to run more than once: it only fills columns that are still NULL.
+ */
+adminRouter.post(
+  '/scoring/backfill',
+  asyncHandler(async (_req, res) => {
+    res.json(await scoringBackfill.backfillScores());
   }),
 );
 

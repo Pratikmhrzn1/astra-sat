@@ -122,6 +122,28 @@ verdict. Nothing trusts a client-supplied score.
 `totalQuestions` is stored on the exam at creation and used as the denominator for the
 reported percentage — it is not recounted at submit time.
 
+### Scaled scoring
+
+The raw count above is not what a student is shown. Submit also writes `exams.scaled_score`,
+the 200-800 section score, using `modules/scoring` — the one place the 200-800 and 400-1600
+scales are defined. Three cases produce no scaled score, and each renders as an em dash or a
+raw `x / y` rather than a number: an exam shorter than `MIN_QUESTIONS_TO_SCALE` (10), an exam
+graded before this existed, and **any module of a mock**.
+
+That last case is the one worth remembering. A mock module is half a section, so it is scored
+on the mock's own row instead: once all four modules are `completed`, `finalizeMockIfComplete`
+sums each section's two modules and scales the pair against the adaptive path the student
+earned — `pathFromModuleDifficulty` reads the *Module 2* set's difficulty, so the same raw
+20/27 per module is 640 on the hard path and 530 on the low one. The write is guarded on
+`status = 'in_progress'`, which is what makes a double submit idempotent.
+
+**Mock membership, not `exam.type`, is the test for "is this a mock module".** Live exams are
+created with the same `mock_english` / `mock_math` types and have no `mock_tests` row, and they
+*do* get a scaled score of their own. `findMockContextForExam` checks all four module columns.
+
+`POST /admin/scoring/backfill` fills these columns for history, reusing the same functions so
+the formula cannot drift between backfilled rows and live ones. It only touches NULLs.
+
 ### Client state: why `TakeExam` is full of refs
 
 `TakeExam.tsx` is a single component serving practice, both mock modules, and live exams. It
@@ -163,14 +185,17 @@ front.
 `score/totalQuestions` and picks `hard` at **≥60%**, `low` below it, then selects a set of that
 difficulty *excluding the M1 set*, with two progressively looser fallbacks. It is
 **idempotent**: if the M2 exam already exists on the mock row it is returned as-is, which is
-what makes a double-submit or a reload during the transition safe. Submitting Math M2 is also
-what flips the mock to `completed`.
+what makes a double-submit or a reload during the transition safe. Issuing a module only
+records which exam it is — the mock is completed and scored by `finalizeMockIfComplete` on the
+submit path, because a mock is finished when the student finishes it, not when the last module
+is handed out.
 
 The client-side chain lives in `TakeExam` and is deliberately ordered
 **English M1 → English M2 → Math M1 → Math M2**: `handleAdaptiveNextSection` submits the
 current module, calls `next-module`, and navigates to the returned M2; the `english_m2`
 completion branch inside `submitMutation.onSuccess` then jumps to the `mathM1ExamId` carried
-in router state. The timer's expiry handler calls the same functions, which is why they are
+in router state. `GET /exams/:id` supplies `mathExamId` from the mock itself, so the chain
+resolves from either English module rather than only from Module 1. The timer's expiry handler calls the same functions, which is why they are
 `useCallback`s reading refs.
 
 An older non-adaptive path (`handleNextSection`, straight English→Math with a background

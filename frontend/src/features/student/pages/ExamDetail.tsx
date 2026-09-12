@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQueries, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMobile } from '@/shared/hooks/useMobile';
 import {
   getExamResults, getMockNarrative, retryNarrative,
@@ -10,6 +10,10 @@ import {
   type TransitionsCoachContent, type VocabDrillContent,
 } from '@/features/student/api/student.api';
 import { AiFeedbackPanel } from '@/features/student/components/AiFeedbackPanel';
+import {
+  ESTIMATED_LABEL, SECTION_MAX, TOTAL_MAX,
+  formatExamScore, formatScore, scoreColor,
+} from '@/shared/lib/score';
 
 
 const CONFIDENCE_CHIPS: { value: 'sure' | 'eliminated' | 'guessed'; label: string }[] = [
@@ -20,10 +24,6 @@ const CONFIDENCE_CHIPS: { value: 'sure' | 'eliminated' | 'guessed'; label: strin
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function scoreColor(v: number) {
-  return v >= 680 ? '#1A6B3C' : v >= 620 ? '#2E7D5A' : v >= 560 ? '#B8893E' : '#C47A1B';
-}
-
 const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)' };
 
 
@@ -32,9 +32,7 @@ const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4
 export default function ExamDetail() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const isMobile = useMobile();
-  const englishExamId = searchParams.get('englishExamId') || null;
   const [reviewOpen, setReviewOpen] = useState<Record<number, boolean>>({});
 
   // AI guidance state (keyed by questionId)
@@ -53,6 +51,8 @@ export default function ExamDetail() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
+  /** questionId -> the exam it belongs to; spans every module of a combined mock. */
+  const examIdByQuestionIdRef = useRef(new Map<string, string>());
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'exam-results', examId],
@@ -60,14 +60,27 @@ export default function ExamDetail() {
     enabled: !!examId,
   });
 
-  // For mock math results pages, also fetch the English section
-  const { data: englishData } = useQuery({
-    queryKey: ['student', 'exam-results', englishExamId],
-    queryFn: () => getExamResults(englishExamId!),
-    enabled: !!englishExamId,
+  // A mock is reported as a whole, so the other modules are fetched alongside
+  // this one. Which modules exist comes from the server rather than from a query
+  // parameter the player had to carry across the section transition — that is
+  // what used to go missing and leave a four-module mock showing a /800 report.
+  const mock = data?.mock ?? null;
+  const siblingIds = (mock?.modules ?? [])
+    .map((module) => module.examId)
+    .filter((id) => id !== examId);
+
+  const siblingQueries = useQueries({
+    queries: siblingIds.map((id) => ({
+      queryKey: ['student', 'exam-results', id],
+      queryFn: () => getExamResults(id),
+    })),
   });
 
-  const isMockCombined = !!englishExamId && !!englishData;
+  // Only combine once every module has arrived; a half-loaded mock would
+  // otherwise report a total built from some of its sections.
+  const siblingResults = siblingQueries.map((query) => query.data);
+  const isMockCombined =
+    !!mock && mock.status === 'completed' && siblingResults.every((result) => !!result);
   const isPractice = data?.exam.type === 'individual';
   const isMockExam = data?.exam.type === 'mock_english' || data?.exam.type === 'mock_math';
   const pollCountRef = useRef(0);
@@ -106,11 +119,10 @@ export default function ExamDetail() {
     if (chatMessagesRef.current) chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
   }, [chatMessages, chatLoading]);
 
-  // Route AI calls to the correct exam — English questions need englishExamId
-  const getExamIdForQuestion = (questionId: string): string => {
-    if (englishExamId && engResults.some((r) => r.id === questionId)) return englishExamId;
-    return examId!;
-  };
+  // Route AI calls to the exam the question actually belongs to: in a combined
+  // mock report the list spans up to four of them.
+  const getExamIdForQuestion = (questionId: string): string =>
+    examIdByQuestionIdRef.current.get(questionId) ?? examId!;
 
   const handleAiGuidance = async (questionId: string) => {
     const pending = aiPending[questionId];
@@ -147,7 +159,7 @@ export default function ExamDetail() {
     } finally {
       setChatLoading(false);
     }
-  }, [chatInput, chatLoading, chatSessionId, examId, chatQuestionId, englishExamId, englishData]);
+  }, [chatInput, chatLoading, chatSessionId, examId, chatQuestionId]);
 
   if (isLoading) {
     return <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: 'rgba(11,11,14,0.4)' }}>Loading…</div></div>;
@@ -164,19 +176,37 @@ export default function ExamDetail() {
 
   const { exam, set, results } = data;
 
-  // Combined mock test totals (Math + English sections)
-  const engResults = englishData?.results ?? [];
-  const mathScore800 = exam.score !== null ? Math.round(200 + (exam.score / exam.totalQuestions) * 600) : 0;
-  const engScore800 = englishData?.exam.score !== null && englishData?.exam.score !== undefined
-    ? Math.round(200 + (englishData.exam.score / englishData.exam.totalQuestions) * 600) : 0;
-  const totalScore1600 = isMockCombined ? mathScore800 + engScore800 : null;
+  // Every module's questions, in sitting order, keyed by the exam they came from
+  // so AI guidance can still be routed to the right one.
+  const resultsByExamId = new Map(
+    [data, ...siblingResults].flatMap((entry) => (entry ? [[entry.exam.id, entry.results] as const] : [])),
+  );
+  const modulesOf = (subject: 'english' | 'math') =>
+    (mock?.modules ?? [])
+      .filter((module) => module.subject === subject)
+      .flatMap((module) => resultsByExamId.get(module.examId) ?? []);
 
-  const score800 = mathScore800;
+  // In the combined view each block shows a whole section — both its modules.
+  // Outside it there is one exam, and it belongs in the second block.
+  const englishReview = isMockCombined ? modulesOf('english') : [];
+  const mathReview = isMockCombined ? modulesOf('math') : results;
+
+  examIdByQuestionIdRef.current = new Map(
+    [...resultsByExamId].flatMap(([id, rows]) => rows.map((row) => [row.id, id] as const)),
+  );
+
+  // Scores come from the server. A mock's sections are scaled against the
+  // adaptive path the student earned, which the browser cannot know, and a
+  // single exam carries its own scaled score or none at all.
+  const rwScore = mock?.rwScore ?? null;
+  const mathSectionScore = mock?.mathScore ?? null;
+  const totalScore1600 = mock?.totalScore ?? null;
+
   const accuracy = exam.score !== null ? Math.round((exam.score / exam.totalQuestions) * 100) : 0;
-  const correct = results.filter((r) => r.isCorrect).length;
-  const wrong = results.filter((r) => r.isCorrect === false).length;
-  const skipped = results.filter((r) => r.isCorrect === null).length;
-  const headlineColor = scoreColor(score800);
+  const correct = mathReview.filter((r) => r.isCorrect).length;
+  const wrong = mathReview.filter((r) => r.isCorrect === false).length;
+  const skipped = mathReview.filter((r) => r.isCorrect === null).length;
+  const headlineColor = scoreColor(exam.scaledScore, SECTION_MAX);
 
   const topics: Record<string, { ok: number; n: number }> = {};
   results.forEach((r) => {
@@ -202,23 +232,23 @@ export default function ExamDetail() {
         <div style={{ position: 'relative' }}>
           {isMockCombined ? (
             <>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Total score</div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>{ESTIMATED_LABEL} total score</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: 4, whiteSpace: 'nowrap' }}>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 60 : 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: totalScore1600! >= 1200 ? '#2E7D5A' : totalScore1600! >= 1000 ? '#B8893E' : '#C0392B' }}>{totalScore1600}</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 60 : 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: scoreColor(totalScore1600, TOTAL_MAX) }}>{formatScore(totalScore1600)}</div>
                 <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 22 : 30, color: 'rgba(255,255,255,0.35)', marginBottom: isMobile ? 6 : 10 }}>/ 1600</div>
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>R&W: <strong style={{ color: '#fff' }}>{engScore800}</strong></span>
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>R&W: <strong style={{ color: '#fff' }}>{formatScore(rwScore)}</strong></span>
                 <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>·</span>
-                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Math: <strong style={{ color: '#fff' }}>{mathScore800}</strong></span>
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Math: <strong style={{ color: '#fff' }}>{formatScore(mathSectionScore)}</strong></span>
               </div>
             </>
           ) : (
             <>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>Section score</div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>{ESTIMATED_LABEL} section score</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: 4, whiteSpace: 'nowrap' }}>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 60 : 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: headlineColor }}>{score800}</div>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 22 : 30, color: 'rgba(255,255,255,0.35)', marginBottom: isMobile ? 6 : 10 }}>/ 800</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 60 : 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: headlineColor }}>{formatExamScore(exam.scaledScore, exam.score, exam.totalQuestions)}</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 22 : 30, color: 'rgba(255,255,255,0.35)', marginBottom: isMobile ? 6 : 10 }}>{exam.scaledScore === null ? '' : '/ 800'}</div>
               </div>
               <div style={{ fontSize: 13, marginTop: 8, color: 'rgba(255,255,255,0.5)' }}>{correct} of {results.length} correct</div>
             </>
@@ -227,10 +257,10 @@ export default function ExamDetail() {
         <div style={{ position: 'relative', display: 'flex', gap: isMobile ? 20 : 40, flexWrap: 'wrap' }}>
           {isMockCombined ? (
             [
-              { label: 'Total Qs', value: String(results.length + engResults.length) },
-              { label: 'Correct', value: String(correct + engResults.filter(r => r.isCorrect).length) },
-              { label: 'Wrong', value: String(wrong + engResults.filter(r => r.isCorrect === false).length) },
-              { label: 'Skipped', value: String(skipped + engResults.filter(r => r.isCorrect === null).length) },
+              { label: 'Total Qs', value: String(mathReview.length + englishReview.length) },
+              { label: 'Correct', value: String(correct + englishReview.filter((r) => r.isCorrect).length) },
+              { label: 'Wrong', value: String(wrong + englishReview.filter((r) => r.isCorrect === false).length) },
+              { label: 'Skipped', value: String(skipped + englishReview.filter((r) => r.isCorrect === null).length) },
             ].map(({ label, value }) => (
               <div key={label}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>{label}</div>
@@ -370,10 +400,10 @@ export default function ExamDetail() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0 4px' }}>
             <span style={{ width: 10, height: 10, borderRadius: 9999, background: '#2E7D5A', flexShrink: 0 }} />
             <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.5)' }}>Section 1 · Reading & Writing</span>
-            <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.35)', fontFamily: "'JetBrains Mono', monospace" }}>({engResults.filter(r => r.isCorrect).length}/{engResults.length} correct · {engScore800}/800)</span>
+            <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.35)', fontFamily: "'JetBrains Mono', monospace" }}>({englishReview.filter((r) => r.isCorrect).length}/{englishReview.length} correct · {formatScore(rwScore)}/800)</span>
           </div>
         )}
-        {isMockCombined && engResults.map((r, i) => {
+        {isMockCombined && englishReview.map((r, i) => {
           const open = reviewOpen[i];
           const ok = r.isCorrect === true;
           const opts = [
@@ -512,12 +542,12 @@ export default function ExamDetail() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 0 4px' }}>
             <span style={{ width: 10, height: 10, borderRadius: 9999, background: '#2563A8', flexShrink: 0 }} />
             <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.5)' }}>Section 2 · Math</span>
-            <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.35)', fontFamily: "'JetBrains Mono', monospace" }}>({correct}/{results.length} correct · {mathScore800}/800)</span>
+            <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.35)', fontFamily: "'JetBrains Mono', monospace" }}>({correct}/{mathReview.length} correct · {formatScore(mathSectionScore)}/800)</span>
           </div>
         )}
 
-        {results.map((r, i) => {
-          const listIdx = isMockCombined ? engResults.length + i : i;
+        {mathReview.map((r, i) => {
+          const listIdx = isMockCombined ? englishReview.length + i : i;
           const open = reviewOpen[listIdx];
           const ok = r.isCorrect === true;
           const opts = [

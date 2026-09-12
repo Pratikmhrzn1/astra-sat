@@ -1,7 +1,8 @@
-import { desc, eq, and, sql } from 'drizzle-orm';
+import { desc, eq, and, inArray, or, sql } from 'drizzle-orm';
 import { db } from '../../db';
-import { exams, mockTests } from '../../db/schema';
+import { exams, mockTests, questionSets } from '../../db/schema';
 import { badRequest, notFound } from '../../http/errors';
+import { pathFromModuleDifficulty, toSectionScore, toTotalScore } from '../scoring';
 import * as repo from './student.repository';
 
 /**
@@ -204,4 +205,148 @@ async function findExamOrNull(examId: string | null) {
   if (!examId) return null;
   const [exam] = await db.select().from(exams).where(eq(exams.id, examId)).limit(1);
   return exam ?? null;
+}
+
+// ── Mock membership and scoring ──────────────────────────────────────────────
+
+/** One module of a mock, in the order it is sat. */
+export interface MockModule {
+  examId: string;
+  subject: Subject;
+  /** 1 or 2. Module 2 is the adaptive one. */
+  module: 1 | 2;
+  status: 'in_progress' | 'completed' | 'abandoned';
+  score: number | null;
+  totalQuestions: number;
+  /** The module's set difficulty, which is what Module 2 adapts. */
+  setDifficulty: string | null;
+}
+
+export interface MockContext {
+  mockTest: typeof mockTests.$inferSelect;
+  /** Present modules in sitting order: English M1, M2, then Math M1, M2. */
+  modules: MockModule[];
+}
+
+/**
+ * The mock a given exam belongs to, or null if it belongs to none.
+ *
+ * Membership has to be looked up across all four columns. The previous helper
+ * checked only `english_exam_id` and `math_exam_id` — the Module 1 rows — so
+ * anything asked about a Module 2 exam came back empty, which is why a student
+ * who finished a full adaptive mock was shown a single-module report.
+ *
+ * Note this is also the only correct test for "is this exam a mock module":
+ * live exams are created with the same `mock_english` / `mock_math` types but
+ * have no `mock_tests` row, so the type alone cannot tell them apart.
+ */
+export async function findMockContextForExam(examId: string): Promise<MockContext | null> {
+  const [mockTest] = await db
+    .select()
+    .from(mockTests)
+    .where(
+      or(
+        eq(mockTests.englishExamId, examId),
+        eq(mockTests.englishM2ExamId, examId),
+        eq(mockTests.mathExamId, examId),
+        eq(mockTests.mathM2ExamId, examId),
+      ),
+    )
+    .limit(1);
+  if (!mockTest) return null;
+
+  return { mockTest, modules: await loadModules(mockTest) };
+}
+
+const MODULE_SLOTS = [
+  { column: 'englishExamId', subject: 'english', module: 1 },
+  { column: 'englishM2ExamId', subject: 'english', module: 2 },
+  { column: 'mathExamId', subject: 'math', module: 1 },
+  { column: 'mathM2ExamId', subject: 'math', module: 2 },
+] as const;
+
+async function loadModules(mockTest: typeof mockTests.$inferSelect): Promise<MockModule[]> {
+  const ids = MODULE_SLOTS.map((slot) => mockTest[slot.column]).filter(
+    (id): id is string => id !== null,
+  );
+  if (ids.length === 0) return [];
+
+  const rows = await db
+    .select({
+      id: exams.id,
+      status: exams.status,
+      score: exams.score,
+      totalQuestions: exams.totalQuestions,
+      setDifficulty: questionSets.difficulty,
+    })
+    .from(exams)
+    .leftJoin(questionSets, eq(exams.setId, questionSets.id))
+    .where(inArray(exams.id, ids));
+
+  const byId = new Map(rows.map((row) => [row.id, row]));
+
+  return MODULE_SLOTS.flatMap((slot) => {
+    const examId = mockTest[slot.column];
+    const row = examId ? byId.get(examId) : undefined;
+    if (!examId || !row) return [];
+    return [
+      {
+        examId,
+        subject: slot.subject,
+        module: slot.module,
+        status: row.status,
+        score: row.score,
+        totalQuestions: row.totalQuestions,
+        setDifficulty: row.setDifficulty,
+      },
+    ];
+  });
+}
+
+/**
+ * Scores and closes a mock, once every one of its four modules is submitted.
+ *
+ * Called from `submitExam` after grading. Completion lives here rather than in
+ * `startNextModule` because a mock is finished when the student finishes it,
+ * not when the last module is handed out.
+ *
+ * A section's raw score is Module 1 + Module 2 together — one module is not a
+ * section, which is why individual mock modules never get a `scaled_score` of
+ * their own. Which band that raw score can reach depends on the Module 2 the
+ * student earned, so each section is scaled against its own adaptive path.
+ *
+ * Idempotent: the write is guarded on `status = 'in_progress'`, so a double
+ * submit or a retry cannot rescore a mock that is already closed.
+ */
+export async function finalizeMockIfComplete(examId: string): Promise<void> {
+  const context = await findMockContextForExam(examId);
+  if (!context) return;
+
+  const { mockTest, modules } = context;
+  if (mockTest.status !== 'in_progress') return;
+  if (modules.length !== MODULE_SLOTS.length) return;
+  if (!modules.every((module) => module.status === 'completed')) return;
+
+  const rwScore = scaleSection(modules.filter((m) => m.subject === 'english'));
+  const mathScore = scaleSection(modules.filter((m) => m.subject === 'math'));
+
+  await db
+    .update(mockTests)
+    .set({
+      rwScore,
+      mathScore,
+      totalScore: toTotalScore(rwScore, mathScore),
+      status: 'completed',
+      completedAt: new Date(),
+    })
+    .where(and(eq(mockTests.id, mockTest.id), eq(mockTests.status, 'in_progress')));
+}
+
+/** Raw totals across a section's two modules, scaled against its adaptive path. */
+function scaleSection(sectionModules: MockModule[]): number | null {
+  const raw = sectionModules.reduce((sum, module) => sum + (module.score ?? 0), 0);
+  const total = sectionModules.reduce((sum, module) => sum + module.totalQuestions, 0);
+  const module2 = sectionModules.find((module) => module.module === 2);
+
+  return toSectionScore(raw, total, pathFromModuleDifficulty(module2?.setDifficulty));
 }

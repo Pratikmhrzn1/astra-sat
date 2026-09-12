@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/store/auth';
 import { useNavigate } from 'react-router-dom';
 import { useMobile } from '@/shared/hooks/useMobile';
 import { changePassword, updateProfile } from '@/features/auth/api/auth.api';
+import {
+  getProfile as getStudentProfile,
+  updateProfile as updateStudentProfile,
+} from '@/features/student/api/student.api';
 import { getApiError } from '@/shared/api/client';
+import { TOTAL_MAX, TOTAL_MIN, daysUntil } from '@/shared/lib/score';
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -147,6 +153,57 @@ export default function StudentSettings() {
   // Password modal
   const [showPwModal, setShowPwModal] = useState(false);
 
+  // Goal — the first student preference kept on the server rather than in
+  // localStorage, because the dashboard and the teacher's view both read it.
+  const queryClient = useQueryClient();
+  const { data: goal } = useQuery({ queryKey: ['student', 'profile'], queryFn: getStudentProfile });
+  const [targetInput, setTargetInput] = useState('');
+  const [testDateInput, setTestDateInput] = useState('');
+  const [goalError, setGoalError] = useState('');
+  const [goalSaved, setGoalSaved] = useState(false);
+
+  // Seeded from the server once it arrives, then left alone so a save in
+  // progress cannot clobber what the student is typing.
+  useEffect(() => {
+    if (!goal) return;
+    setTargetInput(goal.targetScore === null ? '' : String(goal.targetScore));
+    setTestDateInput(goal.testDate ?? '');
+  }, [goal?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const goalMutation = useMutation({
+    mutationFn: (payload: { targetScore: number | null; testDate: string | null }) =>
+      updateStudentProfile(payload),
+    onSuccess: (saved) => {
+      setGoalError('');
+      setGoalSaved(true);
+      queryClient.setQueryData(['student', 'profile'], saved);
+      setTimeout(() => setGoalSaved(false), 2000);
+    },
+    onError: (err) => { setGoalSaved(false); setGoalError(getApiError(err)); },
+  });
+
+  const handleSaveGoal = () => {
+    const trimmed = targetInput.trim();
+    if (trimmed === '') {
+      goalMutation.mutate({ targetScore: null, testDate: testDateInput || null });
+      return;
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed < TOTAL_MIN || parsed > TOTAL_MAX) {
+      setGoalError(`Target must be between ${TOTAL_MIN} and ${TOTAL_MAX}.`);
+      return;
+    }
+
+    // Rounded here rather than rejected: SAT scores are reported in tens, and a
+    // student typing 1447 means "about 1450", not "invalid input".
+    const rounded = Math.round(parsed / 10) * 10;
+    setTargetInput(String(rounded));
+    goalMutation.mutate({ targetScore: rounded, testDate: testDateInput || null });
+  };
+
+  const goalDays = daysUntil(testDateInput || null);
+
   // Keep editName in sync if user changes (e.g. after save)
   useEffect(() => { setEditName(user?.name ?? ''); }, [user?.name]);
 
@@ -234,6 +291,65 @@ export default function StudentSettings() {
             </div>
             <p style={{ margin: '5px 0 0', fontSize: 12, color: 'rgba(11,11,14,0.4)' }}>Email cannot be changed here. Contact your teacher or admin.</p>
           </div>
+        </div>
+      </div>
+
+      {/* ── Your goal ── */}
+      <div style={{ marginBottom: 26 }}>
+        <SectionTitle>Your goal</SectionTitle>
+        <div style={CARD}>
+          <Row
+            title="Target score"
+            desc={`The total you're aiming for, ${TOTAL_MIN}–${TOTAL_MAX}. Your dashboard measures progress against this instead of a default.`}
+            control={
+              <input
+                type="number"
+                inputMode="numeric"
+                min={TOTAL_MIN}
+                max={TOTAL_MAX}
+                step={10}
+                value={targetInput}
+                onChange={(e) => { setTargetInput(e.target.value); setGoalError(''); }}
+                placeholder="Not set"
+                style={{ height: 38, padding: '0 12px', border: '1px solid #C8C4BC', borderRadius: 10, fontSize: 14, fontFamily: 'inherit', width: isMobile ? '100%' : 120 }}
+              />
+            }
+            stack={isMobile}
+          />
+          <Row
+            title="Test date"
+            desc={
+              goalDays === null
+                ? 'The SAT sitting you are preparing for.'
+                : goalDays >= 0
+                  ? `${goalDays} ${goalDays === 1 ? 'day' : 'days'} away.`
+                  : 'This date has passed.'
+            }
+            control={
+              <input
+                type="date"
+                value={testDateInput}
+                onChange={(e) => { setTestDateInput(e.target.value); setGoalError(''); }}
+                style={{ height: 38, padding: '0 12px', border: '1px solid #C8C4BC', borderRadius: 10, fontSize: 14, fontFamily: 'inherit', width: isMobile ? '100%' : 170 }}
+              />
+            }
+            stack={isMobile}
+          />
+          <Row
+            title="Save goal"
+            desc={goalError || (goalSaved ? 'Saved.' : 'Leave the target empty to clear it.')}
+            control={
+              <button
+                onClick={handleSaveGoal}
+                disabled={goalMutation.isPending}
+                style={{ height: 38, padding: '0 16px', border: 'none', background: '#E2562B', color: '#fff', borderRadius: 9999, fontSize: 13, fontWeight: 600, cursor: goalMutation.isPending ? 'default' : 'pointer', opacity: goalMutation.isPending ? 0.6 : 1, fontFamily: 'inherit', width: isMobile ? '100%' : undefined }}
+              >
+                {goalMutation.isPending ? 'Saving…' : 'Save'}
+              </button>
+            }
+            stack={isMobile}
+            last
+          />
         </div>
       </div>
 
