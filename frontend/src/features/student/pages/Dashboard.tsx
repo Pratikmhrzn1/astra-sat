@@ -229,6 +229,10 @@ export default function Dashboard() {
               { label: 'Section', sub: 'Algebra, geometry & data', title: 'Math practice', color: '#2563A8', path: '/student/exams' },
               { label: 'Section', sub: 'Grammar, vocab & comprehension', title: 'Reading & Writing', color: '#2E7D5A', path: '/student/exams' },
               { label: 'Daily review', sub: 'Words due for spaced repetition', title: 'Vocab flashcards', color: '#0D7377', path: '/student/vocab-review' },
+              // Always shown, unlike the conditional cards below it: a student
+              // needs this the moment their teacher reads out a code, and has no
+              // way to know in advance that they will.
+              { label: 'In class', sub: 'Enter the code from your teacher', title: 'Join a live exam', color: '#8E44AD', path: '/student/live-exam' },
               // The diagnose-then-practise loop: the card only appears once
               // there is something in the bank, and says how much.
               ...(openMistakes > 0
