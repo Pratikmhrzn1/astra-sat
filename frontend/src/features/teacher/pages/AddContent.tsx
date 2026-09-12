@@ -18,7 +18,8 @@ import { getApiError } from '@/shared/api/client';
 import { useOnlineStatus } from '@/shared/hooks/useOnlineStatus';
 import { UnderlineBtn, RichTextArea } from '@/features/teacher/components/RichTextArea';
 import { MathToolbar } from '@/features/teacher/components/MathToolbar';
-import { SUB_SKILL_OPTIONS } from '@/features/teacher/constants';
+import { SkillSelect } from '@/shared/ui/SkillSelect';
+import { getSkills, skillLabel, skillsQueryKey } from '@/shared/api/skills';
 
 type EditorTab = 'questions' | 'passages';
 type QuestionType = 'multiple_choice' | 'student_produced_response';
@@ -27,7 +28,8 @@ type QuestionType = 'multiple_choice' | 'student_produced_response';
 interface MCForm {
   questionType: 'multiple_choice';
   passageId: string;
-  subSkill: SubSkill | '';
+  skillCode: string;
+  difficulty: '' | 'easy' | 'medium' | 'hard';
   questionText: string;
   optionA: string; optionB: string; optionC: string; optionD: string;
   correctAnswer: 'a' | 'b' | 'c' | 'd';
@@ -38,7 +40,8 @@ interface MCForm {
 interface SPRForm {
   questionType: 'student_produced_response';
   passageId: string;
-  subSkill: SubSkill | '';
+  skillCode: string;
+  difficulty: '' | 'easy' | 'medium' | 'hard';
   questionText: string;
   correctAnswerText: string;
   explanation: string;
@@ -47,8 +50,8 @@ interface SPRForm {
 
 type QuestionForm = MCForm | SPRForm;
 
-const emptyMC: MCForm = { questionType: 'multiple_choice', passageId: '', subSkill: '', questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'a', explanation: '', imageUrl: null };
-const emptySPR: SPRForm = { questionType: 'student_produced_response', passageId: '', subSkill: '', questionText: '', correctAnswerText: '', explanation: '', imageUrl: null };
+const emptyMC: MCForm = { questionType: 'multiple_choice', passageId: '', skillCode: '', difficulty: '', questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'a', explanation: '', imageUrl: null };
+const emptySPR: SPRForm = { questionType: 'student_produced_response', passageId: '', skillCode: '', difficulty: '', questionText: '', correctAnswerText: '', explanation: '', imageUrl: null };
 
 const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)' };
 
@@ -89,6 +92,8 @@ export default function ContentManager() {
   const formCardRef = useRef<HTMLDivElement | null>(null);
   const questionTextDivRef = useRef<HTMLDivElement | null>(null);
   const passageDivRef = useRef<HTMLDivElement | null>(null);
+
+  const [showJsonHelp, setShowJsonHelp] = useState(false);
 
   // JSON import
   const [jsonImporting, setJsonImporting] = useState(false);
@@ -322,7 +327,7 @@ export default function ContentManager() {
   // Mutations — questions
   const addQuestionMutation = useMutation({
     mutationFn: (questionText: string) => {
-      const base = { passageId: (qForm as any).passageId || null, subSkill: (qForm.subSkill || null) as SubSkill | null, questionText, explanation: qForm.explanation || null, imageUrl: qForm.imageUrl || null, orderIndex: questions.length };
+      const base = { passageId: (qForm as any).passageId || null, skillCode: qForm.skillCode || null, difficulty: qForm.difficulty || null, questionText, explanation: qForm.explanation || null, imageUrl: qForm.imageUrl || null, orderIndex: questions.length };
       if (qForm.questionType === 'multiple_choice') {
         const f = qForm as MCForm;
         return addQuestion(activeSet!.id, { ...base, questionType: 'multiple_choice', optionA: f.optionA, optionB: f.optionB, optionC: f.optionC, optionD: f.optionD, correctAnswer: f.correctAnswer, correctAnswerText: null });
@@ -347,7 +352,7 @@ export default function ContentManager() {
 
   const updateQuestionMutation = useMutation({
     mutationFn: (questionText: string) => {
-      const base = { passageId: (qForm as any).passageId || null, subSkill: (qForm.subSkill || null) as SubSkill | null, questionText, explanation: qForm.explanation || null, imageUrl: qForm.imageUrl || null, orderIndex: editingQuestion!.orderIndex };
+      const base = { passageId: (qForm as any).passageId || null, skillCode: qForm.skillCode || null, difficulty: qForm.difficulty || null, questionText, explanation: qForm.explanation || null, imageUrl: qForm.imageUrl || null, orderIndex: editingQuestion!.orderIndex };
       if (qForm.questionType === 'multiple_choice') {
         const f = qForm as MCForm;
         return updateQuestion(editingQuestion!.id, { ...base, questionType: 'multiple_choice', optionA: f.optionA, optionB: f.optionB, optionC: f.optionC, optionD: f.optionD, correctAnswer: f.correctAnswer, correctAnswerText: null });
@@ -371,8 +376,8 @@ export default function ContentManager() {
   });
 
   const overrideSubSkillMutation = useMutation({
-    mutationFn: ({ questionId, subSkill }: { questionId: string; subSkill: SubSkill }) =>
-      updateQuestionSubSkill(questionId, { subSkill, subSkillSource: 'human_confirmed' }),
+    mutationFn: ({ questionId, skillCode }: { questionId: string; skillCode: string }) =>
+      updateQuestionSubSkill(questionId, { skillCode, subSkillSource: 'human_confirmed' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet?.id] }),
   });
 
@@ -413,7 +418,8 @@ export default function ContentManager() {
       setQForm({
         questionType: 'multiple_choice',
         passageId: q.passageId ?? '',
-        subSkill: (q.subSkill ?? '') as SubSkill | '',
+        skillCode: q.skillCode ?? '',
+        difficulty: q.difficulty ?? '',
         questionText: q.questionText,
         optionA: q.optionA ?? '',
         optionB: q.optionB ?? '',
@@ -427,7 +433,8 @@ export default function ContentManager() {
       setQForm({
         questionType: 'student_produced_response',
         passageId: q.passageId ?? '',
-        subSkill: (q.subSkill ?? '') as SubSkill | '',
+        skillCode: q.skillCode ?? '',
+        difficulty: q.difficulty ?? '',
         questionText: q.questionText,
         correctAnswerText: q.correctAnswerText ?? '',
         explanation: q.explanation ?? '',
@@ -529,6 +536,11 @@ export default function ContentManager() {
               style={{ display: 'none' }}
               onChange={handleJsonUpload}
             />
+            <button
+              onClick={() => setShowJsonHelp((open) => !open)}
+              title="What does the JSON file look like?"
+              style={{ width: 32, height: 32, borderRadius: 9999, border: '1px solid #E7E4DE', background: showJsonHelp ? '#0B0B0E' : '#fff', color: showJsonHelp ? '#fff' : 'rgba(11,11,14,0.5)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+            >?</button>
             <Button
               variant="secondary"
               onClick={() => { setJsonImportError(''); jsonFileRef.current?.click(); }}
@@ -548,6 +560,42 @@ export default function ContentManager() {
             >{label}</button>
           ))}
         </div>
+
+        {showJsonHelp && (
+          <div style={{ ...CARD, padding: '18px 22px', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 8px' }}>Bulk import format</h3>
+            <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.55)', margin: '0 0 12px', lineHeight: 1.55 }}>
+              An imported set arrives as a <strong>draft</strong> unless you pass <code>"isDraft": false</code>,
+              so nothing reaches students before you have looked at it. Set <code>difficulty</code> is the
+              adaptive tier (<code>low</code> / <code>medium</code> / <code>hard</code>) — without it the set is
+              never picked for a mock module. Per-question <code>difficulty</code> is a different scale
+              (<code>easy</code> / <code>medium</code> / <code>hard</code>) and drives topic practice.
+              <code>skillCode</code> takes any domain or skill from the topic list, for both subjects.
+            </p>
+            <pre style={{ margin: 0, padding: 14, background: '#F7F5F1', border: '1px solid #EEEBE5', borderRadius: 10, fontSize: 12, lineHeight: 1.6, overflowX: 'auto', fontFamily: "'JetBrains Mono', monospace" }}>
+{`{
+  "title": "Algebra — Linear Equations",
+  "subject": "math",
+  "description": "Practice set",
+  "difficulty": "medium",        // adaptive tier for the whole set
+  "isDraft": false,              // omit to import as a draft
+  "passages": [],                // English sets only
+  "questions": [
+    {
+      "questionType": "multiple_choice",
+      "questionText": "If 2x + 3 = 11, what is x?",
+      "optionA": "2", "optionB": "3", "optionC": "4", "optionD": "5",
+      "correctAnswer": "c",
+      "explanation": "Subtract 3, then divide by 2.",
+      "skillCode": "algebra",    // any code from the topic list
+      "difficulty": "easy",      // this question, not the set
+      "passageIndex": null       // index into "passages", or null
+    }
+  ]
+}`}
+            </pre>
+          </div>
+        )}
 
         {jsonImportError && (
           <div style={{ background: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 10, padding: '10px 16px', marginBottom: 16, fontSize: 13.5, color: '#C0392B' }}>
@@ -852,21 +900,37 @@ export default function ContentManager() {
                 </div>
               )}
 
-              {/* Sub-skill (Reading & Writing sets only) */}
-              {!isMath && (
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 6 }}>Sub-skill (optional)</label>
-                  <select
-                    value={(qForm as any).subSkill ?? ''}
-                    onChange={(e) => updateQ('subSkill', e.target.value)}
-                    style={{ width: '100%', height: 40, padding: '0 12px', border: '1px solid #E7E4DE', borderRadius: 10, background: '#fff', color: '#0B0B0E', fontSize: 14, fontFamily: 'inherit', outline: 'none' }}
-                  >
-                    <option value="">— Untagged</option>
-                    {SUB_SKILL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                  <p style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.4)', margin: '5px 0 0' }}>Used by AI features (Phases 2–5) to target specific feedback.</p>
+              {/* Topic and difficulty — both subjects. Math used to be
+                  untaggable here, which left half the corpus invisible to
+                  analytics and topic practice. */}
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 6 }}>Topic (optional)</label>
+                  <SkillSelect
+                    subject={isMath ? 'math' : 'english'}
+                    value={qForm.skillCode || null}
+                    onChange={(code) => updateQ('skillCode', code ?? '')}
+                  />
+                  <p style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.4)', margin: '5px 0 0' }}>Drives topic practice, per-skill analytics and targeted AI feedback.</p>
                 </div>
-              )}
+                <div style={{ flex: '0 1 200px' }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 6 }}>Difficulty (optional)</label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {(['easy', 'medium', 'hard'] as const).map((level) => {
+                      const active = qForm.difficulty === level;
+                      return (
+                        <button
+                          key={level}
+                          type="button"
+                          onClick={() => updateQ('difficulty', active ? '' : level)}
+                          style={{ flex: 1, height: 40, borderRadius: 10, border: active ? '1px solid #E2562B' : '1px solid #E7E4DE', background: active ? 'rgba(226,86,43,0.08)' : '#fff', color: active ? '#E2562B' : 'rgba(11,11,14,0.6)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}
+                        >{level}</button>
+                      );
+                    })}
+                  </div>
+                  <p style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.4)', margin: '5px 0 0' }}>Per question — separate from the set's difficulty tier.</p>
+                </div>
+              </div>
 
               {/* Question text */}
               <div>
@@ -1074,12 +1138,12 @@ export default function ContentManager() {
           {/* Question list */}
           {questions.length > 0 && (() => {
             const hasAiSuggested = questions.some((q) => q.subSkillSource === 'ai_suggested');
-            const hasUntagged = !isMath && questions.some((q) => !q.subSkill);
+            const hasUntagged = questions.some((q) => !q.skillCode);
             const showFilter = hasAiSuggested || hasUntagged;
             const filtered = qFilter === 'ai_suggested'
               ? questions.filter((q) => q.subSkillSource === 'ai_suggested')
               : qFilter === 'untagged'
-              ? questions.filter((q) => !q.subSkill)
+              ? questions.filter((q) => !q.skillCode)
               : questions;
 
             return (
@@ -1103,12 +1167,12 @@ export default function ContentManager() {
                   )}
                 </div>
                 {filtered.map((q, i) => (
-                  <QuestionRow key={q.id} q={q} index={questions.indexOf(q)} isLast={i === filtered.length - 1} passages={passages}
+                  <QuestionRow key={q.id} q={q} index={questions.indexOf(q)} isLast={i === filtered.length - 1} passages={passages} subject={isMath ? 'math' : 'english'}
                     isEditing={editingQuestion?.id === q.id}
                     onDelete={() => setDeleteTarget({ type: 'question', id: q.id })}
                     onEdit={() => startEdit(q)}
                     onConfirm={q.subSkillSource === 'ai_suggested' ? () => confirmSubSkillMutation.mutate(q.id) : undefined}
-                    onOverride={q.subSkillSource === 'ai_suggested' ? (sk) => overrideSubSkillMutation.mutate({ questionId: q.id, subSkill: sk }) : undefined}
+                    onOverride={q.subSkillSource === 'ai_suggested' ? (code) => overrideSubSkillMutation.mutate({ questionId: q.id, skillCode: code }) : undefined}
                   />
                 ))}
               </div>
@@ -1137,17 +1201,23 @@ export default function ContentManager() {
 
 // ── Question Row ──────────────────────────────────────────────────────────────
 
-function QuestionRow({ q, index, isLast, passages, isEditing, onDelete, onEdit, onConfirm, onOverride }: {
+function QuestionRow({ q, index, isLast, passages, subject, isEditing, onDelete, onEdit, onConfirm, onOverride }: {
   q: Question; index: number; isLast: boolean; passages: Passage[];
+  subject: 'english' | 'math';
   isEditing?: boolean;
   onDelete: () => void;
   onEdit: () => void;
   onConfirm?: () => void;
-  onOverride?: (subSkill: SubSkill) => void;
+  onOverride?: (skillCode: string) => void;
 }) {
   const isMC = q.questionType === 'multiple_choice';
   const passage = passages.find((p) => p.id === q.passageId);
   const isAiSuggested = q.subSkillSource === 'ai_suggested';
+  const { data: skillTree = [] } = useQuery({
+    queryKey: skillsQueryKey(),
+    queryFn: () => getSkills(),
+    staleTime: 60 * 60 * 1000,
+  });
 
   return (
     <div style={{ borderBottom: isLast ? 'none' : '1px solid #F2F0EC', background: isEditing ? 'rgba(226,86,43,0.04)' : isAiSuggested ? 'rgba(184,137,62,0.03)' : undefined, outline: isEditing ? '2px solid rgba(226,86,43,0.25)' : 'none', outlineOffset: -1 }}>
@@ -1156,9 +1226,14 @@ function QuestionRow({ q, index, isLast, passages, isEditing, onDelete, onEdit, 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '2px 7px', borderRadius: 5, background: isMC ? '#EEF2FB' : 'rgba(226,86,43,0.08)', color: isMC ? '#2563A8' : '#E2562B' }}>{isMC ? 'MC' : 'SPR'}</span>
-            {q.subSkill && (
+            {q.skillCode && (
               <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.04em', padding: '2px 7px', borderRadius: 5, background: isAiSuggested ? 'rgba(184,137,62,0.12)' : '#F0ECE4', color: isAiSuggested ? '#8A6020' : '#6B5F4A', border: isAiSuggested ? '1px solid rgba(184,137,62,0.3)' : 'none' }}>
-                {isAiSuggested && '⚡ '}{q.subSkill.replace(/_/g, ' ')}
+                {isAiSuggested && '⚡ '}{skillLabel(skillTree, q.skillCode)}
+              </span>
+            )}
+            {q.difficulty && (
+              <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.04em', padding: '2px 7px', borderRadius: 5, background: '#EEF2FB', color: '#2563A8', textTransform: 'capitalize' }}>
+                {q.difficulty}
               </span>
             )}
             {passage && <span style={{ fontSize: 11, color: '#B8893E', display: 'flex', alignItems: 'center', gap: 3 }}><FileText size={11} />{passage.title || 'Passage'}</span>}
@@ -1192,16 +1267,16 @@ function QuestionRow({ q, index, isLast, passages, isEditing, onDelete, onEdit, 
             onClick={onConfirm}
             style={{ padding: '3px 12px', fontSize: 11.5, fontWeight: 600, borderRadius: 6, border: '1px solid rgba(46,125,90,0.4)', background: 'rgba(46,125,90,0.08)', color: '#2E7D5A', cursor: 'pointer', fontFamily: 'inherit' }}
           >✓ Confirm</button>
-          <select
-            defaultValue=""
-            onChange={(e) => { if (e.target.value) onOverride(e.target.value as SubSkill); e.target.value = ''; }}
-            style={{ padding: '3px 8px', fontSize: 11.5, borderRadius: 6, border: '1px solid #E7E4DE', background: '#fff', color: '#0B0B0E', cursor: 'pointer', fontFamily: 'inherit' }}
-          >
-            <option value="" disabled>Override skill…</option>
-            {SUB_SKILL_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+          {/* The full tree, so a Math suggestion is correctable — the old
+              five-value list could not express a Math topic at all. */}
+          <div style={{ minWidth: 220 }}>
+            <SkillSelect
+              subject={subject}
+              value={null}
+              onChange={(code) => { if (code) onOverride(code); }}
+              style={{ height: 28, fontSize: 11.5, borderRadius: 6, padding: '0 8px' }}
+            />
+          </div>
         </div>
       )}
     </div>

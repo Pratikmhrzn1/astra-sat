@@ -29,9 +29,17 @@ export interface Passage {
   createdAt: string;
 }
 
+/**
+ * LEGACY. The five Reading-and-Writing values of the old `sub_skill` enum,
+ * superseded by `skillCode`. Still in the payload because the column exists;
+ * nothing in the UI writes it any more.
+ */
 export type SubSkill = 'grammar' | 'inference' | 'command_of_evidence' | 'vocab_in_context' | 'transitions';
 
 export type SubSkillSource = 'ai_suggested' | 'human_confirmed';
+
+/** Per-question difficulty. A *set's* difficulty is `low | medium | hard` — different scale. */
+export type QuestionDifficulty = 'easy' | 'medium' | 'hard';
 
 export interface Question {
   id: string;
@@ -39,6 +47,9 @@ export interface Question {
   passageId: string | null;
   questionType: 'multiple_choice' | 'student_produced_response';
   subSkill: SubSkill | null;
+  /** A domain or skill code from `/skills`. Covers Math, which `subSkill` never could. */
+  skillCode: string | null;
+  difficulty: QuestionDifficulty | null;
   subSkillSource: SubSkillSource | null;
   questionText: string;
   optionA: string | null;
@@ -164,19 +175,21 @@ export async function getSetQuestions(setId: string): Promise<Question[]> {
   return data;
 }
 
-export async function addQuestion(setId: string, payload: Omit<Question, 'id' | 'setId' | 'subSkillSource'>): Promise<Question> {
+/** `subSkill` is omitted too: tagging goes through `skillCode` now. */
+export async function addQuestion(setId: string, payload: Omit<Question, 'id' | 'setId' | 'subSkillSource' | 'subSkill'>): Promise<Question> {
   const { data } = await apiClient.post<Question>(`/teacher/question-sets/${setId}/questions`, payload);
   return data;
 }
 
-export async function updateQuestion(questionId: string, payload: Omit<Question, 'id' | 'setId' | 'subSkillSource'>): Promise<Question> {
+export async function updateQuestion(questionId: string, payload: Omit<Question, 'id' | 'setId' | 'subSkillSource' | 'subSkill'>): Promise<Question> {
   const { data } = await apiClient.put<Question>(`/teacher/questions/${questionId}`, payload);
   return data;
 }
 
+/** Confirm or override an AI-suggested tag. Takes a skill code, so Math is correctable. */
 export async function updateQuestionSubSkill(
   questionId: string,
-  payload: { subSkill?: SubSkill | null; subSkillSource: SubSkillSource },
+  payload: { skillCode?: string | null; subSkillSource: SubSkillSource },
 ): Promise<Question> {
   const { data } = await apiClient.put<Question>(`/teacher/questions/${questionId}/subskill`, payload);
   return data;
@@ -190,6 +203,10 @@ export interface QuestionSetImportPayload {
   title: string;
   subject: 'english' | 'math';
   description?: string;
+  /** Adaptive tier for the whole set. Without it the set is invisible to mock selection. */
+  difficulty?: 'low' | 'medium' | 'hard' | null;
+  /** Defaults to true server-side, so a bad paste is never live to students. */
+  isDraft?: boolean;
   passages?: Array<{
     title?: string;
     passageText: string;
@@ -199,7 +216,8 @@ export interface QuestionSetImportPayload {
     passageIndex?: number | null;
     questionType: 'multiple_choice' | 'student_produced_response';
     questionText: string;
-    subSkill?: SubSkill | null;
+    skillCode?: string | null;
+    difficulty?: QuestionDifficulty | null;
     optionA?: string | null;
     optionB?: string | null;
     optionC?: string | null;

@@ -31,6 +31,7 @@ src/
     teacher/         roster, results, content authoring, vocabulary bank
     admin/           users, access codes, database console, AI tooling
     live-exam/       proctored classroom sessions
+    skills/          the SAT domain/skill taxonomy, readable by every role
     library/         shared files and notes
     platform-feedback/  in-app bug reports
     ai/              the only module that calls OpenRouter
@@ -68,6 +69,18 @@ creates the `exams` row, its blank `exam_answers` rows and the question count in
 a single transaction. Everything downstream assumes all three exist: saving an
 answer only UPDATEs an existing row and grading joins over them, so an exam
 created any other way silently accepts no answers and scores zero.
+
+**Questions are tagged with `skill_code`, not `sub_skill`.** `modules/skills`
+serves the domain/skill tree from the `skills` table and is the only source of
+valid codes — `assertKnownSkillCode` checks a tag against the table rather than a
+zod enum, because the taxonomy is data. The `sub_skill` enum it replaced had five
+Reading-and-Writing values, so **Math could not be tagged at all** and was
+invisible to analytics, topic practice and the AI narrative. Those five values are
+spelled identically as skill codes and the migration backfills `skill_code` from
+`sub_skill`, which is why every reader moved across without translating values.
+The column and its zod field survive only so an old import payload still works —
+`createQuestion` and `importSetFromJson` map such a tag into `skill_code`. Nothing
+reads `sub_skill` any more; do not add a reader.
 
 **There are two difficulty scales, on purpose.** `question_sets.difficulty` is
 `low | medium | hard` (TEXT + CHECK) and describes a whole module; it is what the

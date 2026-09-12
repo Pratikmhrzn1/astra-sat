@@ -189,7 +189,10 @@ async function promoteSkillPassage(contentId: string, content: SkillPassageConte
         optionD: question.options.D,
         correctAnswer: question.correctAnswer.toLowerCase() as 'a' | 'b' | 'c' | 'd',
         explanation: question.explanation ?? '',
+        // Generated remediation always targets one of the five Reading and
+        // Writing skills, whose codes are spelled the same in both columns.
         subSkill: subSkill as 'grammar' | 'inference' | 'command_of_evidence' | 'vocab_in_context' | 'transitions',
+        skillCode: subSkill,
         subSkillSource: 'ai_suggested' as const,
         generated: true,
         orderIndex: index,

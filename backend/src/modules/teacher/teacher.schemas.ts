@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+/**
+ * LEGACY. The five Reading-and-Writing values of the old `sub_skill` enum.
+ *
+ * Superseded by `skillCode`, which points at the `skills` table and covers Math
+ * too. Kept only because the AI classifier's prompt still names these five and
+ * the column still exists; new tagging goes through `skillCodeField`.
+ */
 export const SUB_SKILLS = [
   'grammar',
   'inference',
@@ -9,6 +16,22 @@ export const SUB_SKILLS = [
 ] as const;
 
 const subSkillField = z.enum(SUB_SKILLS).nullable().optional();
+
+/**
+ * A domain or skill code from the `skills` table.
+ *
+ * Shape only — the value is checked against the table in the service, because a
+ * zod enum here would have to be regenerated every time a skill is added, and
+ * the taxonomy is data rather than code.
+ */
+const skillCodeField = z.string().min(1).max(64).nullable().optional();
+
+/**
+ * Per-question difficulty. Note this is `easy | medium | hard` while a *set's*
+ * difficulty is `low | medium | hard` — see backend/README.md. The two describe
+ * different things and must never be converted into one another.
+ */
+const questionDifficultyField = z.enum(['easy', 'medium', 'hard']).nullable().optional();
 
 export const sendFeedbackSchema = z.object({
   studentId: z.string().uuid(),
@@ -29,10 +52,21 @@ export type CreateSetInput = z.infer<typeof createSetSchema>;
 export const updateSetSchema = createSetSchema.partial();
 export type UpdateSetInput = z.infer<typeof updateSetSchema>;
 
+/**
+ * Bulk import of a whole set.
+ *
+ * `isDraft` defaults to true to match `createSet`: an imported set used to
+ * publish the instant it landed, so a bad paste was live to students before
+ * anyone had looked at it. Pass `isDraft: false` to import something already
+ * reviewed. Set-level `difficulty` is accepted because without it an imported
+ * set is invisible to adaptive module selection, which picks by tier.
+ */
 export const importJsonSchema = z.object({
   title: z.string().min(1).max(255),
   subject: z.enum(['english', 'math']),
   description: z.string().max(2000).optional().default(''),
+  difficulty: z.enum(['low', 'medium', 'hard']).nullable().optional(),
+  isDraft: z.boolean().optional().default(true),
   passages: z
     .array(
       z.object({
@@ -50,6 +84,8 @@ export const importJsonSchema = z.object({
         questionType: z.enum(['multiple_choice', 'student_produced_response']),
         questionText: z.string().min(1),
         subSkill: subSkillField,
+        skillCode: skillCodeField,
+        difficulty: questionDifficultyField,
         optionA: z.string().nullable().optional(),
         optionB: z.string().nullable().optional(),
         optionC: z.string().nullable().optional(),
@@ -85,6 +121,8 @@ export const createQuestionSchema = z.discriminatedUnion('questionType', [
     questionType: z.literal('multiple_choice'),
     passageId: z.string().uuid().nullable().optional(),
     subSkill: subSkillField,
+    skillCode: skillCodeField,
+    difficulty: questionDifficultyField,
     questionText: z.string().min(1, 'Question text is required'),
     optionA: z.string().min(1, 'Option A is required'),
     optionB: z.string().min(1, 'Option B is required'),
@@ -99,6 +137,8 @@ export const createQuestionSchema = z.discriminatedUnion('questionType', [
     questionType: z.literal('student_produced_response'),
     passageId: z.string().uuid().nullable().optional(),
     subSkill: subSkillField,
+    skillCode: skillCodeField,
+    difficulty: questionDifficultyField,
     questionText: z.string().min(1, 'Question text is required'),
     optionA: z.string().optional().nullable(),
     optionB: z.string().optional().nullable(),
@@ -127,6 +167,8 @@ export const updateQuestionSchema = z
     questionType: z.enum(['multiple_choice', 'student_produced_response']),
     questionText: z.string().min(1),
     subSkill: z.enum(SUB_SKILLS).nullable(),
+    skillCode: z.string().min(1).max(64).nullable(),
+    difficulty: z.enum(['easy', 'medium', 'hard']).nullable(),
     optionA: z.string().nullable(),
     optionB: z.string().nullable(),
     optionC: z.string().nullable(),
@@ -140,8 +182,16 @@ export const updateQuestionSchema = z
   .partial();
 export type UpdateQuestionInput = z.infer<typeof updateQuestionSchema>;
 
+/**
+ * The AI Review flow: confirm or override a machine-suggested tag.
+ *
+ * Takes a `skillCode` so a reviewer can correct a Math question, which the old
+ * five-value field could not express at all. `subSkillSource` stays the
+ * provenance marker — writing `human_confirmed` is what removes a question from
+ * the review queue.
+ */
 export const updateSubSkillSchema = z.object({
-  subSkill: z.enum(SUB_SKILLS).nullable().optional(),
+  skillCode: z.string().min(1).max(64).nullable().optional(),
   subSkillSource: z.enum(['ai_suggested', 'human_confirmed']),
 });
 export type UpdateSubSkillInput = z.infer<typeof updateSubSkillSchema>;

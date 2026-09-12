@@ -18,6 +18,13 @@ export interface AccessCode {
   createdBy: string | null;
 }
 
+export interface TaggingCoverage {
+  subject: 'english' | 'math';
+  tagged: number;
+  total: number;
+  percentage: number;
+}
+
 export interface AdminStats {
   students: number;
   teachers: number;
@@ -25,6 +32,12 @@ export interface AdminStats {
   exams: number;
   questions: number;
   questionSets: number;
+  /**
+   * Share of published questions carrying a skill code, per subject. Every
+   * per-skill analytic is bounded by this, so it is worth watching: Math sat at
+   * 0% for as long as the taxonomy could not express a Math tag.
+   */
+  taggingCoverage: TaggingCoverage[];
 }
 
 export async function getStats(): Promise<AdminStats> {

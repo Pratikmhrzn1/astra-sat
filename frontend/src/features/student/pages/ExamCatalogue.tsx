@@ -5,6 +5,10 @@ import { getQuestionSets, startExam } from '@/features/student/api/student.api';
 import { getApiError } from '@/shared/api/client';
 import { getAllExamProgress, clearExamProgress } from '@/shared/lib/offline';
 import { useMobile } from '@/shared/hooks/useMobile';
+import { getSkills, skillsQueryKey } from '@/shared/api/skills';
+
+/** Cycled across the domains of a subject, so the cards stay visually distinct. */
+const DOMAIN_COLORS = ['#2E7D5A', '#2563A8', '#B8893E', '#E2562B'];
 
 const CARD_STYLE: React.CSSProperties = {
   background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)',
@@ -33,6 +37,11 @@ export default function ExamCatalogue() {
   const switchSubject = (s: 'math' | 'english') => navigate(`/student/exams?subject=${s}`, { replace: true });
 
   const { data: sets = [], isLoading } = useQuery({ queryKey: ['student', 'question-sets'], queryFn: getQuestionSets });
+  const { data: skillTree = [] } = useQuery({
+    queryKey: skillsQueryKey(true),
+    queryFn: () => getSkills(true),
+    staleTime: 5 * 60 * 1000,
+  });
 
   const startMutation = useMutation({
     mutationFn: startExam,
@@ -60,15 +69,22 @@ export default function ExamCatalogue() {
     ? 'Focused Math practice spanning the Digital SAT domains. An on-screen calculator is available for every question, exactly like the real exam.'
     : 'Reading & Writing practice that mirrors the Digital SAT: short passages each followed by a single question testing craft, structure, and the conventions of English.';
 
-  const mods = isMath
-    ? [
-        { color: '#2563A8', name: 'Algebra & Advanced Math', detail: 'Linear · systems · factoring', desc: 'Build, solve, and interpret equations.' },
-        { color: '#B8893E', name: 'Problem Solving & Geometry', detail: 'Percent · ratio · shapes', desc: 'Apply math to real-world and geometric problems.' },
-      ]
-    : [
-        { color: '#2E7D5A', name: 'Craft & Structure', detail: 'Words in context · evidence', desc: 'Vocabulary, purpose, and connections across texts.' },
-        { color: '#E2562B', name: 'Standard English', detail: 'Boundaries · form · transitions', desc: 'Punctuation, agreement and logical flow.' },
-      ];
+  // The four official domains for this subject, from the server's taxonomy.
+  // This was two hardcoded pairs per subject that merged real domains into
+  // invented groupings ("Problem Solving & Geometry"), and had to be edited in
+  // step with a second copy in MockTest.
+  const domains = skillTree.filter((d) => d.subject === subject);
+  const mods = domains.map((domain, i) => ({
+    color: DOMAIN_COLORS[i % DOMAIN_COLORS.length],
+    name: domain.label,
+    // The skills beneath it, or the count when a domain has no children.
+    detail: domain.skills.length
+      ? domain.skills.map((skill) => skill.label).join(' · ')
+      : `${domain.totalQuestionCount ?? 0} questions`,
+    desc: domain.skills.length
+      ? `${domain.totalQuestionCount ?? 0} questions available.`
+      : '',
+  }));
 
   const rules = [
     timerEnabled

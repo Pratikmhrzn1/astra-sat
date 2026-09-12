@@ -3,6 +3,7 @@ import { db } from '../../db';
 import { accessCodes, aiFeedback, exams, questionSets, questions, users } from '../../db/schema';
 import { badRequest, conflict, notFound } from '../../http/errors';
 import { hashPassword } from '../../lib/password';
+import { getTaggingCoverage } from '../skills/skills.service';
 import type { CreateAccessCodeInput, UpdateUserInput } from './admin.schemas';
 
 /** Platform administration: people, registration codes, and AI spend. */
@@ -24,6 +25,10 @@ export async function getStats() {
     exams: examCount,
     questions: questionCount,
     questionSets: setCount,
+    // Every per-skill analytic is only as good as this number, so it belongs
+    // where someone will see it rather than in a query someone has to remember
+    // to run. Math sat at 0% for as long as it was untaggable.
+    taggingCoverage: await getTaggingCoverage(),
   };
 }
 

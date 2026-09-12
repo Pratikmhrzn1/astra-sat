@@ -3,19 +3,42 @@ import { db } from '../../db';
 import { questionSets, questions } from '../../db/schema';
 import { HttpError } from '../../http/errors';
 import { generateStructuredOutput, isConfigured } from '../ai';
-import { SUB_SKILLS } from '../teacher/teacher.schemas';
 
 /**
- * Batch tagging of English questions by sub-skill.
+ * Batch tagging of untagged questions against the SAT skill tree.
  *
- * Sub-skill tags drive which feedback types fire and which weaknesses get
- * remediation, so untagged questions are invisible to most of the AI features.
- * This backfills them. Everything it writes is marked `ai_suggested`, leaving a
- * teacher's `human_confirmed` tags untouched and making machine guesses
- * reviewable.
+ * Tags drive which feedback types fire, which weaknesses get remediation, and
+ * every per-skill analytic, so an untagged question is invisible to most of the
+ * platform. This backfills them. Everything it writes is marked `ai_suggested`,
+ * leaving a teacher's `human_confirmed` tags untouched and making machine
+ * guesses reviewable.
+ *
+ * **Both subjects.** This used to filter `subject = 'english'` at the query
+ * level, because the old five-value `sub_skill` enum had no way to express a
+ * Math tag — so Math sat permanently at 0% tagged. Math is classified at domain
+ * level (the four official domains) rather than to individual skills: the
+ * domains are what topic practice and analytics group by, and asking a model to
+ * pick between fine-grained Math skills invites confident nonsense.
  */
 
-const CLASSIFY_SYSTEM_PROMPT = `You classify SAT Reading and Writing questions by sub-skill. Respond ONLY with a JSON object containing a single "classification" field. No markdown, no explanation, no preamble.
+/** Reading and Writing: the five skills, which are leaves of the tree. */
+const ENGLISH_SKILLS = [
+  'grammar',
+  'inference',
+  'command_of_evidence',
+  'vocab_in_context',
+  'transitions',
+] as const;
+
+/** Math: the four official domains, which are top-level nodes. */
+const MATH_DOMAINS = [
+  'algebra',
+  'advanced_math',
+  'problem_solving_data_analysis',
+  'geometry_trigonometry',
+] as const;
+
+const ENGLISH_PROMPT = `You classify SAT Reading and Writing questions by skill. Respond ONLY with a JSON object containing a single "classification" field. No markdown, no explanation, no preamble.
 
 Valid classifications:
 - "grammar" — tests mechanics: punctuation, subject-verb agreement, pronoun agreement, parallel structure, verb tense, modifier placement
@@ -27,12 +50,29 @@ Valid classifications:
 
 Example response: {"classification":"grammar"}`;
 
+const MATH_PROMPT = `You classify SAT Math questions by domain. Respond ONLY with a JSON object containing a single "classification" field. No markdown, no explanation, no preamble.
+
+Valid classifications:
+- "algebra" — linear equations and inequalities in one or two variables, systems of linear equations, linear functions
+- "advanced_math" — quadratics, polynomials, exponentials, radicals, rational expressions, nonlinear systems, function notation and transformations
+- "problem_solving_data_analysis" — ratios, rates, proportions, percentages, units, probability, statistics, reading data from tables and graphs
+- "geometry_trigonometry" — lines and angles, triangles, circles, area and volume, right-triangle trigonometry
+- "unclear" — genuinely does not fit any single domain
+
+Example response: {"classification":"algebra"}`;
+
+const VALID_CODES: Record<'english' | 'math', readonly string[]> = {
+  english: ENGLISH_SKILLS,
+  math: MATH_DOMAINS,
+};
+
 /** Concurrency per batch, and the pause between batches, to stay under rate limits. */
 const BATCH_SIZE = 20;
 const BATCH_DELAY_MS = 500;
 
 type Classifiable = {
   id: string;
+  subject: 'english' | 'math';
   questionText: string;
   optionA: string | null;
   optionB: string | null;
@@ -43,7 +83,8 @@ type Classifiable = {
 };
 
 function buildPrompt(question: Classifiable): string {
-  let prompt = `Classify this SAT Reading and Writing question:\n\nQuestion: ${question.questionText}`;
+  const label = question.subject === 'math' ? 'Math' : 'Reading and Writing';
+  let prompt = `Classify this SAT ${label} question:\n\nQuestion: ${question.questionText}`;
 
   if (question.optionA) {
     prompt += `\n\nOptions:\nA) ${question.optionA}\nB) ${question.optionB}\nC) ${question.optionC}\nD) ${question.optionD}`;
@@ -67,10 +108,12 @@ export async function autoTagSubSkills(): Promise<ClassificationRun> {
     throw new HttpError(503, 'Classification model not configured (needs OPENROUTER_API_KEY and AI_MODEL_CLASSIFY)');
   }
 
-  // English only: the sub-skill taxonomy describes Reading and Writing.
+  // Both subjects. The `subject = 'english'` filter that used to be here is
+  // what kept Math permanently untagged.
   const untagged = await db
     .select({
       id: questions.id,
+      subject: questionSets.subject,
       questionText: questions.questionText,
       optionA: questions.optionA,
       optionB: questions.optionB,
@@ -81,10 +124,12 @@ export async function autoTagSubSkills(): Promise<ClassificationRun> {
     })
     .from(questions)
     .innerJoin(questionSets, eq(questions.setId, questionSets.id))
-    .where(and(eq(questionSets.subject, 'english'), isNull(questions.subSkill)));
+    // Keyed on skill_code, not sub_skill: a Math question always had a null
+    // sub_skill and would have been re-classified on every run forever.
+    .where(and(isNull(questions.skillCode), isNull(questions.retiredAt)));
 
   const run: ClassificationRun = { totalFound: untagged.length, tagged: 0, unclear: 0, errors: 0 };
-  console.log(`[auto-tag] ${run.totalFound} untagged English questions`);
+  console.log(`[auto-tag] ${run.totalFound} untagged questions`);
 
   for (let offset = 0; offset < untagged.length; offset += BATCH_SIZE) {
     const batch = untagged.slice(offset, offset + BATCH_SIZE);
@@ -112,21 +157,23 @@ export async function autoTagSubSkills(): Promise<ClassificationRun> {
   return run;
 }
 
-/** Anything the model returns that is not a known sub-skill is left untagged. */
+/**
+ * Anything the model returns that is not a code valid for that subject is left
+ * untagged — including a real code from the *other* subject, which is the most
+ * likely way a confused answer would slip through.
+ */
 async function classifyOne(question: Classifiable): Promise<'tagged' | 'unclear'> {
-  const result = await generateStructuredOutput(CLASSIFY_SYSTEM_PROMPT, buildPrompt(question), 'classify');
+  const prompt = question.subject === 'math' ? MATH_PROMPT : ENGLISH_PROMPT;
+  const result = await generateStructuredOutput(prompt, buildPrompt(question), 'classify');
   const classification = (result.parsed as { classification?: unknown })?.classification;
 
-  if (typeof classification !== 'string' || !(SUB_SKILLS as readonly string[]).includes(classification)) {
+  if (typeof classification !== 'string' || !VALID_CODES[question.subject].includes(classification)) {
     return 'unclear';
   }
 
   await db
     .update(questions)
-    .set({
-      subSkill: classification as (typeof SUB_SKILLS)[number],
-      subSkillSource: 'ai_suggested',
-    })
+    .set({ skillCode: classification, subSkillSource: 'ai_suggested' })
     .where(eq(questions.id, question.id));
 
   return 'tagged';

@@ -58,19 +58,27 @@ export async function findNarrative(examId: string) {
   return row ?? null;
 }
 
-/** Per-sub-skill right/wrong counts — the substance the model reasons over. */
+/**
+ * Per-skill right/wrong counts — the substance the model reasons over.
+ *
+ * Grouped on `skill_code` rather than the old five-value enum, which covered
+ * only Reading and Writing. A Math narrative used to receive nothing but
+ * `- untagged: N wrong of M` and had to write around it.
+ */
 async function loadSubSkillBreakdown(examId: string) {
   const stats = await db
     .select({
-      subSkill: questions.subSkill,
+      subSkill: questions.skillCode,
       total: sql<number>`count(*)::int`,
       wrong: sql<number>`count(*) filter (where ${examAnswers.isCorrect} = false)::int`,
     })
     .from(examAnswers)
     .innerJoin(questions, eq(examAnswers.questionId, questions.id))
     .where(eq(examAnswers.examId, examId))
-    .groupBy(questions.subSkill);
+    .groupBy(questions.skillCode);
 
+  // The key stays `subSkill`: it is the name the prompt below and the model's
+  // JSON response contract both use. The value is a skill code.
   return stats.map(({ subSkill, total, wrong }) => ({
     subSkill: subSkill ?? 'untagged',
     total,

@@ -73,7 +73,7 @@ export async function confirmAnswer(
       optionD: questions.optionD,
       correctAnswer: questions.correctAnswer,
       correctAnswerText: questions.correctAnswerText,
-      subSkill: questions.subSkill,
+      skillCode: questions.skillCode,
       passageText: passages.passageText,
       subject: questionSets.subject,
     })
@@ -133,7 +133,7 @@ export async function confirmAnswer(
   const context: FeedbackContext = {
     questionText: question.questionText,
     questionType: question.questionType,
-    subSkill: question.subSkill ?? null,
+    skillCode: question.skillCode ?? null,
     subject: question.subject,
     optionA: question.optionA,
     optionB: question.optionB,
@@ -190,7 +190,7 @@ export async function confirmAnswer(
   const vocabTrackingId = await trackVocabulary({
     studentId,
     questionId,
-    subSkill: question.subSkill,
+    skillCode: question.skillCode,
     questionText: question.questionText,
     passageText: question.passageText,
     drill: feedbackByType.get('vocab_drill') as Record<string, unknown> | undefined,
@@ -208,8 +208,8 @@ export async function confirmAnswer(
     feedbacks,
     vocabTrackingId,
     skillTrigger:
-      !isCorrect && question.subSkill
-        ? { subSkill: question.subSkill, questionText: question.questionText, questionId }
+      !isCorrect && question.skillCode
+        ? { subSkill: question.skillCode, questionText: question.questionText, questionId }
         : null,
   };
 }
@@ -231,12 +231,12 @@ async function loadCachedFeedback(examAnswerId: string): Promise<Map<string, unk
 async function trackVocabulary(input: {
   studentId: string;
   questionId: string;
-  subSkill: string | null;
+  skillCode: string | null;
   questionText: string;
   passageText: string | null;
   drill: Record<string, unknown> | undefined;
 }): Promise<string | null> {
-  if (!input.drill || input.subSkill !== 'vocab_in_context') return null;
+  if (!input.drill || input.skillCode !== 'vocab_in_context') return null;
 
   const [existingContent] = await db
     .select({ id: generatedContent.id })

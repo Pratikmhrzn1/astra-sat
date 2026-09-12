@@ -10,10 +10,11 @@ import {
   teacherVocabWords,
   users,
 } from '../../db/schema';
-import { forbidden, notFound } from '../../http/errors';
+import { badRequest, forbidden, notFound } from '../../http/errors';
 import { normalizeFileUrl } from '../../lib/url';
 import { publicUserColumns } from '../auth/auth.repository';
 import { getProfile } from '../student/profile.service';
+import { listSkillCodes } from '../skills/skills.service';
 import type {
   CreatePassageInput,
   CreateQuestionInput,
@@ -270,6 +271,15 @@ export async function deleteSet(setId: string) {
  * by the array index the payload uses.
  */
 export async function importSetFromJson(teacherId: string, input: ImportJsonInput) {
+  // Validated before the transaction opens, so a typo in one tag rejects the
+  // whole payload with a clear message instead of rolling back mid-insert.
+  const known = await listSkillCodes();
+  for (const [index, question] of input.questions.entries()) {
+    if (question.skillCode && !known.has(question.skillCode)) {
+      throw badRequest(`Unknown skill code on question ${index + 1}: ${question.skillCode}`);
+    }
+  }
+
   return db.transaction(async (tx) => {
     const [set] = await tx
       .insert(questionSets)
@@ -277,6 +287,8 @@ export async function importSetFromJson(teacherId: string, input: ImportJsonInpu
         title: input.title,
         subject: input.subject,
         description: input.description,
+        difficulty: input.difficulty ?? null,
+        isDraft: input.isDraft,
         createdBy: teacherId,
       })
       .returning();
@@ -309,6 +321,11 @@ export async function importSetFromJson(teacherId: string, input: ImportJsonInpu
         questionType: question.questionType,
         questionText: question.questionText,
         subSkill: question.subSkill ?? null,
+        // A tag in an import file was written by a person, so it counts as
+        // confirmed and stays out of the AI Review queue.
+        skillCode: question.skillCode ?? question.subSkill ?? null,
+        difficulty: question.difficulty ?? null,
+        subSkillSource: question.skillCode || question.subSkill ? ('human_confirmed' as const) : null,
         optionA: question.optionA ?? null,
         optionB: question.optionB ?? null,
         optionC: question.optionC ?? null,
@@ -386,16 +403,50 @@ export async function listQuestions(setId: string) {
   return rows.map((row) => ({ ...row, imageUrl: normalizeFileUrl(row.imageUrl) }));
 }
 
+/**
+ * Rejects a tag that names a skill the taxonomy does not have.
+ *
+ * Checked against the table rather than a zod enum, because the taxonomy is data
+ * and would otherwise need a code change and a redeploy every time a skill is
+ * added. A bad code would otherwise be written and then silently never match
+ * anything on the way out.
+ */
+async function assertKnownSkillCode(skillCode: string | null | undefined): Promise<void> {
+  if (!skillCode) return;
+  const known = await listSkillCodes();
+  if (!known.has(skillCode)) {
+    throw badRequest(`Unknown skill code: ${skillCode}`);
+  }
+}
+
+/**
+ * A tag a person typed is authoritative, whichever endpoint they typed it in.
+ *
+ * `subSkillSource = 'human_confirmed'` is what removes a question from the AI
+ * Review queue. `createQuestion` set it and `updateQuestion` did not, so a tag
+ * corrected in the ordinary editor stayed marked `ai_suggested` and came back in
+ * the queue for someone to review again — against the very correction they had
+ * just made.
+ */
+function provenanceFor(tagged: boolean): 'human_confirmed' | undefined {
+  return tagged ? 'human_confirmed' : undefined;
+}
+
 export async function createQuestion(setId: string, input: CreateQuestionInput) {
   await assertSetExists(setId);
+  await assertKnownSkillCode(input.skillCode);
+
   const [question] = await db
     .insert(questions)
     .values({
       setId,
       ...input,
-      // A tag a teacher typed is authoritative; the AI classifier will not
-      // overwrite anything marked human_confirmed.
-      subSkillSource: input.subSkill ? 'human_confirmed' : null,
+      // The old path still works: a caller that sends only the legacy `subSkill`
+      // gets the matching skill code too, since the five legacy values are
+      // spelled identically as codes. Without this an external script tagging
+      // the old way would write a tag that no reader looks at any more.
+      skillCode: input.skillCode ?? input.subSkill ?? null,
+      subSkillSource: provenanceFor(!!input.skillCode || !!input.subSkill) ?? null,
     })
     .returning();
   return question;
@@ -403,9 +454,17 @@ export async function createQuestion(setId: string, input: CreateQuestionInput) 
 
 export async function updateQuestion(questionId: string, input: UpdateQuestionInput) {
   await assertQuestionExists(questionId);
+  await assertKnownSkillCode(input.skillCode);
+
+  // Only stamped when this edit actually carries a tag, so an unrelated edit —
+  // fixing a typo in the question text — does not silently mark someone else's
+  // AI suggestion as human-confirmed.
+  const taggedHere = input.skillCode !== undefined || input.subSkill !== undefined;
+  const subSkillSource = provenanceFor(taggedHere && (!!input.skillCode || !!input.subSkill));
+
   const [updated] = await db
     .update(questions)
-    .set(input)
+    .set({ ...input, ...(subSkillSource ? { subSkillSource } : {}) })
     .where(eq(questions.id, questionId))
     .returning();
   return updated;
@@ -414,9 +473,11 @@ export async function updateQuestion(questionId: string, input: UpdateQuestionIn
 /** Used by the review UI to confirm or correct an AI-suggested tag. */
 export async function updateQuestionSubSkill(questionId: string, input: UpdateSubSkillInput) {
   await assertQuestionExists(questionId);
+  await assertKnownSkillCode(input.skillCode);
+
   const [updated] = await db
     .update(questions)
-    .set({ subSkill: input.subSkill ?? null, subSkillSource: input.subSkillSource })
+    .set({ skillCode: input.skillCode ?? null, subSkillSource: input.subSkillSource })
     .where(eq(questions.id, questionId))
     .returning();
   return updated;

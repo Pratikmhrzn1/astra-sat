@@ -122,6 +122,25 @@ verdict. Nothing trusts a client-supplied score.
 `totalQuestions` is stored on the exam at creation and used as the denominator for the
 reported percentage — it is not recounted at submit time.
 
+### Tagging
+
+Questions carry a `skill_code` from the `skills` table — eight domains, five of
+which have named skills beneath them. `GET /skills` serves the tree to every signed-in
+role, and `?withCounts=true` adds published-question counts per node so a UI can grey out
+a topic nobody has authored yet.
+
+Tags come from three places: a teacher in the content manager, a bulk import payload, and
+the AI classifier (`POST /admin/questions/auto-tag-subskill`), which now covers **both**
+subjects — English to the five skills, Math to the four domains, each with its own prompt
+and its own valid-code list so a confused answer naming the other subject's code is
+rejected as unclear. Anything the classifier writes is `ai_suggested` and appears in the
+content manager's AI Review filter; any tag a person writes — in the editor, in the review
+flow, or in an import file — is stamped `human_confirmed` and stays out of that queue.
+
+The old `sub_skill` enum had no Math values, so Math sat permanently at 0% tagged. The
+admin dashboard now shows tagging coverage per subject, because every per-skill analytic
+is bounded by it.
+
 ### Scaled scoring
 
 The raw count above is not what a student is shown. Submit also writes `exams.scaled_score`,

@@ -14,7 +14,13 @@ export type ModelPurpose = 'feedback' | 'narrative' | 'classify';
 export interface FeedbackContext {
   questionText: string;
   questionType: 'multiple_choice' | 'student_produced_response';
-  subSkill: string | null;
+  /**
+   * The question's skill code, from the `skills` table. Named for what it is
+   * now rather than the five-value `sub_skill` enum it replaced — the five
+   * legacy values are spelled identically as skill codes, so the branches below
+   * kept working unchanged while gaining Math coverage.
+   */
+  skillCode: string | null;
   subject: 'english' | 'math';
   optionA: string | null;
   optionB: string | null;

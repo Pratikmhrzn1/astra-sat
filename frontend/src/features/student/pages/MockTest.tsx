@@ -1,15 +1,21 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { startMockTest } from '@/features/student/api/student.api';
 import { getApiError } from '@/shared/api/client';
 import { useMobile } from '@/shared/hooks/useMobile';
+import { getSkills, skillsQueryKey } from '@/shared/api/skills';
 
 const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)' };
 
-const MODS = [
-  { color: '#2E7D5A', name: 'Reading & Writing', detail: 'Grammar · vocab · comprehension', desc: 'Craft, structure, and the conventions of standard English.' },
-  { color: '#2563A8', name: 'Math', detail: 'Algebra · geometry · data', desc: 'Equations, functions, problem-solving, and real-world math.' },
+/**
+ * The two sections of the test. The domain list under each is filled in from
+ * `/skills` rather than restated here — it used to be a second hardcoded copy of
+ * the same names ExamCatalogue carried, and the two drifted independently.
+ */
+const SECTIONS = [
+  { subject: 'english' as const, color: '#2E7D5A', name: 'Reading & Writing', desc: 'Craft, structure, and the conventions of standard English.' },
+  { subject: 'math' as const, color: '#2563A8', name: 'Math', desc: 'Equations, functions, problem-solving, and real-world math.' },
 ];
 
 const RULES = [
@@ -24,6 +30,21 @@ const RULES = [
 export default function MockTest() {
   const navigate = useNavigate();
   const isMobile = useMobile();
+  const { data: skillTree = [] } = useQuery({
+    queryKey: skillsQueryKey(),
+    queryFn: () => getSkills(),
+    staleTime: 60 * 60 * 1000,
+  });
+
+  // "Grammar · Inference · …" straight from the taxonomy, so this page cannot
+  // drift from what questions are actually tagged with.
+  const sections = SECTIONS.map((section) => ({
+    ...section,
+    detail: skillTree
+      .filter((domain) => domain.subject === section.subject)
+      .map((domain) => domain.label)
+      .join(' · '),
+  }));
 
   const startMutation = useMutation({
     mutationFn: startMockTest,
@@ -60,7 +81,7 @@ export default function MockTest() {
         <div>
           <h3 style={{ fontSize: 15, margin: '0 0 12px' }}>What's inside</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {MODS.map((m, i) => (
+            {sections.map((m, i) => (
               <div key={i} style={{ ...CARD, padding: isMobile ? '14px 16px' : '18px 20px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
                   <span style={{ width: 10, height: 10, borderRadius: 9999, background: m.color, flexShrink: 0 }} />

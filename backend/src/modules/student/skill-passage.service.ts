@@ -2,18 +2,39 @@ import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { db } from '../../db';
 import { examAnswers, exams, generatedContent, questions, studentSkillTriggers } from '../../db/schema';
 import { generateStructuredOutput, isConfigured } from '../ai';
-import type { subSkillEnum } from '../../db/schema';
 
 /**
  * Targeted practice for a skill a student keeps missing.
  *
- * Every third wrong answer in the same sub-skill generates a fresh passage and
- * two questions aimed at it. The content lands as `pending` and is invisible to
- * students until an admin approves it — nothing a model writes reaches a
- * student unreviewed.
+ * Every third wrong answer in the same skill generates a fresh passage and two
+ * questions aimed at it. The content lands as `pending` and is invisible to
+ * students until an admin approves it — nothing a model writes reaches a student
+ * unreviewed.
  */
 
-type SubSkill = (typeof subSkillEnum.enumValues)[number];
+/**
+ * The skills this feature can actually remediate.
+ *
+ * It generates a *reading passage* with questions under it, so it only makes
+ * sense for Reading and Writing. Now that questions carry skill codes across
+ * both subjects, a missed Algebra question reaches the trigger path too, and
+ * without this gate it would have asked the model for a reading passage about
+ * algebra. Widening this list means writing prompts that suit the skill, not
+ * just adding a code.
+ */
+const REMEDIABLE_SKILLS = [
+  'grammar',
+  'inference',
+  'command_of_evidence',
+  'vocab_in_context',
+  'transitions',
+] as const;
+
+type SubSkill = (typeof REMEDIABLE_SKILLS)[number];
+
+function isRemediable(skillCode: string): skillCode is SubSkill {
+  return (REMEDIABLE_SKILLS as readonly string[]).includes(skillCode);
+}
 
 /** A miss every third time is a pattern; reacting sooner just adds noise. */
 const TRIGGER_EVERY = 3;
@@ -35,7 +56,7 @@ async function countWrongAnswers(studentId: string, subSkill: SubSkill): Promise
       and(
         eq(exams.studentId, studentId),
         eq(exams.type, 'individual'),
-        eq(questions.subSkill, subSkill),
+        eq(questions.skillCode, subSkill),
         eq(examAnswers.isCorrect, false),
       ),
     );
@@ -79,7 +100,7 @@ async function findRecentWrongQuestionTexts(
       and(
         eq(exams.studentId, studentId),
         eq(exams.type, 'individual'),
-        eq(questions.subSkill, subSkill),
+        eq(questions.skillCode, subSkill),
         eq(examAnswers.isCorrect, false),
         ne(questions.id, excludeQuestionId),
       ),
@@ -168,8 +189,9 @@ export async function checkAndTriggerSkillPassage(
   currentQuestionId: string,
 ): Promise<void> {
   if (!isConfigured('narrative')) return;
+  if (!isRemediable(subSkill)) return;
 
-  const wrongCount = await countWrongAnswers(studentId, subSkill as SubSkill);
+  const wrongCount = await countWrongAnswers(studentId, subSkill);
   if (wrongCount === 0 || wrongCount % TRIGGER_EVERY !== 0) return;
 
   const claimed = await claimTrigger(studentId, subSkill, wrongCount / TRIGGER_EVERY);
@@ -177,7 +199,7 @@ export async function checkAndTriggerSkillPassage(
 
   const examples = [
     currentQuestionText,
-    ...(await findRecentWrongQuestionTexts(studentId, subSkill as SubSkill, currentQuestionId)),
+    ...(await findRecentWrongQuestionTexts(studentId, subSkill, currentQuestionId)),
   ];
 
   void generateSkillPassage(studentId, subSkill, examples, currentQuestionId).catch((err) =>

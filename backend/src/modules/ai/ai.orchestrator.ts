@@ -38,20 +38,20 @@ const BUILDERS: Record<FeedbackType, (ctx: FeedbackContext) => Prompt> = {
  * student just met is useful either way.
  */
 export function getApplicableFeedbackTypes(
-  ctx: Pick<FeedbackContext, 'subSkill' | 'subject' | 'questionType' | 'isCorrect'>,
+  ctx: Pick<FeedbackContext, 'skillCode' | 'subject' | 'questionType' | 'isCorrect'>,
 ): FeedbackType[] {
   const types: FeedbackType[] = ['reasoning_checkpoint'];
   const isEnglish = ctx.subject === 'english';
   const isMultipleChoice = ctx.questionType === 'multiple_choice';
   const wrong = !ctx.isCorrect;
 
-  if (ctx.subSkill === 'grammar' && wrong) types.push('grammar_diagnosis');
+  if (ctx.skillCode === 'grammar' && wrong) types.push('grammar_diagnosis');
   if (isEnglish && isMultipleChoice && wrong) types.push('trap_explainer');
-  if (isEnglish && ctx.subSkill === 'command_of_evidence' && isMultipleChoice && wrong) {
+  if (isEnglish && ctx.skillCode === 'command_of_evidence' && isMultipleChoice && wrong) {
     types.push('command_of_evidence');
   }
-  if (isEnglish && ctx.subSkill === 'transitions' && wrong) types.push('transitions_coach');
-  if (isEnglish && ctx.subSkill === 'vocab_in_context') types.push('vocab_drill');
+  if (isEnglish && ctx.skillCode === 'transitions' && wrong) types.push('transitions_coach');
+  if (isEnglish && ctx.skillCode === 'vocab_in_context') types.push('vocab_drill');
 
   return types;
 }

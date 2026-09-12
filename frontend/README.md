@@ -82,6 +82,11 @@ than converting between them.
   `app/router.tsx` under the right role's `ProtectedRoute`. Do not hand-roll
   role checks inside a page.
 - Query keys are namespaced by feature, e.g. `['student', 'exam', id]`.
+- **Never hardcode the taxonomy.** Domain and skill names come from `/skills`
+  via `shared/api/skills.ts`; tag with `<SkillSelect>` from `shared/ui`. Three
+  separate hardcoded copies used to exist — a five-value list that excluded Math
+  entirely, plus two parallel domain lists in `ExamCatalogue` and `MockTest` that
+  drifted apart.
 - **Never compute a score.** `shared/lib/score.ts` is the only place that formats
   or colours one, and the numbers themselves come from the server —
   `exam.scaledScore` for a single exam, `mock.totalScore` / `rwScore` /
