@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '../../db';
 import {
   examAnswers,
@@ -106,7 +106,19 @@ export async function listStudentExams(teacherId: string, studentId: string) {
       completedAt: exams.completedAt,
       setTitle: questionSets.title,
       label: exams.label,
-      subject: questionSets.subject,
+      // Derived for a set-less exam the same way the student's own history does
+      // it, so the two views agree. Left null, a topic exam would show no
+      // subject badge here while the student saw one.
+      subject: sql<'english' | 'math'>`COALESCE(
+        ${questionSets.subject},
+        (SELECT qs.subject
+           FROM ${examAnswers} ea
+           JOIN ${questions} q ON q.id = ea.question_id
+           JOIN ${questionSets} qs ON qs.id = q.set_id
+          WHERE ea.exam_id = ${exams.id}
+          ORDER BY ea.order_index
+          LIMIT 1)
+      )`,
     })
     .from(exams)
     .leftJoin(questionSets, eq(exams.setId, questionSets.id))

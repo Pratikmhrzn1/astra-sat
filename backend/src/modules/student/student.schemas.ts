@@ -77,6 +77,41 @@ export const updateProfileSchema = z.object({
 });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
+/**
+ * A review exam built from open mistakes.
+ *
+ * Both filters are optional: with neither, the student practises their worst
+ * misses across everything, which is the common case from the dashboard.
+ */
+export const mistakePracticeSchema = z.object({
+  subject: z.enum(['english', 'math']).optional(),
+  skillCode: z.string().min(1).max(64).optional(),
+  limit: z.number().int().min(1).max(20).optional().default(10),
+});
+export type MistakePracticeInput = z.infer<typeof mistakePracticeSchema>;
+
+export const mistakeQuerySchema = z.object({
+  subject: z.enum(['english', 'math']).optional(),
+  skillCode: z.string().min(1).max(64).optional(),
+  status: z.enum(['open', 'resolved']).optional(),
+});
+export type MistakeQuery = z.infer<typeof mistakeQuerySchema>;
+
+/**
+ * Practice by topic. `skillCode` is validated against the `skills` table in the
+ * service rather than as a zod enum — the taxonomy is data, not code.
+ *
+ * The count is capped at 20 because this is a practice set, not a section: the
+ * real thing is 27 questions and carries a mock's weight and timing.
+ */
+export const topicExamSchema = z.object({
+  subject: z.enum(['english', 'math']),
+  skillCode: z.string().min(1).max(64),
+  difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+  count: z.number().int().min(5).max(20).optional().default(10),
+});
+export type TopicExamInput = z.infer<typeof topicExamSchema>;
+
 export const reviewVocabSchema = z.object({ isCorrect: z.boolean() });
 export type ReviewVocabInput = z.infer<typeof reviewVocabSchema>;
 

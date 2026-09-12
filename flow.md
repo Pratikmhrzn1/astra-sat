@@ -141,6 +141,31 @@ The old `sub_skill` enum had no Math values, so Math sat permanently at 0% tagge
 admin dashboard now shows tagging coverage per subject, because every per-skill analytic
 is bounded by it.
 
+### Mistake bank and topic practice
+
+Two loops that both run through the ordinary exam machinery rather than around it.
+
+`submitExam` files every wrong answer into `mistakes` — one row per (student, question),
+so a repeat miss bumps `miss_count` and reopens the row rather than adding a second entry.
+A correct answer on an open mistake stamps `resolved_at`, which is what makes the bank
+drain. Blanks count as misses, because `gradeAnswer` already treats unanswered as wrong.
+**Live exams defer this to the teacher's release**: their results are hidden until then, and
+a bank that filled at submit would reveal which questions were missed. `releaseParticipantResult`
+and `releaseAllResults` both skip an already-released participant, so re-releasing cannot
+double a miss count.
+
+`POST /student/mistakes/practice` and `POST /student/exams/topic` both build a real exam
+with `set_id = null` and a `label` — "Mistake review", "Topic: Algebra". That is deliberate:
+resolution, scoring and the answer sheet all work exactly as they do for any other exam,
+and the assemblers do not have to reimplement grading. Topic practice matches a domain
+*or any skill beneath it*, prefers questions the student has not seen, and refuses under
+five eligible questions; the catalogue uses `/skills?withCounts=true` to disable topics
+that cannot reach that.
+
+Both produce exams that span several sets, so `findQuestionsForExam` — which reads the
+answer sheet and left-joins each question's own passage — is what makes an English topic
+exam show the right passage above each question.
+
 ### Scaled scoring
 
 The raw count above is not what a student is shown. Submit also writes `exams.scaled_score`,

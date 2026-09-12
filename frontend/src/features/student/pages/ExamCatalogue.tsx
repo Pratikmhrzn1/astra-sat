@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { getQuestionSets, startExam } from '@/features/student/api/student.api';
+import { getQuestionSets, startExam, startTopicExam } from '@/features/student/api/student.api';
 import { getApiError } from '@/shared/api/client';
 import { getAllExamProgress, clearExamProgress } from '@/shared/lib/offline';
 import { useMobile } from '@/shared/hooks/useMobile';
@@ -43,6 +43,20 @@ export default function ExamCatalogue() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const [topicDifficulty, setTopicDifficulty] = useState<'any' | 'easy' | 'medium' | 'hard'>('any');
+  const [topicCount, setTopicCount] = useState(10);
+  const [topicError, setTopicError] = useState('');
+  const pendingTopicRef = useRef<string | null>(null);
+
+  const topicMutation = useMutation({
+    mutationFn: startTopicExam,
+    onSuccess: (data) =>
+      navigate(`/student/exams/${data.exam.id}`, {
+        state: { timerEnabled, examTitle: `Topic: ${data.skill.label}` },
+      }),
+    onError: (err) => setTopicError(getApiError(err)),
+  });
+
   const startMutation = useMutation({
     mutationFn: startExam,
     onSuccess: (data) => navigate(`/student/exams/${data.exam.id}`, { state: { timerEnabled, examTitle: pendingSetTitleRef.current } }),
@@ -75,15 +89,12 @@ export default function ExamCatalogue() {
   // step with a second copy in MockTest.
   const domains = skillTree.filter((d) => d.subject === subject);
   const mods = domains.map((domain, i) => ({
+    code: domain.code,
     color: DOMAIN_COLORS[i % DOMAIN_COLORS.length],
     name: domain.label,
-    // The skills beneath it, or the count when a domain has no children.
-    detail: domain.skills.length
-      ? domain.skills.map((skill) => skill.label).join(' · ')
-      : `${domain.totalQuestionCount ?? 0} questions`,
-    desc: domain.skills.length
-      ? `${domain.totalQuestionCount ?? 0} questions available.`
-      : '',
+    /** Published questions on this domain or any skill beneath it. */
+    available: domain.totalQuestionCount,
+    detail: domain.skills.map((skill) => skill.label).join(' · '),
   }));
 
   const rules = [
@@ -162,18 +173,60 @@ export default function ExamCatalogue() {
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: isMobile ? 14 : 20, marginBottom: isMobile ? 20 : 28 }}>
         <div>
-          <h3 style={{ fontSize: 15, margin: '0 0 12px' }}>What's inside</h3>
+          {/* Practise by topic. The counts come from the same endpoint, so a
+              domain nobody has authored questions for is disabled rather than
+              offered and then failing at assembly. */}
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+            <h3 style={{ fontSize: 15, margin: 0 }}>Practise by topic</h3>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              {(['any', 'easy', 'medium', 'hard'] as const).map((level) => (
+                <button
+                  key={level}
+                  onClick={() => setTopicDifficulty(level)}
+                  style={{ padding: '3px 10px', fontSize: 11.5, fontWeight: 600, borderRadius: 9999, border: topicDifficulty === level ? 'none' : '1px solid #E7E4DE', background: topicDifficulty === level ? '#0B0B0E' : '#F2F0EC', color: topicDifficulty === level ? '#fff' : '#8C8880', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}
+                >{level}</button>
+              ))}
+              <select
+                value={topicCount}
+                onChange={(e) => setTopicCount(Number(e.target.value))}
+                style={{ height: 26, padding: '0 6px', border: '1px solid #E7E4DE', borderRadius: 8, background: '#fff', fontSize: 11.5, fontFamily: 'inherit', cursor: 'pointer' }}
+              >
+                {[5, 10, 15, 20].map((n) => <option key={n} value={n}>{n} Qs</option>)}
+              </select>
+            </div>
+          </div>
+
+          {topicError && (
+            <div style={{ background: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 10, padding: '9px 14px', marginBottom: 10, fontSize: 13, color: '#C0392B' }}>
+              {topicError}
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {mods.map((m, i) => (
-              <div key={i} style={{ ...CARD_STYLE, padding: isMobile ? '14px 16px' : '18px 20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 9999, background: m.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: isMobile ? 14 : 15.5, fontWeight: 600 }}>{m.name}</span>
-                  {!isMobile && <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'rgba(11,11,14,0.45)', fontFamily: "'JetBrains Mono', monospace" }}>{m.detail}</span>}
+            {mods.map((m, i) => {
+              const enough = (m.available ?? 0) >= 5;
+              const starting = topicMutation.isPending && pendingTopicRef.current === m.code;
+              return (
+                <div key={i} style={{ ...CARD_STYLE, padding: isMobile ? '14px 16px' : '18px 20px', opacity: enough ? 1 : 0.6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 9999, background: m.color, flexShrink: 0 }} />
+                    <span style={{ fontSize: isMobile ? 14 : 15.5, fontWeight: 600 }}>{m.name}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'rgba(11,11,14,0.45)', fontFamily: "'JetBrains Mono', monospace" }}>
+                      {m.available ?? 0} Qs
+                    </span>
+                    <button
+                      onClick={() => { setTopicError(''); pendingTopicRef.current = m.code; topicMutation.mutate({ subject, skillCode: m.code, difficulty: topicDifficulty === 'any' ? undefined : topicDifficulty, count: topicCount }); }}
+                      disabled={!enough || topicMutation.isPending}
+                      title={enough ? undefined : 'Not enough questions in this topic yet'}
+                      style={{ height: 30, padding: '0 14px', borderRadius: 9999, border: 'none', background: enough ? '#E2562B' : '#E7E4DE', color: enough ? '#fff' : 'rgba(11,11,14,0.35)', fontSize: 12.5, fontWeight: 600, cursor: enough && !topicMutation.isPending ? 'pointer' : 'default', fontFamily: 'inherit', flexShrink: 0 }}
+                    >{starting ? 'Building…' : 'Practise'}</button>
+                  </div>
+                  {!isMobile && m.detail && (
+                    <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', fontFamily: "'JetBrains Mono', monospace" }}>{m.detail}</div>
+                  )}
                 </div>
-                <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.55)', lineHeight: 1.55 }}>{m.desc}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

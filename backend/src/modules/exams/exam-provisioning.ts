@@ -32,6 +32,8 @@ export async function createExamWithAnswerSheet(input: {
   studentId: string;
   /** Null for an exam assembled across sets, such as topic practice. */
   setId: string | null;
+  /** Display name for a set-less exam — "Topic: Algebra", "Mistake review". */
+  label?: string | null;
   type: ExamType;
   questionIds: string[];
 }) {
@@ -41,6 +43,7 @@ export async function createExamWithAnswerSheet(input: {
       .values({
         studentId: input.studentId,
         setId: input.setId,
+        label: input.label ?? null,
         type: input.type,
         totalQuestions: input.questionIds.length,
       })

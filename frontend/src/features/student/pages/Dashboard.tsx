@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/store/auth';
-import { getExams, getMockTests, getFeedback, getAvailableSkillPassages, getProfile, startExam } from '@/features/student/api/student.api';
+import { getExams, getMockTests, getFeedback, getAvailableSkillPassages, getMistakeSummary, getProfile, startExam } from '@/features/student/api/student.api';
 import { useMobile } from '@/shared/hooks/useMobile';
 import {
   NO_SCORE, SECTION_MAX,
@@ -19,7 +19,10 @@ export default function Dashboard() {
   const { data: feedback = [] } = useQuery({ queryKey: ['student', 'feedback'], queryFn: getFeedback });
   const { data: weakAreaPassages = [] } = useQuery({ queryKey: ['student', 'skill-passages'], queryFn: getAvailableSkillPassages });
   const { data: profile } = useQuery({ queryKey: ['student', 'profile'], queryFn: getProfile });
+  const { data: mistakeSummary = [] } = useQuery({ queryKey: ['student', 'mistakes', 'summary'], queryFn: getMistakeSummary });
   const [weakAreaError, setWeakAreaError] = React.useState<string | null>(null);
+
+  const openMistakes = mistakeSummary.reduce((sum, row) => sum + row.openCount, 0);
 
   const completedExams = exams.filter((e) => e.status === 'completed');
   const unreadFeedback = feedback.filter((f) => !f.isRead).length;
@@ -226,6 +229,17 @@ export default function Dashboard() {
               { label: 'Section', sub: 'Algebra, geometry & data', title: 'Math practice', color: '#2563A8', path: '/student/exams' },
               { label: 'Section', sub: 'Grammar, vocab & comprehension', title: 'Reading & Writing', color: '#2E7D5A', path: '/student/exams' },
               { label: 'Daily review', sub: 'Words due for spaced repetition', title: 'Vocab flashcards', color: '#0D7377', path: '/student/vocab-review' },
+              // The diagnose-then-practise loop: the card only appears once
+              // there is something in the bank, and says how much.
+              ...(openMistakes > 0
+                ? [{
+                    label: 'Targeted',
+                    sub: `${openMistakes} question${openMistakes === 1 ? '' : 's'} you've missed`,
+                    title: 'Review your mistakes',
+                    color: '#C47A1B',
+                    path: '/student/mistakes',
+                  }]
+                : []),
             ].map(({ label, sub, title, color, path }) => (
               <div
                 key={title}

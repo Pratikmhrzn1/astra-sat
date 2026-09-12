@@ -3,6 +3,7 @@ import { db } from '../../db';
 import { examAnswers, exams, questionSets, questions } from '../../db/schema';
 import { badRequest, notFound } from '../../http/errors';
 import { toSectionScore } from '../scoring';
+import * as mistakes from './mistakes.service';
 import * as mock from './mock.service';
 import * as narrative from './narrative.service';
 import * as repo from './student.repository';
@@ -192,6 +193,15 @@ export async function submitExam(
   // rather than behind it like the AI work below. It re-reads the mock because
   // the lookup above ran before this module was marked completed.
   if (mockContext) await mock.finalizeMockIfComplete(exam.id);
+
+  // Every wrong answer joins the mistake bank, and every right one clears an
+  // open entry — except in a live exam, whose results stay hidden until the
+  // teacher releases them. Filling the bank at submit would tell that student
+  // which questions they had missed before the teacher had released anything,
+  // so those are recorded on release instead.
+  if (!(await mistakes.isLiveExamAttempt(exam.id))) {
+    await mistakes.recordMistakesForExam(exam.id, studentId);
+  }
 
   // Created before responding so the client always has a row to poll.
   const narrativeId = await narrative.createPendingNarrative(exam.id);

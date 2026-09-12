@@ -87,6 +87,10 @@ than converting between them.
   separate hardcoded copies used to exist — a five-value list that excluded Math
   entirely, plus two parallel domain lists in `ExamCatalogue` and `MockTest` that
   drifted apart.
+- An exam need not belong to a set. Topic practice and mistake reviews are
+  assembled across sets and carry `label` instead of `setTitle` — render
+  `setTitle ?? label`. `subject` is always present; the server derives it from
+  the exam's own questions.
 - **Never compute a score.** `shared/lib/score.ts` is the only place that formats
   or colours one, and the numbers themselves come from the server —
   `exam.scaledScore` for a single exam, `mock.totalScore` / `rwScore` /

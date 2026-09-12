@@ -1,33 +1,41 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../http/async-handler';
 import { currentUserId, requireAuth, requireRole } from '../../http/middleware/auth';
-import { body, validateBody } from '../../http/middleware/validate';
+import { body, query, validateBody, validateQuery } from '../../http/middleware/validate';
 import { HttpError } from '../../http/errors';
 import * as chat from './chat.service';
 import * as exams from './exams.service';
 import * as inbox from './inbox.service';
+import * as mistakes from './mistakes.service';
 import * as mock from './mock.service';
 import * as narrative from './narrative.service';
 import * as practice from './practice.service';
 import * as profile from './profile.service';
 import * as skillPassages from './skill-passage.service';
+import * as topic from './topic.service';
 import * as vocab from './vocab.service';
 import {
   chatSchema,
   confirmAnswerSchema,
+  mistakePracticeSchema,
+  mistakeQuerySchema,
   nextModuleSchema,
   reviewVocabSchema,
   saveAnswersSchema,
   startExamSchema,
   submitExamSchema,
+  topicExamSchema,
   updateProfileSchema,
   type ChatInput,
   type ConfirmAnswerInput,
+  type MistakePracticeInput,
+  type MistakeQuery,
   type NextModuleInput,
   type ReviewVocabInput,
   type SaveAnswersInput,
   type StartExamInput,
   type SubmitExamInput,
+  type TopicExamInput,
   type UpdateProfileInput,
 } from './student.schemas';
 
@@ -172,6 +180,59 @@ studentRouter.put(
   validateBody(updateProfileSchema),
   asyncHandler(async (req, res) => {
     res.json(await profile.upsertProfile(currentUserId(req), body<UpdateProfileInput>(req)));
+  }),
+);
+
+// ── Mistake bank ─────────────────────────────────────────────────────────────
+
+/**
+ * Every question this student has got wrong, worst first.
+ *
+ * Includes the correct answer and explanation: these come from exams the student
+ * has already completed and reviewed, so nothing is revealed that they have not
+ * already been shown.
+ */
+studentRouter.get(
+  '/mistakes',
+  validateQuery(mistakeQuerySchema),
+  asyncHandler(async (req, res) => {
+    res.json(await mistakes.listMistakes(currentUserId(req), query<MistakeQuery>(req)));
+  }),
+);
+
+/** Open counts per domain, for the summary strip above the list. */
+studentRouter.get(
+  '/mistakes/summary',
+  asyncHandler(async (req, res) => {
+    res.json(await mistakes.getMistakeSummary(currentUserId(req)));
+  }),
+);
+
+/**
+ * Builds a review exam from open mistakes. Resolution happens through the
+ * ordinary submit path, not here.
+ */
+studentRouter.post(
+  '/mistakes/practice',
+  validateBody(mistakePracticeSchema),
+  asyncHandler(async (req, res) => {
+    const result = await mistakes.startMistakePractice(
+      currentUserId(req),
+      body<MistakePracticeInput>(req),
+    );
+    res.status(201).json(result);
+  }),
+);
+
+// ── Topic practice ───────────────────────────────────────────────────────────
+
+/** An exam drawn across every published set for one domain or skill. */
+studentRouter.post(
+  '/exams/topic',
+  validateBody(topicExamSchema),
+  asyncHandler(async (req, res) => {
+    const result = await topic.startTopicExam(currentUserId(req), body<TopicExamInput>(req));
+    res.status(201).json(result);
   }),
 );
 

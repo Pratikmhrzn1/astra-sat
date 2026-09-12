@@ -11,6 +11,7 @@ import {
 } from '../../db/schema';
 import { badRequest, notFound } from '../../http/errors';
 import { createExamForSet } from '../exams/exam-provisioning';
+import { recordMistakesOnRelease } from '../student/mistakes.service';
 
 /**
  * Teacher-proctored exams taken together in a classroom.
@@ -282,6 +283,13 @@ async function notifyResultsReleased(studentId: string, sessionTitle: string) {
   });
 }
 
+/**
+ * Releases one participant's results.
+ *
+ * Skips a participant who is already released, like `releaseAllResults` does:
+ * re-releasing would send a second notification, and would bump every miss in
+ * their mistake bank a second time.
+ */
 export async function releaseParticipantResult(
   sessionId: string,
   participantId: string,
@@ -289,11 +297,19 @@ export async function releaseParticipantResult(
 ) {
   const session = await findOwnedSession(sessionId, teacherId);
   const participant = await findParticipantInSession(participantId, session.id);
+  if (participant.resultReleased) return { ok: true, alreadyReleased: true };
 
   await db
     .update(liveExamParticipants)
     .set({ resultReleased: true })
     .where(eq(liveExamParticipants.id, participant.id));
+
+  // Only now: until this moment the student was not supposed to know which
+  // questions they got wrong.
+  await recordMistakesOnRelease(participant.studentId, [
+    participant.englishExamId,
+    participant.mathExamId,
+  ]);
 
   await notifyResultsReleased(participant.studentId, session.title);
   return { ok: true };
@@ -311,6 +327,8 @@ export async function releaseAllResults(sessionId: string, teacherId: string) {
     .select({
       id: liveExamParticipants.id,
       studentId: liveExamParticipants.studentId,
+      englishExamId: liveExamParticipants.englishExamId,
+      mathExamId: liveExamParticipants.mathExamId,
       resultReleased: liveExamParticipants.resultReleased,
     })
     .from(liveExamParticipants)
@@ -323,6 +341,10 @@ export async function releaseAllResults(sessionId: string, teacherId: string) {
       .update(liveExamParticipants)
       .set({ resultReleased: true })
       .where(eq(liveExamParticipants.id, participant.id));
+    await recordMistakesOnRelease(participant.studentId, [
+      participant.englishExamId,
+      participant.mathExamId,
+    ]);
     await notifyResultsReleased(participant.studentId, session.title);
   }
 

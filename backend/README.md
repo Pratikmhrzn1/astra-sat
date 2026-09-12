@@ -100,6 +100,16 @@ mock row holds the two section scores. **Test mock membership with
 honestly be produced — too few questions, an unfinished mock — the column stays NULL and the
 UI shows a dash or a raw tally rather than a number.
 
+**The mistake bank is written at submit, and only from there.** `submitExam` is
+the grading authority, so `recordMistakesForExam` runs from it rather than from
+the practice confirm step, which submit regrades anyway. One row per
+(student, question): a repeat miss bumps `miss_count` and reopens the row, a
+correct answer stamps `resolved_at`. **Live exams are the exception** — their
+results are hidden until the teacher releases them, so recording at submit would
+tell the student which questions they missed before release. Those go through
+`recordMistakesOnRelease`, and the release endpoints skip an already-released
+participant so a second release cannot double every miss count.
+
 **Students never receive answers.** `modules/student/student.repository.ts`
 selects question columns explicitly, so `correctAnswer`, `correctAnswerText` and
 `explanation` are absent by construction rather than deleted afterwards. Add
