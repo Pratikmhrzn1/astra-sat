@@ -96,6 +96,28 @@ export async function restoreBackup(jsonData: unknown): Promise<{ ok: boolean; m
   return data;
 }
 
+export interface BackfillRun {
+  examsFound: number;
+  examsScored: number;
+  examsTooShort: number;
+  examsSkippedAsMockModule: number;
+  mocksFound: number;
+  mocksScored: number;
+  mocksIncomplete: number;
+}
+
+/**
+ * Scores exams and mocks that finished before scaled scoring existed.
+ *
+ * Safe to run repeatedly — it only fills columns that are still NULL. Until it
+ * has run once, historical attempts have no scaled score and the student's
+ * History page has nothing to plot.
+ */
+export async function backfillScores(): Promise<BackfillRun> {
+  const { data } = await apiClient.post<BackfillRun>('/admin/scoring/backfill');
+  return data;
+}
+
 export async function runMigrations(): Promise<{ ok: boolean; message: string }> {
   const { data } = await apiClient.post('/admin/migrate');
   return data;

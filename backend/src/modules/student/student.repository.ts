@@ -122,6 +122,10 @@ export async function listExamsForStudent(studentId: string) {
       type: exams.type,
       status: exams.status,
       score: exams.score,
+      // The History page's best score and both trend lines read this. Leaving it
+      // out of the projection is invisible to the type-checker — the frontend
+      // mirrors these shapes by hand — and shows up only as an empty page.
+      scaledScore: exams.scaledScore,
       totalQuestions: exams.totalQuestions,
       startedAt: exams.startedAt,
       completedAt: exams.completedAt,

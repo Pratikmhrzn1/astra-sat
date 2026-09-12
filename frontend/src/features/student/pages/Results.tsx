@@ -30,7 +30,7 @@ export default function Results() {
   }, [mainTab]);
 
   const { data: exams = [], isLoading } = useQuery({ queryKey: ['student', 'exams'], queryFn: getExams });
-  useQuery({ queryKey: ['student', 'mock-tests'], queryFn: getMockTests });
+  const { data: mockTests = [] } = useQuery({ queryKey: ['student', 'mock-tests'], queryFn: getMockTests });
 
   const completed = exams.filter((e) => e.status === 'completed');
   const shown = filter === 'All' ? completed : completed.filter((e) => e.type === filter);
@@ -41,22 +41,48 @@ export default function Results() {
     { label: 'Individual', value: 'individual' },
   ];
 
-  // Trends read the persisted scaled score, so an exam too short to scale is
-  // left out of the series rather than contributing a number invented here.
-  const scaledOf = (subject: 'english' | 'math') =>
-    completed
+  /**
+   * Every 200-800 section score this student has, oldest first.
+   *
+   * Two sources, because a section score can be earned two ways and both belong
+   * on the same trend line:
+   *
+   *  - a standalone exam (practice, or a live exam) carries its own
+   *    `scaledScore`;
+   *  - a mock's section score lives on the *mock*, not its modules. A module is
+   *    half a section and is deliberately left unscored, so reading only the
+   *    exam list would silently drop every mock a student has ever sat — for
+   *    most students, the majority of their history and the only measurement
+   *    taken under test conditions.
+   *
+   * An exam too short to scale contributes nothing rather than a number invented
+   * here.
+   */
+  const sectionScores = (subject: 'english' | 'math') => {
+    const fromExams = completed
       .filter((e) => e.subject === subject && e.scaledScore !== null)
-      .map((e) => e.scaledScore!)
-      .reverse();
+      .map((e) => ({ at: e.completedAt ?? e.startedAt, score: e.scaledScore! }));
 
-  const bestScore = completed.reduce<number | null>(
-    (best, e) =>
-      e.scaledScore !== null && (best === null || e.scaledScore > best) ? e.scaledScore : best,
+    const fromMocks = mockTests
+      .filter((m) => m.status === 'completed')
+      .map((m) => ({
+        at: m.completedAt ?? m.startedAt,
+        score: subject === 'english' ? m.rwScore : m.mathScore,
+      }))
+      .filter((point): point is { at: string; score: number } => point.score !== null);
+
+    return [...fromExams, ...fromMocks]
+      .sort((a, b) => a.at.localeCompare(b.at))
+      .map((point) => point.score);
+  };
+
+  const rwSeries = sectionScores('english');
+  const mathSeries = sectionScores('math');
+
+  const bestScore = [...rwSeries, ...mathSeries].reduce<number | null>(
+    (best, score) => (best === null || score > best ? score : best),
     null,
   );
-
-  const rwSeries = scaledOf('english');
-  const mathSeries = scaledOf('math');
 
   const Spark = ({ series, color }: { series: number[]; color: string }) => {
     if (series.length < 2) return <div style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(11,11,14,0.3)', fontSize: 12 }}>Not enough data</div>;

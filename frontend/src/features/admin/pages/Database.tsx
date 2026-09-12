@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Download, Upload, Play, AlertTriangle, Terminal } from 'lucide-react';
-import { downloadBackup, restoreBackup, runMigrations, runSql } from '@/features/admin/api/admin.api';
+import { backfillScores, downloadBackup, restoreBackup, runMigrations, runSql } from '@/features/admin/api/admin.api';
 import { Button, ConfirmModal } from '@/shared/ui';
 import { getApiError } from '@/shared/api/client';
 
@@ -12,6 +12,7 @@ export default function Database() {
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
   const [migrateResult, setMigrateResult] = useState('');
+  const [backfillResult, setBackfillResult] = useState('');
   const [restoreResult, setRestoreResult] = useState('');
   const [sqlText, setSqlText] = useState('');
   const [sqlResult, setSqlResult] = useState<{ statements: number; rowsAffected: number; rows: Record<string, unknown>[] } | null>(null);
@@ -32,6 +33,18 @@ export default function Database() {
   const migrateMutation = useMutation({
     mutationFn: runMigrations,
     onSuccess: (result) => setMigrateResult(result.message),
+    onError: (err) => setError(getApiError(err)),
+  });
+
+  const backfillMutation = useMutation({
+    mutationFn: backfillScores,
+    onSuccess: (run) =>
+      setBackfillResult(
+        `Scored ${run.examsScored} of ${run.examsFound} exams ` +
+          `(${run.examsSkippedAsMockModule} mock modules skipped, ${run.examsTooShort} too short to scale) ` +
+          `and ${run.mocksScored} of ${run.mocksFound} mocks ` +
+          `(${run.mocksIncomplete} not finished).`,
+      ),
     onError: (err) => setError(getApiError(err)),
   });
 
@@ -146,6 +159,22 @@ export default function Database() {
           {migrateResult && <p style={{ fontSize: 13, color: '#2E7D5A', margin: 0 }}>{migrateResult}</p>}
           <Button variant="secondary" onClick={() => { setError(''); setMigrateResult(''); migrateMutation.mutate(); }} loading={migrateMutation.isPending} style={{ alignSelf: 'flex-start' }}>
             <Play size={15} style={{ marginRight: 8 }} /> Run Migrations
+          </Button>
+        </div>
+      </div>
+
+      {/* Scaled-score backfill */}
+      <div style={CARD}>
+        <div style={{ padding: '18px 24px', borderBottom: '1px solid #EEEBE5' }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>Backfill Scaled Scores</h3>
+        </div>
+        <div style={{ padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.55)', margin: 0, lineHeight: 1.55 }}>
+            Exams and mocks completed before scaled scoring existed have no 200-800 score, so students see a dash on their History page and no trend line. This computes them from the stored answers using the same functions the live submit path uses. Safe to run more than once — it only fills scores that are still empty, and never overwrites one. Mock modules are skipped on purpose: a module is half a section, and the score belongs to the mock.
+          </p>
+          {backfillResult && <p style={{ fontSize: 13, color: '#2E7D5A', margin: 0 }}>{backfillResult}</p>}
+          <Button variant="secondary" onClick={() => { setError(''); setBackfillResult(''); backfillMutation.mutate(); }} loading={backfillMutation.isPending} style={{ alignSelf: 'flex-start' }}>
+            <Play size={15} style={{ marginRight: 8 }} /> Backfill Scores
           </Button>
         </div>
       </div>
