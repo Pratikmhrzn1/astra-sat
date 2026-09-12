@@ -2,11 +2,14 @@ import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../../db';
 import {
+  examAnswers,
+  exams,
   liveExamParticipants,
   liveExamQuestionFeedback,
   liveExamSessions,
   notifications,
   questionSets,
+  questions,
   users,
 } from '../../db/schema';
 import { badRequest, notFound } from '../../http/errors';
@@ -161,23 +164,7 @@ export async function startSession(sessionId: string, teacherId: string) {
     .where(eq(liveExamParticipants.sessionId, session.id));
 
   for (const participant of participants) {
-    const [englishExam, mathExam] = await Promise.all([
-      createExamForSet({
-        studentId: participant.studentId,
-        setId: session.englishSetId,
-        type: 'mock_english',
-      }),
-      createExamForSet({
-        studentId: participant.studentId,
-        setId: session.mathSetId,
-        type: 'mock_math',
-      }),
-    ]);
-
-    await db
-      .update(liveExamParticipants)
-      .set({ englishExamId: englishExam.id, mathExamId: mathExam.id })
-      .where(eq(liveExamParticipants.id, participant.id));
+    await provisionParticipantExams(participant, session);
   }
 
   const startedAt = new Date();
@@ -187,6 +174,51 @@ export async function startSession(sessionId: string, teacherId: string) {
     .where(eq(liveExamSessions.id, session.id));
 
   return { ok: true, startedAt };
+}
+
+/**
+ * Gives one participant their two exams, once.
+ *
+ * Extracted because it is needed at two moments, not one: when the teacher
+ * starts the session, and when a student joins a session that is *already*
+ * running. Without the second, a student who opened the link a minute late got a
+ * participant row with no exams — the lobby will not launch without an exam id
+ * and only polls while the session is `waiting`, so they sat looking at a
+ * waiting screen that could never resolve while their class sat the paper.
+ *
+ * Idempotent: a participant who already has exams keeps them, so a rejoin or a
+ * double start cannot hand someone a second blank attempt.
+ */
+async function provisionParticipantExams(
+  participant: typeof liveExamParticipants.$inferSelect,
+  session: { id: string; englishSetId: string | null; mathSetId: string | null },
+): Promise<{ englishExamId: string | null; mathExamId: string | null }> {
+  if (participant.englishExamId && participant.mathExamId) {
+    return { englishExamId: participant.englishExamId, mathExamId: participant.mathExamId };
+  }
+  if (!session.englishSetId || !session.mathSetId) {
+    return { englishExamId: null, mathExamId: null };
+  }
+
+  const [englishExam, mathExam] = await Promise.all([
+    createExamForSet({
+      studentId: participant.studentId,
+      setId: session.englishSetId,
+      type: 'mock_english',
+    }),
+    createExamForSet({
+      studentId: participant.studentId,
+      setId: session.mathSetId,
+      type: 'mock_math',
+    }),
+  ]);
+
+  await db
+    .update(liveExamParticipants)
+    .set({ englishExamId: englishExam.id, mathExamId: mathExam.id })
+    .where(eq(liveExamParticipants.id, participant.id));
+
+  return { englishExamId: englishExam.id, mathExamId: mathExam.id };
 }
 
 async function findParticipantInSession(participantId: string, sessionId: string) {
@@ -226,12 +258,61 @@ export async function getParticipantResult(
     .limit(1);
   if (!participant) throw notFound('Participant not found');
 
-  const questionFeedbacks = await db
-    .select()
-    .from(liveExamQuestionFeedback)
-    .where(eq(liveExamQuestionFeedback.participantId, participant.id));
+  const [questionFeedbacks, english, math] = await Promise.all([
+    db
+      .select()
+      .from(liveExamQuestionFeedback)
+      .where(eq(liveExamQuestionFeedback.participantId, participant.id)),
+    loadSectionForMarking(participant.englishExamId),
+    loadSectionForMarking(participant.mathExamId),
+  ]);
 
-  return { ...participant, questionFeedbacks };
+  return { ...participant, questionFeedbacks, english, math };
+}
+
+/**
+ * One section's paper, for the teacher marking it.
+ *
+ * Deliberately served from here rather than from the teacher module's
+ * `getStudentExamResults`, because the two authorise on different things.
+ * That one requires the student to be assigned to the teacher via
+ * `users.teacher_id` — but a live exam is joined with a code by whoever is in
+ * the room, and assignment has nothing to do with it. The marking page used to
+ * call it and got a 404 for any student not on that teacher's roster, which is
+ * most of them.
+ *
+ * The authority that belongs here is session ownership, which the caller has
+ * already established: this teacher owns the session, this participant sat it,
+ * so this teacher may read the paper.
+ */
+async function loadSectionForMarking(examId: string | null) {
+  if (!examId) return null;
+
+  const [exam] = await db.select().from(exams).where(eq(exams.id, examId)).limit(1);
+  if (!exam) return null;
+
+  const results = await db
+    .select({
+      questionId: questions.id,
+      questionText: questions.questionText,
+      optionA: questions.optionA,
+      optionB: questions.optionB,
+      optionC: questions.optionC,
+      optionD: questions.optionD,
+      correctAnswer: questions.correctAnswer,
+      correctAnswerText: questions.correctAnswerText,
+      explanation: questions.explanation,
+      selectedAnswer: examAnswers.selectedAnswer,
+      selectedAnswerText: examAnswers.selectedAnswerText,
+      isCorrect: examAnswers.isCorrect,
+      orderIndex: examAnswers.orderIndex,
+    })
+    .from(examAnswers)
+    .innerJoin(questions, eq(examAnswers.questionId, questions.id))
+    .where(eq(examAnswers.examId, exam.id))
+    .orderBy(examAnswers.orderIndex);
+
+  return { exam, results };
 }
 
 /**
@@ -412,13 +493,20 @@ export async function joinSession(joinCode: string, studentId: string) {
         .returning()
     )[0];
 
+  // A session that is already running provisions on the spot, so arriving late
+  // costs the student the time they missed and nothing else.
+  const exams =
+    session.status === 'active'
+      ? await provisionParticipantExams(participant, session)
+      : { englishExamId: participant.englishExamId, mathExamId: participant.mathExamId };
+
   return {
     sessionId: session.id,
     participantId: participant.id,
     status: session.status,
     startedAt: session.startedAt,
-    englishExamId: participant.englishExamId,
-    mathExamId: participant.mathExamId,
+    englishExamId: exams.englishExamId,
+    mathExamId: exams.mathExamId,
     englishDurationSeconds: session.englishDurationSeconds,
     mathDurationSeconds: session.mathDurationSeconds,
   };
@@ -434,10 +522,7 @@ export async function pollSession(joinCode: string, studentId: string) {
   if (!session) throw notFound('Session not found');
 
   const [participant] = await db
-    .select({
-      englishExamId: liveExamParticipants.englishExamId,
-      mathExamId: liveExamParticipants.mathExamId,
-    })
+    .select()
     .from(liveExamParticipants)
     .where(
       and(
@@ -447,11 +532,18 @@ export async function pollSession(joinCode: string, studentId: string) {
     )
     .limit(1);
 
+  // Provisioning here too, not just on join: a participant can exist without
+  // exams if they were added between the teacher pressing start and this poll.
+  const exams =
+    participant && session.status === 'active'
+      ? await provisionParticipantExams(participant, session)
+      : { englishExamId: participant?.englishExamId ?? null, mathExamId: participant?.mathExamId ?? null };
+
   return {
     status: session.status,
     startedAt: session.startedAt,
-    englishExamId: participant?.englishExamId ?? null,
-    mathExamId: participant?.mathExamId ?? null,
+    englishExamId: exams.englishExamId,
+    mathExamId: exams.mathExamId,
     englishDurationSeconds: session.englishDurationSeconds,
     mathDurationSeconds: session.mathDurationSeconds,
   };

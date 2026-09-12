@@ -80,8 +80,37 @@ export interface JoinResponse {
   mathDurationSeconds: number;
 }
 
+/** One question as the teacher marks it. Keyed on `questionId`, like the server sends. */
+export interface MarkableAnswer {
+  questionId: string;
+  questionText: string;
+  optionA: string | null;
+  optionB: string | null;
+  optionC: string | null;
+  optionD: string | null;
+  correctAnswer: 'a' | 'b' | 'c' | 'd' | null;
+  correctAnswerText: string | null;
+  explanation: string | null;
+  selectedAnswer: string | null;
+  selectedAnswerText: string | null;
+  isCorrect: boolean | null;
+  orderIndex: number;
+}
+
+export interface MarkableSection {
+  exam: { id: string; score: number | null; scaledScore: number | null; totalQuestions: number };
+  results: MarkableAnswer[];
+}
+
 export interface ParticipantDetail extends LiveExamParticipant {
   questionFeedbacks: { id: string; questionId: string; feedback: string }[];
+  /**
+   * Both papers, served with the participant rather than fetched separately.
+   * Authorised by session ownership — a live exam is joined with a code, so the
+   * student need not be on this teacher's roster.
+   */
+  english: MarkableSection | null;
+  math: MarkableSection | null;
 }
 
 // ── Teacher ───────────────────────────────────────────────────────────────────

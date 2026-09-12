@@ -1,14 +1,33 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { ChevronLeft } from 'lucide-react';
 import {
-  getSessionDetail,
-  startSession,
-  releaseOne,
-  releaseAll,
-  type SessionDetail,
-  type LiveExamParticipant,
+  getSessionDetail, startSession, releaseOne, releaseAll,
+  type SessionDetail, type LiveExamParticipant,
 } from '@/features/live-exam/api/live-exam.api';
 import { getApiError } from '@/shared/api/client';
+import {
+  CARD, CopyButton, ErrorNote, H1, JoinCodePlate, PillButton, StatusPill, T,
+} from '@/features/live-exam/ui';
+
+/**
+ * What a teacher runs the lesson from: read out the code, watch the room fill,
+ * start, then release results.
+ *
+ * The join code is the whole point of the top of this page, so it is the only
+ * loud thing on it.
+ */
+
+/** How often the roster refreshes while people are still arriving or sitting. */
+const POLL_MS = 3000;
+
+function joinedAgo(iso: string): string {
+  const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
 
 export default function LiveExamSession() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -18,193 +37,198 @@ export default function LiveExamSession() {
   const [actionError, setActionError] = useState('');
   const [starting, setStarting] = useState(false);
   const [releasing, setReleasing] = useState(false);
+  const statusRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!sessionId) return;
     try {
-      const s = await getSessionDetail(sessionId);
-      setSession(s);
+      const next = await getSessionDetail(sessionId);
+      statusRef.current = next.status;
+      setSession(next);
     } catch {
-      // ignore
+      // A transient failure between polls is not worth interrupting the lesson for.
     } finally {
       setLoading(false);
     }
   }, [sessionId]);
 
+  // Polls only while something can still change. A finished session used to keep
+  // refreshing every three seconds for as long as the tab stayed open.
   useEffect(() => {
     load();
-    // Poll every 3s when waiting or active
-    const iv = setInterval(load, 3000);
-    return () => clearInterval(iv);
+    const interval = setInterval(() => {
+      if (statusRef.current === 'completed') return;
+      load();
+    }, POLL_MS);
+    return () => clearInterval(interval);
   }, [load]);
 
-  async function handleStart() {
-    if (!session) return;
-    setStarting(true);
+  async function run(action: () => Promise<unknown>, setBusy: (v: boolean) => void) {
+    setBusy(true);
     setActionError('');
     try {
-      await startSession(session.id);
+      await action();
       await load();
     } catch (err) {
       setActionError(getApiError(err));
     } finally {
-      setStarting(false);
+      setBusy(false);
     }
-  }
-
-  async function handleReleaseOne(p: LiveExamParticipant) {
-    if (!session) return;
-    setActionError('');
-    try {
-      await releaseOne(session.id, p.id);
-      await load();
-    } catch (err) {
-      setActionError(getApiError(err));
-    }
-  }
-
-  async function handleReleaseAll() {
-    if (!session) return;
-    setReleasing(true);
-    setActionError('');
-    try {
-      await releaseAll(session.id);
-      await load();
-    } catch (err) {
-      setActionError(getApiError(err));
-    } finally {
-      setReleasing(false);
-    }
-  }
-
-  function statusBadge(status: string) {
-    const map: Record<string, string> = {
-      waiting: 'bg-yellow-100 text-yellow-800',
-      active: 'bg-green-100 text-green-800',
-      completed: 'bg-gray-100 text-gray-700',
-    };
-    return (
-      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${map[status] ?? 'bg-gray-100'}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-48 text-gray-400 text-sm">Loading…</div>;
+    return <div style={{ padding: '64px 48px', textAlign: 'center', color: T.faint, fontSize: 14 }}>Loading…</div>;
   }
-
   if (!session) {
-    return <div className="p-6 text-red-500">Session not found.</div>;
+    return (
+      <div style={{ padding: '36px 48px' }}>
+        <ErrorNote>This session no longer exists. It may have been deleted.</ErrorNote>
+      </div>
+    );
   }
 
-  const unreleased = session.participants.filter((p) => !p.resultReleased);
+  const { participants, status } = session;
+  const released = participants.filter((p) => p.resultReleased).length;
+  const joinUrl = `${window.location.origin}/sat/live/${session.joinCode}`;
+  const notStarted = status === 'waiting';
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      {/* Header */}
+    <div className="screen-fade" style={{ padding: '36px 48px 64px', maxWidth: 880 }}>
       <button
         onClick={() => navigate('/teacher/live-exams')}
-        className="text-sm text-gray-500 hover:text-gray-800 mb-4 flex items-center gap-1"
-      >
-        ← Back to Live Exams
-      </button>
+        style={{ display: 'flex', alignItems: 'center', gap: 4, border: 'none', background: 'none', padding: 0, marginBottom: 18, fontSize: 13, fontWeight: 600, color: T.muted, cursor: 'pointer', fontFamily: 'inherit' }}
+      ><ChevronLeft size={15} />Live exams</button>
 
-      <div className="flex items-start justify-between mb-6">
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 24 }}>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{session.title}</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Join code:{' '}
-            <span className="font-mono font-bold text-gray-800 text-base tracking-widest">
-              {session.joinCode}
-            </span>
-          </p>
+          <h1 style={{ ...H1, fontSize: 40, marginBottom: 8 }}>{session.title}</h1>
+          <StatusPill status={status} />
         </div>
-        <div className="flex items-center gap-3">
-          {statusBadge(session.status)}
-          {session.status === 'waiting' && (
-            <button
-              onClick={handleStart}
-              disabled={starting || session.participants.length === 0}
-              className="bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
-            >
-              {starting ? 'Starting…' : 'Start Exam'}
-            </button>
-          )}
-          {session.status !== 'waiting' && unreleased.length > 0 && (
-            <button
-              onClick={handleReleaseAll}
+        {notStarted ? (
+          <PillButton
+            onClick={() => run(() => startSession(session.id), setStarting)}
+            disabled={starting || participants.length === 0}
+            style={{ height: 44, fontSize: 15 }}
+          >{starting ? 'Starting…' : 'Start exam'}</PillButton>
+        ) : (
+          released < participants.length && (
+            <PillButton
+              onClick={() => run(() => releaseAll(session.id), setReleasing)}
               disabled={releasing}
-              className="bg-black text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50"
-            >
-              {releasing ? 'Sending…' : 'Send Results to All'}
-            </button>
-          )}
-        </div>
+              style={{ height: 44, fontSize: 15 }}
+            >{releasing ? 'Releasing…' : `Release all results (${participants.length - released})`}</PillButton>
+          )
+        )}
       </div>
 
-      {actionError && (
-        <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
-          {actionError}
+      {actionError && <div style={{ marginBottom: 20 }}><ErrorNote>{actionError}</ErrorNote></div>}
+
+      {/* The code, sized to be read across a room. Only shown while it can still
+          be used — once everyone is sitting the paper it is just noise. */}
+      {notStarted && (
+        <div style={{ ...CARD, padding: '26px 28px', marginBottom: 22 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
+            <div>
+              <p style={{ fontSize: 14, color: T.muted, margin: '0 0 14px' }}>
+                Read this out. Students enter it under <strong style={{ color: T.ink, fontWeight: 600 }}>Live Exam</strong>.
+              </p>
+              <JoinCodePlate code={session.joinCode} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <CopyButton value={session.joinCode} label="Copy code" />
+              <CopyButton value={joinUrl} label="Copy link" />
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Share link */}
-      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Student Join Link</p>
-        <p className="font-mono text-sm text-gray-800 break-all">
-          {window.location.origin}/sat/live/{session.joinCode}
-        </p>
-      </div>
-
-      {/* Participants */}
-      <div>
-        <h2 className="text-base font-semibold text-gray-800 mb-3">
-          Participants ({session.participants.length})
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 12 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+          {notStarted ? 'In the lobby' : 'Sitting the exam'}
         </h2>
-
-        {session.participants.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-10">
-            No students have joined yet. Share the join link above.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {session.participants.map((p) => (
-              <div
-                key={p.id}
-                className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between"
-              >
-                <div>
-                  <p className="font-medium text-gray-900">{p.name}</p>
-                  <p className="text-xs text-gray-400">{p.email}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {p.resultReleased ? (
-                    <span className="text-xs text-green-600 font-semibold">Results sent</span>
-                  ) : (
-                    session.status !== 'waiting' && (
-                      <button
-                        onClick={() => handleReleaseOne(p)}
-                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 border border-blue-200 px-3 py-1 rounded-full"
-                      >
-                        Send Results
-                      </button>
-                    )
-                  )}
-                  {session.status !== 'waiting' && (
-                    <button
-                      onClick={() => navigate(`/teacher/live-exams/${session.id}/participants/${p.id}`)}
-                      className="text-xs text-gray-500 hover:text-gray-800 border border-gray-200 px-3 py-1 rounded-full"
-                    >
-                      View Result
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+        <span style={{ fontSize: 13, color: T.muted, fontFamily: "'JetBrains Mono', monospace" }}>
+          {participants.length}
+          {!notStarted && participants.length > 0 && ` · ${released} released`}
+        </span>
+        {!notStarted && (
+          <span style={{ marginLeft: 'auto', fontSize: 12.5, color: T.faint }}>Code {session.joinCode}</span>
         )}
       </div>
+
+      {participants.length === 0 ? (
+        <div style={{ ...CARD, padding: '40px 24px', textAlign: 'center' }}>
+          <p style={{ fontSize: 14.5, color: T.muted, margin: 0, lineHeight: 1.6 }}>
+            Nobody has joined yet.<br />
+            Read out the code above — names appear here as students arrive.
+          </p>
+        </div>
+      ) : (
+        <div style={{ ...CARD, overflow: 'hidden' }}>
+          {participants.map((p, i) => (
+            <ParticipantRow
+              key={p.id}
+              participant={p}
+              isLast={i === participants.length - 1}
+              sessionStatus={status}
+              onRelease={() => run(() => releaseOne(session.id, p.id), () => {})}
+              onView={() => navigate(`/teacher/live-exams/${session.id}/participants/${p.id}`)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ParticipantRow({
+  participant, isLast, sessionStatus, onRelease, onView,
+}: {
+  participant: LiveExamParticipant;
+  isLast: boolean;
+  sessionStatus: string;
+  onRelease: () => void;
+  onView: () => void;
+}) {
+  const started = sessionStatus !== 'waiting';
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px',
+      borderBottom: isLast ? 'none' : `1px solid ${T.lineSoft}`,
+    }}>
+      <span style={{
+        width: 32, height: 32, borderRadius: 9999, flexShrink: 0, background: T.lineSoft,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.55)',
+      }}>{participant.name.charAt(0).toUpperCase()}</span>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink }}>{participant.name}</div>
+        <div style={{ fontSize: 12, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {participant.email}
+        </div>
+      </div>
+
+      {!started && (
+        <span style={{ fontSize: 12, color: T.faint, flexShrink: 0 }}>
+          {joinedAgo(participant.joinedAt)}
+        </span>
+      )}
+
+      {started && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          {participant.resultReleased ? (
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: T.green }}>Released</span>
+          ) : (
+            <PillButton variant="secondary" onClick={onRelease} style={{ height: 32, padding: '0 13px', fontSize: 12.5 }}>
+              Release
+            </PillButton>
+          )}
+          <PillButton variant="quiet" onClick={onView} style={{ height: 32, padding: '0 13px', fontSize: 12.5 }}>
+            Mark
+          </PillButton>
+        </div>
+      )}
     </div>
   );
 }

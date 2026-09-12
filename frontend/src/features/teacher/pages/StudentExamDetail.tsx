@@ -87,7 +87,7 @@ export default function StudentExamDetail() {
         {results.map((r, i) => {
           const opts = [{ key: 'a', text: r.optionA }, { key: 'b', text: r.optionB }, { key: 'c', text: r.optionC }, { key: 'd', text: r.optionD }];
           return (
-            <div key={r.id} style={{ ...CARD, padding: '18px 22px' }}>
+            <div key={r.questionId} style={{ ...CARD, padding: '18px 22px' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
                 {r.isCorrect === true ? <CheckCircle2 size={20} color="#2E7D5A" style={{ flexShrink: 0, marginTop: 2 }} /> : r.isCorrect === false ? <XCircle size={20} color="#C0392B" style={{ flexShrink: 0, marginTop: 2 }} /> : <MinusCircle size={20} color="rgba(11,11,14,0.3)" style={{ flexShrink: 0, marginTop: 2 }} />}
                 <div style={{ flex: 1 }}>

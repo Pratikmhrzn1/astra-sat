@@ -108,11 +108,17 @@ export async function getStudentExams(
   return data;
 }
 
+/**
+ * Note the row key: this endpoint returns `questionId`, not `id` — unlike the
+ * student-facing results endpoint, which returns `id`. The type said `id` here,
+ * so every row arrived with `id: undefined`; the teacher's results page was
+ * keying its list on undefined.
+ */
 export async function getStudentExamResults(studentId: string, examId: string): Promise<{
   exam: Exam;
   set: { title: string; subject: string } | null;
   student: Student;
-  results: QuestionWithAnswer[];
+  results: (Omit<QuestionWithAnswer, 'id'> & { questionId: string })[];
 }> {
   const { data } = await apiClient.get(`/teacher/students/${studentId}/exams/${examId}/results`);
   return data;

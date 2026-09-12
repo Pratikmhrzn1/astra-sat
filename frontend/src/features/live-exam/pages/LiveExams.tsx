@@ -1,8 +1,17 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getLiveSessions, createSession, getLiveExamSets, type LiveExamSession, type LiveExamSet } from '@/features/live-exam/api/live-exam.api';
+import { ChevronRight, Plus } from 'lucide-react';
+import {
+  getLiveSessions, createSession, getLiveExamSets,
+  type LiveExamSession, type LiveExamSet,
+} from '@/features/live-exam/api/live-exam.api';
 import { getApiError } from '@/shared/api/client';
+import { Modal } from '@/shared/ui';
+import {
+  CARD, EmptyState, ErrorNote, H1, JoinCodePlate, PillButton, StatusPill, T,
+} from '@/features/live-exam/ui';
 
+/** Every live exam this teacher has run, newest first, and the form to start another. */
 export default function LiveExams() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<LiveExamSession[]>([]);
@@ -15,10 +24,7 @@ export default function LiveExams() {
 
   useEffect(() => {
     Promise.all([getLiveSessions(), getLiveExamSets()])
-      .then(([s, sets]) => {
-        setSessions(s);
-        setSets(sets);
-      })
+      .then(([s, availableSets]) => { setSessions(s); setSets(availableSets); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -32,19 +38,20 @@ export default function LiveExams() {
     mathSets.length === 0 ? 'a Math set' : null,
   ].filter(Boolean).join(' and ');
 
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.title || !form.englishSetId || !form.mathSetId) {
-      setError('All fields are required');
+  async function submit() {
+    if (!form.title.trim() || !form.englishSetId || !form.mathSetId) {
+      setError('Give the session a name and pick both papers.');
       return;
     }
     setCreating(true);
     setError('');
     try {
-      const session = await createSession(form);
+      const session = await createSession({ ...form, title: form.title.trim() });
       setSessions((prev) => [session, ...prev]);
       setShowCreate(false);
       setForm({ title: '', englishSetId: '', mathSetId: '' });
+      // Straight to the room: the next thing a teacher does is read out the code.
+      navigate(`/teacher/live-exams/${session.id}`);
     } catch (err) {
       setError(getApiError(err));
     } finally {
@@ -52,153 +59,127 @@ export default function LiveExams() {
     }
   }
 
-  function statusBadge(status: string) {
-    const colors: Record<string, string> = {
-      waiting: 'bg-yellow-100 text-yellow-800',
-      active: 'bg-green-100 text-green-800',
-      completed: 'bg-gray-100 text-gray-700',
-    };
-    return (
-      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colors[status] ?? 'bg-gray-100 text-gray-700'}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-48 text-gray-400 text-sm">Loading…</div>
-    );
-  }
+  const fieldStyle: React.CSSProperties = {
+    width: '100%', height: 42, padding: '0 12px', border: `1px solid ${T.line}`,
+    borderRadius: 10, background: '#fff', color: T.ink, fontSize: 14,
+    fontFamily: 'inherit', outline: 'none',
+  };
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 6,
+  };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Live Exams</h1>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="bg-black text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-gray-800"
-        >
-          + New Session
-        </button>
+    <div className="screen-fade" style={{ padding: '36px 48px 64px', maxWidth: 880 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 8 }}>
+        <h1 style={{ ...H1, fontSize: 44 }}>Live Exams</h1>
+        <PillButton onClick={() => { setError(''); setShowCreate(true); }} style={{ height: 42 }}>
+          <Plus size={15} style={{ marginRight: 7, verticalAlign: '-2px' }} />New session
+        </PillButton>
       </div>
+      <p style={{ fontSize: 15, color: 'rgba(11,11,14,0.55)', margin: '0 0 28px', maxWidth: 620, lineHeight: 1.6 }}>
+        Sit a whole class at once. You control when it starts and when each student sees their result.
+      </p>
 
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h2 className="text-lg font-bold mb-4">Create Live Exam Session</h2>
-            {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Session Title</label>
-                <input
-                  type="text"
-                  value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="e.g. Sunday Mock — July 20"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                />
-              </div>
-              {noSets && (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 leading-relaxed">
-                  <strong>No sets are marked for live exams yet.</strong> A session needs one
-                  Reading &amp; Writing set and one Math set, and only sets flagged as live-exam
-                  material can be used — so a class never sits a paper they could have practised.
-                  <br />
-                  Open <strong>Content Manager</strong>, pick a set, and tick{' '}
-                  <strong>Live exam set</strong> in its header. Existing sets can be converted;
-                  you do not have to author a new one.
-                  {missingSubjects && <><br />Still needed: <strong>{missingSubjects}</strong>.</>}
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reading & Writing Set</label>
-                {englishSets.length === 0 ? (
-                  <p className="text-xs text-gray-400">None marked yet.</p>
-                ) : (
-                  <select
-                    value={form.englishSetId}
-                    onChange={(e) => setForm((f) => ({ ...f, englishSetId: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                  >
-                    <option value="">Select a set…</option>
-                    {englishSets.map((s) => (
-                      <option key={s.id} value={s.id}>{s.title}{s.isDraft ? ' (draft)' : ''}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Math Set</label>
-                {mathSets.length === 0 ? (
-                  <p className="text-xs text-gray-400">None marked yet.</p>
-                ) : (
-                  <select
-                    value={form.mathSetId}
-                    onChange={(e) => setForm((f) => ({ ...f, mathSetId: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
-                  >
-                    <option value="">Select a set…</option>
-                    {mathSets.map((s) => (
-                      <option key={s.id} value={s.id}>{s.title}{s.isDraft ? ' (draft)' : ''}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowCreate(false); setError(''); }}
-                  className="flex-1 border border-gray-300 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating || noSets}
-                  className="flex-1 bg-black text-white text-sm font-semibold py-2 rounded-lg hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {creating ? 'Creating…' : 'Create Session'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {sessions.length === 0 ? (
-        <div className="text-center text-gray-400 py-20 text-sm">
-          No live exam sessions yet. Create one to get started.
-        </div>
+      {loading ? (
+        <div style={{ padding: '64px 0', textAlign: 'center', color: T.faint, fontSize: 14 }}>Loading…</div>
+      ) : sessions.length === 0 ? (
+        <EmptyState title="No sessions yet">
+          Create one, read the join code out to your class, and start when everyone is in the lobby.
+        </EmptyState>
       ) : (
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {sessions.map((s) => (
-            <div
+            <button
               key={s.id}
               onClick={() => navigate(`/teacher/live-exams/${s.id}`)}
-              className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:shadow-sm transition-shadow"
+              style={{
+                ...CARD, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16,
+                cursor: 'pointer', textAlign: 'left', font: 'inherit', width: '100%',
+              }}
             >
-              <div>
-                <p className="font-semibold text-gray-900">{s.title}</p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Join code: <span className="font-mono font-bold text-gray-700">{s.joinCode}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15.5, fontWeight: 600, color: T.ink, marginBottom: 6 }}>{s.title}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <StatusPill status={s.status} />
                   {s.startedAt && (
-                    <span className="ml-3">
-                      Started {new Date(s.startedAt).toLocaleDateString()}
+                    <span style={{ fontSize: 12.5, color: T.muted }}>
+                      Started {new Date(s.startedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
                     </span>
                   )}
-                </p>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                {statusBadge(s.status)}
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </div>
+              {/* Reference size here; it is the hero only inside the session. */}
+              {s.status === 'waiting' && <JoinCodePlate code={s.joinCode} size="small" />}
+              <ChevronRight size={17} color={T.faint} style={{ flexShrink: 0 }} />
+            </button>
           ))}
         </div>
       )}
+
+      <Modal
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        title="New live exam"
+        footer={
+          <>
+            <PillButton variant="secondary" onClick={() => setShowCreate(false)}>Cancel</PillButton>
+            <PillButton onClick={submit} disabled={creating || noSets}>
+              {creating ? 'Creating…' : 'Create session'}
+            </PillButton>
+          </>
+        }
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {noSets && (
+            <div style={{ background: 'rgba(184,137,62,0.08)', border: '1px solid rgba(184,137,62,0.25)', borderRadius: 12, padding: '12px 15px', fontSize: 13, color: '#8A6020', lineHeight: 1.6 }}>
+              <strong>No papers are marked for live exams yet.</strong> A session needs one Reading &amp;
+              Writing set and one Math set, and only sets flagged as live-exam material can be used —
+              so a class never sits a paper they have already practised.
+              <br />
+              In <strong>Content Manager</strong>, open a set and tick <strong>Live exam set</strong>.
+              Existing sets can be converted; you do not have to write a new one.
+              {missingSubjects && <><br />Still needed: <strong>{missingSubjects}</strong>.</>}
+            </div>
+          )}
+
+          <div>
+            <label htmlFor="session-title" style={labelStyle}>What the class will see</label>
+            <input
+              id="session-title"
+              value={form.title}
+              onChange={(e) => { setForm((f) => ({ ...f, title: e.target.value })); setError(''); }}
+              placeholder="Friday mock — Grade 11"
+              style={fieldStyle}
+            />
+          </div>
+
+          {([
+            ['Reading & Writing paper', 'englishSetId', englishSets],
+            ['Math paper', 'mathSetId', mathSets],
+          ] as const).map(([label, field, options]) => (
+            <div key={field}>
+              <label htmlFor={field} style={labelStyle}>{label}</label>
+              {options.length === 0 ? (
+                <p style={{ fontSize: 13, color: T.faint, margin: 0 }}>None marked yet.</p>
+              ) : (
+                <select
+                  id={field}
+                  value={form[field]}
+                  onChange={(e) => { setForm((f) => ({ ...f, [field]: e.target.value })); setError(''); }}
+                  style={{ ...fieldStyle, cursor: 'pointer' }}
+                >
+                  <option value="">Choose a paper…</option>
+                  {options.map((s) => (
+                    <option key={s.id} value={s.id}>{s.title}{s.isDraft ? ' (draft)' : ''}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          ))}
+
+          {error && <ErrorNote>{error}</ErrorNote>}
+        </div>
+      </Modal>
     </div>
   );
 }
