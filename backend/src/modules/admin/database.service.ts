@@ -1,14 +1,28 @@
-import { getTableColumns } from 'drizzle-orm';
+import { getTableColumns, getTableName, is } from 'drizzle-orm';
+import { PgTable } from 'drizzle-orm/pg-core';
 import { db, pool } from '../../db';
+import * as schema from '../../db/schema';
 import {
   accessCodes,
   examAnswers,
   exams,
   feedback,
+  libraryItems,
+  liveExamParticipants,
+  liveExamQuestionFeedback,
+  liveExamSessions,
+  mistakes,
   mockTests,
   organizations,
+  passages,
+  platformFeedback,
   questionSets,
   questions,
+  studentProfiles,
+  studentSkillTriggers,
+  studentTeacherVocabProgress,
+  studentVocab,
+  teacherVocabWords,
   users,
 } from '../../db/schema';
 import { runMigrations } from '../../db/migrate';
@@ -38,21 +52,96 @@ import type { RestoreInput } from './admin.schemas';
  * UUID is generated per database, so a backup that omitted the organisation
  * carried user rows pointing at an id the target database had never seen.
  *
- * Content the platform can regenerate is excluded — AI feedback, narratives,
- * chat, generated content — which keeps the export to the data that cannot be
- * recovered any other way.
+ * Content the platform can regenerate is excluded — see EXCLUDED_TABLES, which
+ * has to account for every remaining table so that nothing is left out merely by
+ * being forgotten. That is how reading passages, the resource library and all
+ * vocabulary went missing from every backup taken before this was written.
  */
 const BACKUP_TABLES = [
   { key: 'organizations', table: organizations, sqlName: 'organizations' },
   { key: 'users', table: users, sqlName: 'users' },
   { key: 'accessCodes', table: accessCodes, sqlName: 'access_codes' },
   { key: 'questionSets', table: questionSets, sqlName: 'question_sets' },
+  // Before questions: questions.passage_id points here.
+  { key: 'passages', table: passages, sqlName: 'passages' },
   { key: 'questions', table: questions, sqlName: 'questions' },
   { key: 'exams', table: exams, sqlName: 'exams' },
   { key: 'examAnswers', table: examAnswers, sqlName: 'exam_answers' },
   { key: 'mockTests', table: mockTests, sqlName: 'mock_tests' },
   { key: 'feedback', table: feedback, sqlName: 'feedback' },
+  // Teacher-uploaded resources and notes: files the platform cannot reproduce.
+  { key: 'libraryItems', table: libraryItems, sqlName: 'library_items' },
+  // Authored vocabulary, and the spaced-repetition progress earned against it.
+  { key: 'teacherVocabWords', table: teacherVocabWords, sqlName: 'teacher_vocab_words' },
+  { key: 'studentVocab', table: studentVocab, sqlName: 'student_vocab' },
+  {
+    key: 'studentTeacherVocabProgress',
+    table: studentTeacherVocabProgress,
+    sqlName: 'student_teacher_vocab_progress',
+  },
+  // Student learning state: targets, mistakes and remediation triggers.
+  { key: 'studentProfiles', table: studentProfiles, sqlName: 'student_profiles' },
+  { key: 'studentSkillTriggers', table: studentSkillTriggers, sqlName: 'student_skill_triggers' },
+  { key: 'mistakes', table: mistakes, sqlName: 'mistakes' },
+  // Live exams are real sittings with teacher feedback attached — assessment
+  // records, not transient session state.
+  { key: 'liveExamSessions', table: liveExamSessions, sqlName: 'live_exam_sessions' },
+  { key: 'liveExamParticipants', table: liveExamParticipants, sqlName: 'live_exam_participants' },
+  {
+    key: 'liveExamQuestionFeedback',
+    table: liveExamQuestionFeedback,
+    sqlName: 'live_exam_question_feedback',
+  },
+  { key: 'platformFeedback', table: platformFeedback, sqlName: 'platform_feedback' },
 ] as const;
+
+/**
+ * Tables deliberately left out of a backup, each with the reason it is safe.
+ *
+ * Kept as an explicit list rather than an implied remainder so that adding a
+ * table forces a decision: the check below fails loudly for anything that
+ * appears in neither list.
+ */
+const EXCLUDED_TABLES: Record<string, string> = {
+  // Regenerable AI output — cached, and reproducible from the graded attempt.
+  ai_feedback: 'AI output, regenerated on demand',
+  mock_narratives: 'AI output, regenerated on demand',
+  generated_content: 'AI output, regenerated on demand',
+  chat_sessions: 'AI chat, not assessment data',
+  chat_messages: 'AI chat, not assessment data',
+  // Credentials and short-lived session state. Restoring these would carry live
+  // tokens across databases, which is a security problem rather than a recovery.
+  refresh_tokens: 'session tokens, must not outlive their database',
+  password_reset_tokens: 'short-lived credentials, must not be restored',
+  // Reference data owned by the migration runner, which reseeds it on boot.
+  skills: 'seeded by runMigrations() before any restore runs',
+  // Transient UI state; losing it costs a user nothing.
+  notifications: 'transient UI state',
+};
+
+/**
+ * Fails loudly when a table belongs to neither list.
+ *
+ * The backup set was a hand-maintained list with no cross-check, so tables added
+ * later were simply never exported and nobody found out until a restore came up
+ * short. This runs at module load: getting it wrong breaks boot, which is the
+ * cheapest moment to find out.
+ */
+function assertEveryTableClassified(): void {
+  const covered = new Set<string>(BACKUP_TABLES.map((t) => t.sqlName));
+  const missing = Object.values(schema)
+    .filter((value) => is(value, PgTable))
+    .map((table) => getTableName(table))
+    .filter((name) => !covered.has(name) && !(name in EXCLUDED_TABLES));
+
+  if (missing.length > 0) {
+    throw new Error(
+      `[admin] Table(s) neither backed up nor explicitly excluded: ${missing.sort().join(', ')}. ` +
+        'Add each to BACKUP_TABLES (in foreign-key order) or to EXCLUDED_TABLES with a reason.',
+    );
+  }
+}
+assertEveryTableClassified();
 
 /**
  * Drizzle property name → SQL column name, per backup table.

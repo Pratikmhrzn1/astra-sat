@@ -18,22 +18,38 @@ export type CreateAccessCodeInput = z.infer<typeof createAccessCodeSchema>;
 /**
  * A backup payload. Rows are `z.any()` on purpose: this validates the envelope
  * shape, and the database itself enforces the columns on insert.
+ *
+ * Only the original eight keys are required. Everything added to the backup set
+ * later is optional, because a file exported before that table was covered
+ * simply has no such key and must still restore — an old backup is exactly when
+ * a restore matters most. `restoreBackup` treats a missing key as zero rows.
  */
+const backupRows = z.array(z.any());
 export const restoreSchema = z.object({
   version: z.number(),
   data: z.object({
-    // Optional: added to backups after the Phase 2 migration, so a file exported
-    // before it has no such key and must still restore. Users then land with a
-    // null organization_id, which is what that column already tolerates.
-    organizations: z.array(z.any()).optional(),
-    users: z.array(z.any()),
-    accessCodes: z.array(z.any()),
-    questionSets: z.array(z.any()),
-    questions: z.array(z.any()),
-    exams: z.array(z.any()),
-    examAnswers: z.array(z.any()),
-    mockTests: z.array(z.any()),
-    feedback: z.array(z.any()),
+    users: backupRows,
+    accessCodes: backupRows,
+    questionSets: backupRows,
+    questions: backupRows,
+    exams: backupRows,
+    examAnswers: backupRows,
+    mockTests: backupRows,
+    feedback: backupRows,
+
+    organizations: backupRows.optional(),
+    passages: backupRows.optional(),
+    libraryItems: backupRows.optional(),
+    teacherVocabWords: backupRows.optional(),
+    studentVocab: backupRows.optional(),
+    studentTeacherVocabProgress: backupRows.optional(),
+    studentProfiles: backupRows.optional(),
+    studentSkillTriggers: backupRows.optional(),
+    mistakes: backupRows.optional(),
+    liveExamSessions: backupRows.optional(),
+    liveExamParticipants: backupRows.optional(),
+    liveExamQuestionFeedback: backupRows.optional(),
+    platformFeedback: backupRows.optional(),
   }),
 });
 export type RestoreInput = z.infer<typeof restoreSchema>;
