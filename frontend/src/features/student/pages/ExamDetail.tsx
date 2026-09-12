@@ -65,9 +65,14 @@ export default function ExamDetail() {
   // parameter the player had to carry across the section transition — that is
   // what used to go missing and leave a four-module mock showing a /800 report.
   const mock = data?.mock ?? null;
+
+  // Completed modules only. The results endpoint rejects an exam that is still
+  // in progress, so asking for every module meant a student reviewing one
+  // finished section of a mock they were still sitting fired 400s for the
+  // sections they had not reached yet.
   const siblingIds = (mock?.modules ?? [])
-    .map((module) => module.examId)
-    .filter((id) => id !== examId);
+    .filter((module) => module.status === 'completed' && module.examId !== examId)
+    .map((module) => module.examId);
 
   const siblingQueries = useQueries({
     queries: siblingIds.map((id) => ({
@@ -76,11 +81,16 @@ export default function ExamDetail() {
     })),
   });
 
-  // Only combine once every module has arrived; a half-loaded mock would
-  // otherwise report a total built from some of its sections.
+  // Combine only when the whole mock is finished and every one of its modules
+  // has arrived — a half-loaded mock would otherwise report a total built from
+  // some of its sections.
   const siblingResults = siblingQueries.map((query) => query.data);
+  const everyModuleFinished = !!mock && mock.modules.every((m) => m.status === 'completed');
   const isMockCombined =
-    !!mock && mock.status === 'completed' && siblingResults.every((result) => !!result);
+    !!mock &&
+    mock.status === 'completed' &&
+    everyModuleFinished &&
+    siblingResults.every((result) => !!result);
   const isPractice = data?.exam.type === 'individual';
   const isMockExam = data?.exam.type === 'mock_english' || data?.exam.type === 'mock_math';
   const pollCountRef = useRef(0);
