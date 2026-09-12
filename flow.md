@@ -166,6 +166,28 @@ Both produce exams that span several sets, so `findQuestionsForExam` — which r
 answer sheet and left-joins each question's own passage — is what makes an English topic
 exam show the right passage above each question.
 
+### Analytics
+
+`modules/analytics` answers two questions — "why am I losing points?" and "am I improving?"
+— and is the only place either is computed. `GET /student/analytics/overview` and
+`GET /teacher/students/:id/analytics` return the same payload from the same functions, so
+a teacher and a student always see the same numbers.
+
+`skillAccuracy` joins `exam_answers → questions → skills` and rolls each skill up to its
+domain via `COALESCE(parent_code, code)`; `domainAccuracy` folds those together, weakest
+first. `scoreTrend` unions completed mocks with standalone scaled exams, excluding mock
+modules because the mock row already carries their sections. `readiness` is latest total,
+a rolling average of the last three, the gap to target and days to the test — arithmetic,
+with a confidence flag rather than a projection.
+
+Two rules run through all of it. Completed exams only, and **a live-exam attempt only once
+the teacher has released it** — a `NOT EXISTS` against `live_exam_participants` holds back
+the unreleased. And a domain under five attempts reports its attempt count instead of a
+percentage, because one question moves it twenty points.
+
+The AI narrative reads `skillAccuracy` scoped to a single exam rather than running its own
+query, so the prompt and the progress view cannot disagree.
+
 ### Scaled scoring
 
 The raw count above is not what a student is shown. Submit also writes `exams.scaled_score`,

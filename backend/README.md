@@ -32,6 +32,7 @@ src/
     admin/           users, access codes, database console, AI tooling
     live-exam/       proctored classroom sessions
     skills/          the SAT domain/skill taxonomy, readable by every role
+    analytics/       accuracy, trends and readiness — shared by student and teacher
     library/         shared files and notes
     platform-feedback/  in-app bug reports
     ai/              the only module that calls OpenRouter
@@ -109,6 +110,17 @@ results are hidden until the teacher releases them, so recording at submit would
 tell the student which questions they missed before release. Those go through
 `recordMistakesOnRelease`, and the release endpoints skip an already-released
 participant so a second release cannot double every miss count.
+
+**Analytics are one set of functions, called twice.** `modules/analytics` is the
+only place accuracy, trends and readiness are computed, and every function takes
+a **list** of student ids — the Phase 3 batch dashboard needs exactly these
+aggregates, and a per-student function would have to be rewritten to serve it.
+The student's own view and the teacher's view of that student call the same
+functions, so the two cannot quote different percentages at each other. Two rules
+hold throughout: completed exams only, and **a live-exam attempt only once
+released** — an analytic that counted an unreleased result would leak the thing
+the release mechanism exists to control. Readiness is arithmetic, never a
+projection.
 
 **Students never receive answers.** `modules/student/student.repository.ts`
 selects question columns explicitly, so `correctAnswer`, `correctAnswerText` and

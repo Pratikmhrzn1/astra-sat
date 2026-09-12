@@ -91,6 +91,11 @@ than converting between them.
   assembled across sets and carry `label` instead of `setTitle` — render
   `setTitle ?? label`. `subject` is always present; the server derives it from
   the exam's own questions.
+- **No chart library, on purpose.** `shared/ui/TrendChart` and
+  `shared/ui/AccuracyBars` are ~30KB of SVG and CSS against ~450KB for recharts,
+  on a bundle already past Vite's warning. Series colours are validated for
+  colourblind separation and chroma rather than picked by eye, and identity never
+  rests on colour alone — every chart carries a legend or a text label.
 - **Never compute a score.** `shared/lib/score.ts` is the only place that formats
   or colours one, and the numbers themselves come from the server —
   `exam.scaledScore` for a single exam, `mock.totalScore` / `rwScore` /

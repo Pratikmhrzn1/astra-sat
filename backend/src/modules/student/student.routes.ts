@@ -3,6 +3,7 @@ import { asyncHandler } from '../../http/async-handler';
 import { currentUserId, requireAuth, requireRole } from '../../http/middleware/auth';
 import { body, query, validateBody, validateQuery } from '../../http/middleware/validate';
 import { HttpError } from '../../http/errors';
+import * as analytics from '../analytics/analytics.service';
 import * as chat from './chat.service';
 import * as exams from './exams.service';
 import * as inbox from './inbox.service';
@@ -233,6 +234,16 @@ studentRouter.post(
   asyncHandler(async (req, res) => {
     const result = await topic.startTopicExam(currentUserId(req), body<TopicExamInput>(req));
     res.status(201).json(result);
+  }),
+);
+
+// ── Analytics ────────────────────────────────────────────────────────────────
+
+/** Domain accuracy, the score trend and readiness, for the progress view. */
+studentRouter.get(
+  '/analytics/overview',
+  asyncHandler(async (req, res) => {
+    res.json(await analytics.overview(currentUserId(req)));
   }),
 );
 

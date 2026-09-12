@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
-import { getStudents, getStudentExams, getStudentDetail, sendFeedback, getSentFeedback } from '@/features/teacher/api/teacher.api';
+import { getStudents, getStudentExams, getStudentDetail, getStudentAnalytics, sendFeedback, getSentFeedback } from '@/features/teacher/api/teacher.api';
+import { DomainPanel, ReadinessCard, TrendPanel } from '@/features/student/components/ProgressPanels';
 import { Button, Modal, Textarea, SubjectBadge, Badge, Spinner } from '@/shared/ui';
 import { formatDate } from '@/shared/lib/utils';
 import { getApiError } from '@/shared/api/client';
@@ -24,6 +25,7 @@ export default function StudentDetail() {
   const { data: exams = [], isLoading } = useQuery({ queryKey: ['teacher', 'student-exams', studentId], queryFn: () => getStudentExams(studentId!), enabled: !!studentId });
   const { data: myFeedback = [] } = useQuery({ queryKey: ['teacher', 'feedback'], queryFn: getSentFeedback });
   const { data: detail } = useQuery({ queryKey: ['teacher', 'student', studentId], queryFn: () => getStudentDetail(studentId!), enabled: !!studentId });
+  const { data: analytics } = useQuery({ queryKey: ['teacher', 'student-analytics', studentId], queryFn: () => getStudentAnalytics(studentId!), enabled: !!studentId });
 
   const studentFeedback = myFeedback.filter((f) => f.studentEmail === student?.email || f.studentName === student?.name);
 
@@ -86,6 +88,17 @@ export default function StudentDetail() {
           <div style={{ fontSize: 14, color: 'rgba(11,11,14,0.45)' }}>This student hasn't set a target score yet.</div>
         )}
       </div>
+
+      {analytics && (analytics.trend.length > 0 || analytics.domains.length > 0) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
+          <ReadinessCard readiness={analytics.readiness} />
+          <TrendPanel trend={analytics.trend} />
+          {/* No practise button: a teacher assigning work to a student is an
+              assignment, which is Phase 3, not a click that starts an exam
+              under someone else's name. */}
+          <DomainPanel overview={analytics} />
+        </div>
+      )}
 
       <div style={{ ...CARD, marginBottom: 20 }}>
         <div style={{ padding: '16px 22px', borderBottom: '1px solid #EEEBE5' }}>

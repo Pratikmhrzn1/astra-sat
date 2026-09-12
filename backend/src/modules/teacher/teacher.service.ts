@@ -15,6 +15,7 @@ import { normalizeFileUrl } from '../../lib/url';
 import { publicUserColumns } from '../auth/auth.repository';
 import { getProfile } from '../student/profile.service';
 import { listSkillCodes } from '../skills/skills.service';
+import { overview } from '../analytics/analytics.service';
 import type {
   CreatePassageInput,
   CreateQuestionInput,
@@ -80,6 +81,18 @@ export async function listStudents(teacherId: string) {
 export async function getStudentDetail(teacherId: string, studentId: string) {
   const student = await assertOwnsStudent(teacherId, studentId);
   return { student, profile: await getProfile(studentId) };
+}
+
+/**
+ * The same analytics the student sees, for a student on this teacher's roster.
+ *
+ * Identical numbers by construction — one set of query functions, called with
+ * one student id. A teacher and a student disagreeing about a percentage is a
+ * support conversation nobody wants.
+ */
+export async function getStudentAnalytics(teacherId: string, studentId: string) {
+  await assertOwnsStudent(teacherId, studentId);
+  return overview(studentId);
 }
 
 /**

@@ -1,5 +1,5 @@
 import { apiClient } from '@/shared/api/client';
-import type { Exam, QuestionWithAnswer } from '@/features/student/api/student.api';
+import type { AnalyticsOverview, Exam, QuestionWithAnswer } from '@/features/student/api/student.api';
 
 export interface Student {
   id: string;
@@ -85,6 +85,15 @@ export interface StudentProfile {
   testDate: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * The same analytics the student sees, for a student on this teacher's roster.
+ * Same endpoint shape, so the two views cannot disagree about a percentage.
+ */
+export async function getStudentAnalytics(studentId: string): Promise<AnalyticsOverview> {
+  const { data } = await apiClient.get<AnalyticsOverview>(`/teacher/students/${studentId}/analytics`);
+  return data;
 }
 
 /** `profile` is null until the student sets a goal — show that, don't substitute one. */

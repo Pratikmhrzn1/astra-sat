@@ -500,3 +500,53 @@ export async function startTopicExam(payload: {
   const { data } = await apiClient.post('/student/exams/topic', payload);
   return data;
 }
+
+// ── Analytics ────────────────────────────────────────────────────────────────
+
+export interface DomainAccuracy {
+  domainCode: string;
+  domainLabel: string;
+  subject: 'english' | 'math';
+  attempted: number;
+  correct: number;
+  accuracy: number;
+}
+
+export interface SkillAccuracy extends DomainAccuracy {
+  skillCode: string | null;
+  skillLabel: string | null;
+}
+
+export interface TrendPoint {
+  at: string;
+  kind: 'mock' | 'practice';
+  label: string;
+  total: number | null;
+  rw: number | null;
+  math: number | null;
+}
+
+export interface Readiness {
+  latestTotal: number | null;
+  rollingAverage: number | null;
+  mocksTaken: number;
+  targetScore: number | null;
+  gap: number | null;
+  testDate: string | null;
+  daysToTest: number | null;
+  confidence: 'none' | 'low' | 'fair';
+}
+
+export interface AnalyticsOverview {
+  domains: DomainAccuracy[];
+  skills: SkillAccuracy[];
+  trend: TrendPoint[];
+  readiness: Readiness;
+  /** Below this many attempts the server considers an accuracy unreportable. */
+  minAttempts: number;
+}
+
+export async function getAnalytics(): Promise<AnalyticsOverview> {
+  const { data } = await apiClient.get<AnalyticsOverview>('/student/analytics/overview');
+  return data;
+}

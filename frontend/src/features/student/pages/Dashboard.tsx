@@ -1,8 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/store/auth';
-import { getExams, getMockTests, getFeedback, getAvailableSkillPassages, getMistakeSummary, getProfile, startExam } from '@/features/student/api/student.api';
+import { getExams, getMockTests, getFeedback, getAvailableSkillPassages, getAnalytics, getMistakeSummary, getProfile, startExam, startTopicExam } from '@/features/student/api/student.api';
+import { weakestDomain } from '@/features/student/components/ProgressPanels';
 import { useMobile } from '@/shared/hooks/useMobile';
 import {
   NO_SCORE, SECTION_MAX,
@@ -20,6 +21,17 @@ export default function Dashboard() {
   const { data: weakAreaPassages = [] } = useQuery({ queryKey: ['student', 'skill-passages'], queryFn: getAvailableSkillPassages });
   const { data: profile } = useQuery({ queryKey: ['student', 'profile'], queryFn: getProfile });
   const { data: mistakeSummary = [] } = useQuery({ queryKey: ['student', 'mistakes', 'summary'], queryFn: getMistakeSummary });
+  const { data: analytics } = useQuery({ queryKey: ['student', 'analytics'], queryFn: getAnalytics });
+
+  // The diagnose-then-practise loop in one card: the weakest topic with enough
+  // data behind it, and a button that builds an exam from exactly that topic.
+  const weakest = weakestDomain(analytics);
+  const topicMutation = useMutation({
+    mutationFn: startTopicExam,
+    onSuccess: (result) => navigate(`/student/exams/${result.exam.id}`, {
+      state: { timerEnabled: false, examTitle: `Topic: ${result.skill.label}` },
+    }),
+  });
   const [weakAreaError, setWeakAreaError] = React.useState<string | null>(null);
 
   const openMistakes = mistakeSummary.reduce((sum, row) => sum + row.openCount, 0);
@@ -233,6 +245,15 @@ export default function Dashboard() {
               // needs this the moment their teacher reads out a code, and has no
               // way to know in advance that they will.
               { label: 'In class', sub: 'Enter the code from your teacher', title: 'Join a live exam', color: '#8E44AD', path: '/student/live-exam' },
+              ...(weakest
+                ? [{
+                    label: 'Weakest topic',
+                    sub: `${weakest.accuracy}% across ${weakest.attempted} questions`,
+                    title: weakest.domainLabel,
+                    color: '#B8893E',
+                    path: '__topic__',
+                  }]
+                : []),
               // The diagnose-then-practise loop: the card only appears once
               // there is something in the bank, and says how much.
               ...(openMistakes > 0
@@ -247,7 +268,10 @@ export default function Dashboard() {
             ].map(({ label, sub, title, color, path }) => (
               <div
                 key={title}
-                onClick={() => navigate(path)}
+                onClick={() => {
+                  if (path !== '__topic__') { navigate(path); return; }
+                  if (weakest) topicMutation.mutate({ subject: weakest.subject, skillCode: weakest.domainCode, count: 10 });
+                }}
                 className="lift"
                 style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 13, padding: '16px 18px', cursor: 'pointer', boxShadow: '0 1px 3px rgba(11,11,14,0.04)' }}
                 onMouseEnter={(el) => { el.currentTarget.style.boxShadow = '0 6px 20px rgba(11,11,14,0.09)'; el.currentTarget.style.borderColor = '#D8D4CC'; }}

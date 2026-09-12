@@ -39,6 +39,12 @@ const NAV = [
       <path d="M12 8v4.5l3 1.8"/>
     </svg>
   )},
+  { path: '/student/progress', label: 'Progress', icon: (
+    <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 20h18"/>
+      <path d="M6 20v-6M11 20V8M16 20v-9M21 20V4"/>
+    </svg>
+  )},
   { path: '/student/mistakes', label: 'Mistake Bank', icon: (
     <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9"/>
@@ -317,6 +323,7 @@ export default function StudentLayout() {
 
             {/* Nav links */}
             {[
+              { path: '/student/progress',     label: 'Progress',     icon: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 20h18"/><path d="M6 20v-6M11 20V8M16 20v-9M21 20V4"/></svg> },
               { path: '/student/live-exam',    label: 'Live Exam',    icon: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M7.5 7.5a6.4 6.4 0 0 0 0 9M16.5 16.5a6.4 6.4 0 0 0 0-9"/><path d="M4.5 4.5a10.5 10.5 0 0 0 0 15M19.5 19.5a10.5 10.5 0 0 0 0-15"/></svg> },
               { path: '/student/mistakes',     label: 'Mistake Bank', icon: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.9" fill="currentColor"/></svg> },
               { path: '/student/vocab-review', label: 'Vocab Review', icon: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/><path d="M7 15h2M12 15h3"/></svg> },

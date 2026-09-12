@@ -17,6 +17,7 @@ import TakeExam from '@/features/student/pages/TakeExam';
 import MockTest from '@/features/student/pages/MockTest';
 import Results from '@/features/student/pages/Results';
 import Mistakes from '@/features/student/pages/Mistakes';
+import Progress from '@/features/student/pages/Progress';
 import JoinLiveExam from '@/features/student/pages/JoinLiveExam';
 import ExamDetail from '@/features/student/pages/ExamDetail';
 import VocabReview from '@/features/student/pages/VocabReview';
@@ -93,6 +94,7 @@ export function AppRouter() {
           <Route path="results/:examId" element={<ExamDetail />} />
           <Route path="feedback" element={<StudentFeedback />} />
           <Route path="library" element={<StudentLibrary />} />
+          <Route path="progress" element={<Progress />} />
           <Route path="mistakes" element={<Mistakes />} />
           <Route path="live-exam" element={<JoinLiveExam />} />
           <Route path="vocab-review" element={<VocabReview />} />

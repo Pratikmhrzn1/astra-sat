@@ -9,3 +9,6 @@ export { Badge, SubjectBadge, RoleBadge } from './Badge';
 export { Input, Textarea, Select } from './Input';
 export { Modal, ConfirmModal } from './Modal';
 export { Spinner, PageLoader } from './Spinner';
+export { TrendChart, TREND_COLORS, type TrendSeries } from './TrendChart';
+export { AccuracyBars, type AccuracyRow } from './AccuracyBars';
+export { SkillSelect } from './SkillSelect';

@@ -1,5 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import { db } from '../../db';
+import { skillAccuracy } from '../analytics/analytics.service';
 import { examAnswers, exams, mockNarratives, questionSets, questions } from '../../db/schema';
 import { generateStructuredOutput, isConfigured } from '../ai';
 
@@ -14,6 +15,8 @@ import { generateStructuredOutput, isConfigured } from '../ai';
  */
 
 export interface NarrativeExam {
+  /** Needed to scope the skill breakdown; every caller passes a full exam row. */
+  studentId: string;
   type: string;
   score: number | null;
   totalQuestions: number;
@@ -59,33 +62,25 @@ export async function findNarrative(examId: string) {
 }
 
 /**
- * Per-skill right/wrong counts — the substance the model reasons over.
+ * Per-skill right/wrong counts for one exam — the substance the model reasons over.
  *
- * Grouped on `skill_code` rather than the old five-value enum, which covered
- * only Reading and Writing. A Math narrative used to receive nothing but
- * `- untagged: N wrong of M` and had to write around it.
+ * Delegates to `modules/analytics` rather than running its own query, so the
+ * narrative and the progress view can never disagree about how well a student
+ * did in a domain. It also inherits the analytics rules for free: tagged
+ * questions only, and released exams only.
  */
-async function loadSubSkillBreakdown(examId: string) {
-  const stats = await db
-    .select({
-      subSkill: questions.skillCode,
-      total: sql<number>`count(*)::int`,
-      wrong: sql<number>`count(*) filter (where ${examAnswers.isCorrect} = false)::int`,
-    })
-    .from(examAnswers)
-    .innerJoin(questions, eq(examAnswers.questionId, questions.id))
-    .where(eq(examAnswers.examId, examId))
-    .groupBy(questions.skillCode);
+async function loadSubSkillBreakdown(examId: string, studentId: string) {
+  const rows = await skillAccuracy([studentId], { examId });
 
-  // The key stays `subSkill`: it is the name the prompt below and the model's
-  // JSON response contract both use. The value is a skill code.
-  return stats.map(({ subSkill, total, wrong }) => ({
-    subSkill: subSkill ?? 'untagged',
-    total,
-    wrong,
+  return rows.map((row) => ({
+    // The key stays `subSkill`: it is the name the prompt below and the model's
+    // JSON response contract both use. The value is a skill label.
+    subSkill: row.skillLabel ?? row.domainLabel,
+    total: row.attempted,
+    wrong: row.attempted - row.correct,
     // Three misses in one skill is the point where it reads as a pattern
     // rather than noise — the same threshold that triggers skill passages.
-    flag: wrong >= 3,
+    flag: row.attempted - row.correct >= 3,
   }));
 }
 
@@ -116,7 +111,7 @@ export async function generateNarrative(
   exam: NarrativeExam,
 ): Promise<void> {
   try {
-    const breakdown = await loadSubSkillBreakdown(examId);
+    const breakdown = await loadSubSkillBreakdown(examId, exam.studentId);
     const section = await resolveSectionLabel(exam);
 
     const correct = exam.score ?? 0;
@@ -176,6 +171,7 @@ export function generateNarrativeInBackground(examId: string, narrativeId: strin
 export async function findExamForNarrative(examId: string): Promise<NarrativeExam | null> {
   const [exam] = await db
     .select({
+      studentId: exams.studentId,
       type: exams.type,
       score: exams.score,
       totalQuestions: exams.totalQuestions,
