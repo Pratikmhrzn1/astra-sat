@@ -744,7 +744,7 @@ export default function ContentManager() {
 
         <ConfirmModal isOpen={deleteTarget?.type === 'set'} onClose={() => setDeleteTarget(null)}
           onConfirm={() => deleteSetMutation.mutate(deleteTarget!.id)} loading={deleteSetMutation.isPending}
-          title="Delete Question Set?" message="This will permanently delete all questions, passages, and any student exam records associated with this set. This cannot be undone." confirmLabel="Delete Set" />
+          title="Remove this question set?" message="Students will no longer see it. If anyone has already taken it, it is archived instead of deleted, so their results and scores are kept." confirmLabel="Remove set" />
       </div>
     );
   }
@@ -885,6 +885,11 @@ export default function ContentManager() {
                   <button onClick={cancelEdit} style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(11,11,14,0.64)', border: '1px solid #E7E4DE', borderRadius: 8, background: '#F2F0EC', padding: '4px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
                 )}
               </div>
+              {editingQuestion && (
+                <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.64)', margin: '-4px 0 12px', lineHeight: 1.5 }}>
+                  Changes apply to new attempts. Students who already answered this question keep the version they saw, so their results don't change.
+                </p>
+              )}
 
               {/* Question type selector */}
               <div style={{ display: 'flex', gap: 8 }}>
@@ -1210,7 +1215,7 @@ export default function ContentManager() {
         }}
         loading={deleteQuestionMutation.isPending || deletePassageMutation.isPending}
         title={deleteTarget?.type === 'question' ? 'Delete Question?' : 'Delete Passage?'}
-        message={deleteTarget?.type === 'question' ? 'This question will be permanently deleted.' : 'Deleting this passage will unlink it from all questions that reference it.'}
+        message={deleteTarget?.type === 'question' ? 'It will be removed from this set. If students have already answered it, it is retired instead, so their past results stay unchanged.' : 'Deleting this passage will unlink it from all questions that reference it.'}
         confirmLabel="Delete"
       />
     </div>

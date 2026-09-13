@@ -1,4 +1,4 @@
-import { apiClient } from '@/shared/api/client';
+import { apiClient, getApiError } from '@/shared/api/client';
 
 export interface QuestionSet {
   id: string;
@@ -145,7 +145,7 @@ export async function startExam(setId: string): Promise<{ exam: Exam; questions:
   return data;
 }
 
-export async function getExam(examId: string): Promise<{
+export async function getExam(examId: string, { open = false }: { open?: boolean } = {}): Promise<{
   exam: Exam;
   questions: Question[];
   answers: { questionId: string; selectedAnswer: string | null; selectedAnswerText: string | null }[];
@@ -153,8 +153,14 @@ export async function getExam(examId: string): Promise<{
   mockTestId: string | null;
   /** Where the Math section starts, so the player can chain English -> Math. */
   mathExamId: string | null;
+  /** Server deadline for this attempt; null when untimed or not yet opened. */
+  deadlineAt: string | null;
+  /** The server's clock at response time, to correct a wrong device clock. */
+  serverNow: string;
 }> {
-  const { data } = await apiClient.get(`/student/exams/${examId}`);
+  // `open` is the player actually starting the exam — it starts a mock module's
+  // clock on the server. Pre-fetches must leave it off.
+  const { data } = await apiClient.get(`/student/exams/${examId}`, { params: open ? { open: 1 } : undefined });
   return data;
 }
 
@@ -172,6 +178,22 @@ export async function submitExam(
 ): Promise<{ score: number; total: number; percentage: number }> {
   const { data } = await apiClient.post(`/student/exams/${examId}/submit`, { timeSpentSeconds });
   return data;
+}
+
+/**
+ * Submits, treating "already completed" as success.
+ *
+ * The server closes a timed exam itself once its deadline passes, so by the time
+ * the player's own countdown fires the exam may already be graded. That is the
+ * outcome the student wanted, not an error to stall the section transition on.
+ */
+export async function submitExamIfOpen(examId: string, timeSpentSeconds?: number): Promise<void> {
+  try {
+    await submitExam(examId, timeSpentSeconds);
+  } catch (err) {
+    if (/already completed/i.test(getApiError(err))) return;
+    throw err;
+  }
 }
 
 export async function getExams(): Promise<ExamWithSet[]> {

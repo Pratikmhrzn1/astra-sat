@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../../db';
 import {
@@ -163,11 +163,13 @@ export async function startSession(sessionId: string, teacherId: string) {
     .from(liveExamParticipants)
     .where(eq(liveExamParticipants.sessionId, session.id));
 
+  // Fixed before provisioning, so every participant's deadlines come from the
+  // same instant the session is recorded as starting.
+  const startedAt = new Date();
   for (const participant of participants) {
-    await provisionParticipantExams(participant, session);
+    await provisionParticipantExams(participant, { ...session, startedAt });
   }
 
-  const startedAt = new Date();
   await db
     .update(liveExamSessions)
     .set({ status: 'active', startedAt })
@@ -191,7 +193,14 @@ export async function startSession(sessionId: string, teacherId: string) {
  */
 async function provisionParticipantExams(
   participant: typeof liveExamParticipants.$inferSelect,
-  session: { id: string; englishSetId: string | null; mathSetId: string | null },
+  session: {
+    id: string;
+    englishSetId: string | null;
+    mathSetId: string | null;
+    startedAt: Date | null;
+    englishDurationSeconds: number;
+    mathDurationSeconds: number;
+  },
 ): Promise<{ englishExamId: string | null; mathExamId: string | null }> {
   if (participant.englishExamId && participant.mathExamId) {
     return { englishExamId: participant.englishExamId, mathExamId: participant.mathExamId };
@@ -200,16 +209,22 @@ async function provisionParticipantExams(
     return { englishExamId: null, mathExamId: null };
   }
 
+  // Both sections are timed from the session start, as the lobby always has.
+  const deadline = (seconds: number) =>
+    session.startedAt ? new Date(session.startedAt.getTime() + seconds * 1000) : null;
+
   const [englishExam, mathExam] = await Promise.all([
     createExamForSet({
       studentId: participant.studentId,
       setId: session.englishSetId,
       type: 'mock_english',
+      deadlineAt: deadline(session.englishDurationSeconds),
     }),
     createExamForSet({
       studentId: participant.studentId,
       setId: session.mathSetId,
       type: 'mock_math',
+      deadlineAt: deadline(session.mathDurationSeconds),
     }),
   ]);
 
@@ -447,7 +462,7 @@ export async function listLiveExamSets() {
       isDraft: questionSets.isDraft,
     })
     .from(questionSets)
-    .where(eq(questionSets.isLiveExam, true));
+    .where(and(eq(questionSets.isLiveExam, true), isNull(questionSets.archivedAt)));
 }
 
 // ── Student ───────────────────────────────────────────────────────────────────

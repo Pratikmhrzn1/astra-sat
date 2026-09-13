@@ -1,8 +1,9 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, lt, sql } from 'drizzle-orm';
 import { db } from '../../db';
 import { examAnswers, exams, questionSets, questions } from '../../db/schema';
-import { badRequest, notFound } from '../../http/errors';
+import { badRequest, conflict, notFound } from '../../http/errors';
 import { toSectionScore } from '../scoring';
+import { DEADLINE_GRACE_SECONDS, isPastGrace, resolveDeadline, serverTimeSpent } from './exam-timing';
 import * as mistakes from './mistakes.service';
 import * as mock from './mock.service';
 import * as narrative from './narrative.service';
@@ -35,9 +36,16 @@ export async function startExam(studentId: string, { setId, type }: StartExamInp
  * Loads an exam for the player, plus the mock it belongs to (if any) so the
  * client can chain from one section to the next without a second round trip.
  */
-export async function getExam(examId: string, studentId: string) {
-  const exam = await repo.findOwnedExam(examId, studentId);
+export async function getExam(examId: string, studentId: string, { open = false }: { open?: boolean } = {}) {
+  let exam = await repo.findOwnedExam(examId, studentId);
   if (!exam) throw notFound('Exam not found');
+
+  // Opening starts a mock module's clock; any read closes an expired exam.
+  const deadline = await resolveDeadline(exam, { open });
+  if (exam.status === 'in_progress' && isPastGrace(deadline)) {
+    await closeExpiredExam(exam.id, studentId);
+    exam = (await repo.findOwnedExam(examId, studentId))!;
+  }
 
   const [questionRows, answers] = await Promise.all([
     repo.findQuestionsForExam(exam.id),
@@ -64,7 +72,39 @@ export async function getExam(examId: string, studentId: string) {
     answers,
     mockTestId: mockContext?.mockTest.id ?? null,
     mathExamId: mockContext?.mockTest.mathExamId ?? null,
+    /** When this attempt ends, or null if untimed / not yet opened. The client counts down to this. */
+    deadlineAt: deadline ? deadline.toISOString() : null,
+    /** Lets the client correct for a wrong device clock. */
+    serverNow: new Date().toISOString(),
   };
+}
+
+/**
+ * Grades and closes an exam whose time ran out without a submit — the student
+ * closed the tab, lost their connection, or simply stopped. Whatever autosave
+ * had stored is what gets graded, exactly as if they had pressed submit at the
+ * deadline. The AI narrative starts as it would after a normal submit.
+ *
+ * A concurrent real submit is safe: `submitExam` only closes an exam that is
+ * still in progress, so whichever arrives second is refused.
+ */
+export async function closeExpiredExam(examId: string, studentId: string): Promise<void> {
+  try {
+    const result = await submitExam(examId, studentId, undefined);
+    if (result.pendingNarrative) {
+      narrative.generateNarrativeInBackground(result.exam.id, result.pendingNarrative.narrativeId, result.pendingNarrative.exam);
+    }
+  } catch (err) {
+    // Already closed by the student's own submit a moment earlier: nothing to do.
+    if (!(err instanceof Error && /already completed/i.test(err.message))) throw err;
+  }
+}
+
+/** Closes an exam if its deadline has passed. Used before anything that depends on it being finished. */
+export async function closeIfExpired(examId: string, studentId: string): Promise<void> {
+  const exam = await repo.findOwnedExam(examId, studentId);
+  if (!exam || exam.status !== 'in_progress') return;
+  if (isPastGrace(await resolveDeadline(exam, { open: false }))) await closeExpiredExam(examId, studentId);
 }
 
 /**
@@ -84,6 +124,14 @@ export async function saveAnswers(
   const exam = await repo.findOwnedExam(examId, studentId);
   if (!exam) throw notFound('Exam not found');
   if (exam.status === 'completed') throw badRequest('Exam already completed');
+
+  // Past the deadline (plus grace) nothing more is accepted: the exam is graded
+  // on what was saved in time, and this late write is refused.
+  const deadline = await resolveDeadline(exam, { open: false });
+  if (isPastGrace(deadline)) {
+    await closeExpiredExam(examId, studentId);
+    throw conflict('Time is up — this section has been submitted.');
+  }
 
   if (answers.length > 0) {
     const now = new Date();
@@ -105,7 +153,9 @@ export async function saveAnswers(
     `);
   }
 
-  if (timeSpentSeconds !== undefined) {
+  // A timed exam's time comes from its deadline, never from the client.
+  const timed = deadline !== null;
+  if (timeSpentSeconds !== undefined && !timed) {
     await db.update(exams).set({ timeSpentSeconds }).where(eq(exams.id, examId));
   }
 }
@@ -176,6 +226,16 @@ export async function submitExam(
     ? null
     : toSectionScore(score, exam.totalQuestions, 'none');
 
+  // Timed by its own limit: computed from the deadline. A live section (timed by
+  // its session) keeps the client figure, capped at the time it could have had.
+  const deadline = await resolveDeadline(exam, { open: false });
+  const fromServer = serverTimeSpent(exam, deadline);
+  const liveCap = deadline ? Math.max(0, Math.round((deadline.getTime() - exam.startedAt.getTime()) / 1000)) : null;
+  const resolvedTimeSpent =
+    fromServer ??
+    (timeSpentSeconds !== undefined && liveCap !== null ? Math.min(timeSpentSeconds, liveCap) : timeSpentSeconds) ??
+    exam.timeSpentSeconds;
+
   const [updated] = await db
     .update(exams)
     .set({
@@ -183,10 +243,14 @@ export async function submitExam(
       score,
       scaledScore,
       completedAt: new Date(),
-      timeSpentSeconds: timeSpentSeconds ?? exam.timeSpentSeconds,
+      timeSpentSeconds: resolvedTimeSpent,
     })
-    .where(eq(exams.id, exam.id))
+    // Only an exam still in progress closes. A student's submit and an expiry
+    // close racing each other would otherwise both grade it and both write
+    // mistakes; the loser is refused here.
+    .where(and(eq(exams.id, exam.id), eq(exams.status, 'in_progress')))
     .returning();
+  if (!updated) throw badRequest('Exam already completed');
 
   // On the critical path on purpose: the student goes straight to a results page
   // that reports the mock total, so it must be written before the response
@@ -298,6 +362,20 @@ export async function getNarrative(examId: string, studentId: string) {
 }
 
 export async function listExams(studentId: string) {
+  // An abandoned timed exam is closed when it next appears in a list, so history
+  // never shows a section as "in progress" long after its time ran out.
+  const expired = await db
+    .select({ id: exams.id })
+    .from(exams)
+    .where(
+      and(
+        eq(exams.studentId, studentId),
+        eq(exams.status, 'in_progress'),
+        lt(exams.deadlineAt, new Date(Date.now() - DEADLINE_GRACE_SECONDS * 1000)),
+      ),
+    );
+  for (const { id } of expired) await closeExpiredExam(id, studentId);
+
   return repo.listExamsForStudent(studentId);
 }
 

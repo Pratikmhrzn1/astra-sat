@@ -277,6 +277,28 @@ An older non-adaptive path (`handleNextSection`, straight English→Math with a 
 submit while the pre-fetched Math exam renders instantly) still exists for sessions whose
 router state has no `mockSection`. Don't extend it.
 
+### Timing: the server holds the clock
+
+`modules/student/exam-timing.ts` owns it. A mock module is created with `time_limit_seconds`
+(Reading & Writing 32 min, Math 35 min) and **no** deadline; `deadline_at` is stamped the first
+time the player opens it — `GET /exams/:id?open=1`. The flag matters: the player pre-fetches the
+next section with a plain `GET`, and that must not start its clock. A live section's deadline is
+the session start plus its duration, set when the exam is provisioned.
+
+`GET /exams/:id` returns `deadlineAt` and `serverNow`; the player counts down to the deadline,
+corrected by the clock offset and recomputed every tick, so a reload, a throttled tab or a wrong
+device clock cannot stretch it. On the server:
+
+- autosave is refused (409) more than 30 seconds past the deadline;
+- a timed exam's `time_spent_seconds` is computed from the deadline, and the client's figure is
+  ignored (a live section keeps the client figure, capped);
+- an expired exam is graded on what autosave stored and closed **lazily**, when it is next read,
+  listed, saved to, or needed by `next-module`. There is no scheduler.
+
+`submitExam` only closes an exam still `in_progress`, so a student's own submit racing an
+expiry close cannot grade it twice. The player treats "already completed" as success, and
+opening an exam the server has already closed carries on the chain as a timeout would have.
+
 ---
 
 ## 6. Live exams

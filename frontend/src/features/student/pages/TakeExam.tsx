@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getExam, saveAnswers, submitExam, nextModule } from '@/features/student/api/student.api';
+import { getExam, saveAnswers, submitExamIfOpen, nextModule } from '@/features/student/api/student.api';
 import { saveExamProgress, loadExamProgress, clearExamProgress } from '@/shared/lib/offline';
 import { useMobile } from '@/shared/hooks/useMobile';
 
@@ -48,6 +48,15 @@ export default function TakeExam() {
   const mathExamIdRef = useRef<string | null>(null);
   const transitioningRef = useRef(false);
   const mockSectionRef = useRef(locationState?.mockSection);
+  // Server deadline (epoch ms) and device-clock correction. When a deadline is
+  // known the countdown is recomputed from it every tick, so a reload, a
+  // throttled background tab or a changed device clock cannot stretch it.
+  const deadlineRef = useRef<number | null>(null);
+  const clockOffsetRef = useRef(0);
+  // Answers are initialised once per exam, so the refetch that follows a
+  // pre-fetched section cannot overwrite what the student has already picked.
+  const answersInitForRef = useRef<string | null>(null);
+  const closedHandledRef = useRef<string | null>(null);
   // Always-current answers for use inside timer/IDB closures
   const answersRef = useRef<Record<string, string | null>>({});
   const dataRef = useRef<{ exam: import('@/features/student/api/student.api').Exam; questions: import('@/features/student/api/student.api').Question[]; answers: { questionId: string; selectedAnswer: string | null; selectedAnswerText: string | null }[]; mockTestId: string | null; mathExamId: string | null } | undefined>(undefined);
@@ -70,12 +79,17 @@ export default function TakeExam() {
     timeLeftRef.current = 20 * 60;
     setTimeLeft(20 * 60);
     mathExamIdRef.current = null;
+    // B10: the section changes with the exam, so the ref must follow it too.
+    mockSectionRef.current = locationState?.mockSection;
+    deadlineRef.current = null;
+    answersInitForRef.current = null;
     setSectionBanner(!!(locationState?.fromMockSection1));
   }, [examId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data, isLoading } = useQuery({
     queryKey: ['student', 'exam', examId],
-    queryFn: () => getExam(examId!),
+    // The player opening the exam is what starts a timed module's clock.
+    queryFn: () => getExam(examId!, { open: true }),
     enabled: !!examId,
   });
 
@@ -99,13 +113,25 @@ export default function TakeExam() {
     }
   }, [data, queryClient]);
 
-  // After data loads: non-individual exams always use the timer
+  // After data loads: set up the clock, then restore answers once per exam.
   useEffect(() => {
     if (!data) return;
-    if (data.exam.type !== 'individual') {
+
+    if (data.deadlineAt) {
+      // Server-authoritative: count down to the deadline the server holds.
+      deadlineRef.current = new Date(data.deadlineAt).getTime();
+      clockOffsetRef.current = new Date(data.serverNow).getTime() - Date.now();
+      const remaining = Math.max(0, Math.ceil((deadlineRef.current - (Date.now() + clockOffsetRef.current)) / 1000));
+      setTimeLeft(remaining);
+      timeLeftRef.current = remaining;
       setTimerEnabled(true);
       timerEnabledRef.current = true;
-      // Live exam: compute remaining time from server-anchored start
+    } else if (data.exam.type !== 'individual') {
+      // Timed section whose deadline is not known yet (a pre-fetched read); the
+      // refetch that opens it supplies one. Live exams without one fall back to
+      // the session start the lobby passed along.
+      setTimerEnabled(true);
+      timerEnabledRef.current = true;
       if (isLiveExam && locationState?.sectionStartedAt) {
         const elapsed = Math.floor((Date.now() - new Date(locationState.sectionStartedAt).getTime()) / 1000);
         const duration = data.exam.type === 'mock_math'
@@ -115,31 +141,48 @@ export default function TakeExam() {
         setTimeLeft(remaining);
         timeLeftRef.current = remaining;
       }
-      return;
     }
-    // Individual: load saved progress and override timerEnabled from IDB (resume path)
+
+    if (answersInitForRef.current === examId) return;
+    answersInitForRef.current = examId ?? null;
+
+    // Restore progress for every kind of exam. Mock and live sections used to
+    // skip this, so reloading one showed a blank paper even though autosave had
+    // the answers on the server.
+    const fromServer = () => {
+      const init: Record<string, string | null> = {};
+      data.answers.forEach((a) => { init[a.questionId] = a.selectedAnswerText ?? a.selectedAnswer; });
+      return init;
+    };
     loadExamProgress(examId!).then((saved) => {
       if (saved) {
-        setAnswers(saved.answers);
+        // Merged, local picks first: this device's copy is the freshest for what
+        // it holds, but it can be empty or partial (another device, or the empty
+        // write the player makes before data arrives), and the server fills in.
+        const local = Object.fromEntries(Object.entries(saved.answers).filter(([, v]) => v !== null && v !== ''));
+        setAnswers({ ...fromServer(), ...local });
         savedTimeSpentRef.current = saved.timeSpentSeconds;
-        setTimerEnabled(saved.timerEnabled);
-        timerEnabledRef.current = saved.timerEnabled;
-        if (saved.timerEnabled) {
-          const remaining = Math.max(0, 20 * 60 - saved.timeSpentSeconds);
-          setTimeLeft(remaining);
-          timeLeftRef.current = remaining;
+        // Only self-study practice lets the student's own timer choice persist.
+        if (data.exam.type === 'individual' && !data.deadlineAt) {
+          setTimerEnabled(saved.timerEnabled);
+          timerEnabledRef.current = saved.timerEnabled;
+          if (saved.timerEnabled) {
+            const remaining = Math.max(0, 20 * 60 - saved.timeSpentSeconds);
+            setTimeLeft(remaining);
+            timeLeftRef.current = remaining;
+          }
         }
       } else {
-        const init: Record<string, string | null> = {};
-        data.answers.forEach((a) => { init[a.questionId] = a.selectedAnswerText ?? a.selectedAnswer; });
-        setAnswers(init);
+        setAnswers(fromServer());
         savedTimeSpentRef.current = 0;
       }
-    });
-  }, [data, examId]);
+    }).catch(() => setAnswers(fromServer()));
+  }, [data, examId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Time-spent helper — reads refs to avoid stale closure issues in callbacks
   const getTimeSpent = useCallback((): number => {
+    // Timed by the server: it computes the real figure and ignores this one.
+    if (deadlineRef.current !== null) return savedTimeSpentRef.current + elapsedRef.current;
     if (timerEnabledRef.current) return 20 * 60 - timeLeftRef.current;
     return savedTimeSpentRef.current + elapsedRef.current;
   }, []);
@@ -157,7 +200,7 @@ export default function TakeExam() {
 
   // Final submit (Math section or individual exam) — shows overlay while waiting for server
   const submitMutation = useMutation({
-    mutationFn: () => submitExam(examId!, getTimeSpent()),
+    mutationFn: () => submitExamIfOpen(examId!, getTimeSpent()),
     onSuccess: async () => {
       if (examId) await clearExamProgress(examId);
       transitioningRef.current = false;
@@ -214,8 +257,10 @@ export default function TakeExam() {
       : { fromMockSection1: true };
     navigate(`/student/exams/${mathId}`, { replace: true, state: nextState });
     // Save latest answers → submit → clear IDB, all in background
+    // A refused late save (time already up) must not stop the submit behind it.
     saveAnswers(currentExamId, formattedAnswers, timeSpent)
-      .then(() => submitExam(currentExamId, timeSpent))
+      .catch(() => {})
+      .then(() => submitExamIfOpen(currentExamId, timeSpent))
       .then(() => clearExamProgress(currentExamId))
       .catch(() => {});
   }, [examId, navigate, getTimeSpent]);
@@ -243,8 +288,9 @@ export default function TakeExam() {
     });
 
     try {
-      await saveAnswers(currentExamId, formattedAnswers, timeSpent);
-      await submitExam(currentExamId, timeSpent);
+      // A save refused because time is up still leaves the server's copy to grade.
+      await saveAnswers(currentExamId, formattedAnswers, timeSpent).catch(() => {});
+      await submitExamIfOpen(currentExamId, timeSpent);
       await clearExamProgress(currentExamId);
       const { m2ExamId } = await nextModule(mt, currentExamId);
 
@@ -266,12 +312,46 @@ export default function TakeExam() {
     }
   }, [examId, locationState, navigate, getTimeSpent]);
 
+  // Opened an exam the server has already closed — its time ran out while the
+  // student was away. Carry on exactly as a timeout here would have: into the
+  // next module or section, or to the results.
+  useEffect(() => {
+    if (!data || data.exam.status !== 'completed' || closedHandledRef.current === examId) return;
+    closedHandledRef.current = examId ?? null;
+    if (examId) clearExamProgress(examId).catch(() => {});
+
+    const ms = mockSectionRef.current;
+    if (isLiveExam) {
+      if (data.exam.type === 'mock_english' && mathExamIdRef.current) handleNextSection();
+      else navigate('/student/dashboard', { replace: true });
+      return;
+    }
+    if (ms === 'english_m1' || ms === 'math_m1') {
+      handleAdaptiveNextSection().catch(() => {});
+      return;
+    }
+    if (ms === 'english_m2' && locationState?.mathM1ExamId) {
+      navigate(`/student/exams/${locationState.mathM1ExamId}`, {
+        replace: true,
+        state: { mockTestId: locationState.mockTestId, mockSection: 'math_m1', fromMockSection1: false, timerEnabled: true, examTitle: 'Module 1 · Math' },
+      });
+      return;
+    }
+    if (!ms && data.exam.type === 'mock_english' && mathExamIdRef.current) {
+      handleNextSection();
+      return;
+    }
+    navigate(`/student/results/${examId}`, { replace: true });
+  }, [data, examId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Countdown timer — only when timerEnabled
   useEffect(() => {
     if (!timerEnabled) return;
     timerRef.current = setInterval(() => {
       setTimeLeft((t) => {
-        const next = Math.max(0, t - 1);
+        const next = deadlineRef.current !== null
+          ? Math.max(0, Math.ceil((deadlineRef.current - (Date.now() + clockOffsetRef.current)) / 1000))
+          : Math.max(0, t - 1);
         timeLeftRef.current = next;
         if (next <= 0) {
           clearInterval(timerRef.current!);

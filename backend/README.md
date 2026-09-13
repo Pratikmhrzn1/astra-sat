@@ -129,6 +129,28 @@ re-finalised mock's original `completed_at`, and logs rather than throws. Exams
 and mocks finished before scaled scoring existed therefore gain scores on the
 next deploy without anyone pressing the admin button.
 
+**The server holds the exam clock.** See `modules/student/exam-timing.ts` and
+`flow.md` §5. Any read that is not the student sitting down to an exam must call
+`getExam` without `open`, or it starts a mock module's clock early.
+
+**Attempted content is versioned, never rewritten.** `updateQuestion` edits in
+place only while no exam has the question on its answer sheet; after that it
+inserts a new row (`supersedes_id`), retires the old one and moves mistakes to the
+new version, so past attempts keep the exact wording and key they were graded
+against. Deleting an attempted question retires it, and deleting a set with
+attempts archives it. **Every reader that offers content** — catalogues, exam
+assembly, topic and mistake practice, mock and live set pickers, tagging and
+counts — must filter `questions.retired_at IS NULL` and
+`question_sets.archived_at IS NULL`. Readers that go through `exam_answers`
+(results, history) must not.
+
+**Irreversible admin actions are audited.** Routes call `logAudit()`
+(`modules/audit`) after the action succeeds; the SQL console and restore also log
+failed attempts. Never put secrets in the payload — no passwords, no access-code
+values, no query results. Raw `timestamp` columns from `db.execute` must be read
+with `parseDbTimestamp()` (`lib/db-time.ts`): they arrive as zone-less strings in
+UTC, and `new Date()` would parse them as local time.
+
 **Students never receive answers.** `modules/student/student.repository.ts`
 selects question columns explicitly, so `correctAnswer`, `correctAnswerText` and
 `explanation` are absent by construction rather than deleted afterwards. Add

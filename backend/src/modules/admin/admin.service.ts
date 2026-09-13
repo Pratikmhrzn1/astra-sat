@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db';
 import { accessCodes, aiFeedback, exams, questionSets, questions, users } from '../../db/schema';
 import { badRequest, conflict, notFound } from '../../http/errors';
@@ -14,8 +14,10 @@ export async function getStats() {
     countRows(db.select({ count: sql<number>`count(*)::int` }).from(users).where(eq(users.role, 'teacher'))),
     countRows(db.select({ count: sql<number>`count(*)::int` }).from(users).where(eq(users.role, 'admin'))),
     countRows(db.select({ count: sql<number>`count(*)::int` }).from(exams)),
-    countRows(db.select({ count: sql<number>`count(*)::int` }).from(questions)),
-    countRows(db.select({ count: sql<number>`count(*)::int` }).from(questionSets)),
+    // Live content only: retired question versions and archived sets are kept for
+    // history but are not part of the question bank any more.
+    countRows(db.select({ count: sql<number>`count(*)::int` }).from(questions).where(isNull(questions.retiredAt))),
+    countRows(db.select({ count: sql<number>`count(*)::int` }).from(questionSets).where(isNull(questionSets.archivedAt))),
   ]);
 
   return {

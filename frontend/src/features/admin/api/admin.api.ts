@@ -142,3 +142,21 @@ export async function runSql(sqlText: string): Promise<{ ok: boolean; statements
   const { data } = await apiClient.post('/admin/run-sql', { sql: sqlText });
   return data;
 }
+
+/** One recorded admin action. Read-only; nothing in the app edits these. */
+export interface AuditEntry {
+  id: string;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  payload: Record<string, unknown> | null;
+  createdAt: string;
+  actorId: string | null;
+  actorName: string | null;
+  actorEmail: string | null;
+}
+
+export async function getAuditLog(limit = 50): Promise<AuditEntry[]> {
+  const { data } = await apiClient.get<AuditEntry[]>('/admin/audit-log', { params: { limit } });
+  return data;
+}

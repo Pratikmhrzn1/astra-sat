@@ -69,7 +69,8 @@ export default function MockTest() {
 
       {/* Meta stat cards */}
       <div style={{ display: 'flex', gap: isMobile ? 10 : 14, marginBottom: isMobile ? 20 : 28, flexWrap: 'wrap' }}>
-        {[['2', 'Sections'], ['45m', 'Total time'], ['1600', 'Score scale']].map(([v, l], i) => (
+        {/* 4 modules: Reading & Writing 2 × 32 min, Math 2 × 35 min — the limits the server enforces. */}
+        {[['2', 'Sections'], ['2h 14m', 'Total time'], ['1600', 'Score scale']].map(([v, l], i) => (
           <div key={i} style={{ ...CARD, padding: isMobile ? '14px 18px' : '18px 26px', minWidth: isMobile ? 90 : 130, flex: isMobile ? '1' : undefined, borderRadius: 14 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 28 : 38, lineHeight: 1, color: '#0B0B0E' }}>{v}</div>
             <div style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginTop: 5 }}>{l}</div>

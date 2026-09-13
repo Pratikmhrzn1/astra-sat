@@ -60,7 +60,7 @@ export async function findQuestionsForSet(setId: string) {
     .select(studentQuestionColumns)
     .from(questions)
     .leftJoin(passages, eq(questions.passageId, passages.id))
-    .where(eq(questions.setId, setId))
+    .where(and(eq(questions.setId, setId), isNull(questions.retiredAt)))
     .orderBy(questions.orderIndex);
 }
 
@@ -80,21 +80,27 @@ export async function findPublishedSets() {
       subject: questionSets.subject,
       description: questionSets.description,
       createdAt: questionSets.createdAt,
-      questionCount: sql<number>`(SELECT COUNT(*) FROM questions WHERE questions.set_id = question_sets.id)::int`,
+      questionCount: sql<number>`(SELECT COUNT(*) FROM questions WHERE questions.set_id = question_sets.id AND questions.retired_at IS NULL)::int`,
     })
     .from(questionSets)
     .where(
       and(
         eq(questionSets.isDraft, false),
         eq(questionSets.isLiveExam, false),
+        isNull(questionSets.archivedAt),
         or(eq(questionSets.difficulty, 'medium'), isNull(questionSets.difficulty)),
       ),
     )
     .orderBy(desc(questionSets.createdAt));
 }
 
+/** A set a student can start. Archived sets are gone as far as new exams are concerned. */
 export async function findSetById(setId: string) {
-  const [set] = await db.select().from(questionSets).where(eq(questionSets.id, setId)).limit(1);
+  const [set] = await db
+    .select()
+    .from(questionSets)
+    .where(and(eq(questionSets.id, setId), isNull(questionSets.archivedAt)))
+    .limit(1);
   return set ?? null;
 }
 

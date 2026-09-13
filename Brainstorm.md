@@ -136,7 +136,10 @@ teacher portal is entirely per-student: a flat roster, one student's exam list, 
 questions. There is no analytics module in the backend; the only per-skill aggregation in the whole
 system runs over a single exam and exists solely to fill an AI prompt.
 
-### One integrity gap
+### One integrity gap *(closed in M5)*
+
+> **Status:** closed. Mock modules and live sections now have server-held deadlines, late writes are
+> refused and abandoned modules auto-submit (M5 / P2.7). Practice stays untimed by design.
 
 Practice and mock timers are client-side. The server accepts whatever elapsed time the client
 reports and never checks it against the exam's start time, and no deadline is enforced. Only live
@@ -279,18 +282,17 @@ Requirements for the test engine, with current status:
 | Requirement | Status |
 |---|---|
 | Answers autosave reliably | **Met** — IndexedDB immediately, server every 30s, flush on reconnect |
-| State survives refresh / network interruption | **Met** for practice; live exams re-anchor from the server |
+| State survives refresh / network interruption | **Met** — practice, mock and live sections all resume saved answers; timed sections re-anchor to the server deadline |
 | Submissions are idempotent | **Met** |
-| Scores are reproducible | **Met** for raw grading; scaled scoring is being added |
+| Scores are reproducible | **Met** — raw grading and persisted scaled scores |
 | Answer keys not exposed to the client | **Met** — keys appear only in server-side grading and post-completion results |
-| Question order/version preserved per attempt | **Partly** — order is preserved via the materialised answer sheet; questions are not versioned |
-| Timer authoritative server-side | **Not met** for practice and mocks — being fixed |
-| Published questions immutable/versioned | **Not met** — editing a question changes history for past attempts |
+| Question order/version preserved per attempt | **Met** — the answer sheet fixes order, and an attempted question is versioned rather than edited |
+| Timer authoritative server-side | **Met** for mocks and live exams; practice is untimed on the server by design |
+| Published questions immutable/versioned | **Met** — copy-on-write once attempted; sets with attempts archive instead of deleting |
 | Organisation data isolated | **Not applicable yet** — single tenant |
-| Audit important administrative actions | **Not met** |
+| Audit important administrative actions | **Met** — user, access-code, database and set-removal actions, read-only list on the admin dashboard |
 
-The last three are the honest debt list. Question versioning matters most: today, editing a
-published question silently rewrites the meaning of every past attempt that used it.
+All closed in M5 except tenancy, which waits for Phase 3.
 
 ---
 

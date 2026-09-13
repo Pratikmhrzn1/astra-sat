@@ -1,5 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { db } from '../../db';
+import { parseDbTimestamp } from '../../lib/db-time';
 import { getProfile } from '../student/profile.service';
 
 /**
@@ -195,7 +196,7 @@ export async function scoreTrend(studentId: string): Promise<TrendPoint[]> {
 
   return (result.rows as unknown as (Omit<TrendPoint, 'at'> & { at: Date | string })[]).map((row) => ({
     ...row,
-    at: new Date(row.at).toISOString(),
+    at: parseDbTimestamp(row.at).toISOString(),
   }));
 }
 

@@ -1,16 +1,17 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '../../db';
 import {
   examAnswers,
   exams,
   feedback,
+  mistakes,
   passages,
   questionSets,
   questions,
   teacherVocabWords,
   users,
 } from '../../db/schema';
-import { badRequest, forbidden, notFound } from '../../http/errors';
+import { badRequest, conflict, forbidden, notFound } from '../../http/errors';
 import { normalizeFileUrl } from '../../lib/url';
 import { publicUserColumns } from '../auth/auth.repository';
 import { getProfile } from '../student/profile.service';
@@ -242,8 +243,13 @@ async function assertSetExists(setId: string) {
   return set;
 }
 
+/** Archived sets are hidden everywhere, including here — see `deleteSet`. */
 export async function listSets() {
-  return db.select().from(questionSets).orderBy(desc(questionSets.createdAt));
+  return db
+    .select()
+    .from(questionSets)
+    .where(isNull(questionSets.archivedAt))
+    .orderBy(desc(questionSets.createdAt));
 }
 
 /** New sets start as drafts so half-written content is never offered to students. */
@@ -284,13 +290,43 @@ export async function publishSet(setId: string) {
 }
 
 /**
- * Deletes a set. Passages, questions and — through them — every answer row and
- * cached feedback cascade with it, so this also erases the record of any attempt
- * students made at this set.
+ * Removes a set — by archiving it whenever anyone has attempted it.
+ *
+ * A real DELETE cascades `question_sets → exams → exam_answers → ai_feedback`,
+ * so one click by any teacher used to erase every graded exam students had taken
+ * on the set, and with them their scores, trends and mistake history. Now a set
+ * with attempts is archived: hidden from every catalogue, picker and assembler,
+ * while the history that points at it stays intact. A set nobody has touched is
+ * still deleted outright, so abandoned drafts don't pile up.
  */
-export async function deleteSet(setId: string) {
+export async function deleteSet(setId: string): Promise<{ archived: boolean; title: string }> {
   await assertSetExists(setId);
+  const [{ title }] = await db.select({ title: questionSets.title }).from(questionSets).where(eq(questionSets.id, setId)).limit(1);
+
+  const [attempted] = await db
+    .select({ id: exams.id })
+    .from(exams)
+    .where(eq(exams.setId, setId))
+    .limit(1);
+  const [answered] = attempted
+    ? [attempted]
+    : await db
+        .select({ id: examAnswers.id })
+        .from(examAnswers)
+        .innerJoin(questions, eq(examAnswers.questionId, questions.id))
+        .where(eq(questions.setId, setId))
+        .limit(1);
+
+  if (attempted || answered) {
+    await db
+      .update(questionSets)
+      .set({ archivedAt: new Date(), updatedAt: new Date() })
+      .where(eq(questionSets.id, setId));
+    return { archived: true, title };
+  }
+
   await db.delete(questionSets).where(eq(questionSets.id, setId));
+  return { archived: false, title };
 }
 
 /**
@@ -416,12 +452,24 @@ export async function deletePassage(passageId: string) {
 
 async function assertQuestionExists(questionId: string) {
   const [question] = await db
-    .select({ id: questions.id })
+    .select({ id: questions.id, retiredAt: questions.retiredAt })
     .from(questions)
     .where(eq(questions.id, questionId))
     .limit(1);
   if (!question) throw notFound('Question not found');
+  // A stale editor tab still holding the old id must not fork a second version.
+  if (question.retiredAt) throw conflict('This question has been replaced by a newer version. Reload to edit it.');
   return question;
+}
+
+/** Whether any exam — finished or in progress — has this question on its answer sheet. */
+async function isQuestionAttempted(questionId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: examAnswers.id })
+    .from(examAnswers)
+    .where(eq(examAnswers.questionId, questionId))
+    .limit(1);
+  return !!row;
 }
 
 export async function listQuestions(setId: string) {
@@ -429,7 +477,9 @@ export async function listQuestions(setId: string) {
   const rows = await db
     .select()
     .from(questions)
-    .where(eq(questions.setId, setId))
+    // Retired versions stay in the table for the exams that used them, but are
+    // not content any more — the editor shows only the live version.
+    .where(and(eq(questions.setId, setId), isNull(questions.retiredAt)))
     .orderBy(questions.orderIndex);
   return rows.map((row) => ({ ...row, imageUrl: normalizeFileUrl(row.imageUrl) }));
 }
@@ -493,12 +543,37 @@ export async function updateQuestion(questionId: string, input: UpdateQuestionIn
   const taggedHere = input.skillCode !== undefined || input.subSkill !== undefined;
   const subSkillSource = provenanceFor(taggedHere && (!!input.skillCode || !!input.subSkill));
 
-  const [updated] = await db
-    .update(questions)
-    .set({ ...input, ...(subSkillSource ? { subSkillSource } : {}) })
-    .where(eq(questions.id, questionId))
-    .returning();
-  return updated;
+  const changes = { ...input, ...(subSkillSource ? { subSkillSource } : {}) };
+
+  // Untouched by any exam: edit in place, as before.
+  if (!(await isQuestionAttempted(questionId))) {
+    const [updated] = await db.update(questions).set(changes).where(eq(questions.id, questionId)).returning();
+    return updated;
+  }
+
+  // Copy-on-write. Past answers keep pointing at the exact wording, options and
+  // key the student saw, so fixing a typo — or a wrong answer key — never
+  // silently rewrites a graded exam, its score or its AI feedback. The new row
+  // takes over the question's place in the set; in-progress exams finish on the
+  // version they started with.
+  return db.transaction(async (tx) => {
+    const [current] = await tx.select().from(questions).where(eq(questions.id, questionId)).limit(1);
+    const { id: _oldId, createdAt: _createdAt, retiredAt: _retiredAt, supersedesId: _supersedesId, ...content } = current;
+
+    const [created] = await tx
+      .insert(questions)
+      .values({ ...content, ...changes, supersedesId: questionId })
+      .returning();
+
+    await tx.update(questions).set({ retiredAt: new Date() }).where(eq(questions.id, questionId));
+
+    // A mistake is about the question, not a particular wording of it, so the
+    // student's mistake bank follows the question to its current version. The
+    // new row has no mistakes yet, so the (student, question) unique key holds.
+    await tx.update(mistakes).set({ questionId: created.id }).where(eq(mistakes.questionId, questionId));
+
+    return created;
+  });
 }
 
 /** Used by the review UI to confirm or correct an AI-suggested tag. */
@@ -514,9 +589,21 @@ export async function updateQuestionSubSkill(questionId: string, input: UpdateSu
   return updated;
 }
 
-export async function deleteQuestion(questionId: string) {
+/**
+ * Removes a question from its set — by retiring it once anyone has answered it.
+ *
+ * A DELETE cascades to `exam_answers`, which would pull the question out of every
+ * graded exam that contained it and change those exams' question counts after the
+ * fact. Retiring hides it from all new content instead.
+ */
+export async function deleteQuestion(questionId: string): Promise<{ retired: boolean }> {
   await assertQuestionExists(questionId);
+  if (await isQuestionAttempted(questionId)) {
+    await db.update(questions).set({ retiredAt: new Date() }).where(eq(questions.id, questionId));
+    return { retired: true };
+  }
   await db.delete(questions).where(eq(questions.id, questionId));
+  return { retired: false };
 }
 
 // ── Vocabulary bank ───────────────────────────────────────────────────────────

@@ -3,12 +3,13 @@
 > Derived from `Brainstorm.md` §4, §9 and §13. Where this plan and the code disagree, the code wins.
 > Status verified against the working tree at commit `859c4d5`. Every file:line below was checked.
 >
-> **Status (2026-09-13): M0–M4 are complete; M5 is next.** M0–M3 are ticked from their
-> commits (`1269392`, `d8f025b`, `fa1fe2c`, `68a62bb`). M4 (`d5df30d`) was audited item by
-> item, and its remaining gaps closed: one shared estimated score in `readiness()`, set-less
-> exams kept on the trend, History on the shared analytics series, topic cards showing
-> accuracy, and `sendFeedback` folded into `assertOwnsStudent`. Scores for pre-M1 history
-> are now backfilled on every boot.
+> **Status (2026-09-13): Phase 2 (M0–M5) is complete.** M0–M3 are ticked from their commits
+> (`1269392`, `d8f025b`, `fa1fe2c`, `68a62bb`); M4 (`d5df30d`) was audited and its gaps
+> closed. M5 landed as: a server-held exam clock (deadline stamped on open, late writes
+> refused, lazy auto-close, B4 and B10); copy-on-write question versioning with archive and
+> retire in place of cascading deletes; and an audit log with a read-only admin view.
+> Verified against a copy of real data (versioning 17/17 and timer 16/16 scripted checks)
+> plus browser checks of the player. Phase 3 is next — run the §12 validation step first.
 >
 > **Milestones are named M0–M5.** They are *not* the same thing as `Brainstorm.md`'s
 > roadmap Phases 1–5. In that numbering this entire document is Phase 2; M0–M5 are the
@@ -85,7 +86,7 @@ runtime, but `drizzle-kit push` would want to recreate them.
 | **M2 — Taxonomy** ✅ | P2.2 taxonomy in authoring, import and AI · B7, B8 | M0 (parallel with M1) |
 | **M3 — Student loops** ✅ | P2.4 mistake bank · P2.5 topic practice | M2 |
 | **M4 — Analytics** ✅ | P2.6 analytics | M1 + M2 |
-| **M5 — Integrity** | P2.7 server timer (+ B4, B10) · P2.8 versioning · P2.9 audit log | M0. **Pull P2.7 forward** if a consultancy is already treating mocks as assessments. |
+| **M5 — Integrity** ✅ | P2.7 server timer (+ B4, B10) · P2.8 versioning · P2.9 audit log | M0. **Pull P2.7 forward** if a consultancy is already treating mocks as assessments. |
 
 M1 and M2 are the only pair that can genuinely run in parallel — they touch disjoint
 files. Everything else is sequential.
@@ -276,33 +277,33 @@ Math**; the teacher sees the same numbers; both match a hand count on a small da
 
 #### P2.7 Server-authoritative timer (+ B4, B10)
 
-- [ ] Server-side constants: RW module 32 min, Math module 35 min. Live exams keep their session durations. Self-study practice stays untimed on the server (`time_limit_seconds = null`); the optional client timer is a convenience and those scores count as self-study.
-- [ ] `time_limit_seconds` set at exam creation. `deadline_at` stamped on **first open** (`getExam`), because Math M1 is created at mock start but taken later. Live exams: session `startedAt + duration`.
-- [ ] `getExam` returns `deadlineAt` + `serverNow`; the client computes the clock offset.
-- [ ] Autosave (`exams.service.ts:85-125`) ignores answer writes after `deadline_at + 30s` grace. For timed exams `timeSpentSeconds` is computed server-side and the client value ignored entirely.
-- [ ] **Lazy auto-close:** a timed exam past its deadline is graded and submitted when it is next read, listed, or needed by `startNextModule`. No scheduler.
-- [ ] `TakeExam.tsx`: count down to the server deadline instead of the `20 * 60` seed (`:32,47,68-69,127,142`); mirror it to a ref; IndexedDB resume uses the server deadline.
-- [ ] **B10:** re-sync `mockSectionRef` (`:51`) in the reset effect (`:62-72`) like every other ref.
-- [ ] Fix the copy: `MockTest.tsx:51` "45m total", `ExamCatalogue.tsx:75,139` and `Settings.tsx:246` all hardcode "20 minutes".
+- [x] Server-side constants: RW module 32 min, Math module 35 min. Live exams keep their session durations. Self-study practice stays untimed on the server (`time_limit_seconds = null`); the optional client timer is a convenience and those scores count as self-study.
+- [x] `time_limit_seconds` set at exam creation. `deadline_at` stamped on **first open** (`getExam`), because Math M1 is created at mock start but taken later. Live exams: session `startedAt + duration`.
+- [x] `getExam` returns `deadlineAt` + `serverNow`; the client computes the clock offset.
+- [x] Autosave (`exams.service.ts:85-125`) ignores answer writes after `deadline_at + 30s` grace. For timed exams `timeSpentSeconds` is computed server-side and the client value ignored entirely.
+- [x] **Lazy auto-close:** a timed exam past its deadline is graded and submitted when it is next read, listed, or needed by `startNextModule`. No scheduler.
+- [x] `TakeExam.tsx`: count down to the server deadline instead of the `20 * 60` seed (`:32,47,68-69,127,142`); mirror it to a ref; IndexedDB resume uses the server deadline.
+- [x] **B10:** re-sync `mockSectionRef` (`:51`) in the reset effect (`:62-72`) like every other ref.
+- [x] Fix the copy: `MockTest.tsx:51` "45m total", `ExamCatalogue.tsx:75,139` and `Settings.tsx:246` all hardcode "20 minutes".
 
 **Verify:** changing the device clock, tampering with `timeSpentSeconds`, or reloading
 cannot extend a mock module; an abandoned module auto-submits on next read.
 
 #### P2.8 Question versioning — the most important integrity debt (Brainstorm §9)
 
-- [ ] **Copy-on-write:** `updateQuestion` (`teacher.service.ts:371-379`) checks whether any completed exam references the question. If one does, insert a new row (`supersedes_id` = old), set `retired_at` on the old, and leave `exam_answers` pointing at the old row so history keeps its meaning. If nothing references it, edit in place as today.
-- [ ] Readers (`findQuestionsForSet`, the topic and mistake assemblers) filter `retired_at IS NULL`.
-- [ ] `deleteSet` (`teacher.service.ts:221-229`) archives (`archived_at`) instead of cascading whenever attempts exist. Today one teacher DELETE wipes graded exams via the FK chain `question_sets → exams → exam_answers → ai_feedback`.
-- [ ] Mock set selection (`mock.service.ts:30-48`) and the catalogues exclude archived sets.
+- [x] **Copy-on-write:** `updateQuestion` (`teacher.service.ts:371-379`) checks whether any completed exam references the question. If one does, insert a new row (`supersedes_id` = old), set `retired_at` on the old, and leave `exam_answers` pointing at the old row so history keeps its meaning. If nothing references it, edit in place as today.
+- [x] Readers (`findQuestionsForSet`, the topic and mistake assemblers) filter `retired_at IS NULL`.
+- [x] `deleteSet` (`teacher.service.ts:221-229`) archives (`archived_at`) instead of cascading whenever attempts exist. Today one teacher DELETE wipes graded exams via the FK chain `question_sets → exams → exam_answers → ai_feedback`.
+- [x] Mock set selection (`mock.service.ts:30-48`) and the catalogues exclude archived sets.
 
 **Verify:** editing a published question leaves a past attempt's results page unchanged.
 
 #### P2.9 Audit log (small)
 
-- [ ] `logAudit(actorId, action, target, payload)` helper, called from admin user and role changes, access-code changes, DB restore, the SQL console (`database.service.ts:153-171` — unrestricted, no allowlist), and set archive/delete.
-- [ ] Read-only admin list view on the admin Dashboard.
+- [x] `logAudit(actorId, action, target, payload)` helper, called from admin user and role changes, access-code changes, DB restore, the SQL console (`database.service.ts:153-171` — unrestricted, no allowlist), and set archive/delete.
+- [x] Read-only admin list view on the admin Dashboard.
 
-- [ ] docs: `backend/README.md`, `flow.md` (timer flow), `Brainstorm.md` §9
+- [x] docs: `backend/README.md`, `flow.md` (timer flow), `Brainstorm.md` §9
 
 ---
 

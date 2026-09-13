@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../../http/async-handler';
 import { currentUserId, requireAuth, requireRole } from '../../http/middleware/auth';
 import { body, validateBody } from '../../http/middleware/validate';
+import { logAudit } from '../audit/audit.service';
 import * as service from './teacher.service';
 import {
   createPassageSchema,
@@ -135,8 +136,15 @@ teacherRouter.post(
 teacherRouter.delete(
   '/question-sets/:setId',
   asyncHandler(async (req, res) => {
-    await service.deleteSet(req.params.setId);
-    res.json({ ok: true });
+    const result = await service.deleteSet(req.params.setId);
+    await logAudit({
+      actorId: currentUserId(req),
+      action: result.archived ? 'question_set.archived' : 'question_set.deleted',
+      targetType: 'question_set', targetId: req.params.setId,
+      payload: { title: result.title },
+    });
+    // `archived` tells the editor which happened, so it can say so.
+    res.json({ ok: true, archived: result.archived });
   }),
 );
 
@@ -209,8 +217,8 @@ teacherRouter.put(
 teacherRouter.delete(
   '/questions/:questionId',
   asyncHandler(async (req, res) => {
-    await service.deleteQuestion(req.params.questionId);
-    res.json({ ok: true });
+    const { retired } = await service.deleteQuestion(req.params.questionId);
+    res.json({ ok: true, retired });
   }),
 );
 

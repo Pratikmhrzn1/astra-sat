@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '../../db';
 import { examAnswers, exams, questions } from '../../db/schema';
 
@@ -23,7 +23,8 @@ export async function findQuestionIdsForSet(setId: string): Promise<string[]> {
   const rows = await db
     .select({ id: questions.id })
     .from(questions)
-    .where(eq(questions.setId, setId))
+    // Retired versions stay for the exams that used them; new exams get the live one.
+    .where(and(eq(questions.setId, setId), isNull(questions.retiredAt)))
     .orderBy(questions.orderIndex);
   return rows.map((row) => row.id);
 }
@@ -36,6 +37,10 @@ export async function createExamWithAnswerSheet(input: {
   label?: string | null;
   type: ExamType;
   questionIds: string[];
+  /** A mock module's limit; the deadline is stamped when the student opens it. */
+  timeLimitSeconds?: number | null;
+  /** A live section's fixed deadline, known when the session starts. */
+  deadlineAt?: Date | null;
 }) {
   return db.transaction(async (tx) => {
     const [exam] = await tx
@@ -46,6 +51,8 @@ export async function createExamWithAnswerSheet(input: {
         label: input.label ?? null,
         type: input.type,
         totalQuestions: input.questionIds.length,
+        timeLimitSeconds: input.timeLimitSeconds ?? null,
+        deadlineAt: input.deadlineAt ?? null,
       })
       .returning();
 
@@ -70,6 +77,7 @@ export async function createExamForSet(input: {
   studentId: string;
   setId: string;
   type: ExamType;
+  deadlineAt?: Date | null;
 }) {
   const questionIds = await findQuestionIdsForSet(input.setId);
   return createExamWithAnswerSheet({ ...input, questionIds });

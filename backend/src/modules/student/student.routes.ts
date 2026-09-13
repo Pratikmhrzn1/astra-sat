@@ -83,7 +83,10 @@ studentRouter.get(
 studentRouter.get(
   '/exams/:examId',
   asyncHandler(async (req, res) => {
-    res.json(await exams.getExam(req.params.examId, currentUserId(req)));
+    // `?open=1` is the player sitting down to the exam, which starts a mock
+    // module's clock. A plain read — the player pre-fetching the next section —
+    // must not.
+    res.json(await exams.getExam(req.params.examId, currentUserId(req), { open: req.query.open === '1' }));
   }),
 );
 
@@ -292,6 +295,9 @@ studentRouter.post(
   validateBody(nextModuleSchema),
   asyncHandler(async (req, res) => {
     const { submittedExamId } = body<NextModuleInput>(req);
+    // Module 2 is chosen from Module 1's score, so a Module 1 whose time ran out
+    // unsubmitted is graded first rather than blocking the mock.
+    await exams.closeIfExpired(submittedExamId, currentUserId(req));
     res.json(await mock.startNextModule(currentUserId(req), req.params.mockTestId, submittedExamId));
   }),
 );

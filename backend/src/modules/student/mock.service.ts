@@ -4,6 +4,7 @@ import { exams, mockTests, questionSets } from '../../db/schema';
 import { badRequest, notFound } from '../../http/errors';
 import { pathFromModuleDifficulty, toSectionScore, toTotalScore } from '../scoring';
 import * as repo from './student.repository';
+import { MOCK_MODULE_LIMIT_SECONDS } from './exam-timing';
 
 /**
  * Adaptive mock tests.
@@ -37,6 +38,7 @@ async function pickRandomSetId(options: {
     sql`subject = ${options.subject}`,
     sql`is_draft = false`,
     sql`is_live_exam = false`,
+    sql`archived_at IS NULL`,
   ];
   if (options.difficulty) conditions.push(sql`difficulty = ${options.difficulty}`);
   if (options.excludeSetId) conditions.push(sql`id != ${options.excludeSetId}`);
@@ -73,6 +75,7 @@ async function createSectionExam(studentId: string, setId: string, subject: Subj
     setId,
     type: subject === 'english' ? 'mock_english' : 'mock_math',
     questionIds: questionRows.map((q) => q.id),
+    timeLimitSeconds: MOCK_MODULE_LIMIT_SECONDS[subject],
   });
 
   return { exam, questions: repo.withPublicImageUrls(questionRows) };
@@ -157,6 +160,7 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
     setId,
     type: isEnglish ? 'mock_english' : 'mock_math',
     questionIds: questionRows.map((q) => q.id),
+    timeLimitSeconds: MOCK_MODULE_LIMIT_SECONDS[subject],
   });
 
   // Issuing a module only records which exam it is. Completion belongs to the
