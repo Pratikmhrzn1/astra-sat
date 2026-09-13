@@ -171,7 +171,7 @@ export default function LiveExamStudentResult() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 13, fontWeight: 700,
                     background: row.isCorrect ? 'rgba(46,125,90,0.12)' : row.isCorrect === false ? 'rgba(192,57,43,0.10)' : T.lineSoft,
-                    color: row.isCorrect ? T.english : row.isCorrect === false ? T.danger : '#8C8880',
+                    color: row.isCorrect ? T.english : row.isCorrect === false ? T.danger : '#6F6B64',
                   }}>{row.isCorrect ? '✓' : row.isCorrect === false ? '✕' : '–'}</span>
 
                   <div style={{ flex: 1, minWidth: 0 }}>

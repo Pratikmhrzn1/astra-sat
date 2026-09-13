@@ -176,9 +176,18 @@ a teacher and a student always see the same numbers.
 `skillAccuracy` joins `exam_answers → questions → skills` and rolls each skill up to its
 domain via `COALESCE(parent_code, code)`; `domainAccuracy` folds those together, weakest
 first. `scoreTrend` unions completed mocks with standalone scaled exams, excluding mock
-modules because the mock row already carries their sections. `readiness` is latest total,
-a rolling average of the last three, the gap to target and days to the test — arithmetic,
-with a confidence flag rather than a projection.
+modules because the mock row already carries their sections, and derives a set-less
+exam's subject (topic practice, mistake review) from its first question's set so those
+exams stay on the trend. `readiness` is latest total, a rolling average of the last three,
+the gap to target and days to the test — arithmetic, with a confidence flag rather than a
+projection.
+
+`readiness.estimate` is **the** estimated score: the latest scored mock, or, without one,
+the latest scaled practice score in each section with a total only when both exist. Its
+`source` (`mock` | `practice`) is shown wherever it is. The Dashboard hero, the Progress
+readiness card, the History trend cards and the teacher's view all read it or the same
+`scoreTrend`, so no two screens can disagree. Confidence stays mock-based: `none` without a
+mock however many practice tests exist.
 
 Two rules run through all of it. Completed exams only, and **a live-exam attempt only once
 the teacher has released it** — a `NOT EXISTS` against `live_exam_participants` holds back

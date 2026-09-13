@@ -23,8 +23,8 @@ export function PageLoader() {
   return (
     <div style={{ minHeight: '100vh', background: '#FAF9F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-        <Spinner className="w-10 h-10 text-[#E2562B]" />
-        <p style={{ color: 'rgba(11,11,14,0.45)', fontSize: 14 }}>Loading…</p>
+        <Spinner className="w-10 h-10 text-[#C4471F]" />
+        <p style={{ color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>Loading…</p>
       </div>
     </div>
   );

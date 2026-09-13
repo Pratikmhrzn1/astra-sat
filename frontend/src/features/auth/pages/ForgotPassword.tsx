@@ -38,9 +38,9 @@ export default function ForgotPassword() {
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#FAF9F6', padding: isMobile ? '40px 24px' : 48 }}>
       <div style={{ width: '100%', maxWidth: 388 }}>
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#E2562B', marginBottom: 8 }}>SAT Prep · NIEC</div>
-          <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 32 : 38, margin: '0 0 8px', letterSpacing: '-0.02em' }}>Reset password</h2>
-          <p style={{ margin: 0, color: 'rgba(11,11,14,0.55)', fontSize: 15, lineHeight: 1.55 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const, color: '#C4471F', marginBottom: 8 }}>SAT Prep · NIEC</div>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 32 : 38, margin: '0 0 8px', letterSpacing: '-0.02em' }}>Reset password</h2>
+          <p style={{ margin: 0, color: 'rgba(11,11,14,0.64)', fontSize: 15, lineHeight: 1.55 }}>
             Enter your account email and we'll send you a reset link.
           </p>
         </div>
@@ -69,15 +69,15 @@ export default function ForgotPassword() {
             <button
               type="submit"
               disabled={isSubmitting}
-              style={{ width: '100%', height: 48, background: isSubmitting ? '#e89070' : '#E2562B', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: isSubmitting ? 'default' : 'pointer', boxShadow: '0 2px 10px rgba(226,86,43,0.28)', transition: 'background 0.15s', fontFamily: 'inherit' }}
+              style={{ width: '100%', height: 48, background: isSubmitting ? '#e89070' : '#C4471F', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: isSubmitting ? 'default' : 'pointer', boxShadow: '0 2px 10px rgba(226,86,43,0.28)', transition: 'background 0.15s', fontFamily: 'inherit' }}
             >
               {isSubmitting ? 'Sending…' : 'Send reset link'}
             </button>
           </form>
         )}
 
-        <div style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: 'rgba(11,11,14,0.55)' }}>
-          <Link to="/login" style={{ color: '#E2562B', fontWeight: 600, textDecoration: 'none' }}>← Back to sign in</Link>
+        <div style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: 'rgba(11,11,14,0.64)' }}>
+          <Link to="/login" style={{ color: '#C4471F', fontWeight: 600, textDecoration: 'none' }}>← Back to sign in</Link>
         </div>
       </div>
     </div>

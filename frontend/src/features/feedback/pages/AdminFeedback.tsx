@@ -47,14 +47,14 @@ function FeedbackRow({ item, onDelete }: { item: FeedbackItem; onDelete: () => v
         style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '16px 20px', cursor: 'pointer' }}
         onClick={handleExpand}
       >
-        <div style={{ width: 36, height: 36, borderRadius: 9999, background: item.isRead ? '#e5e4e0' : '#0B0B0E', color: item.isRead ? '#8C8880' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 9999, background: item.isRead ? '#e5e4e0' : '#0B0B0E', color: item.isRead ? '#6F6B64' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
           {initials}
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: '#0B0B0E' }}>{item.userName ?? 'Unknown'}</span>
-            <span style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)' }}>{item.userEmail}</span>
+            <span style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)' }}>{item.userEmail}</span>
             <CategoryBadge category={item.category} />
             {!item.isRead && (
               <span style={{ width: 8, height: 8, borderRadius: 9999, background: '#E2562B', display: 'inline-block' }} />
@@ -66,7 +66,7 @@ function FeedbackRow({ item, onDelete }: { item: FeedbackItem; onDelete: () => v
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)' }}>{formatDate(item.createdAt)}</span>
+          <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>{formatDate(item.createdAt)}</span>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
             style={{ width: 32, height: 32, borderRadius: 8, border: '1px solid #E7E4DE', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#dc2626', flexShrink: 0 }}
@@ -74,7 +74,7 @@ function FeedbackRow({ item, onDelete }: { item: FeedbackItem; onDelete: () => v
           >
             <Trash2 size={14} />
           </button>
-          <span style={{ color: 'rgba(11,11,14,0.35)', flexShrink: 0 }}>
+          <span style={{ color: 'rgba(11,11,14,0.58)', flexShrink: 0 }}>
             {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </span>
         </div>
@@ -122,14 +122,14 @@ export default function AdminFeedback() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, margin: 0, letterSpacing: '-0.02em' }}>Platform Feedback</h1>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 44, margin: 0, letterSpacing: '-0.02em' }}>Platform Feedback</h1>
             {unreadCount > 0 && (
-              <span style={{ background: '#E2562B', color: '#fff', fontSize: 12, fontWeight: 700, padding: '3px 9px', borderRadius: 9999 }}>
+              <span style={{ background: '#C4471F', color: '#fff', fontSize: 12, fontWeight: 700, padding: '3px 9px', borderRadius: 9999 }}>
                 {unreadCount} unread
               </span>
             )}
           </div>
-          <p style={{ fontSize: 15, color: 'rgba(11,11,14,0.55)', margin: '4px 0 0' }}>
+          <p style={{ fontSize: 15, color: 'rgba(11,11,14,0.64)', margin: '4px 0 0' }}>
             Feedback submitted by students and teachers.
           </p>
         </div>
@@ -156,7 +156,7 @@ export default function AdminFeedback() {
         <div style={{ ...CARD, padding: '48px 24px', textAlign: 'center' }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>💬</div>
           <div style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', marginBottom: 6 }}>No feedback yet</div>
-          <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.5)' }}>
+          <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)' }}>
             {filter === 'all' ? 'No feedback has been submitted yet.' : 'No items match this filter.'}
           </div>
         </div>

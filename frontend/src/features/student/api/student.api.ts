@@ -535,6 +535,17 @@ export interface Readiness {
   testDate: string | null;
   daysToTest: number | null;
   confidence: 'none' | 'low' | 'fair';
+  /**
+   * The one estimated score every surface shows. Latest scored mock, else the
+   * latest scaled practice score per section; `source` says which, and a
+   * practice-based estimate must be labelled as such.
+   */
+  estimate: {
+    total: number | null;
+    rw: number | null;
+    math: number | null;
+    source: 'mock' | 'practice' | null;
+  };
 }
 
 export interface AnalyticsOverview {

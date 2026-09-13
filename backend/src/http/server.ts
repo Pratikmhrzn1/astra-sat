@@ -3,6 +3,7 @@ import type { Server } from 'http';
 import { env } from '../config/env';
 import { pool } from '../db';
 import { runMigrations } from '../db/migrate';
+import { backfillScores } from '../modules/admin/scoring-backfill.service';
 import { createApp } from './app';
 
 /**
@@ -21,6 +22,12 @@ export async function startServer(): Promise<Server> {
   const server = app.listen(env.port, () => {
     console.log(`[boot] SAT Prep backend listening on http://localhost:${env.port} (${env.nodeEnv})`);
   });
+
+  // Exams and mocks finished before scaled scoring existed have no score, so the
+  // dashboard estimate and the History trends stay blank for them. The backfill
+  // only fills NULL scores and never overwrites, so it is safe on every boot. It
+  // runs after listen and never throws: a repair job must not keep the app down.
+  backfillScores().catch((err) => console.error('[boot] Score backfill failed:', err));
 
   installShutdownHandlers(server);
   return server;

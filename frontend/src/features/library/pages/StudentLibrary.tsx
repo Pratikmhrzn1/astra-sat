@@ -9,8 +9,8 @@ const TYPE_META: Record<FileType, { color: string; label: string; icon: string }
   audio:    { color: '#B8893E', label: 'Audio',    icon: '🎵' },
   video:    { color: '#2563A8', label: 'Video',    icon: '🎬' },
   image:    { color: '#2E7D5A', label: 'Image',    icon: '🖼️' },
-  document: { color: '#E2562B', label: 'Document', icon: '📄' },
-  other:    { color: '#8C8880', label: 'Other',    icon: '📎' },
+  document: { color: '#C4471F', label: 'Document', icon: '📄' },
+  other:    { color: '#6F6B64', label: 'Other',    icon: '📎' },
   note:     { color: '#7C3AED', label: 'Note',     icon: '📝' },
 };
 
@@ -20,7 +20,7 @@ function NoteModal({ item, onClose }: { item: LibraryItem; onClose: () => void }
   return (
     <Modal isOpen onClose={onClose} title={item.title} size="md">
       <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.8, color: '#0B0B0E', minHeight: 80 }}>
-        {item.noteContent || <span style={{ color: 'rgba(11,11,14,0.35)' }}>No content.</span>}
+        {item.noteContent || <span style={{ color: 'rgba(11,11,14,0.58)' }}>No content.</span>}
       </div>
     </Modal>
   );
@@ -40,8 +40,8 @@ export default function Library() {
 
   return (
     <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 80px' : '36px 48px 64px' }}>
-      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Library</h1>
-      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.55)', margin: '0 0 20px' }}>
+      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Library</h1>
+      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.64)', margin: '0 0 20px' }}>
         Guides, lessons and practice material to close the gaps your reports reveal.
       </p>
 
@@ -72,7 +72,7 @@ export default function Library() {
           <div style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', marginBottom: 6 }}>
             {filter === 'All' ? 'No resources yet' : `No ${filter.toLowerCase()} resources`}
           </div>
-          <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.5)' }}>
+          <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)' }}>
             {filter === 'All' ? 'Your teacher will add resources here soon.' : 'Try a different filter.'}
           </div>
         </div>
@@ -86,8 +86,8 @@ export default function Library() {
                 key={item.id}
                 className="lift"
                 style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, padding: isMobile ? '16px 16px 14px' : '22px 22px 20px', boxShadow: '0 1px 3px rgba(11,11,14,0.04)', cursor: 'pointer', display: 'flex', flexDirection: isMobile ? 'row' : 'column', alignItems: isMobile ? 'center' : undefined, gap: isMobile ? 14 : undefined }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(11,11,14,0.09)'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = '#D8D4CC'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.04)'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = '#E7E4DE'; }}
+                onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.boxShadow = '0 8px 24px rgba(11,11,14,0.09)'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = '#D8D4CC'; }}
+                onPointerLeave={(e) => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.04)'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = '#E7E4DE'; }}
                 onClick={() => isNote ? setReadNote(item) : item.fileUrl && window.open(item.fileUrl, '_blank')}
               >
                 {/* Icon/type badge */}
@@ -100,19 +100,19 @@ export default function Library() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: isMobile ? 14.5 : 17, fontWeight: 600, lineHeight: 1.3, marginBottom: isMobile ? 2 : 8 }}>{item.title}</div>
                   {item.description && (
-                    <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.55)', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: isMobile ? 1 : 2, WebkitBoxOrient: 'vertical' as any }}>
+                    <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.64)', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: isMobile ? 1 : 2, WebkitBoxOrient: 'vertical' as any }}>
                       {item.description}
                     </div>
                   )}
                   {isNote && !item.description && item.noteContent && !isMobile && (
-                    <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.45)', lineHeight: 1.55, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, fontStyle: 'italic' }}>
+                    <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.58)', lineHeight: 1.55, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, fontStyle: 'italic' }}>
                       {item.noteContent}
                     </div>
                   )}
                 </div>
 
                 <div style={{ marginTop: isMobile ? 0 : 'auto', flexShrink: 0 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#E2562B' }}>{isNote ? 'Read →' : 'Open →'}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#C4471F' }}>{isNote ? 'Read →' : 'Open →'}</span>
                 </div>
               </div>
             );

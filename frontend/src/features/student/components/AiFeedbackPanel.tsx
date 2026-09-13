@@ -67,7 +67,7 @@ export function AiFeedbackPanel({
 
       {feedbacks.trap_explainer && (
         <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(11,11,14,0.03)', border: '1px solid #E7E4DE' }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.45)', marginBottom: 5 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 5 }}>
             Trap: {feedbacks.trap_explainer.trap}
           </div>
           <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: 0 }}>{feedbacks.trap_explainer.explanation}</p>
@@ -79,7 +79,7 @@ export function AiFeedbackPanel({
         return (
           <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.2)' }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#1D4ED8', marginBottom: 8 }}>Supporting evidence</div>
-            <blockquote style={{ fontFamily: "'Instrument Serif', serif", fontSize: 14.5, lineHeight: 1.6, color: '#0B0B0E', margin: '0 0 10px', paddingLeft: 12, borderLeft: '2px solid rgba(37,99,235,0.35)', fontStyle: 'italic' }}>
+            <blockquote style={{ fontFamily: 'var(--font-reading)', fontSize: 15, lineHeight: 1.6, color: '#0B0B0E', margin: '0 0 10px', paddingLeft: 12, borderLeft: '2px solid rgba(37,99,235,0.35)', fontStyle: 'italic' }}>
               "{coe.supportingLine}"
             </blockquote>
             <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: '0 0 4px' }}>{coe.whyCorrect}</p>

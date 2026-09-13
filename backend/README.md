@@ -120,7 +120,14 @@ functions, so the two cannot quote different percentages at each other. Two rule
 hold throughout: completed exams only, and **a live-exam attempt only once
 released** — an analytic that counted an unreleased result would leak the thing
 the release mechanism exists to control. Readiness is arithmetic, never a
-projection.
+projection. `readiness().estimate` is the single estimated score every screen
+shows — compute a headline score there, never in a page.
+
+**Scores for old history are filled on boot.** `backfillScores()` runs after the
+port opens on every start: it only writes NULL scores, never overwrites, keeps a
+re-finalised mock's original `completed_at`, and logs rather than throws. Exams
+and mocks finished before scaled scoring existed therefore gain scores on the
+next deploy without anyone pressing the admin button.
 
 **Students never receive answers.** `modules/student/student.repository.ts`
 selects question columns explicitly, so `correctAnswer`, `correctAnswerText` and

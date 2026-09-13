@@ -146,7 +146,7 @@ export default function LiveExamSession() {
         <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
           {notStarted ? 'In the lobby' : 'Sitting the exam'}
         </h2>
-        <span style={{ fontSize: 13, color: T.muted, fontFamily: "'JetBrains Mono', monospace" }}>
+        <span style={{ fontSize: 13, color: T.muted, fontFamily: 'var(--font-mono)' }}>
           {participants.length}
           {!notStarted && participants.length > 0 && ` · ${released} released`}
         </span>
@@ -199,7 +199,7 @@ function ParticipantRow({
       <span style={{
         width: 32, height: 32, borderRadius: 9999, flexShrink: 0, background: T.lineSoft,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.55)',
+        fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.64)',
       }}>{participant.name.charAt(0).toUpperCase()}</span>
 
       <div style={{ flex: 1, minWidth: 0 }}>

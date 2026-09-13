@@ -13,8 +13,8 @@ const TYPE_META: Record<FileType, { color: string; label: string; icon: string }
   audio:    { color: '#B8893E', label: 'Audio',    icon: '🎵' },
   video:    { color: '#2563A8', label: 'Video',    icon: '🎬' },
   image:    { color: '#2E7D5A', label: 'Image',    icon: '🖼️' },
-  document: { color: '#E2562B', label: 'Document', icon: '📄' },
-  other:    { color: '#8C8880', label: 'Other',    icon: '📎' },
+  document: { color: '#C4471F', label: 'Document', icon: '📄' },
+  other:    { color: '#6F6B64', label: 'Other',    icon: '📎' },
   note:     { color: '#7C3AED', label: 'Note',     icon: '📝' },
 };
 
@@ -43,7 +43,7 @@ function NoteReadModal({ item, onClose }: { item: LibraryItem; onClose: () => vo
   return (
     <Modal isOpen onClose={onClose} title={item.title} size="md">
       <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.75, color: '#0B0B0E', minHeight: 80 }}>
-        {item.noteContent || <span style={{ color: 'rgba(11,11,14,0.35)' }}>No content.</span>}
+        {item.noteContent || <span style={{ color: 'rgba(11,11,14,0.58)' }}>No content.</span>}
       </div>
     </Modal>
   );
@@ -55,7 +55,7 @@ function ItemCard({ item, canEdit, onEdit, onDelete, onRead }: { item: LibraryIt
   return (
     <div style={{ ...CARD, padding: '20px', display: 'flex', flexDirection: 'column', position: 'relative', opacity: item.hidden ? 0.65 : 1 }}>
       {item.hidden && (
-        <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(11,11,14,0.07)', borderRadius: 8, padding: '3px 8px', fontSize: 11, fontWeight: 600, color: '#8C8880' }}>
+        <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(11,11,14,0.07)', borderRadius: 8, padding: '3px 8px', fontSize: 11, fontWeight: 600, color: '#6F6B64' }}>
           <EyeOff size={11} /> Hidden
         </div>
       )}
@@ -65,12 +65,12 @@ function ItemCard({ item, canEdit, onEdit, onDelete, onRead }: { item: LibraryIt
       </div>
       <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.3, marginBottom: 8, color: '#0B0B0E', flex: 1 }}>{item.title}</div>
       {item.description && (
-        <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.55)', lineHeight: 1.5, marginBottom: 12, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+        <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.64)', lineHeight: 1.5, marginBottom: 12, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
           {item.description}
         </div>
       )}
       {isNote && item.noteContent && (
-        <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', lineHeight: 1.5, marginBottom: 12, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, fontStyle: 'italic' }}>
+        <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', lineHeight: 1.5, marginBottom: 12, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, fontStyle: 'italic' }}>
           {item.noteContent}
         </div>
       )}
@@ -188,12 +188,12 @@ export default function TeacherLibrary() {
     <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, margin: 0, letterSpacing: '-0.02em' }}>Library</h1>
-          <p style={{ fontSize: 15, color: 'rgba(11,11,14,0.55)', margin: '4px 0 0' }}>Guides, lessons and resources for your students.</p>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 44, margin: 0, letterSpacing: '-0.02em' }}>Library</h1>
+          <p style={{ fontSize: 15, color: 'rgba(11,11,14,0.64)', margin: '4px 0 0' }}>Guides, lessons and resources for your students.</p>
         </div>
         <button
           onClick={() => { setShowCreate(true); resetCreate(); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 18px', background: '#E2562B', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 18px', background: '#C4471F', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
         >
           <Plus size={16} /> Add Item
         </button>
@@ -213,7 +213,7 @@ export default function TeacherLibrary() {
         <div style={{ ...CARD, padding: '48px 24px', textAlign: 'center' }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>📚</div>
           <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No items yet</div>
-          <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.5)' }}>Add your first resource using the button above.</div>
+          <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)' }}>Add your first resource using the button above.</div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
@@ -252,7 +252,7 @@ export default function TeacherLibrary() {
               <button
                 key={m}
                 onClick={() => { setAddMode(m); setFormError(''); }}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none', fontFamily: 'inherit', transition: 'background 0.15s', background: addMode === m ? '#fff' : 'transparent', color: addMode === m ? '#0B0B0E' : 'rgba(11,11,14,0.45)', boxShadow: addMode === m ? '0 1px 4px rgba(11,11,14,0.1)' : 'none' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: 'none', fontFamily: 'inherit', transition: 'background 0.15s', background: addMode === m ? '#fff' : 'transparent', color: addMode === m ? '#0B0B0E' : 'rgba(11,11,14,0.58)', boxShadow: addMode === m ? '0 1px 4px rgba(11,11,14,0.1)' : 'none' }}
               ><Icon size={13} />{label}</button>
             ))}
           </div>
@@ -278,19 +278,19 @@ export default function TeacherLibrary() {
                   {uploading ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                       <Spinner />
-                      <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.5)' }}>Uploading…</div>
+                      <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.64)' }}>Uploading…</div>
                     </div>
                   ) : uploadedFile ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 28 }}>{TYPE_META[uploadedFile.fileType].icon}</span>
                       <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0B0B0E' }}>{uploadedFile.fileName}</div>
-                      <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)' }}>Click to change file</div>
+                      <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>Click to change file</div>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                       <Upload size={24} color="rgba(11,11,14,0.25)" />
                       <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0B0B0E' }}>Drag & drop or click to upload</div>
-                      <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)' }}>Any file type · max 50 MB</div>
+                      <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>Any file type · max 50 MB</div>
                     </div>
                   )}
                 </div>
@@ -300,7 +300,7 @@ export default function TeacherLibrary() {
               {uploadedFile && (
                 <div>
                   <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5, color: 'rgba(11,11,14,0.65)' }}>
-                    File Type <span style={{ fontWeight: 400, color: 'rgba(11,11,14,0.4)' }}>(auto-detected — correct if wrong)</span>
+                    File Type <span style={{ fontWeight: 400, color: 'rgba(11,11,14,0.58)' }}>(auto-detected — correct if wrong)</span>
                   </label>
                   <select style={{ ...inputStyle, height: 40 }} value={fileType} onChange={(e) => setFileType(e.target.value as Exclude<FileType, 'note'>)}>
                     {FILE_TYPES.map((t) => <option key={t} value={t}>{TYPE_META[t].label}</option>)}

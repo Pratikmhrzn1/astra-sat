@@ -20,6 +20,10 @@ import { toSectionScore } from '../scoring';
  *     uses, never from SQL arithmetic, so the formula cannot drift between the
  *     backfilled history and everything written afterwards.
  *
+ * It also runs once on every boot (see `http/server.ts`), after the port opens,
+ * so an environment whose history predates scoring repairs itself on deploy
+ * instead of waiting for someone to find the admin button.
+ *
  * It runs synchronously on the request thread, like the auto-tag job next to it.
  * That is acceptable at the current corpus size (hundreds of exams, one query
  * each) and keeps the result honest — the admin sees the counts rather than a
@@ -80,7 +84,7 @@ export async function backfillScores(): Promise<BackfillRun> {
   // closed a mock when Math Module 2 was issued rather than submitted. Those
   // only score here if all four modules really were finished.
   const unscored = await db
-    .select({ id: mockTests.id, englishExamId: mockTests.englishExamId })
+    .select({ id: mockTests.id, englishExamId: mockTests.englishExamId, completedAt: mockTests.completedAt })
     .from(mockTests)
     .where(or(isNull(mockTests.totalScore), isNull(mockTests.rwScore), isNull(mockTests.mathScore)));
 
@@ -114,8 +118,15 @@ export async function backfillScores(): Promise<BackfillRun> {
       .where(eq(mockTests.id, mock.id))
       .limit(1);
 
-    if (after?.status === 'completed') run.mocksScored++;
-    else run.mocksIncomplete++;
+    // finalizeMockIfComplete stamps completedAt with now(). For history that is
+    // wrong — it would re-date a mock sat weeks ago to today on every run, and
+    // reorder the student's history and trend lines — so keep the original date.
+    if (after?.status === 'completed' && mock.completedAt) {
+      await db.update(mockTests).set({ completedAt: mock.completedAt }).where(eq(mockTests.id, mock.id));
+    }
+
+    if (after?.status === 'completed' && after.totalScore !== null) run.mocksScored++;
+    else if (after?.status !== 'completed') run.mocksIncomplete++;
   }
 
   console.log(

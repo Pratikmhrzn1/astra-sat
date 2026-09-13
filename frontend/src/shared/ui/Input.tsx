@@ -13,7 +13,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="flex flex-col gap-1.5">
         {label && (
-          <label htmlFor={inputId} className="text-[13px] font-semibold text-ink/70">
+          <label htmlFor={inputId} className="text-[13px] font-medium tracking-[-0.003em] text-ink/70">
             {label}
           </label>
         )}
@@ -22,13 +22,13 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           id={inputId}
           {...props}
           className={cn(
-            'w-full h-[46px] px-[15px] border rounded-xl text-[15px] bg-white text-ink placeholder-ink/30 outline-none transition-colors focus:ring-2 focus:ring-ember/30',
+            'w-full h-11 px-3.5 border rounded-xl text-[15px] bg-white text-ink placeholder-ink/30 outline-none transition-[border-color,box-shadow] duration-150 focus:ring-4 focus:ring-ember/15',
             error ? 'border-red-400 focus:ring-red-300' : 'border-border focus:border-ember',
             className
           )}
         />
-        {hint && !error && <p className="text-xs text-ink/40">{hint}</p>}
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {hint && !error && <p className="text-xs text-ink/60">{hint}</p>}
+        {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
       </div>
     );
   }
@@ -46,7 +46,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="flex flex-col gap-1.5">
         {label && (
-          <label htmlFor={inputId} className="text-[13px] font-semibold text-ink/70">
+          <label htmlFor={inputId} className="text-[13px] font-medium tracking-[-0.003em] text-ink/70">
             {label}
           </label>
         )}
@@ -55,12 +55,12 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           id={inputId}
           {...props}
           className={cn(
-            'w-full px-[15px] py-3 border rounded-xl text-[15px] bg-white text-ink placeholder-ink/30 outline-none transition-colors focus:ring-2 focus:ring-ember/30 resize-vertical min-h-[80px]',
+            'w-full px-3.5 py-3 border rounded-xl text-[15px] bg-white text-ink placeholder-ink/30 outline-none transition-[border-color,box-shadow] duration-150 focus:ring-4 focus:ring-ember/15 resize-vertical min-h-[80px]',
             error ? 'border-red-400' : 'border-border focus:border-ember',
             className
           )}
         />
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
       </div>
     );
   }
@@ -80,7 +80,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     return (
       <div className="flex flex-col gap-1.5">
         {label && (
-          <label htmlFor={inputId} className="text-[13px] font-semibold text-ink/70">
+          <label htmlFor={inputId} className="text-[13px] font-medium tracking-[-0.003em] text-ink/70">
             {label}
           </label>
         )}
@@ -89,7 +89,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           id={inputId}
           {...props}
           className={cn(
-            'w-full h-[46px] px-[15px] border rounded-xl text-[15px] bg-white text-ink outline-none transition-colors focus:ring-2 focus:ring-ember/30 cursor-pointer',
+            'w-full h-11 px-3.5 border rounded-xl text-[15px] bg-white text-ink outline-none transition-[border-color,box-shadow] duration-150 focus:ring-4 focus:ring-ember/15 cursor-pointer',
             error ? 'border-red-400' : 'border-border focus:border-ember',
             className
           )}
@@ -98,7 +98,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
       </div>
     );
   }

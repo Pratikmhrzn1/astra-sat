@@ -465,8 +465,8 @@ export default function ContentManager() {
       <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E2562B', marginBottom: 6 }}>Teacher</div>
-            <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, margin: 0, letterSpacing: '-0.02em', color: '#0B0B0E' }}>Content Manager</h1>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#C4471F', marginBottom: 6 }}>Teacher</div>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 44, margin: 0, letterSpacing: '-0.02em', color: '#0B0B0E' }}>Content Manager</h1>
           </div>
         </div>
 
@@ -474,7 +474,7 @@ export default function ContentManager() {
         <div style={{ display: 'flex', gap: 8, marginBottom: 28 }}>
           {([{ value: 'sets', label: 'Question Sets' }, { value: 'vocab', label: 'Vocab Bank' }] as const).map(({ value, label }) => (
             <button key={value} onClick={() => setMainView(value)}
-              style={{ padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: mainView === value ? 'none' : '1px solid #E7E4DE', background: mainView === value ? '#0B0B0E' : '#F2F0EC', color: mainView === value ? '#fff' : 'rgba(11,11,14,0.5)', transition: 'all 0.15s' }}
+              style={{ padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: mainView === value ? 'none' : '1px solid #E7E4DE', background: mainView === value ? '#0B0B0E' : '#F2F0EC', color: mainView === value ? '#fff' : 'rgba(11,11,14,0.64)', transition: 'all 0.15s' }}
             >{label}</button>
           ))}
         </div>
@@ -497,7 +497,7 @@ export default function ContentManager() {
         {vocabLoading ? (
           <div style={{ textAlign: 'center', padding: 40 }}><Spinner /></div>
         ) : vocabWords.length === 0 ? (
-          <div style={{ ...CARD, padding: '40px 24px', textAlign: 'center', color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>No vocab words yet. Add one above.</div>
+          <div style={{ ...CARD, padding: '40px 24px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>No vocab words yet. Add one above.</div>
         ) : (
           <div style={{ ...CARD, overflow: 'hidden' }}>
             {vocabWords.map((w: TeacherVocabWord, i: number) => (
@@ -505,10 +505,10 @@ export default function ContentManager() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 15, color: '#0B0B0E', marginBottom: 2 }}>{w.word}</div>
                   <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.7)', marginBottom: w.exampleSentence ? 4 : 0 }}>{w.definition}</div>
-                  {w.exampleSentence && <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', fontStyle: 'italic' }}>"{w.exampleSentence}"</div>}
+                  {w.exampleSentence && <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', fontStyle: 'italic' }}>"{w.exampleSentence}"</div>}
                 </div>
                 <button onClick={() => deleteVocabMutation.mutate(w.id)}
-                  style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(11,11,14,0.3)', padding: 4, marginTop: 2 }}
+                  style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(11,11,14,0.58)', padding: 4, marginTop: 2 }}
                   title="Delete word">
                   <Trash2 size={15} />
                 </button>
@@ -526,8 +526,8 @@ export default function ContentManager() {
       <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E2562B', marginBottom: 6 }}>Teacher</div>
-            <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, margin: 0, letterSpacing: '-0.02em', color: '#0B0B0E' }}>Content Manager</h1>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#C4471F', marginBottom: 6 }}>Teacher</div>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 44, margin: 0, letterSpacing: '-0.02em', color: '#0B0B0E' }}>Content Manager</h1>
           </div>
           <div style={{ display: 'flex', gap: 10, alignSelf: 'center', alignItems: 'center' }}>
             <input
@@ -540,7 +540,7 @@ export default function ContentManager() {
             <button
               onClick={() => setShowJsonHelp((open) => !open)}
               title="What does the JSON file look like?"
-              style={{ width: 32, height: 32, borderRadius: 9999, border: '1px solid #E7E4DE', background: showJsonHelp ? '#0B0B0E' : '#fff', color: showJsonHelp ? '#fff' : 'rgba(11,11,14,0.5)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ width: 32, height: 32, borderRadius: 9999, border: '1px solid #E7E4DE', background: showJsonHelp ? '#0B0B0E' : '#fff', color: showJsonHelp ? '#fff' : 'rgba(11,11,14,0.64)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
             >?</button>
             <Button
               variant="secondary"
@@ -557,7 +557,7 @@ export default function ContentManager() {
         <div style={{ display: 'flex', gap: 8, marginBottom: 28 }}>
           {([{ value: 'sets', label: 'Question Sets' }, { value: 'vocab', label: 'Vocab Bank' }] as const).map(({ value, label }) => (
             <button key={value} onClick={() => setMainView(value)}
-              style={{ padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: mainView === value ? 'none' : '1px solid #E7E4DE', background: mainView === value ? '#0B0B0E' : '#F2F0EC', color: mainView === value ? '#fff' : 'rgba(11,11,14,0.5)', transition: 'all 0.15s' }}
+              style={{ padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: mainView === value ? 'none' : '1px solid #E7E4DE', background: mainView === value ? '#0B0B0E' : '#F2F0EC', color: mainView === value ? '#fff' : 'rgba(11,11,14,0.64)', transition: 'all 0.15s' }}
             >{label}</button>
           ))}
         </div>
@@ -565,7 +565,7 @@ export default function ContentManager() {
         {showJsonHelp && (
           <div style={{ ...CARD, padding: '18px 22px', marginBottom: 16 }}>
             <h3 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 8px' }}>Bulk import format</h3>
-            <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.55)', margin: '0 0 12px', lineHeight: 1.55 }}>
+            <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.64)', margin: '0 0 12px', lineHeight: 1.55 }}>
               An imported set arrives as a <strong>draft</strong> unless you pass <code>"isDraft": false</code>,
               so nothing reaches students before you have looked at it. Set <code>difficulty</code> is the
               adaptive tier (<code>low</code> / <code>medium</code> / <code>hard</code>) — without it the set is
@@ -573,7 +573,7 @@ export default function ContentManager() {
               (<code>easy</code> / <code>medium</code> / <code>hard</code>) and drives topic practice.
               <code>skillCode</code> takes any domain or skill from the topic list, for both subjects.
             </p>
-            <pre style={{ margin: 0, padding: 14, background: '#F7F5F1', border: '1px solid #EEEBE5', borderRadius: 10, fontSize: 12, lineHeight: 1.6, overflowX: 'auto', fontFamily: "'JetBrains Mono', monospace" }}>
+            <pre style={{ margin: 0, padding: 14, background: '#F7F5F1', border: '1px solid #EEEBE5', borderRadius: 10, fontSize: 12, lineHeight: 1.6, overflowX: 'auto', fontFamily: 'var(--font-mono)' }}>
 {`{
   "title": "Algebra — Linear Equations",
   "subject": "math",
@@ -616,22 +616,22 @@ export default function ContentManager() {
                 <div style={{ display: 'flex', gap: 10 }}>
                   {(['english', 'math'] as const).map((s) => (
                     <button key={s} onClick={() => setNewSetSubject(s)}
-                      style={{ padding: '9px 22px', borderRadius: 9999, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: newSetSubject === s ? 'none' : '1px solid #E7E4DE', background: newSetSubject === s ? (s === 'english' ? '#2563A8' : '#B8893E') : '#F2F0EC', color: newSetSubject === s ? '#fff' : '#8C8880' }}
+                      style={{ padding: '9px 22px', borderRadius: 9999, fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: newSetSubject === s ? 'none' : '1px solid #E7E4DE', background: newSetSubject === s ? (s === 'english' ? '#2563A8' : '#B8893E') : '#F2F0EC', color: newSetSubject === s ? '#fff' : '#6F6B64' }}
                     >{s === 'english' ? '📖 Reading & Writing' : '∫ Math'}</button>
                   ))}
                 </div>
               </div>
               <div>
-                <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 8 }}>Difficulty <span style={{ fontWeight: 400, color: 'rgba(11,11,14,0.4)' }}>(optional — used for mock test adaptive selection)</span></p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 8 }}>Difficulty <span style={{ fontWeight: 400, color: 'rgba(11,11,14,0.58)' }}>(optional — used for mock test adaptive selection)</span></p>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {([
-                    { value: '', label: 'Unset', bg: '#F2F0EC', color: '#8C8880', activeBg: '#0B0B0E', activeColor: '#fff' },
-                    { value: 'low', label: 'Low', bg: '#F2F0EC', color: '#8C8880', activeBg: 'rgba(46,125,90,0.15)', activeColor: '#1A5C38' },
-                    { value: 'medium', label: 'Medium', bg: '#F2F0EC', color: '#8C8880', activeBg: 'rgba(184,137,62,0.15)', activeColor: '#7A5C18' },
-                    { value: 'hard', label: 'Hard', bg: '#F2F0EC', color: '#8C8880', activeBg: 'rgba(192,57,43,0.1)', activeColor: '#8B1A10' },
+                    { value: '', label: 'Unset', bg: '#F2F0EC', color: '#6F6B64', activeBg: '#0B0B0E', activeColor: '#fff' },
+                    { value: 'low', label: 'Low', bg: '#F2F0EC', color: '#6F6B64', activeBg: 'rgba(46,125,90,0.15)', activeColor: '#1A5C38' },
+                    { value: 'medium', label: 'Medium', bg: '#F2F0EC', color: '#6F6B64', activeBg: 'rgba(184,137,62,0.15)', activeColor: '#7A5C18' },
+                    { value: 'hard', label: 'Hard', bg: '#F2F0EC', color: '#6F6B64', activeBg: 'rgba(192,57,43,0.1)', activeColor: '#8B1A10' },
                   ] as const).map(({ value, label, activeBg, activeColor }) => (
                     <button key={value} type="button" onClick={() => setNewSetDifficulty(value)}
-                      style={{ padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: newSetDifficulty === value ? '1.5px solid currentColor' : '1px solid #E7E4DE', background: newSetDifficulty === value ? activeBg : '#F2F0EC', color: newSetDifficulty === value ? activeColor : '#8C8880', transition: 'all 0.15s' }}
+                      style={{ padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: newSetDifficulty === value ? '1.5px solid currentColor' : '1px solid #E7E4DE', background: newSetDifficulty === value ? activeBg : '#F2F0EC', color: newSetDifficulty === value ? activeColor : '#6F6B64', transition: 'all 0.15s' }}
                     >{label}</button>
                   ))}
                 </div>
@@ -675,7 +675,7 @@ export default function ContentManager() {
                     fontFamily: 'inherit', cursor: 'pointer',
                     border: active ? 'none' : '1px solid #E7E4DE',
                     background: active ? color : '#F2F0EC',
-                    color: active ? '#fff' : 'rgba(11,11,14,0.5)',
+                    color: active ? '#fff' : 'rgba(11,11,14,0.64)',
                     transition: 'all 0.15s',
                   }}
                 >{label}</button>
@@ -685,11 +685,11 @@ export default function ContentManager() {
         )}
 
         {setsLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#E2562B]" /></div>
+          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#C4471F]" /></div>
         ) : sets.length === 0 && !showNewSet ? (
           <div style={{ textAlign: 'center', paddingTop: 80 }}>
             <BookOpen size={52} color="rgba(11,11,14,0.18)" style={{ margin: '0 auto 16px', display: 'block' }} />
-            <p style={{ color: 'rgba(11,11,14,0.4)', fontSize: 15, marginBottom: 20 }}>No question sets yet.</p>
+            <p style={{ color: 'rgba(11,11,14,0.58)', fontSize: 15, marginBottom: 20 }}>No question sets yet.</p>
             <Button onClick={() => setShowNewSet(true)}><Plus size={15} style={{ marginRight: 7 }} />Create your first set</Button>
           </div>
         ) : (
@@ -697,8 +697,8 @@ export default function ContentManager() {
             {sets.filter((s) => subjectFilter === 'all' || s.subject === subjectFilter).map((set) => (
               <div key={set.id} style={{ ...CARD, padding: '20px 22px', cursor: 'pointer', transition: 'box-shadow 0.15s' }}
                 onClick={() => { setActiveSet(set); setEditorTab('questions'); setQType('multiple_choice'); setQForm({ ...emptyMC }); }}
-                onMouseEnter={(e) => (e.currentTarget.style.boxShadow = '0 4px 16px rgba(11,11,14,0.1)')}
-                onMouseLeave={(e) => (e.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.05)')}
+                onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.boxShadow = '0 4px 16px rgba(11,11,14,0.1)'; }}
+                onPointerLeave={(e) => (e.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.05)')}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
@@ -728,13 +728,13 @@ export default function ContentManager() {
                       )}
                     </div>
                     <p style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', margin: '8px 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.title}</p>
-                    {set.description && <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.description}</p>}
+                    {set.description && <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{set.description}</p>}
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'set', id: set.id }); }}
-                    style={{ padding: 6, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.3)', flexShrink: 0 }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.3)'; }}
+                    style={{ padding: 6, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.58)', flexShrink: 0 }}
+                    onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
+                    onPointerLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.58)'; }}
                   ><Trash2 size={14} /></button>
                 </div>
               </div>
@@ -757,9 +757,9 @@ export default function ContentManager() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
         <button onClick={() => setActiveSet(null)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.5)', border: 'none', background: 'none', cursor: 'pointer', padding: '4px 0', fontFamily: 'inherit' }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = '#0B0B0E')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(11,11,14,0.5)')}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.64)', border: 'none', background: 'none', cursor: 'pointer', padding: '4px 0', fontFamily: 'inherit' }}
+          onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.color = '#0B0B0E'; }}
+          onPointerLeave={(e) => (e.currentTarget.style.color = 'rgba(11,11,14,0.64)')}
         ><ChevronLeft size={15} />All Sets</button>
         <span style={{ color: 'rgba(11,11,14,0.2)' }}>/</span>
         <SubjectBadge subject={activeSet.subject} />
@@ -784,7 +784,7 @@ export default function ContentManager() {
               one means re-authoring the whole paper. */}
           <label
             title="Make this set selectable when creating a live exam"
-            style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: activeSet.isLiveExam ? '#E2562B' : 'rgba(11,11,14,0.55)', cursor: updateSetMutation.isPending ? 'default' : 'pointer', border: '1px solid #E7E4DE', borderRadius: 8, padding: '4px 10px', background: activeSet.isLiveExam ? 'rgba(226,86,43,0.07)' : '#fff' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: activeSet.isLiveExam ? '#C4471F' : 'rgba(11,11,14,0.64)', cursor: updateSetMutation.isPending ? 'default' : 'pointer', border: '1px solid #E7E4DE', borderRadius: 8, padding: '4px 10px', background: activeSet.isLiveExam ? 'rgba(226,86,43,0.07)' : '#fff' }}
           >
             <input
               type="checkbox"
@@ -803,10 +803,10 @@ export default function ContentManager() {
         const atLimit = questions.length >= limit;
         return (
           <div style={{ fontSize: 13, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ color: atLimit ? '#C0392B' : 'rgba(11,11,14,0.45)', fontWeight: atLimit ? 700 : 400 }}>
+            <span style={{ color: atLimit ? '#C0392B' : 'rgba(11,11,14,0.58)', fontWeight: atLimit ? 700 : 400 }}>
               {questions.length}/{limit} question{questions.length !== 1 ? 's' : ''}
             </span>
-            <span style={{ color: 'rgba(11,11,14,0.45)' }}>· {passages.length} passage{passages.length !== 1 ? 's' : ''}</span>
+            <span style={{ color: 'rgba(11,11,14,0.58)' }}>· {passages.length} passage{passages.length !== 1 ? 's' : ''}</span>
             {atLimit && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#C0392B', background: 'rgba(192,57,43,0.08)', padding: '2px 8px', borderRadius: 6 }}>Module full</span>}
           </div>
         );
@@ -816,7 +816,7 @@ export default function ContentManager() {
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #E7E4DE', marginBottom: 24 }}>
         {(['questions', 'passages'] as EditorTab[]).map((t) => (
           <button key={t} onClick={() => setEditorTab(t)}
-            style={{ padding: '10px 20px', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: 'none', background: 'none', borderBottom: editorTab === t ? '2px solid #E2562B' : '2px solid transparent', color: editorTab === t ? '#E2562B' : 'rgba(11,11,14,0.5)', marginBottom: -1 }}
+            style={{ padding: '10px 20px', fontSize: 14, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: 'none', background: 'none', borderBottom: editorTab === t ? '2px solid #E2562B' : '2px solid transparent', color: editorTab === t ? '#C4471F' : 'rgba(11,11,14,0.64)', marginBottom: -1 }}
           >{t === 'questions' ? 'Questions' : 'Passages'}</button>
         ))}
       </div>
@@ -828,14 +828,14 @@ export default function ContentManager() {
           <div style={{ ...CARD, overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px', borderBottom: '1px solid #EEEBE5' }}>
               <h3 style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>Add Passage</h3>
-              <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', margin: '3px 0 0' }}>A passage can be shared by multiple questions in this set.</p>
+              <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', margin: '3px 0 0' }}>A passage can be shared by multiple questions in this set.</p>
             </div>
             <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <Input label="Passage title (optional)" value={passageTitle} onChange={(e) => setPassageTitle(e.target.value)} placeholder="e.g. The following passage is adapted from a 2022 scientific article…" />
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <UnderlineBtn onApply={handlePassageUnderline} />
-                  <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.38)' }}>Select text in the passage, then click</span>
+                  <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.58)' }}>Select text in the passage, then click</span>
                 </div>
                 <RichTextArea label="Passage text" value={passageText} onChange={(html) => setPassageText(html)} placeholder="Paste or type the reading passage here…" rows={8} ref={passageDivRef} />
               </div>
@@ -860,9 +860,9 @@ export default function ContentManager() {
                     <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.6)', margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{p.passageText}</p>
                   </div>
                   <button onClick={() => setDeleteTarget({ type: 'passage', id: p.id })}
-                    style={{ padding: 6, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.3)', flexShrink: 0 }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.3)'; }}
+                    style={{ padding: 6, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.58)', flexShrink: 0 }}
+                    onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
+                    onPointerLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.58)'; }}
                   ><Trash2 size={14} /></button>
                 </div>
               ))}
@@ -878,25 +878,25 @@ export default function ContentManager() {
           <div ref={formCardRef} style={{ ...CARD, overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px', borderBottom: '1px solid #EEEBE5' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <h3 style={{ fontSize: 15, fontWeight: 600, color: editingQuestion ? '#E2562B' : '#0B0B0E', margin: 0 }}>
+                <h3 style={{ fontSize: 15, fontWeight: 600, color: editingQuestion ? '#C4471F' : '#0B0B0E', margin: 0 }}>
                   {editingQuestion ? `Edit Question #${questions.findIndex((q) => q.id === editingQuestion.id) + 1}` : 'Add Question'}
                 </h3>
                 {editingQuestion && (
-                  <button onClick={cancelEdit} style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(11,11,14,0.5)', border: '1px solid #E7E4DE', borderRadius: 8, background: '#F2F0EC', padding: '4px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                  <button onClick={cancelEdit} style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(11,11,14,0.64)', border: '1px solid #E7E4DE', borderRadius: 8, background: '#F2F0EC', padding: '4px 12px', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
                 )}
               </div>
 
               {/* Question type selector */}
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => switchQType('multiple_choice')}
-                  style={{ padding: '7px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: qType === 'multiple_choice' ? '1.5px solid #0B0B0E' : '1px solid #E7E4DE', background: qType === 'multiple_choice' ? '#0B0B0E' : '#F2F0EC', color: qType === 'multiple_choice' ? '#fff' : '#8C8880' }}
+                  style={{ padding: '7px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: qType === 'multiple_choice' ? '1.5px solid #0B0B0E' : '1px solid #E7E4DE', background: qType === 'multiple_choice' ? '#0B0B0E' : '#F2F0EC', color: qType === 'multiple_choice' ? '#fff' : '#6F6B64' }}
                 >Multiple Choice</button>
                 {isMath && (
                   <button onClick={() => switchQType('student_produced_response')}
-                    style={{ padding: '7px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: qType === 'student_produced_response' ? '1.5px solid #E2562B' : '1px solid #E7E4DE', background: qType === 'student_produced_response' ? 'rgba(226,86,43,0.08)' : '#F2F0EC', color: qType === 'student_produced_response' ? '#E2562B' : '#8C8880' }}
+                    style={{ padding: '7px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: qType === 'student_produced_response' ? '1.5px solid #E2562B' : '1px solid #E7E4DE', background: qType === 'student_produced_response' ? 'rgba(226,86,43,0.08)' : '#F2F0EC', color: qType === 'student_produced_response' ? '#C4471F' : '#6F6B64' }}
                   >Student-Produced Response</button>
                 )}
-                <span style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.4)', alignSelf: 'center', marginLeft: 4 }}>
+                <span style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.58)', alignSelf: 'center', marginLeft: 4 }}>
                   {qType === 'student_produced_response' ? '— student types a numeric answer' : isMath ? '— 4 options A–D' : '— 4 options A–D'}
                 </span>
               </div>
@@ -929,7 +929,7 @@ export default function ContentManager() {
                     value={qForm.skillCode || null}
                     onChange={(code) => updateQ('skillCode', code ?? '')}
                   />
-                  <p style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.4)', margin: '5px 0 0' }}>Drives topic practice, per-skill analytics and targeted AI feedback.</p>
+                  <p style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.58)', margin: '5px 0 0' }}>Drives topic practice, per-skill analytics and targeted AI feedback.</p>
                 </div>
                 <div style={{ flex: '0 1 200px' }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 6 }}>Difficulty (optional)</label>
@@ -941,12 +941,12 @@ export default function ContentManager() {
                           key={level}
                           type="button"
                           onClick={() => updateQ('difficulty', active ? '' : level)}
-                          style={{ flex: 1, height: 40, borderRadius: 10, border: active ? '1px solid #E2562B' : '1px solid #E7E4DE', background: active ? 'rgba(226,86,43,0.08)' : '#fff', color: active ? '#E2562B' : 'rgba(11,11,14,0.6)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}
+                          style={{ flex: 1, height: 40, borderRadius: 10, border: active ? '1px solid #E2562B' : '1px solid #E7E4DE', background: active ? 'rgba(226,86,43,0.08)' : '#fff', color: active ? '#C4471F' : 'rgba(11,11,14,0.6)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}
                         >{level}</button>
                       );
                     })}
                   </div>
-                  <p style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.4)', margin: '5px 0 0' }}>Per question — separate from the set's difficulty tier.</p>
+                  <p style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.58)', margin: '5px 0 0' }}>Per question — separate from the set's difficulty tier.</p>
                 </div>
               </div>
 
@@ -955,7 +955,7 @@ export default function ContentManager() {
                 {isMath && <MathToolbar onInsert={handleSymbolInsert} />}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <UnderlineBtn onApply={handleUnderline} />
-                  <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.38)' }}>Select text in any field below, then click</span>
+                  <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.58)' }}>Select text in any field below, then click</span>
                 </div>
                 <RichTextArea
                   label="Question text"
@@ -998,7 +998,7 @@ export default function ContentManager() {
                     <div style={{ display: 'flex', gap: 8 }}>
                       {(['a', 'b', 'c', 'd'] as const).map((k) => (
                         <button key={k} onClick={() => updateQ('correctAnswer', k)}
-                          style={{ width: 48, height: 48, borderRadius: 12, fontWeight: 700, fontSize: 16, fontFamily: 'inherit', cursor: 'pointer', border: 'none', background: (qForm as MCForm).correctAnswer === k ? '#2E7D5A' : '#F2F0EC', color: (qForm as MCForm).correctAnswer === k ? '#fff' : '#8C8880', transition: 'all 0.15s' }}
+                          style={{ width: 48, height: 48, borderRadius: 12, fontWeight: 700, fontSize: 16, fontFamily: 'inherit', cursor: 'pointer', border: 'none', background: (qForm as MCForm).correctAnswer === k ? '#2E7D5A' : '#F2F0EC', color: (qForm as MCForm).correctAnswer === k ? '#fff' : '#6F6B64', transition: 'all 0.15s' }}
                         >{k.toUpperCase()}</button>
                       ))}
                     </div>
@@ -1011,7 +1011,7 @@ export default function ContentManager() {
                 <div>
                   <div style={{ background: 'rgba(226,86,43,0.05)', border: '1px solid rgba(226,86,43,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
                     <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.6)', margin: 0, lineHeight: 1.5 }}>
-                      <strong style={{ color: '#E2562B' }}>SPR format:</strong> The student types their answer. Accept decimals (e.g. <code>1.5</code>), fractions (e.g. <code>3/4</code>), or whole numbers. The system matches numeric equivalents automatically.
+                      <strong style={{ color: '#C4471F' }}>SPR format:</strong> The student types their answer. Accept decimals (e.g. <code>1.5</code>), fractions (e.g. <code>3/4</code>), or whole numbers. The system matches numeric equivalents automatically.
                     </p>
                   </div>
                   {isMath && <MathToolbar onInsert={handleSymbolInsert} />}
@@ -1047,7 +1047,7 @@ export default function ContentManager() {
                   </div>
                 ) : (
                   <button type="button" onClick={() => setShowImagePicker(true)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', fontSize: 13, fontWeight: 600, border: '1.5px dashed #C8C4BC', borderRadius: 10, background: 'transparent', color: 'rgba(11,11,14,0.55)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', fontSize: 13, fontWeight: 600, border: '1.5px dashed #C8C4BC', borderRadius: 10, background: 'transparent', color: 'rgba(11,11,14,0.64)', cursor: 'pointer', fontFamily: 'inherit' }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                     Attach image from library
                   </button>
@@ -1063,15 +1063,15 @@ export default function ContentManager() {
                     <div style={{ padding: '18px 24px', borderBottom: '1px solid #E7E4DE', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div>
                         <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0B0B0E', margin: 0 }}>Choose an image from library</h3>
-                        <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', margin: '3px 0 0' }}>Upload images in the Library first, then select them here.</p>
+                        <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', margin: '3px 0 0' }}>Upload images in the Library first, then select them here.</p>
                       </div>
-                      <button onClick={() => setShowImagePicker(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(11,11,14,0.4)', padding: 4, lineHeight: 1, fontFamily: 'inherit' }}>×</button>
+                      <button onClick={() => setShowImagePicker(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20, color: 'rgba(11,11,14,0.58)', padding: 4, lineHeight: 1, fontFamily: 'inherit' }}>×</button>
                     </div>
                     <div className="scrollarea" style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
                       {libraryLoading ? (
-                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>Loading images…</div>
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>Loading images…</div>
                       ) : !libraryImages || libraryImages.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>
                           No images in library yet. Upload images in the Library page first.
                         </div>
                       ) : (
@@ -1175,7 +1175,7 @@ export default function ContentManager() {
                         const active = qFilter === f;
                         return (
                           <button key={f} onClick={() => setQFilter(f)}
-                            style={{ padding: '4px 12px', fontSize: 11.5, fontWeight: 600, borderRadius: 9999, border: active ? 'none' : '1px solid #E7E4DE', background: active ? (f === 'ai_suggested' ? '#B8893E' : '#0B0B0E') : '#F2F0EC', color: active ? '#fff' : '#8C8880', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            style={{ padding: '4px 12px', fontSize: 11.5, fontWeight: 600, borderRadius: 9999, border: active ? 'none' : '1px solid #E7E4DE', background: active ? (f === 'ai_suggested' ? '#B8893E' : '#0B0B0E') : '#F2F0EC', color: active ? '#fff' : '#6F6B64', cursor: 'pointer', fontFamily: 'inherit' }}>
                             {f === 'ai_suggested' && '⚡ '}{labels[f]}
                             {f === 'ai_suggested' && !active && <span style={{ marginLeft: 5, background: '#B8893E', color: '#fff', borderRadius: 9999, padding: '1px 5px', fontSize: 10 }}>{questions.filter((q) => q.subSkillSource === 'ai_suggested').length}</span>}
                           </button>
@@ -1240,10 +1240,10 @@ function QuestionRow({ q, index, isLast, passages, subject, isEditing, onDelete,
   return (
     <div style={{ borderBottom: isLast ? 'none' : '1px solid #F2F0EC', background: isEditing ? 'rgba(226,86,43,0.04)' : isAiSuggested ? 'rgba(184,137,62,0.03)' : undefined, outline: isEditing ? '2px solid rgba(226,86,43,0.25)' : 'none', outlineOffset: -1 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 22px' }}>
-        <span style={{ width: 24, height: 24, borderRadius: 7, background: '#F2F0EC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: 'rgba(11,11,14,0.5)', flexShrink: 0, marginTop: 2 }}>{index + 1}</span>
+        <span style={{ width: 24, height: 24, borderRadius: 7, background: '#F2F0EC', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, color: 'rgba(11,11,14,0.64)', flexShrink: 0, marginTop: 2 }}>{index + 1}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '2px 7px', borderRadius: 5, background: isMC ? '#EEF2FB' : 'rgba(226,86,43,0.08)', color: isMC ? '#2563A8' : '#E2562B' }}>{isMC ? 'MC' : 'SPR'}</span>
+            <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '2px 7px', borderRadius: 5, background: isMC ? '#EEF2FB' : 'rgba(226,86,43,0.08)', color: isMC ? '#2563A8' : '#C4471F' }}>{isMC ? 'MC' : 'SPR'}</span>
             {q.skillCode && (
               <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.04em', padding: '2px 7px', borderRadius: 5, background: isAiSuggested ? 'rgba(184,137,62,0.12)' : '#F0ECE4', color: isAiSuggested ? '#8A6020' : '#6B5F4A', border: isAiSuggested ? '1px solid rgba(184,137,62,0.3)' : 'none' }}>
                 {isAiSuggested && '⚡ '}{skillLabel(skillTree, q.skillCode)}
@@ -1260,19 +1260,19 @@ function QuestionRow({ q, index, isLast, passages, subject, isEditing, onDelete,
           {isMC ? (
             <p style={{ fontSize: 12, color: '#2E7D5A', margin: 0, fontWeight: 600 }}>Correct: {q.correctAnswer?.toUpperCase()}</p>
           ) : (
-            <p style={{ fontSize: 12, color: '#E2562B', margin: 0, fontWeight: 600 }}>Answer: {q.correctAnswerText}</p>
+            <p style={{ fontSize: 12, color: '#C4471F', margin: 0, fontWeight: 600 }}>Answer: {q.correctAnswerText}</p>
           )}
         </div>
         <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
           <button onClick={onEdit} title="Edit question"
-            style={{ padding: 6, borderRadius: 7, border: 'none', background: isEditing ? 'rgba(226,86,43,0.1)' : 'transparent', cursor: 'pointer', color: isEditing ? '#E2562B' : 'rgba(11,11,14,0.3)' }}
-            onMouseEnter={(e) => { if (!isEditing) { e.currentTarget.style.background = 'rgba(37,99,168,0.08)'; e.currentTarget.style.color = '#2563A8'; } }}
-            onMouseLeave={(e) => { if (!isEditing) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.3)'; } }}
+            style={{ padding: 6, borderRadius: 7, border: 'none', background: isEditing ? 'rgba(226,86,43,0.1)' : 'transparent', cursor: 'pointer', color: isEditing ? '#C4471F' : 'rgba(11,11,14,0.58)' }}
+            onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; if (!isEditing) { e.currentTarget.style.background = 'rgba(37,99,168,0.08)'; e.currentTarget.style.color = '#2563A8'; } }}
+            onPointerLeave={(e) => { if (!isEditing) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.58)'; } }}
           ><Pencil size={14} /></button>
           <button onClick={onDelete} title="Delete question"
-            style={{ padding: 6, borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.3)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.3)'; }}
+            style={{ padding: 6, borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.58)' }}
+            onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
+            onPointerLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.58)'; }}
           ><Trash2 size={14} /></button>
         </div>
       </div>

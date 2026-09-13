@@ -45,7 +45,7 @@ export default function Login() {
       {/* IELTS ↔ SAT toggle */}
       <div style={{ position: 'absolute', top: 20, right: 24, zIndex: 100, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(10px)', borderRadius: 9999, padding: 4, boxShadow: '0 2px 20px rgba(0,0,0,0.14)', display: 'flex' }}>
         <button onClick={() => { window.location.href = '/'; }} style={{ padding: '8px 26px', border: 'none', borderRadius: 9999, fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.4)', cursor: 'pointer', background: 'transparent', fontFamily: 'inherit' }}>IELTS</button>
-        <button style={{ padding: '8px 26px', border: 'none', borderRadius: 9999, fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#fff', cursor: 'default', background: '#E2562B', boxShadow: '0 2px 8px rgba(226,86,43,0.35)', fontFamily: 'inherit' }}>SAT</button>
+        <button style={{ padding: '8px 26px', border: 'none', borderRadius: 9999, fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#fff', cursor: 'default', background: '#C4471F', boxShadow: '0 2px 8px rgba(226,86,43,0.35)', fontFamily: 'inherit' }}>SAT</button>
       </div>
       {/* Left — dark panel (desktop only) */}
       {!isMobile && (
@@ -55,9 +55,9 @@ export default function Login() {
             Digital SAT · Practice Platform
           </div>
           <div style={{ position: 'relative' }}>
-            <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 60, lineHeight: 1.05, letterSpacing: '-0.02em', margin: 0 }}>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 60, lineHeight: 1.05, letterSpacing: '-0.02em', margin: 0 }}>
               Your best<br />score starts<br />with the next<br />
-              <span style={{ color: '#E2562B', fontStyle: 'italic' }}>practice test.</span>
+              <span style={{ color: '#C4471F', fontStyle: 'italic' }}>practice test.</span>
             </h1>
             <p style={{ marginTop: 28, maxWidth: 380, fontSize: 16, lineHeight: 1.65, color: 'rgba(255,255,255,0.6)' }}>
               Full-length mocks, adaptive sections, and an honest estimate of where you stand — out of 1600.
@@ -65,11 +65,11 @@ export default function Login() {
           </div>
           <div style={{ display: 'flex', gap: 48 }}>
             <div>
-              <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 34, color: '#fff' }}>1600</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 34, color: '#fff' }}>1600</div>
               <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.04em' }}>Top score, scaled</div>
             </div>
             <div>
-              <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 34, color: '#B8893E' }}>2h 14m</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 34, color: '#B8893E' }}>2h 14m</div>
               <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.04em' }}>Real test length</div>
             </div>
           </div>
@@ -86,16 +86,16 @@ export default function Login() {
                 <div style={{ width: 22, height: 22, borderRadius: 7, background: '#E2562B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <div style={{ width: 9, height: 9, borderRadius: 2, background: '#fff' }} />
                 </div>
-                <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 20, color: '#0B0B0E' }}>Score Studio</span>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20, color: '#0B0B0E' }}>Score Studio</span>
               </div>
-              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)' }}>
                 Digital SAT · Practice Platform
               </div>
             </div>
           )}
 
-          <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 34 : 40, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Welcome back</h2>
-          <p style={{ margin: '0 0 32px', color: 'rgba(11,11,14,0.55)', fontSize: 15 }}>Sign in to continue your prep.</p>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 34 : 40, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Welcome back</h2>
+          <p style={{ margin: '0 0 32px', color: 'rgba(11,11,14,0.64)', fontSize: 15 }}>Sign in to continue your prep.</p>
 
           <form onSubmit={handleSubmit(onSubmit)}>
             <div style={{ marginBottom: 18 }}>
@@ -131,20 +131,20 @@ export default function Login() {
             <button
               type="submit"
               disabled={isSubmitting}
-              style={{ width: '100%', height: 48, marginTop: 22, background: isSubmitting ? '#e89070' : '#E2562B', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: isSubmitting ? 'default' : 'pointer', boxShadow: '0 2px 10px rgba(226,86,43,0.28)', transition: 'background 0.15s' }}
+              style={{ width: '100%', height: 48, marginTop: 22, background: isSubmitting ? '#e89070' : '#C4471F', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: isSubmitting ? 'default' : 'pointer', boxShadow: '0 2px 10px rgba(226,86,43,0.28)', transition: 'background 0.15s' }}
             >
               {isSubmitting ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
 
-          <div style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: 'rgba(11,11,14,0.55)' }}>
+          <div style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: 'rgba(11,11,14,0.64)' }}>
             New here?{' '}
-            <Link to="/register" style={{ color: '#E2562B', fontWeight: 600, textDecoration: 'none' }}>Create an account</Link>
+            <Link to="/register" style={{ color: '#C4471F', fontWeight: 600, textDecoration: 'none' }}>Create an account</Link>
           </div>
-          <div style={{ textAlign: 'center', marginTop: 10, fontSize: 13, color: 'rgba(11,11,14,0.4)' }}>
-            <Link to="/forgot-password" style={{ color: 'rgba(11,11,14,0.4)', textDecoration: 'none' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#E2562B')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(11,11,14,0.4)')}
+          <div style={{ textAlign: 'center', marginTop: 10, fontSize: 13, color: 'rgba(11,11,14,0.58)' }}>
+            <Link to="/forgot-password" style={{ color: 'rgba(11,11,14,0.58)', textDecoration: 'none' }}
+              onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.color = '#C4471F'; }}
+              onPointerLeave={(e) => (e.currentTarget.style.color = 'rgba(11,11,14,0.58)')}
             >Forgot your password?</Link>
           </div>
         </div>

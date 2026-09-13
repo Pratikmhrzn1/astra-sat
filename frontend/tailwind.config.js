@@ -1,5 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  future: {
+    // hover: styles only where a real pointer hovers, so taps don't leave them stuck on
+    hoverOnlyWhenSupported: true,
+  },
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
@@ -17,9 +21,10 @@ export default {
         card: '#FFFFFF',
       },
       fontFamily: {
-        sans: ['Satoshi', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        serif: ['"Instrument Serif"', 'ui-serif', 'Georgia', 'serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+        sans: ['var(--font-sans)'],
+        display: ['var(--font-display)'],
+        serif: ['var(--font-reading)'],
+        mono: ['var(--font-mono)'],
       },
       borderRadius: {
         xl: '12px',

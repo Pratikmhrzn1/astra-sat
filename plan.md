@@ -3,6 +3,13 @@
 > Derived from `Brainstorm.md` §4, §9 and §13. Where this plan and the code disagree, the code wins.
 > Status verified against the working tree at commit `859c4d5`. Every file:line below was checked.
 >
+> **Status (2026-09-13): M0–M4 are complete; M5 is next.** M0–M3 are ticked from their
+> commits (`1269392`, `d8f025b`, `fa1fe2c`, `68a62bb`). M4 (`d5df30d`) was audited item by
+> item, and its remaining gaps closed: one shared estimated score in `readiness()`, set-less
+> exams kept on the trend, History on the shared analytics series, topic cards showing
+> accuracy, and `sendFeedback` folded into `assertOwnsStudent`. Scores for pre-M1 history
+> are now backfilled on every boot.
+>
 > **Milestones are named M0–M5.** They are *not* the same thing as `Brainstorm.md`'s
 > roadmap Phases 1–5. In that numbering this entire document is Phase 2; M0–M5 are the
 > steps inside it. Work them in order, ticking boxes as they land.
@@ -73,11 +80,11 @@ runtime, but `drizzle-kit push` would want to recreate them.
 
 | Milestone | Contents | Gate to start |
 |---|---|---|
-| **M0 — Foundation** | B6 (security, first), the genuinely-missing columns + `audit_log`, B1, B2, B5 doc | now |
-| **M1 — Credible numbers** | P2.1 scaled scoring · P2.3 student profile · B3, B9 | M0 |
-| **M2 — Taxonomy** | P2.2 taxonomy in authoring, import and AI · B7, B8 | M0 (parallel with M1) |
-| **M3 — Student loops** | P2.4 mistake bank · P2.5 topic practice | M2 |
-| **M4 — Analytics** | P2.6 analytics | M1 + M2 |
+| **M0 — Foundation** ✅ | B6 (security, first), the genuinely-missing columns + `audit_log`, B1, B2, B5 doc | now |
+| **M1 — Credible numbers** ✅ | P2.1 scaled scoring · P2.3 student profile · B3, B9 | M0 |
+| **M2 — Taxonomy** ✅ | P2.2 taxonomy in authoring, import and AI · B7, B8 | M0 (parallel with M1) |
+| **M3 — Student loops** ✅ | P2.4 mistake bank · P2.5 topic practice | M2 |
+| **M4 — Analytics** ✅ | P2.6 analytics | M1 + M2 |
 | **M5 — Integrity** | P2.7 server timer (+ B4, B10) · P2.8 versioning · P2.9 audit log | M0. **Pull P2.7 forward** if a consultancy is already treating mocks as assessments. |
 
 M1 and M2 are the only pair that can genuinely run in parallel — they touch disjoint
@@ -90,15 +97,15 @@ files. Everything else is sequential.
 **Depends on:** nothing · **Unblocks:** everything.
 One migration PR, so feature work never touches `migrate.ts` again this wave.
 
-- [ ] **B6 (security, first):** `assertOwnsStudent` selects explicit columns (`id, name, email, role`), never the whole row (`teacher.service.ts:45-52`). Check every other bare `db.select()` on `users` while in there.
-- [ ] **B1:** drop `status: 'completed', completedAt` from the Math-M2 branch of `startNextModule` (`mock.service.ts:167-171`), leaving only `mathM2ExamId`.
-- [ ] **B2:** `innerJoin` → `leftJoin` in `listStudentExams` (`teacher.service.ts:77-80`); fall back to `exams.label` for the title.
-- [ ] `exams.label text` — display name for set-less exams ("Topic: Algebra", "Mistake review").
-- [ ] `exams.time_limit_seconds integer` + `exams.deadline_at timestamp` — for P2.7.
-- [ ] `questions.retired_at timestamp` + `questions.supersedes_id uuid` + `question_sets.archived_at timestamp` — for P2.8.
-- [ ] `audit_log (id, actor_id, action, target_type, target_id, payload jsonb, created_at)` — for P2.9.
-- [ ] All of the above in **both** `db/schema.ts` and `db/migrate.ts`, every statement idempotent.
-- [ ] Optionally close the drift: add `.references()` to `skills.parentCode` in `schema.ts:435`.
+- [x] **B6 (security, first):** `assertOwnsStudent` selects explicit columns (`id, name, email, role`), never the whole row (`teacher.service.ts:45-52`). Check every other bare `db.select()` on `users` while in there.
+- [x] **B1:** drop `status: 'completed', completedAt` from the Math-M2 branch of `startNextModule` (`mock.service.ts:167-171`), leaving only `mathM2ExamId`.
+- [x] **B2:** `innerJoin` → `leftJoin` in `listStudentExams` (`teacher.service.ts:77-80`); fall back to `exams.label` for the title.
+- [x] `exams.label text` — display name for set-less exams ("Topic: Algebra", "Mistake review").
+- [x] `exams.time_limit_seconds integer` + `exams.deadline_at timestamp` — for P2.7.
+- [x] `questions.retired_at timestamp` + `questions.supersedes_id uuid` + `question_sets.archived_at timestamp` — for P2.8.
+- [x] `audit_log (id, actor_id, action, target_type, target_id, payload jsonb, created_at)` — for P2.9.
+- [x] All of the above in **both** `db/schema.ts` and `db/migrate.ts`, every statement idempotent.
+- [x] Optionally close the drift: add `.references()` to `skills.parentCode` in `schema.ts:435`.
 
 **Do not add** — already present and verified: the `skills` tree and seed, `questions.skill_code`,
 `questions.difficulty`, `student_profiles`, `mistakes`, `exams.scaled_score`,
@@ -108,7 +115,7 @@ One migration PR, so feature work never touches `migrate.ts` again this wave.
 **Verify:** boot the backend **twice** against the same DB — the second boot must be a
 no-op. Existing exams still render. `npx tsc --noEmit` clean in `backend/`.
 
-- [ ] docs: `backend/README.md` — the B5 dual-difficulty rule, stated as a rule not a bug.
+- [x] docs: `backend/README.md` — the B5 dual-difficulty rule, stated as a rule not a bug.
 
 ---
 
@@ -118,30 +125,30 @@ no-op. Existing exams still render. `npx tsc --noEmit` clean in `backend/`.
 **Goal:** one persisted score, computed server-side, that respects the adaptive path.
 
 Backend
-- [ ] **B9:** clamp `timeSpentSeconds` in `student.schemas.ts:17,22` (`.min(0).max(…)`).
-- [ ] `submitExam` (`exams.service.ts:185-194`): after grading, set `scaledScore = toSectionScore(score, total, 'none')` for practice and live exams (null under 10 questions). **Mock modules keep `scaledScore = null`** — one module is not a section.
-- [ ] New `finalizeMockIfComplete(examId)` in `mock.service.ts`, called from `submitExam` once the exam is graded:
-  - [ ] find the mock containing this exam;
-  - [ ] if all four modules are `completed`: `raw = M1.score + M2.score`, `total = M1.total + M2.total`, `path = pathFromModuleDifficulty(M2 set difficulty)`;
-  - [ ] write `rwScore`, `mathScore`, `totalScore = toTotalScore(rw, math)`, `status='completed'`, `completedAt`, guarded by `WHERE status='in_progress'` so it is idempotent.
-- [ ] **B3:** `getResults` returns the parent `mockTest` (with its scores) when the exam belongs to a mock. **Delete `findSiblingExamIds`** (`exams.service.ts:63-83`) and the `?englishExamId=` round trip it feeds — it is the root cause, not a shortcut worth keeping.
-- [ ] `POST /admin/scoring/backfill` — admin-only, idempotent, fills only `NULL` rows, reusing the same functions so the formula is never duplicated in SQL. Copy the shape of the existing job: `admin.routes.ts:133-138` → `classification.service.ts:65-113` (synchronous, `BATCH_SIZE 20`, `BATCH_DELAY_MS 500`, `Promise.allSettled`, returns a counts summary). It blocks the request thread — acceptable at current corpus size; note it in the route comment.
-- [ ] Mocks wrongly marked `completed` by B1 get scores only if all four modules really are completed.
+- [x] **B9:** clamp `timeSpentSeconds` in `student.schemas.ts:17,22` (`.min(0).max(…)`).
+- [x] `submitExam` (`exams.service.ts:185-194`): after grading, set `scaledScore = toSectionScore(score, total, 'none')` for practice and live exams (null under 10 questions). **Mock modules keep `scaledScore = null`** — one module is not a section.
+- [x] New `finalizeMockIfComplete(examId)` in `mock.service.ts`, called from `submitExam` once the exam is graded:
+  - [x] find the mock containing this exam;
+  - [x] if all four modules are `completed`: `raw = M1.score + M2.score`, `total = M1.total + M2.total`, `path = pathFromModuleDifficulty(M2 set difficulty)`;
+  - [x] write `rwScore`, `mathScore`, `totalScore = toTotalScore(rw, math)`, `status='completed'`, `completedAt`, guarded by `WHERE status='in_progress'` so it is idempotent.
+- [x] **B3:** `getResults` returns the parent `mockTest` (with its scores) when the exam belongs to a mock. **Delete `findSiblingExamIds`** (`exams.service.ts:63-83`) and the `?englishExamId=` round trip it feeds — it is the root cause, not a shortcut worth keeping.
+- [x] `POST /admin/scoring/backfill` — admin-only, idempotent, fills only `NULL` rows, reusing the same functions so the formula is never duplicated in SQL. Copy the shape of the existing job: `admin.routes.ts:133-138` → `classification.service.ts:65-113` (synchronous, `BATCH_SIZE 20`, `BATCH_DELAY_MS 500`, `Promise.allSettled`, returns a counts summary). It blocks the request thread — acceptable at current corpus size; note it in the route comment.
+- [x] Mocks wrongly marked `completed` by B1 get scores only if all four modules really are completed.
 
 Frontend
-- [ ] Add `scaledScore` to `Exam`/`ExamWithSet` and `rwScore/mathScore/totalScore` to `MockTest` in `features/student/api/student.api.ts:36-64`.
-- [ ] Delete all **10** formula copies: `Dashboard.tsx:34,35,47`, `Results.tsx:50,54,55,197,237`, `ExamDetail.tsx:169,171`.
-- [ ] Also collapse the **three divergent** score→colour functions into one: `Dashboard.tsx:8-10` and `ExamDetail.tsx:23-25` use absolute 680/620/560, `Results.tsx:8-11` uses percentage 0.85/0.775/0.70.
-- [ ] New shared `formatScore` (+ the colour fn) in `shared/lib/` — renders `—` or raw `x/y` when null. Label every score **"Estimated"**.
-- [ ] `Dashboard.tsx`: headline from the latest completed mock's `totalScore`; **drop the `?? 600` fallback** (`:36`).
-- [ ] `Results.tsx`: sparklines read the scaled series.
-- [ ] `ExamDetail.tsx`: mock view reads the mock's own scores.
+- [x] Add `scaledScore` to `Exam`/`ExamWithSet` and `rwScore/mathScore/totalScore` to `MockTest` in `features/student/api/student.api.ts:36-64`.
+- [x] Delete all **10** formula copies: `Dashboard.tsx:34,35,47`, `Results.tsx:50,54,55,197,237`, `ExamDetail.tsx:169,171`.
+- [x] Also collapse the **three divergent** score→colour functions into one: `Dashboard.tsx:8-10` and `ExamDetail.tsx:23-25` use absolute 680/620/560, `Results.tsx:8-11` uses percentage 0.85/0.775/0.70.
+- [x] New shared `formatScore` (+ the colour fn) in `shared/lib/` — renders `—` or raw `x/y` when null. Label every score **"Estimated"**.
+- [x] `Dashboard.tsx`: headline from the latest completed mock's `totalScore`; **drop the `?? 600` fallback** (`:36`).
+- [x] `Results.tsx`: sparklines read the scaled series.
+- [x] `ExamDetail.tsx`: mock view reads the mock's own scores.
 
 P2.3 — student profile
-- [ ] `GET`/`PUT /student/profile` in `student.routes.ts`. Zod: `targetScore` int 400–1600 in steps of 10; `testDate` ISO date or null. PUT upserts on the unique `student_id`.
-- [ ] The teacher student-detail response returns the profile too.
-- [ ] "Your goal" section in `student/pages/Settings.tsx` — slots in around `:253`. **Note:** the existing prefs there are `localStorage`-only (`sat-timer-pref`, `sat-font-pref`), so this is the first server-persisted student preference.
-- [ ] `Dashboard.tsx:40`: replace `target = 1500` with the profile value; gap = target − latest mock total, plus days to the test. No profile → a "Set your target" card, never a made-up gap.
+- [x] `GET`/`PUT /student/profile` in `student.routes.ts`. Zod: `targetScore` int 400–1600 in steps of 10; `testDate` ISO date or null. PUT upserts on the unique `student_id`.
+- [x] The teacher student-detail response returns the profile too.
+- [x] "Your goal" section in `student/pages/Settings.tsx` — slots in around `:253`. **Note:** the existing prefs there are `localStorage`-only (`sat-timer-pref`, `sat-font-pref`), so this is the first server-persisted student preference.
+- [x] `Dashboard.tsx:40`: replace `target = 1500` with the profile value; gap = target − latest mock total, plus days to the test. No profile → a "Set your target" card, never a made-up gap.
 
 **Verify:** take two full mocks, one aimed at the hard path and one at the low path — the
 same raw 20/27 per module must score **higher** on the hard path (640 vs 530).
@@ -149,7 +156,7 @@ same raw 20/27 per module must score **higher** on the hard path (640 vs 530).
 module doesn't change the score. A brand-new student with zero exams sees no number, not 1200.
 Finishing a full adaptive mock lands on a combined 1600 report, not a `/800` one.
 
-- [ ] docs: `backend/README.md`, `flow.md` (scoring flow), `Brainstorm.md` §2
+- [x] docs: `backend/README.md`, `flow.md` (scoring flow), `Brainstorm.md` §2
 
 ---
 
@@ -162,31 +169,31 @@ Finishing a full adaptive mock lands on a combined 1600 report, not a `/800` one
 > **completely unwired** — the dual-write plus reader migration is the real work.
 
 Backend
-- [ ] New `modules/skills/skills.routes.ts` mounted at `/skills` (any authenticated role), added as one more `apiRouter.use(...)` in `modules/router.ts:18-26` **before** line 26 — the root `liveExamRouter` mount stays last.
-  - [ ] `GET /skills` returns the domain → skill tree from the `skills` table.
-  - [ ] `?withCounts=true` adds published-question counts per node, for topic practice.
-- [ ] `teacher.schemas.ts`: add `skillCode` (validated against `skills` in the service, 400 if unknown) and `difficulty` (`easy|medium|hard`) to create/update question **and** to `importJsonSchema:32-64`.
-- [ ] **B8:** add `isDraft` and set-level `difficulty` to `importJsonSchema` too.
-- [ ] **B7:** any manual tag write stamps `subSkillSource = 'human_confirmed'` (`teacher.service.ts:373-377`).
-- [ ] **Transition dual-write:** when `skillCode` is one of the five legacy codes, also write `subSkill`, and the reverse on the old path.
-- [ ] Then migrate the readers to `skillCode`, one at a time: `ai/ai.orchestrator.ts:48-54` · `student/narrative.service.ts:65-72` · `student/practice.service.ts:76,211-212` · `student/skill-passage.service.ts:38,82`.
-- [ ] Then stop writing `subSkill`. **Keep** the column this wave.
-- [ ] `admin/classification.service.ts`: extend to Math at domain level (four math domains). The English-only filter is at the **query** level (`:83-84`), so this is a query change, not just a prompt change. Writes `skillCode` + `subSkillSource='ai_suggested'`, through `ai.client.ts`, gated by `AI_MODEL_CLASSIFY`.
-- [ ] Admin dashboard stat: **tagging coverage** (% of published questions with `skillCode`, per subject). Analytics can only be as good as this number.
+- [x] New `modules/skills/skills.routes.ts` mounted at `/skills` (any authenticated role), added as one more `apiRouter.use(...)` in `modules/router.ts:18-26` **before** line 26 — the root `liveExamRouter` mount stays last.
+  - [x] `GET /skills` returns the domain → skill tree from the `skills` table.
+  - [x] `?withCounts=true` adds published-question counts per node, for topic practice.
+- [x] `teacher.schemas.ts`: add `skillCode` (validated against `skills` in the service, 400 if unknown) and `difficulty` (`easy|medium|hard`) to create/update question **and** to `importJsonSchema:32-64`.
+- [x] **B8:** add `isDraft` and set-level `difficulty` to `importJsonSchema` too.
+- [x] **B7:** any manual tag write stamps `subSkillSource = 'human_confirmed'` (`teacher.service.ts:373-377`).
+- [x] **Transition dual-write:** when `skillCode` is one of the five legacy codes, also write `subSkill`, and the reverse on the old path.
+- [x] Then migrate the readers to `skillCode`, one at a time: `ai/ai.orchestrator.ts:48-54` · `student/narrative.service.ts:65-72` · `student/practice.service.ts:76,211-212` · `student/skill-passage.service.ts:38,82`.
+- [x] Then stop writing `subSkill`. **Keep** the column this wave.
+- [x] `admin/classification.service.ts`: extend to Math at domain level (four math domains). The English-only filter is at the **query** level (`:83-84`), so this is a query change, not just a prompt change. Writes `skillCode` + `subSkillSource='ai_suggested'`, through `ai.client.ts`, gated by `AI_MODEL_CLASSIFY`.
+- [x] Admin dashboard stat: **tagging coverage** (% of published questions with `skillCode`, per subject). Analytics can only be as good as this number.
 
 Frontend
-- [ ] `teacher/pages/AddContent.tsx:855-869`: replace the `!isMath`-gated select with a grouped domain → skill select fed by `/skills`, shown for **both** subjects.
-- [ ] Add per-question difficulty pills (none exist today — `Question` in `teacher.api.ts:36-53` has no `difficulty` field at all).
-- [ ] Point the confirm/override flow and the "untagged" filter at `skillCode` (`:1074-1103`; the `!isMath` gate is at `:1077`, chips at `:1091-1092`).
-- [ ] Bulk-import help panel with an example payload including `skillCode` and `difficulty`.
-- [ ] Retire `SUB_SKILL_OPTIONS` (`features/teacher/constants.ts:9-15`, one consumer: `AddContent.tsx:21,865`) once the tree is read from the API.
-- [ ] `student/pages/ExamCatalogue.tsx:57-71`: replace the hardcoded domain copy with `/skills`. `MockTest.tsx` has a second parallel `MODS` array — do both.
+- [x] `teacher/pages/AddContent.tsx:855-869`: replace the `!isMath`-gated select with a grouped domain → skill select fed by `/skills`, shown for **both** subjects.
+- [x] Add per-question difficulty pills (none exist today — `Question` in `teacher.api.ts:36-53` has no `difficulty` field at all).
+- [x] Point the confirm/override flow and the "untagged" filter at `skillCode` (`:1074-1103`; the `!isMath` gate is at `:1077`, chips at `:1091-1092`).
+- [x] Bulk-import help panel with an example payload including `skillCode` and `difficulty`.
+- [x] Retire `SUB_SKILL_OPTIONS` (`features/teacher/constants.ts:9-15`, one consumer: `AddContent.tsx:21,865`) once the tree is read from the API.
+- [x] `student/pages/ExamCatalogue.tsx:57-71`: replace the hardcoded domain copy with `/skills`. `MockTest.tsx` has a second parallel `MODS` array — do both.
 
 **Verify:** a teacher tags a Math question as Algebra/hard; the tag survives JSON import;
 the AI classifier tags untagged Math questions into the review flow; correcting a tag in
 the normal editor removes it from AI Review; the coverage stat appears.
 
-- [ ] docs: `backend/README.md`, `frontend/README.md`, `Brainstorm.md` §2
+- [x] docs: `backend/README.md`, `frontend/README.md`, `Brainstorm.md` §2
 
 ---
 
@@ -197,19 +204,19 @@ the normal editor removes it from AI Review; the coverage stat appears.
 #### P2.4 Mistake bank — a self-draining worklist of every question missed
 
 Backend
-- [ ] **Write path, in `submitExam` only** (submit is the authority; `confirmAnswer` flags get regraded there anyway):
-  - [ ] every graded answer with `isCorrect = false` upserts into `mistakes`: `ON CONFLICT (student_id, question_id)` bumps `miss_count`, `last_missed_at`, `exam_answer_id` and clears `resolved_at`. Blanks count as misses.
-  - [ ] a correct answer on a question with an open mistake sets `resolved_at = now()`.
-- [ ] **Live exams:** write mistakes on the teacher's **release**, not at submit — otherwise the bank reveals right/wrong before results are released.
-- [ ] `GET /student/mistakes?subject=&skillCode=&status=open|resolved` — question, skill, miss count, dates. Correct answer and explanation included (they come from completed exams).
-- [ ] `GET /student/mistakes/summary` — open counts per domain.
-- [ ] `POST /student/mistakes/practice { subject, skillCode?, limit≤20 }` — builds an exam from open mistakes via `createExamWithAnswerSheet({ setId: null, type: 'individual' })` with `label = 'Mistake review'`. Resolution then happens through the normal submit path.
-- [ ] v1 has **no** spaced repetition: rows resolve on one correct answer, ordered by `miss_count`, `last_missed_at`. **v2** (only if students re-miss resolved items often): add SM-2 columns and reuse `nextSchedule()` (`student/vocab.service.ts:43-57`).
+- [x] **Write path, in `submitExam` only** (submit is the authority; `confirmAnswer` flags get regraded there anyway):
+  - [x] every graded answer with `isCorrect = false` upserts into `mistakes`: `ON CONFLICT (student_id, question_id)` bumps `miss_count`, `last_missed_at`, `exam_answer_id` and clears `resolved_at`. Blanks count as misses.
+  - [x] a correct answer on a question with an open mistake sets `resolved_at = now()`.
+- [x] **Live exams:** write mistakes on the teacher's **release**, not at submit — otherwise the bank reveals right/wrong before results are released.
+- [x] `GET /student/mistakes?subject=&skillCode=&status=open|resolved` — question, skill, miss count, dates. Correct answer and explanation included (they come from completed exams).
+- [x] `GET /student/mistakes/summary` — open counts per domain.
+- [x] `POST /student/mistakes/practice { subject, skillCode?, limit≤20 }` — builds an exam from open mistakes via `createExamWithAnswerSheet({ setId: null, type: 'individual' })` with `label = 'Mistake review'`. Resolution then happens through the normal submit path.
+- [x] v1 has **no** spaced repetition: rows resolve on one correct answer, ordered by `miss_count`, `last_missed_at`. **v2** (only if students re-miss resolved items often): add SM-2 columns and reuse `nextSchedule()` (`student/vocab.service.ts:43-57`).
 
 Frontend
-- [ ] New `features/student/pages/Mistakes.tsx`; route at `app/router.tsx:95`, plus the import alongside `:14-21`.
-- [ ] Nav entries in **three** unshared literals in `layouts/StudentLayout.tsx` — rail `:8-56` (21px SVG), bottom bar `:248-253` (20px), More sheet `:305-308` (18px). The SVG must be re-pasted at all three sizes; budget for it.
-- [ ] Group by domain, filter by subject and status, "Practise these (N)" button starting the review exam in `TakeExam`.
+- [x] New `features/student/pages/Mistakes.tsx`; route at `app/router.tsx:95`, plus the import alongside `:14-21`.
+- [x] Nav entries in **three** unshared literals in `layouts/StudentLayout.tsx` — rail `:8-56` (21px SVG), bottom bar `:248-253` (20px), More sheet `:305-308` (18px). The SVG must be re-pasted at all three sizes; budget for it.
+- [x] Group by domain, filter by subject and status, "Practise these (N)" button starting the review exam in `TakeExam`.
 
 **Verify:** a wrong mock answer appears in the bank; answering it correctly in a review
 exam resolves it; missing it again reopens it with `miss_count = 2`.
@@ -217,22 +224,22 @@ exam resolves it; missing it again reopens it with `miss_count = 2`.
 #### P2.5 Topic practice
 
 Backend
-- [ ] `POST /student/exams/topic { subject, skillCode, difficulty?, count 5-20 }`:
-  - [ ] random published questions (set not draft, not a live-exam set, question not retired) whose `skill_code` is the code **or one of its children**;
-  - [ ] prefers unseen questions, falls back to any;
-  - [ ] `createExamWithAnswerSheet({ setId: null })`, `label = 'Topic: <skill label>'`.
-- [ ] 400 with a clear message under 5 eligible questions. The UI uses `/skills?withCounts=true` to disable empty topics.
-- [ ] Check `findQuestionsForExam` attaches each English question's own passage when one exam spans several passages.
-- [ ] Confirm B2's `leftJoin` landed — set-less exams must appear on the teacher's view.
+- [x] `POST /student/exams/topic { subject, skillCode, difficulty?, count 5-20 }`:
+  - [x] random published questions (set not draft, not a live-exam set, question not retired) whose `skill_code` is the code **or one of its children**;
+  - [x] prefers unseen questions, falls back to any;
+  - [x] `createExamWithAnswerSheet({ setId: null })`, `label = 'Topic: <skill label>'`.
+- [x] 400 with a clear message under 5 eligible questions. The UI uses `/skills?withCounts=true` to disable empty topics.
+- [x] Check `findQuestionsForExam` attaches each English question's own passage when one exam spans several passages.
+- [x] Confirm B2's `leftJoin` landed — set-less exams must appear on the teacher's view.
 
 Frontend
-- [ ] "Practise by topic" block in `ExamCatalogue.tsx` — domain cards with counts (and accuracy once M4 lands), difficulty and count pickers.
-- [ ] `TakeExam` handles `setId = null`; `Results`/`Dashboard` show `exam.label` when `setTitle` is null.
+- [x] "Practise by topic" block in `ExamCatalogue.tsx` — domain cards with counts (and accuracy once M4 lands), difficulty and count pickers.
+- [x] `TakeExam` handles `setId = null`; `Results`/`Dashboard` show `exam.label` when `setTitle` is null.
 
 **Verify:** a 10-question Algebra/medium exam grades, resumes from IndexedDB after a
 mid-way reload, feeds the mistake bank, and shows up on the teacher's student view.
 
-- [ ] docs: `backend/README.md`, `frontend/README.md`, `flow.md`
+- [x] docs: `backend/README.md`, `frontend/README.md`, `flow.md`
 
 ---
 
@@ -241,25 +248,25 @@ mid-way reload, feeds the mistake bank, and shows up on the teacher's student vi
 **Depends on:** M1 + M2.
 **Goal:** answer "why am I losing points?" and "am I improving?"
 
-- [ ] **Decide the charting question first.** `frontend/package.json` has **no** chart library. The only visualisation is a hand-rolled inline SVG sparkline declared *inside* the `Results` component body (`Results.tsx:57-73`), so it remounts every render. Either lift it into `shared/ui` as a real component or add a dependency — decide before writing the page, not halfway through it.
+- [x] **Decide the charting question first.** `frontend/package.json` has **no** chart library. The only visualisation is a hand-rolled inline SVG sparkline declared *inside* the `Results` component body (`Results.tsx:57-73`), so it remounts every render. Either lift it into `shared/ui` as a real component or add a dependency — decide before writing the page, not halfway through it.
 
 Backend — new `modules/analytics/analytics.service.ts`, pure query functions that take **a list of student ids**, so Phase 3 batch rollups reuse them unchanged.
-- [ ] `skillAccuracy(studentIds, { subject?, since? })` — joins `exam_answers → questions → skills` over completed exams (live exams only once released), groups by domain (`COALESCE(parent_code, code)`) and skill, returns attempted/correct/accuracy.
-- [ ] `scoreTrend(studentId)` — completed-mock `total/rw/math` and practice `scaledScore` over time.
-- [ ] `readiness(studentId)` — latest mock total, rolling average of the last 3, gap to target, days to test. Arithmetic, not a model (Brainstorm §4). Confidence "low" under 2 mocks.
-- [ ] `GET /student/analytics/overview` and `GET /teacher/students/:id/analytics` (behind `assertOwnsStudent`, `teacher.service.ts:45-53` — post-B6). Note `sendFeedback` (`:131-137`) inlines the same check instead of calling the helper; fold it in while here.
-- [ ] Replace `loadSubSkillBreakdown` (`narrative.service.ts:62-82`) with `skillAccuracy` scoped to one exam, so the AI narrative finally gets a Math breakdown instead of `- untagged: N wrong of M`.
+- [x] `skillAccuracy(studentIds, { subject?, since? })` — joins `exam_answers → questions → skills` over completed exams (live exams only once released), groups by domain (`COALESCE(parent_code, code)`) and skill, returns attempted/correct/accuracy.
+- [x] `scoreTrend(studentId)` — completed-mock `total/rw/math` and practice `scaledScore` over time.
+- [x] `readiness(studentId)` — latest mock total, rolling average of the last 3, gap to target, days to test. Arithmetic, not a model (Brainstorm §4). Confidence "low" under 2 mocks.
+- [x] `GET /student/analytics/overview` and `GET /teacher/students/:id/analytics` (behind `assertOwnsStudent`, `teacher.service.ts:45-53` — post-B6). Note `sendFeedback` (`:131-137`) inlines the same check instead of calling the helper; fold it in while here.
+- [x] Replace `loadSubSkillBreakdown` (`narrative.service.ts:62-82`) with `skillAccuracy` scoped to one exam, so the AI narrative finally gets a Math breakdown instead of `- untagged: N wrong of M`.
 
 Frontend
-- [ ] Progress view: score trend chart, domain accuracy bars weakest-first, readiness card.
-- [ ] Dashboard "Weakest domain" card linking straight into topic practice for that domain — this is the diagnose → practise loop.
-- [ ] Build these in `shared/ui` so teacher `StudentDetail.tsx` reuses them.
-- [ ] Hide accuracy for any domain with fewer than 5 attempts; show "not enough data".
+- [x] Progress view: score trend chart, domain accuracy bars weakest-first, readiness card.
+- [x] Dashboard "Weakest domain" card linking straight into topic practice for that domain — this is the diagnose → practise loop.
+- [x] Build these in `shared/ui` so teacher `StudentDetail.tsx` reuses them.
+- [x] Hide accuracy for any domain with fewer than 5 attempts; show "not enough data".
 
 **Verify:** a student with 2+ mocks sees a trend and a correct weakest domain, **including
 Math**; the teacher sees the same numbers; both match a hand count on a small dataset.
 
-- [ ] docs: `backend/README.md`, `frontend/README.md`, `Brainstorm.md` §2
+- [x] docs: `backend/README.md`, `frontend/README.md`, `Brainstorm.md` §2
 
 ---
 

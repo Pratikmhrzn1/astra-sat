@@ -21,24 +21,31 @@ const CARD: React.CSSProperties = {
 
 /** Latest score against the student's own target. Arithmetic, not a prediction. */
 export function ReadinessCard({ readiness, isMobile }: { readiness: AnalyticsOverview['readiness']; isMobile?: boolean }) {
-  const { latestTotal, rollingAverage, mocksTaken, targetScore, gap, daysToTest, confidence } = readiness;
+  const { rollingAverage, mocksTaken, targetScore, gap, daysToTest, confidence, estimate } = readiness;
+  // Same estimate as the Dashboard hero, with its source named.
+  const estimateLabel = estimate.source === 'practice' ? 'Estimated, from practice tests' : 'Latest mock';
 
   return (
     <div style={{ ...CARD, padding: isMobile ? '20px 18px' : '24px 26px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 28, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.5)', marginBottom: 4 }}>Latest mock</div>
-          <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 46, lineHeight: 1, color: scoreColor(latestTotal, TOTAL_MAX) }}>
-            {formatScore(latestTotal)}
+          <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.64)', marginBottom: 4 }}>{estimateLabel}</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 46, lineHeight: 1, color: scoreColor(estimate.total, TOTAL_MAX) }}>
+            {formatScore(estimate.total)}
           </div>
+          {estimate.total === null && (estimate.rw !== null || estimate.math !== null) && (
+            <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.64)', marginTop: 6 }}>
+              {estimate.rw !== null ? `R&W ${estimate.rw} · score a Math test to complete it` : `Math ${estimate.math} · score an R&W test to complete it`}
+            </div>
+          )}
         </div>
 
         {mocksTaken > 1 && (
           <div>
-            <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.5)', marginBottom: 4 }}>
+            <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.64)', marginBottom: 4 }}>
               Average of last {Math.min(mocksTaken, 3)}
             </div>
-            <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 28, lineHeight: 1.4, color: '#0B0B0E' }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 28, lineHeight: 1.4, color: '#0B0B0E' }}>
               {formatScore(rollingAverage)}
             </div>
           </div>
@@ -46,7 +53,7 @@ export function ReadinessCard({ readiness, isMobile }: { readiness: AnalyticsOve
 
         <div style={{ flex: 1, minWidth: 180 }}>
           {targetScore === null ? (
-            <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.5)', margin: 0, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)', margin: 0, lineHeight: 1.6 }}>
               No target set. Add one in Settings and this shows the gap.
             </p>
           ) : (
@@ -65,9 +72,11 @@ export function ReadinessCard({ readiness, isMobile }: { readiness: AnalyticsOve
 
       {/* Says how much to trust the number above, rather than implying certainty. */}
       {confidence !== 'fair' && (
-        <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', margin: '14px 0 0', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', margin: '14px 0 0', lineHeight: 1.6 }}>
           {confidence === 'none'
-            ? 'Finish a full mock to see where you stand.'
+            ? estimate.source === 'practice'
+              ? 'No full mock yet — practice sections give a rough estimate; a mock gives a test-day one.'
+              : 'Finish a full mock to see where you stand.'
             : 'Based on one mock — sit another before reading much into it.'}
         </p>
       )}
@@ -87,7 +96,7 @@ export function TrendPanel({ trend, isMobile }: { trend: AnalyticsOverview['tren
   return (
     <div style={{ ...CARD, padding: isMobile ? '18px 14px' : '22px 24px' }}>
       <h2 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 2px' }}>Section scores over time</h2>
-      <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', margin: '0 0 14px' }}>
+      <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', margin: '0 0 14px' }}>
         Estimated, on the 200–800 scale. Mocks and single sections both count.
       </p>
       <TrendChart series={series} min={200} max={800} height={isMobile ? 170 : 200} />
@@ -110,7 +119,7 @@ export function DomainPanel({
   return (
     <div style={{ ...CARD, padding: isMobile ? '18px 16px' : '22px 24px' }}>
       <h2 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 2px' }}>Accuracy by topic</h2>
-      <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', margin: '0 0 18px' }}>
+      <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', margin: '0 0 18px' }}>
         Weakest first. A topic needs {overview.minAttempts} answered questions before it shows a percentage.
       </p>
 

@@ -36,7 +36,7 @@ export default function StudentDetail() {
   });
 
   if (isLoading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#E2562B]" /></div>;
+    return <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#C4471F]" /></div>;
   }
 
   const completedExams = exams.filter((e) => e.status === 'completed');
@@ -50,13 +50,13 @@ export default function StudentDetail() {
           </button>
           {student && (
             <div>
-              <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 36, margin: 0, letterSpacing: '-0.02em', color: '#0B0B0E' }}>{student.name}</h1>
-              <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.45)', margin: 0 }}>{student.email}</p>
+              <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 36, margin: 0, letterSpacing: '-0.02em', color: '#0B0B0E' }}>{student.name}</h1>
+              <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.58)', margin: 0 }}>{student.email}</p>
             </div>
           )}
         </div>
         <button onClick={() => { setShowFeedback(true); setFeedbackError(''); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 18px', background: '#E2562B', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 18px', background: '#C4471F', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
         ><MessageSquare size={15} /> Send Feedback</button>
       </div>
 
@@ -65,18 +65,18 @@ export default function StudentDetail() {
         {detail?.profile?.targetScore || detail?.profile?.testDate ? (
           <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)' }}>Target score</div>
+              <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>Target score</div>
               <div style={{ fontSize: 15, fontWeight: 600 }}>{detail.profile.targetScore ?? '—'}</div>
             </div>
             <div>
-              <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)' }}>Test date</div>
+              <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>Test date</div>
               <div style={{ fontSize: 15, fontWeight: 600 }}>
                 {detail.profile.testDate ? formatDate(detail.profile.testDate) : '—'}
                 {(() => {
                   const days = daysUntil(detail.profile.testDate);
                   if (days === null) return null;
                   return (
-                    <span style={{ fontSize: 13, fontWeight: 400, color: 'rgba(11,11,14,0.45)', marginLeft: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 400, color: 'rgba(11,11,14,0.58)', marginLeft: 8 }}>
                       {days >= 0 ? `${days} ${days === 1 ? 'day' : 'days'} away` : 'passed'}
                     </span>
                   );
@@ -85,7 +85,7 @@ export default function StudentDetail() {
             </div>
           </div>
         ) : (
-          <div style={{ fontSize: 14, color: 'rgba(11,11,14,0.45)' }}>This student hasn't set a target score yet.</div>
+          <div style={{ fontSize: 14, color: 'rgba(11,11,14,0.58)' }}>This student hasn't set a target score yet.</div>
         )}
       </div>
 
@@ -105,7 +105,7 @@ export default function StudentDetail() {
           <h2 style={{ fontSize: 16, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>Exam History ({completedExams.length})</h2>
         </div>
         {completedExams.length === 0 ? (
-          <div style={{ padding: '40px 22px', textAlign: 'center', color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>No completed exams yet.</div>
+          <div style={{ padding: '40px 22px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>No completed exams yet.</div>
         ) : (
           completedExams.map((exam, i) => {
             const pct = exam.score !== null ? Math.round((exam.score / exam.totalQuestions) * 100) : null;
@@ -114,10 +114,10 @@ export default function StudentDetail() {
                 {exam.subject && <SubjectBadge subject={exam.subject as 'english' | 'math'} />}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0B0B0E' }}>{exam.setTitle ?? exam.label ?? 'Practice'}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)' }}>{formatDate(exam.startedAt)}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>{formatDate(exam.startedAt)}</div>
                 </div>
                 {pct !== null && (
-                  <span style={{ fontSize: 14, fontWeight: 700, color: scoreColor(pct), fontFamily: "'Instrument Serif', serif" }}>{exam.score}/{exam.totalQuestions} ({pct}%)</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: scoreColor(pct), fontFamily: 'var(--font-display)' }}>{exam.score}/{exam.totalQuestions} ({pct}%)</span>
                 )}
                 <Link to={`/teacher/students/${studentId}/exams/${exam.id}`} style={{ textDecoration: 'none' }}>
                   <button style={{ height: 34, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 9999, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit' }}>View Results</button>
@@ -136,7 +136,7 @@ export default function StudentDetail() {
           {studentFeedback.map((fb, i) => (
             <div key={fb.id} style={{ padding: '16px 22px', borderBottom: i < studentFeedback.length - 1 ? '1px solid #F2F0EC' : 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)' }}>{formatDate(fb.createdAt)}</span>
+                <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>{formatDate(fb.createdAt)}</span>
                 <Badge variant={fb.isRead ? 'success' : 'neutral'}>{fb.isRead ? 'Read' : 'Unread'}</Badge>
               </div>
               <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.7)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{fb.content}</p>

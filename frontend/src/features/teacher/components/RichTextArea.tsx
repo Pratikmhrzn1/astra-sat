@@ -24,7 +24,7 @@ export function UnderlineBtn({ onApply }: { onApply: () => void }) {
       }}
     >
       <span style={{ textDecoration: 'underline' }}>U</span>
-      <span style={{ fontSize: 10, fontWeight: 400, color: 'rgba(11,11,14,0.45)' }}>Underline</span>
+      <span style={{ fontSize: 10, fontWeight: 400, color: 'rgba(11,11,14,0.58)' }}>Underline</span>
     </button>
   );
 }
@@ -59,7 +59,7 @@ export const RichTextArea = React.forwardRef<HTMLDivElement, {
       {label && <label className="text-[13px] font-semibold text-ink/70">{label}</label>}
       <div style={{ position: 'relative' }}>
         {!value && placeholder && (
-          <div style={{ position: 'absolute', top: 12, left: 15, right: 15, color: 'rgba(11,11,14,0.3)', fontSize: 15, pointerEvents: 'none', userSelect: 'none', lineHeight: 1.6 }}>
+          <div style={{ position: 'absolute', top: 12, left: 15, right: 15, color: 'rgba(11,11,14,0.58)', fontSize: 15, pointerEvents: 'none', userSelect: 'none', lineHeight: 1.6 }}>
             {placeholder}
           </div>
         )}

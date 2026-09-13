@@ -76,7 +76,7 @@ export default function LiveExams() {
           <Plus size={15} style={{ marginRight: 7, verticalAlign: '-2px' }} />New session
         </PillButton>
       </div>
-      <p style={{ fontSize: 15, color: 'rgba(11,11,14,0.55)', margin: '0 0 28px', maxWidth: 620, lineHeight: 1.6 }}>
+      <p style={{ fontSize: 15, color: 'rgba(11,11,14,0.64)', margin: '0 0 28px', maxWidth: 620, lineHeight: 1.6 }}>
         Sit a whole class at once. You control when it starts and when each student sees their result.
       </p>
 

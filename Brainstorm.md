@@ -68,13 +68,21 @@ Do not compete on question count or mock count. The differentiator is:
 | **Vocabulary SRS** | SM-2 spaced repetition over both question-sourced and teacher-curated words. |
 | **Content authoring** | Teacher Content Manager: passages, questions (MC and student-produced response), rich text, math toolbar, bulk JSON import, image attachment. |
 | **Admin tooling** | User management, access codes, AI cost/latency stats, generated-content review queue, DB backup/restore/SQL console. |
+| **Scaled scoring** *(M1)* | Server-side 200–800 section and 400–1600 mock scores that respect the adaptive path, persisted and backfilled on boot. Never invented: a section under 10 questions reports raw `x / y`. |
+| **SAT taxonomy** *(M2)* | Four domains per section with skills beneath, Math included; per-question difficulty; the AI classifier tags both subjects. |
+| **Mistake bank & topic practice** *(M3)* | Every missed question lands in a self-draining worklist; exams assembled from a domain or skill across sets. |
+| **Analytics** *(M4)* | Accuracy by domain and skill, a score trend over mocks and practice, and one estimated score (latest mock, else latest practice per section) shared by Dashboard, Progress and the teacher's view. |
 
 Several requirements from the old brief's "Technical Quality" section are already met: autosave,
 resilience to refresh and network loss, idempotent submission, reproducible server-side grading,
 and correct answer-key handling (keys are never sent to the client during an exam — only during
 server-side grading and after completion).
 
-### The three gaps that matter
+### The three gaps that mattered
+
+> **Status:** gaps 1 and 2 are closed (M1, M2), and gap 3's analytics layer exists (M4).
+> Batches and assignments remain — that is Phase 3. See `plan.md` for what landed. The text
+> below is kept as the record of why the work was sequenced this way.
 
 **1. There is no real SAT score.**
 

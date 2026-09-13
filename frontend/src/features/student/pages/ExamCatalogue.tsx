@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { getQuestionSets, startExam, startTopicExam } from '@/features/student/api/student.api';
+import { getAnalytics, getQuestionSets, startExam, startTopicExam } from '@/features/student/api/student.api';
 import { getApiError } from '@/shared/api/client';
 import { getAllExamProgress, clearExamProgress } from '@/shared/lib/offline';
 import { useMobile } from '@/shared/hooks/useMobile';
@@ -37,6 +37,9 @@ export default function ExamCatalogue() {
   const switchSubject = (s: 'math' | 'english') => navigate(`/student/exams?subject=${s}`, { replace: true });
 
   const { data: sets = [], isLoading } = useQuery({ queryKey: ['student', 'question-sets'], queryFn: getQuestionSets });
+  // The student's own accuracy per domain, so the topic list doubles as a map of
+  // where points are going. Same query key as the Dashboard and Progress.
+  const { data: analytics } = useQuery({ queryKey: ['student', 'analytics'], queryFn: getAnalytics });
   const { data: skillTree = [] } = useQuery({
     queryKey: skillsQueryKey(true),
     queryFn: () => getSkills(true),
@@ -120,7 +123,7 @@ export default function ExamCatalogue() {
               <div key={item.examId} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: '#0B0B0E', minWidth: 120 }}>
                   {item.examTitle ?? 'Practice test'}
-                  <span style={{ fontWeight: 400, fontSize: 12, color: 'rgba(11,11,14,0.45)', marginLeft: 8 }}>
+                  <span style={{ fontWeight: 400, fontSize: 12, color: 'rgba(11,11,14,0.58)', marginLeft: 8 }}>
                     saved {new Date(item.lastSaved).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </span>
                 </span>
@@ -131,7 +134,7 @@ export default function ExamCatalogue() {
                   >Continue →</button>
                   <button
                     onClick={() => dismissResume(item.examId)}
-                    style={{ height: 34, padding: '0 14px', background: 'transparent', color: 'rgba(11,11,14,0.45)', border: '1px solid #D8D4CC', borderRadius: 9999, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
+                    style={{ height: 34, padding: '0 14px', background: 'transparent', color: 'rgba(11,11,14,0.58)', border: '1px solid #D8D4CC', borderRadius: 9999, fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
                   >Dismiss</button>
                 </div>
               </div>
@@ -150,23 +153,23 @@ export default function ExamCatalogue() {
               padding: isMobile ? '9px 12px' : '8px 18px', borderRadius: 9, fontSize: isMobile ? 13 : 13.5, fontWeight: 600, cursor: 'pointer',
               border: 'none', fontFamily: 'inherit', transition: 'background 0.15s, color 0.15s', textAlign: 'center',
               background: subject === s ? '#fff' : 'transparent',
-              color: subject === s ? '#0B0B0E' : 'rgba(11,11,14,0.45)',
+              color: subject === s ? '#0B0B0E' : 'rgba(11,11,14,0.58)',
               boxShadow: subject === s ? '0 1px 4px rgba(11,11,14,0.1)' : 'none',
             }}
           >{label}</button>
         ))}
       </div>
 
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E2562B' }}>{kicker}</div>
-      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 36 : 56, margin: '6px 0 0', letterSpacing: '-0.02em' }}>{title}</h1>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#C4471F' }}>{kicker}</div>
+      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 36 : 56, margin: '6px 0 0', letterSpacing: '-0.02em' }}>{title}</h1>
       <p style={{ maxWidth: 640, fontSize: isMobile ? 14 : 16, lineHeight: 1.65, color: 'rgba(11,11,14,0.6)', margin: '10px 0 22px' }}>{blurb}</p>
 
       {/* Meta stats */}
       <div style={{ display: 'flex', gap: isMobile ? 10 : 14, marginBottom: isMobile ? 20 : 28, flexWrap: 'wrap' }}>
         {[['—', 'Questions per set'], [timerEnabled ? '20m' : '∞', 'Time limit'], ['800', 'Score scale']].map(([v, l], i) => (
           <div key={i} style={{ ...CARD_STYLE, padding: isMobile ? '14px 16px' : '18px 26px', minWidth: isMobile ? 88 : 130, flex: isMobile ? '1' : undefined, borderRadius: 14 }}>
-            <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 28 : 38, lineHeight: 1, color: '#0B0B0E' }}>{v}</div>
-            <div style={{ fontSize: isMobile ? 9.5 : 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginTop: 5 }}>{l}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 28 : 38, lineHeight: 1, color: '#0B0B0E' }}>{v}</div>
+            <div style={{ fontSize: isMobile ? 9.5 : 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginTop: 5 }}>{l}</div>
           </div>
         ))}
       </div>
@@ -183,7 +186,7 @@ export default function ExamCatalogue() {
                 <button
                   key={level}
                   onClick={() => setTopicDifficulty(level)}
-                  style={{ padding: '3px 10px', fontSize: 11.5, fontWeight: 600, borderRadius: 9999, border: topicDifficulty === level ? 'none' : '1px solid #E7E4DE', background: topicDifficulty === level ? '#0B0B0E' : '#F2F0EC', color: topicDifficulty === level ? '#fff' : '#8C8880', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}
+                  style={{ padding: '3px 10px', fontSize: 11.5, fontWeight: 600, borderRadius: 9999, border: topicDifficulty === level ? 'none' : '1px solid #E7E4DE', background: topicDifficulty === level ? '#0B0B0E' : '#F2F0EC', color: topicDifficulty === level ? '#fff' : '#6F6B64', cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}
                 >{level}</button>
               ))}
               <select
@@ -206,23 +209,32 @@ export default function ExamCatalogue() {
             {mods.map((m, i) => {
               const enough = (m.available ?? 0) >= 5;
               const starting = topicMutation.isPending && pendingTopicRef.current === m.code;
+              const mine = analytics?.domains.find((d) => d.domainCode === m.code);
+              const minAttempts = analytics?.minAttempts ?? 5;
               return (
                 <div key={i} style={{ ...CARD_STYLE, padding: isMobile ? '14px 16px' : '18px 20px', opacity: enough ? 1 : 0.6 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
                     <span style={{ width: 10, height: 10, borderRadius: 9999, background: m.color, flexShrink: 0 }} />
                     <span style={{ fontSize: isMobile ? 14 : 15.5, fontWeight: 600 }}>{m.name}</span>
-                    <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'rgba(11,11,14,0.45)', fontFamily: "'JetBrains Mono', monospace" }}>
+                    <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'rgba(11,11,14,0.58)', fontFamily: 'var(--font-mono)' }}>
                       {m.available ?? 0} Qs
                     </span>
                     <button
                       onClick={() => { setTopicError(''); pendingTopicRef.current = m.code; topicMutation.mutate({ subject, skillCode: m.code, difficulty: topicDifficulty === 'any' ? undefined : topicDifficulty, count: topicCount }); }}
                       disabled={!enough || topicMutation.isPending}
                       title={enough ? undefined : 'Not enough questions in this topic yet'}
-                      style={{ height: 30, padding: '0 14px', borderRadius: 9999, border: 'none', background: enough ? '#E2562B' : '#E7E4DE', color: enough ? '#fff' : 'rgba(11,11,14,0.35)', fontSize: 12.5, fontWeight: 600, cursor: enough && !topicMutation.isPending ? 'pointer' : 'default', fontFamily: 'inherit', flexShrink: 0 }}
+                      style={{ height: 30, padding: '0 14px', borderRadius: 9999, border: 'none', background: enough ? '#C4471F' : '#E7E4DE', color: enough ? '#fff' : 'rgba(11,11,14,0.58)', fontSize: 12.5, fontWeight: 600, cursor: enough && !topicMutation.isPending ? 'pointer' : 'default', fontFamily: 'inherit', flexShrink: 0 }}
                     >{starting ? 'Building…' : 'Practise'}</button>
                   </div>
+                  {mine && mine.attempted > 0 && (
+                    <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.64)', marginBottom: m.detail && !isMobile ? 4 : 0 }}>
+                      {mine.attempted >= minAttempts
+                        ? <>You get <strong style={{ color: '#0B0B0E' }}>{mine.accuracy}%</strong> right · {mine.attempted} answered</>
+                        : <>{mine.attempted} answered · not enough yet for a percentage</>}
+                    </div>
+                  )}
                   {!isMobile && m.detail && (
-                    <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', fontFamily: "'JetBrains Mono', monospace" }}>{m.detail}</div>
+                    <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', fontFamily: 'var(--font-mono)' }}>{m.detail}</div>
                   )}
                 </div>
               );
@@ -234,7 +246,7 @@ export default function ExamCatalogue() {
           <h3 style={{ fontSize: 15, margin: '0 0 12px' }}>Before you begin</h3>
           {rules.map((r, i) => (
             <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderBottom: i < rules.length - 1 ? '1px solid #F0EDE7' : 'none' }}>
-              <span style={{ color: '#E2562B', fontSize: 14, lineHeight: '20px', flexShrink: 0 }}>✓</span>
+              <span style={{ color: '#C4471F', fontSize: 14, lineHeight: '20px', flexShrink: 0 }}>✓</span>
               <span style={{ fontSize: 13, color: 'rgba(11,11,14,0.7)', lineHeight: 1.5 }}>{r}</span>
             </div>
           ))}
@@ -250,7 +262,7 @@ export default function ExamCatalogue() {
             display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
             border: timerEnabled ? '1px solid #E2562B' : '1px solid #C8C4BC',
             background: timerEnabled ? 'rgba(226,86,43,0.06)' : '#fff',
-            color: timerEnabled ? '#E2562B' : '#8C8880',
+            color: timerEnabled ? '#C4471F' : '#6F6B64',
           }}
         >
           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -264,9 +276,9 @@ export default function ExamCatalogue() {
       </div>
 
       {isLoading ? (
-        <div style={{ color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>Loading…</div>
+        <div style={{ color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>Loading…</div>
       ) : filtered.length === 0 ? (
-        <div style={{ ...CARD_STYLE, padding: '32px 24px', textAlign: 'center', color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>
+        <div style={{ ...CARD_STYLE, padding: '32px 24px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>
           No {title} question sets available yet. Ask your teacher to add some.
         </div>
       ) : (
@@ -276,13 +288,13 @@ export default function ExamCatalogue() {
               key={set.id}
               className="lift"
               style={{ ...CARD_STYLE, padding: isMobile ? '14px 16px' : '18px 22px', display: 'flex', alignItems: 'center', gap: 14 }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(11,11,14,0.09)'; e.currentTarget.style.borderColor = '#D8D4CC'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.05)'; e.currentTarget.style.borderColor = '#E7E4DE'; }}
+              onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.boxShadow = '0 6px 20px rgba(11,11,14,0.09)'; e.currentTarget.style.borderColor = '#D8D4CC'; }}
+              onPointerLeave={(e) => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.05)'; e.currentTarget.style.borderColor = '#E7E4DE'; }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: isMobile ? 14 : 15, fontWeight: 600 }}>{set.title}</div>
-                {set.description && <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.5)', marginTop: 2 }}>{set.description}</div>}
-                <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: 'rgba(11,11,14,0.4)', marginTop: 3 }}>{set.questionCount} questions</div>
+                {set.description && <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.64)', marginTop: 2 }}>{set.description}</div>}
+                <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'rgba(11,11,14,0.58)', marginTop: 3 }}>{set.questionCount} questions</div>
               </div>
               <button
                 onClick={() => { pendingSetTitleRef.current = set.title; startMutation.mutate(set.id); }}

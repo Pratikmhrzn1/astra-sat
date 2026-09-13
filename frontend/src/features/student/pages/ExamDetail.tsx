@@ -172,7 +172,7 @@ export default function ExamDetail() {
   }, [chatInput, chatLoading, chatSessionId, examId, chatQuestionId]);
 
   if (isLoading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: 'rgba(11,11,14,0.4)' }}>Loading…</div></div>;
+    return <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, color: 'rgba(11,11,14,0.58)' }}>Loading…</div></div>;
   }
 
   if (error || !data) {
@@ -230,11 +230,11 @@ export default function ExamDetail() {
 
   return (
     <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 80px' : '36px 48px 64px' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E2562B', marginBottom: 6 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#C4471F', marginBottom: 6 }}>
         {isMockCombined ? 'Full mock SAT · score report' : `Score report · ${set?.subject === 'math' ? 'Math' : 'Reading & Writing'}`}
         {isPractice && <span style={{ marginLeft: 10, color: '#2563A8' }}>· Practice</span>}
       </div>
-      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 28 : 40, margin: '0 0 20px', letterSpacing: '-0.02em' }}>Performance Report</h1>
+      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 28 : 40, margin: '0 0 20px', letterSpacing: '-0.02em' }}>Performance Report</h1>
 
       {/* Hero */}
       <div className="pop" style={{ background: '#0B0B0E', borderRadius: 18, padding: isMobile ? '22px 20px' : '32px 36px', display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', gap: isMobile ? 20 : 36, marginBottom: 20, position: 'relative', overflow: 'hidden' }}>
@@ -242,23 +242,23 @@ export default function ExamDetail() {
         <div style={{ position: 'relative' }}>
           {isMockCombined ? (
             <>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>{ESTIMATED_LABEL} total score</div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>{ESTIMATED_LABEL} total score</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: 4, whiteSpace: 'nowrap' }}>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 60 : 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: scoreColor(totalScore1600, TOTAL_MAX) }}>{formatScore(totalScore1600)}</div>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 22 : 30, color: 'rgba(255,255,255,0.35)', marginBottom: isMobile ? 6 : 10 }}>/ 1600</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 60 : 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: scoreColor(totalScore1600, TOTAL_MAX) }}>{formatScore(totalScore1600)}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 22 : 30, color: 'rgba(255,255,255,0.5)', marginBottom: isMobile ? 6 : 10 }}>/ 1600</div>
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>R&W: <strong style={{ color: '#fff' }}>{formatScore(rwScore)}</strong></span>
-                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)' }}>·</span>
+                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>·</span>
                 <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>Math: <strong style={{ color: '#fff' }}>{formatScore(mathSectionScore)}</strong></span>
               </div>
             </>
           ) : (
             <>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>{ESTIMATED_LABEL} section score</div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>{ESTIMATED_LABEL} section score</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, marginTop: 4, whiteSpace: 'nowrap' }}>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 60 : 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: headlineColor }}>{formatExamScore(exam.scaledScore, exam.score, exam.totalQuestions)}</div>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 22 : 30, color: 'rgba(255,255,255,0.35)', marginBottom: isMobile ? 6 : 10 }}>{exam.scaledScore === null ? '' : '/ 800'}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 60 : 88, lineHeight: 0.95, letterSpacing: '-0.03em', color: headlineColor }}>{formatExamScore(exam.scaledScore, exam.score, exam.totalQuestions)}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 22 : 30, color: 'rgba(255,255,255,0.5)', marginBottom: isMobile ? 6 : 10 }}>{exam.scaledScore === null ? '' : '/ 800'}</div>
               </div>
               <div style={{ fontSize: 13, marginTop: 8, color: 'rgba(255,255,255,0.5)' }}>{correct} of {results.length} correct</div>
             </>
@@ -274,14 +274,14 @@ export default function ExamDetail() {
             ].map(({ label, value }) => (
               <div key={label}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>{label}</div>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 30 : 44, lineHeight: 1, color: '#fff' }}>{value}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 30 : 44, lineHeight: 1, color: '#fff' }}>{value}</div>
               </div>
             ))
           ) : (
             [{ label: 'Accuracy', value: accuracy + '%' }, { label: 'Correct', value: String(correct) }, { label: 'Wrong', value: String(wrong) }, { label: 'Skipped', value: String(skipped) }].map(({ label, value }) => (
               <div key={label}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>{label}</div>
-                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 30 : 44, lineHeight: 1, color: '#fff' }}>{value}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 30 : 44, lineHeight: 1, color: '#fff' }}>{value}</div>
               </div>
             ))
           )}
@@ -313,7 +313,7 @@ export default function ExamDetail() {
               <div style={{ width: 18, height: 18, borderRadius: 9999, border: '2px solid #E2562B', borderTopColor: 'transparent', animation: 'spin 0.9s linear infinite', flexShrink: 0 }} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: '#0B0B0E', marginBottom: 3 }}>Generating your analysis…</div>
-                <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)' }}>This usually takes under 15 seconds.</div>
+                <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)' }}>This usually takes under 15 seconds.</div>
               </div>
             </div>
           );
@@ -334,19 +334,19 @@ export default function ExamDetail() {
           <div style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 18, padding: '28px 32px', marginBottom: 24, boxShadow: '0 2px 12px rgba(11,11,14,0.06)' }}>
             <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'flex-start', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', gap: 16, marginBottom: 18 }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#E2562B', marginBottom: 6 }}>Pattern diagnosis</div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#C4471F', marginBottom: 6 }}>Pattern diagnosis</div>
                 <p style={{ fontSize: isMobile ? 14 : 15.5, lineHeight: 1.65, color: '#0B0B0E', margin: 0 }}>{nc.narrative}</p>
               </div>
               {nc.scoreRange && (
                 <div style={{ flexShrink: 0, textAlign: 'center', background: '#0B0B0E', borderRadius: 14, padding: isMobile ? '10px 16px' : '14px 22px', alignSelf: isMobile ? 'flex-start' : 'flex-start' }}>
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)', marginBottom: 4 }}>Est. range</div>
-                  <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: '#fff', lineHeight: 1 }}>{nc.scoreRange}</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, color: '#fff', lineHeight: 1 }}>{nc.scoreRange}</div>
                 </div>
               )}
             </div>
             {nc.subSkillBreakdown && nc.subSkillBreakdown.length > 0 && (
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 10 }}>SubSkill breakdown</div>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 10 }}>SubSkill breakdown</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                   {nc.subSkillBreakdown.map((s) => {
                     const pct = s.total > 0 ? Math.round((s.wrong / s.total) * 100) : 0;
@@ -361,7 +361,7 @@ export default function ExamDetail() {
                         <div style={{ flex: 1, height: 6, background: '#F0EDE7', borderRadius: 9999, overflow: 'hidden' }}>
                           <div style={{ height: 6, width: `${pct}%`, background: barColor, borderRadius: 9999 }} />
                         </div>
-                        <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.5)', fontFamily: "'JetBrains Mono', monospace", width: 56, textAlign: 'right' }}>{s.wrong}/{s.total}</span>
+                        <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.64)', fontFamily: 'var(--font-mono)', width: 56, textAlign: 'right' }}>{s.wrong}/{s.total}</span>
                       </div>
                     );
                   })}
@@ -381,7 +381,7 @@ export default function ExamDetail() {
             <div key={i} style={{ ...CARD, padding: '16px 18px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 9 }}>
                 <span style={{ fontSize: 14, fontWeight: 600 }}>{t}</span>
-                <span style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.5)', fontFamily: "'JetBrains Mono', monospace" }}>{v.ok}/{v.n}</span>
+                <span style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.64)', fontFamily: 'var(--font-mono)' }}>{v.ok}/{v.n}</span>
               </div>
               <div style={{ height: 6, background: '#F0EDE7', borderRadius: 9999, overflow: 'hidden' }}>
                 <div style={{ height: 6, width: pct + '%', background: pct >= 67 ? '#2E7D5A' : pct >= 34 ? '#B8893E' : '#C0392B', borderRadius: 9999 }} />
@@ -409,8 +409,8 @@ export default function ExamDetail() {
         {isMockCombined && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0 4px' }}>
             <span style={{ width: 10, height: 10, borderRadius: 9999, background: '#2E7D5A', flexShrink: 0 }} />
-            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.5)' }}>Section 1 · Reading & Writing</span>
-            <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.35)', fontFamily: "'JetBrains Mono', monospace" }}>({englishReview.filter((r) => r.isCorrect).length}/{englishReview.length} correct · {formatScore(rwScore)}/800)</span>
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.64)' }}>Section 1 · Reading & Writing</span>
+            <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)', fontFamily: 'var(--font-mono)' }}>({englishReview.filter((r) => r.isCorrect).length}/{englishReview.length} correct · {formatScore(rwScore)}/800)</span>
           </div>
         )}
         {isMockCombined && englishReview.map((r, i) => {
@@ -434,12 +434,12 @@ export default function ExamDetail() {
                 onClick={() => toggleReview(i)}
                 style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
               >
-                <span style={{ width: 26, height: 26, borderRadius: 9999, flexShrink: 0, background: ok ? 'rgba(46,125,90,0.12)' : r.isCorrect === false ? 'rgba(192,57,43,0.1)' : 'rgba(11,11,14,0.06)', color: ok ? '#2E7D5A' : r.isCorrect === false ? '#C0392B' : '#8C8880', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
+                <span style={{ width: 26, height: 26, borderRadius: 9999, flexShrink: 0, background: ok ? 'rgba(46,125,90,0.12)' : r.isCorrect === false ? 'rgba(192,57,43,0.1)' : 'rgba(11,11,14,0.06)', color: ok ? '#2E7D5A' : r.isCorrect === false ? '#C0392B' : '#6F6B64', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
                   {ok ? '✓' : r.isCorrect === false ? '✕' : '–'}
                 </span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(11,11,14,0.4)', width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(11,11,14,0.58)', width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
                 <span style={{ fontSize: 14.5, fontWeight: 600, flex: 1 }}>Question {i + 1}</span>
-                <span style={{ color: open ? '#E2562B' : 'rgba(184,137,62,0.75)', fontSize: 16, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s, color 0.2s', display: 'inline-block', flexShrink: 0 }}>▸</span>
+                <span style={{ color: open ? '#C4471F' : 'rgba(184,137,62,0.75)', fontSize: 16, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s, color 0.2s', display: 'inline-block', flexShrink: 0 }}>▸</span>
               </button>
 
               {open && (
@@ -453,7 +453,7 @@ export default function ExamDetail() {
                       const bd = isCorrect ? '1px solid rgba(46,125,90,0.4)' : isYour ? '1px solid rgba(192,57,43,0.3)' : '1px solid #EAE7E1';
                       return (
                         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: bg, border: bd }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#8C8880', width: 16 }}>{key.toUpperCase()}</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#6F6B64', width: 16 }}>{key.toUpperCase()}</span>
                           <span style={{ fontSize: 14, flex: 1 }}>{text}</span>
                           {isCorrect && <span style={{ fontSize: 11, fontWeight: 700, color: '#2E7D5A' }}>CORRECT</span>}
                           {isYour && !isCorrect && <span style={{ fontSize: 11, fontWeight: 700, color: '#C0392B' }}>YOUR ANSWER</span>}
@@ -472,7 +472,7 @@ export default function ExamDetail() {
                     <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
                       <button
                         onClick={() => setAiPanelOpen((o) => ({ ...o, [qId]: !o[qId] }))}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', border: aiOpen ? '1px solid #E2562B' : '1px solid #C8C4BC', background: aiOpen ? 'rgba(226,86,43,0.06)' : '#fff', color: aiOpen ? '#E2562B' : '#0B0B0E', borderRadius: 9999, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', border: aiOpen ? '1px solid #E2562B' : '1px solid #C8C4BC', background: aiOpen ? 'rgba(226,86,43,0.06)' : '#fff', color: aiOpen ? '#C4471F' : '#0B0B0E', borderRadius: 9999, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
                       >
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -506,7 +506,7 @@ export default function ExamDetail() {
                         />
                       ) : (
                         <>
-                          <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', margin: '0 0 12px' }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', margin: '0 0 12px' }}>
                             How did you approach this?
                           </p>
                           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -516,7 +516,7 @@ export default function ExamDetail() {
                                 <button
                                   key={chip.value}
                                   onClick={() => setAiPending((p) => ({ ...p, [qId]: { ...aiPendingQ, confidence: chip.value } }))}
-                                  style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: active ? '1.5px solid #0B0B0E' : '1px solid #C8C4BC', background: active ? '#0B0B0E' : '#fff', color: active ? '#fff' : '#8C8880', transition: 'all 0.15s' }}
+                                  style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: active ? '1.5px solid #0B0B0E' : '1px solid #C8C4BC', background: active ? '#0B0B0E' : '#fff', color: active ? '#fff' : '#6F6B64', transition: 'all 0.15s' }}
                                 >
                                   {chip.label}
                                 </button>
@@ -533,7 +533,7 @@ export default function ExamDetail() {
                           <button
                             onClick={() => handleAiGuidance(qId)}
                             disabled={!aiPendingQ.confidence || isAiLoading}
-                            style={{ height: 38, padding: '0 20px', borderRadius: 9999, border: 'none', background: aiPendingQ.confidence && !isAiLoading ? '#E2562B' : '#C8C4BC', color: '#fff', fontSize: 13, fontWeight: 600, cursor: aiPendingQ.confidence && !isAiLoading ? 'pointer' : 'default', fontFamily: 'inherit' }}
+                            style={{ height: 38, padding: '0 20px', borderRadius: 9999, border: 'none', background: aiPendingQ.confidence && !isAiLoading ? '#C4471F' : '#C8C4BC', color: '#fff', fontSize: 13, fontWeight: 600, cursor: aiPendingQ.confidence && !isAiLoading ? 'pointer' : 'default', fontFamily: 'inherit' }}
                           >
                             {isAiLoading ? 'Analysing…' : 'Get AI Guidance →'}
                           </button>
@@ -551,8 +551,8 @@ export default function ExamDetail() {
         {isMockCombined && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 0 4px' }}>
             <span style={{ width: 10, height: 10, borderRadius: 9999, background: '#2563A8', flexShrink: 0 }} />
-            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.5)' }}>Section 2 · Math</span>
-            <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.35)', fontFamily: "'JetBrains Mono', monospace" }}>({correct}/{mathReview.length} correct · {formatScore(mathSectionScore)}/800)</span>
+            <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.64)' }}>Section 2 · Math</span>
+            <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)', fontFamily: 'var(--font-mono)' }}>({correct}/{mathReview.length} correct · {formatScore(mathSectionScore)}/800)</span>
           </div>
         )}
 
@@ -578,12 +578,12 @@ export default function ExamDetail() {
                 onClick={() => toggleReview(listIdx)}
                 style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
               >
-                <span style={{ width: 26, height: 26, borderRadius: 9999, flexShrink: 0, background: ok ? 'rgba(46,125,90,0.12)' : r.isCorrect === false ? 'rgba(192,57,43,0.1)' : 'rgba(11,11,14,0.06)', color: ok ? '#2E7D5A' : r.isCorrect === false ? '#C0392B' : '#8C8880', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
+                <span style={{ width: 26, height: 26, borderRadius: 9999, flexShrink: 0, background: ok ? 'rgba(46,125,90,0.12)' : r.isCorrect === false ? 'rgba(192,57,43,0.1)' : 'rgba(11,11,14,0.06)', color: ok ? '#2E7D5A' : r.isCorrect === false ? '#C0392B' : '#6F6B64', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>
                   {ok ? '✓' : r.isCorrect === false ? '✕' : '–'}
                 </span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(11,11,14,0.4)', width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(11,11,14,0.58)', width: 26 }}>{String(i + 1).padStart(2, '0')}</span>
                 <span style={{ fontSize: 14.5, fontWeight: 600, flex: 1 }}>Question {i + 1}</span>
-                <span style={{ color: open ? '#E2562B' : 'rgba(184,137,62,0.75)', fontSize: 16, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s, color 0.2s', display: 'inline-block', flexShrink: 0 }}>▸</span>
+                <span style={{ color: open ? '#C4471F' : 'rgba(184,137,62,0.75)', fontSize: 16, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s, color 0.2s', display: 'inline-block', flexShrink: 0 }}>▸</span>
               </button>
 
               {open && (
@@ -597,7 +597,7 @@ export default function ExamDetail() {
                       const bd = isCorrect ? '1px solid rgba(46,125,90,0.4)' : isYour ? '1px solid rgba(192,57,43,0.3)' : '1px solid #EAE7E1';
                       return (
                         <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: bg, border: bd }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#8C8880', width: 16 }}>{key.toUpperCase()}</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#6F6B64', width: 16 }}>{key.toUpperCase()}</span>
                           <span style={{ fontSize: 14, flex: 1 }}>{text}</span>
                           {isCorrect && <span style={{ fontSize: 11, fontWeight: 700, color: '#2E7D5A' }}>CORRECT</span>}
                           {isYour && !isCorrect && <span style={{ fontSize: 11, fontWeight: 700, color: '#C0392B' }}>YOUR ANSWER</span>}
@@ -616,7 +616,7 @@ export default function ExamDetail() {
                     <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
                       <button
                         onClick={() => setAiPanelOpen((o) => ({ ...o, [qId]: !o[qId] }))}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', border: aiOpen ? '1px solid #E2562B' : '1px solid #C8C4BC', background: aiOpen ? 'rgba(226,86,43,0.06)' : '#fff', color: aiOpen ? '#E2562B' : '#0B0B0E', borderRadius: 9999, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', border: aiOpen ? '1px solid #E2562B' : '1px solid #C8C4BC', background: aiOpen ? 'rgba(226,86,43,0.06)' : '#fff', color: aiOpen ? '#C4471F' : '#0B0B0E', borderRadius: 9999, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
                       >
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -650,7 +650,7 @@ export default function ExamDetail() {
                         />
                       ) : (
                         <>
-                          <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', margin: '0 0 12px' }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', margin: '0 0 12px' }}>
                             How did you approach this?
                           </p>
                           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -660,7 +660,7 @@ export default function ExamDetail() {
                                 <button
                                   key={chip.value}
                                   onClick={() => setAiPending((p) => ({ ...p, [qId]: { ...aiPendingQ, confidence: chip.value } }))}
-                                  style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: active ? '1.5px solid #0B0B0E' : '1px solid #C8C4BC', background: active ? '#0B0B0E' : '#fff', color: active ? '#fff' : '#8C8880', transition: 'all 0.15s' }}
+                                  style={{ padding: '8px 16px', borderRadius: 9999, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', border: active ? '1.5px solid #0B0B0E' : '1px solid #C8C4BC', background: active ? '#0B0B0E' : '#fff', color: active ? '#fff' : '#6F6B64', transition: 'all 0.15s' }}
                                 >
                                   {chip.label}
                                 </button>
@@ -677,7 +677,7 @@ export default function ExamDetail() {
                           <button
                             onClick={() => handleAiGuidance(qId)}
                             disabled={!aiPendingQ.confidence || isAiLoading}
-                            style={{ height: 38, padding: '0 20px', borderRadius: 9999, border: 'none', background: aiPendingQ.confidence && !isAiLoading ? '#E2562B' : '#C8C4BC', color: '#fff', fontSize: 13, fontWeight: 600, cursor: aiPendingQ.confidence && !isAiLoading ? 'pointer' : 'default', fontFamily: 'inherit' }}
+                            style={{ height: 38, padding: '0 20px', borderRadius: 9999, border: 'none', background: aiPendingQ.confidence && !isAiLoading ? '#C4471F' : '#C8C4BC', color: '#fff', fontSize: 13, fontWeight: 600, cursor: aiPendingQ.confidence && !isAiLoading ? 'pointer' : 'default', fontFamily: 'inherit' }}
                           >
                             {isAiLoading ? 'Analysing…' : 'Get AI Guidance →'}
                           </button>
@@ -695,7 +695,7 @@ export default function ExamDetail() {
       {/* Actions */}
       <div style={{ display: 'flex', gap: 12, marginTop: 30, flexDirection: isMobile ? 'column' : 'row' }}>
         <button onClick={() => navigate('/student/results')} style={{ height: 48, padding: '0 26px', background: '#fff', color: '#0B0B0E', border: '1px solid #C8C4BC', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: isMobile ? '100%' : undefined }}>View all results</button>
-        <button onClick={() => navigate('/student/dashboard')} style={{ height: 48, padding: '0 26px', background: '#E2562B', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 10px rgba(226,86,43,0.26)', width: isMobile ? '100%' : undefined }}>Back to dashboard</button>
+        <button onClick={() => navigate('/student/dashboard')} style={{ height: 48, padding: '0 26px', background: '#C4471F', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 10px rgba(226,86,43,0.26)', width: isMobile ? '100%' : undefined }}>Back to dashboard</button>
       </div>
 
       {/* Chat panel — fixed bottom, practice and mock exams */}
@@ -705,16 +705,16 @@ export default function ExamDetail() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#0D7377', flexShrink: 0 }} />
               <span style={{ fontSize: 13.5, fontWeight: 700 }}>SAT Tutor</span>
-              <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.4)', fontWeight: 500 }}>
+              <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.58)', fontWeight: 500 }}>
                 · Q{(results.findIndex((r) => r.id === chatQuestionId) + 1) || ''}
               </span>
             </div>
-            <button onClick={() => setChatQuestionId(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#8C8880', fontSize: 22, lineHeight: 1, padding: 0, fontFamily: 'inherit' }}>×</button>
+            <button onClick={() => setChatQuestionId(null)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#6F6B64', fontSize: 22, lineHeight: 1, padding: 0, fontFamily: 'inherit' }}>×</button>
           </div>
 
           <div ref={chatMessagesRef} className="scrollarea" style={{ flex: 1, overflowY: 'auto', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {chatMessages.length === 0 && (
-              <p style={{ color: 'rgba(11,11,14,0.4)', fontSize: 13.5, textAlign: 'center', margin: '20px 0 0' }}>
+              <p style={{ color: 'rgba(11,11,14,0.58)', fontSize: 13.5, textAlign: 'center', margin: '20px 0 0' }}>
                 Ask anything about this question — grammar rules, what the passage means, strategy.
               </p>
             )}

@@ -82,17 +82,17 @@ export default function Mistakes() {
       style={{
         padding: '5px 14px', fontSize: 12.5, fontWeight: 600, borderRadius: 9999,
         border: active ? 'none' : '1px solid #E7E4DE', background: active ? '#0B0B0E' : '#F2F0EC',
-        color: active ? '#fff' : '#8C8880', cursor: 'pointer', fontFamily: 'inherit',
+        color: active ? '#fff' : '#6F6B64', cursor: 'pointer', fontFamily: 'inherit',
       }}
     >{label}</button>
   );
 
   return (
     <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 80px' : '36px 48px 64px' }}>
-      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>
+      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>
         Mistake Bank
       </h1>
-      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.55)', margin: '0 0 20px' }}>
+      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.64)', margin: '0 0 20px' }}>
         Every question you've missed, worst first. Answer one correctly and it clears itself.
       </p>
 
@@ -105,14 +105,14 @@ export default function Mistakes() {
       {/* Headline + practise-everything */}
       <div style={{ ...CARD, padding: isMobile ? '18px 20px' : '22px 24px', marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>Still open</div>
-          <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 40 : 50, lineHeight: 1, color: totalOpen > 0 ? '#C47A1B' : '#1A6B3C' }}>{totalOpen}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)' }}>Still open</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 40 : 50, lineHeight: 1, color: totalOpen > 0 ? '#C47A1B' : '#1A6B3C' }}>{totalOpen}</div>
         </div>
         {totalOpen > 0 && (
           <button
             onClick={() => { setError(''); practiceMutation.mutate(subject === 'all' ? {} : { subject }); }}
             disabled={practiceMutation.isPending}
-            style={{ height: 42, padding: '0 22px', border: 'none', borderRadius: 9999, background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: practiceMutation.isPending ? 'default' : 'pointer', opacity: practiceMutation.isPending ? 0.6 : 1, fontFamily: 'inherit' }}
+            style={{ height: 42, padding: '0 22px', border: 'none', borderRadius: 9999, background: '#C4471F', color: '#fff', fontSize: 14, fontWeight: 600, cursor: practiceMutation.isPending ? 'default' : 'pointer', opacity: practiceMutation.isPending ? 0.6 : 1, fontFamily: 'inherit' }}
           >
             {practiceMutation.isPending ? 'Building…' : `Practise these (${Math.min(totalOpen, 20)})`}
           </button>
@@ -130,13 +130,13 @@ export default function Mistakes() {
       </div>
 
       {isLoading ? (
-        <div style={{ ...CARD, padding: '40px 22px', textAlign: 'center', color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>Loading…</div>
+        <div style={{ ...CARD, padding: '40px 22px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>Loading…</div>
       ) : ordered.length === 0 ? (
         <div style={{ ...CARD, padding: '48px 22px', textAlign: 'center' }}>
-          <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 26, color: 'rgba(11,11,14,0.5)', marginBottom: 6 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, color: 'rgba(11,11,14,0.64)', marginBottom: 6 }}>
             {status === 'open' ? 'Nothing to review' : 'Nothing resolved yet'}
           </div>
-          <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.45)', margin: 0 }}>
+          <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.58)', margin: 0 }}>
             {status === 'open'
               ? 'Questions you miss on an exam land here automatically.'
               : 'Clear an open mistake by answering it correctly in a review.'}
@@ -150,7 +150,7 @@ export default function Mistakes() {
                 <span style={{ fontSize: 15, fontWeight: 600 }}>
                   {domainCode === 'untagged' ? 'Untagged' : skillLabel(skillTree, domainCode)}
                 </span>
-                <span style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.45)', fontFamily: "'JetBrains Mono', monospace" }}>
+                <span style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', fontFamily: 'var(--font-mono)' }}>
                   {rows.length} question{rows.length === 1 ? '' : 's'}
                 </span>
                 {status === 'open' && domainCode !== 'untagged' && (
@@ -170,14 +170,14 @@ export default function Mistakes() {
                       onClick={() => setExpanded((prev) => ({ ...prev, [mistake.questionId]: !prev[mistake.questionId] }))}
                       style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
                     >
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 9999, background: mistake.missCount > 1 ? 'rgba(192,57,43,0.1)' : '#F2F0EC', color: mistake.missCount > 1 ? '#C0392B' : '#8C8880', flexShrink: 0 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 9999, background: mistake.missCount > 1 ? 'rgba(192,57,43,0.1)' : '#F2F0EC', color: mistake.missCount > 1 ? '#C0392B' : '#6F6B64', flexShrink: 0 }}>
                         ×{mistake.missCount}
                       </span>
                       <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {mistake.questionText}
                       </span>
                       {mistake.skillLabel && !isMobile && (
-                        <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.4)', flexShrink: 0 }}>{mistake.skillLabel}</span>
+                        <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.58)', flexShrink: 0 }}>{mistake.skillLabel}</span>
                       )}
                       {mistake.resolvedAt && (
                         <span style={{ fontSize: 11, fontWeight: 600, color: '#2E7D5A', flexShrink: 0 }}>✓ resolved</span>
@@ -206,7 +206,7 @@ export default function Mistakes() {
                         {mistake.explanation && (
                           <p style={{ margin: '0 0 8px', color: 'rgba(11,11,14,0.65)' }}>{mistake.explanation}</p>
                         )}
-                        <p style={{ margin: 0, fontSize: 12, color: 'rgba(11,11,14,0.4)' }}>
+                        <p style={{ margin: 0, fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>
                           First missed {formatDate(mistake.firstMissedAt)} · last {formatDate(mistake.lastMissedAt)}
                           {mistake.resolvedAt && ` · resolved ${formatDate(mistake.resolvedAt)}`}
                         </p>

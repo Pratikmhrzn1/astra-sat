@@ -66,10 +66,10 @@ export default function JoinLiveExam() {
 
   return (
     <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 80px' : '36px 48px 64px', maxWidth: 620 }}>
-      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>
+      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>
         Join a Live Exam
       </h1>
-      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.55)', margin: '0 0 24px', lineHeight: 1.6 }}>
+      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.64)', margin: '0 0 24px', lineHeight: 1.6 }}>
         Your teacher will give you a six-character code when the class is ready to start.
         Enter it here and you'll wait in the lobby until they begin.
       </p>
@@ -98,12 +98,12 @@ export default function JoinLiveExam() {
             width: '100%', height: 62, padding: '0 18px', border: '1px solid #C8C4BC',
             borderRadius: 12, background: '#FBFAF8', color: '#0B0B0E',
             fontSize: isMobile ? 26 : 30, fontWeight: 600, letterSpacing: '0.35em',
-            textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", outline: 'none',
+            textAlign: 'center', fontFamily: 'var(--font-mono)', outline: 'none',
             textTransform: 'uppercase',
           }}
         />
 
-        <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)', margin: '8px 0 0', textAlign: 'center' }}>
+        <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)', margin: '8px 0 0', textAlign: 'center' }}>
           {code.length}/{CODE_LENGTH}
         </div>
 
@@ -119,7 +119,7 @@ export default function JoinLiveExam() {
           style={{
             width: '100%', height: 46, marginTop: 16, border: 'none', borderRadius: 9999,
             background: ready && !checking ? '#E2562B' : '#E7E4DE',
-            color: ready && !checking ? '#fff' : 'rgba(11,11,14,0.35)',
+            color: ready && !checking ? '#fff' : 'rgba(11,11,14,0.58)',
             fontSize: 15, fontWeight: 600, fontFamily: 'inherit',
             cursor: ready && !checking ? 'pointer' : 'default',
           }}
@@ -128,11 +128,11 @@ export default function JoinLiveExam() {
         </button>
       </form>
 
-      <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.45)', margin: '18px 0 0', lineHeight: 1.6 }}>
+      <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.58)', margin: '18px 0 0', lineHeight: 1.6 }}>
         Already sat one? Released results appear under{' '}
         <button
           onClick={() => navigate('/student/results?tab=live')}
-          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: '#E2562B', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
+          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: '#C4471F', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
         >History → Live exams</button>.
       </p>
     </div>

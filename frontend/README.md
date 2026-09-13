@@ -22,7 +22,8 @@ src/
     providers.tsx     the React Query client
     router.tsx        the entire route table
     guards/           ProtectedRoute
-  layouts/          the three role shells (nav + <Outlet/>)
+  layouts/          the three role shells, all built on AppShell.tsx
+                    (sidebar ≥1280px, icon rail 640–1279px, tab bar + More sheet <640px)
   shared/           anything two features may both use
     api/client.ts     the single axios instance
     ui/               design-system primitives, imported via '@/shared/ui'
@@ -72,6 +73,15 @@ failures are swallowed, because losing a cache write must never interrupt a test
 `ui/` primitives use Tailwind classes; pages use `style` objects and a local
 `CARD` constant. Follow whichever the file you are editing already uses rather
 than converting between them.
+
+**Design tokens live in `src/index.css`.** Type has three roles: headings and
+scores use `var(--font-display)` (Bricolage Grotesque), reading passages use
+`var(--font-reading)` (Newsreader), and all UI text is the system face. Both web
+fonts load via a `<link>` in `index.html` — never a CSS `@import`, which the
+build drops after `@tailwind`.
+Motion uses `--ease-spring` and must degrade under `prefers-reduced-motion`.
+Buttons get press feedback from a global `:active` rule, so don't add
+hover-only feedback via `onMouseEnter` in new code.
 
 ## Conventions
 

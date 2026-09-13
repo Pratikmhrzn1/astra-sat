@@ -34,7 +34,7 @@ export function AccuracyBars({
 }) {
   if (rows.length === 0) {
     return (
-      <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.4)', margin: '8px 0 0', lineHeight: 1.6 }}>
+      <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.58)', margin: '8px 0 0', lineHeight: 1.6 }}>
         Nothing tagged here yet. Domains appear once you've answered questions in them.
       </p>
     );
@@ -52,11 +52,11 @@ export function AccuracyBars({
                 {row.label}
               </span>
               {thin ? (
-                <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)' }}>
+                <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>
                   {row.attempted} {row.attempted === 1 ? 'question' : 'questions'} — not enough yet
                 </span>
               ) : (
-                <span style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.5)', fontFamily: "'JetBrains Mono', monospace" }}>
+                <span style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.64)', fontFamily: 'var(--font-mono)' }}>
                   {row.correct}/{row.attempted}
                   <strong style={{ color: '#0B0B0E', marginLeft: 8 }}>{row.accuracy}%</strong>
                 </span>
@@ -64,7 +64,7 @@ export function AccuracyBars({
               {onPractise && (
                 <button
                   onClick={() => onPractise(row.code)}
-                  style={{ border: 'none', background: 'none', padding: 0, font: 'inherit', fontSize: 12.5, fontWeight: 600, color: '#E2562B', cursor: 'pointer' }}
+                  style={{ border: 'none', background: 'none', padding: 0, font: 'inherit', fontSize: 12.5, fontWeight: 600, color: '#C4471F', cursor: 'pointer' }}
                 >Practise</button>
               )}
             </div>

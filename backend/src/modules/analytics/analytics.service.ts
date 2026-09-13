@@ -162,10 +162,26 @@ export async function scoreTrend(studentId: string): Promise<TrendPoint[]> {
     SELECT e.completed_at AS at, 'practice' AS kind,
            COALESCE(qs.title, e.label, 'Practice') AS label,
            NULL AS total,
-           CASE WHEN qs.subject = 'english' THEN e.scaled_score END AS rw,
-           CASE WHEN qs.subject = 'math'    THEN e.scaled_score END AS math
+           CASE WHEN subj.subject = 'english' THEN e.scaled_score END AS rw,
+           CASE WHEN subj.subject = 'math'    THEN e.scaled_score END AS math
       FROM exams e
       LEFT JOIN question_sets qs ON qs.id = e.set_id
+      -- A set-less exam (topic practice, mistake review) has no set to name its
+      -- subject, and without one both columns above are NULL and the point
+      -- silently drops out of the trend. Its first question's set gives the
+      -- subject, the same rule listExamsForStudent uses.
+      CROSS JOIN LATERAL (
+        SELECT COALESCE(
+          qs.subject,
+          (SELECT fqs.subject
+             FROM exam_answers ea
+             JOIN questions q ON q.id = ea.question_id
+             JOIN question_sets fqs ON fqs.id = q.set_id
+            WHERE ea.exam_id = e.id
+            ORDER BY ea.order_index
+            LIMIT 1)
+        ) AS subject
+      ) subj
      WHERE e.student_id = ${studentId}
        AND e.scaled_score IS NOT NULL
        AND ${VISIBLE_EXAM}
@@ -195,6 +211,22 @@ export interface Readiness {
   daysToTest: number | null;
   /** How much weight to put on the above. Arithmetic, not a model. */
   confidence: 'none' | 'low' | 'fair';
+  /**
+   * The one estimated score every surface shows — Dashboard hero, Progress,
+   * the teacher's view — so they can never disagree.
+   *
+   * The latest scored mock when there is one, since only a mock measures both
+   * sections under test conditions. Otherwise the latest scaled practice score
+   * in each section, with a total only when both exist. Never invented: a
+   * section with no scaled score stays null. `source` says which, and the UI
+   * must label a practice-based estimate as such.
+   */
+  estimate: {
+    total: number | null;
+    rw: number | null;
+    math: number | null;
+    source: 'mock' | 'practice' | null;
+  };
 }
 
 /**
@@ -205,8 +237,8 @@ export interface Readiness {
  * of mocks per student, and a confident wrong number about someone's university
  * chances is worse than no number.
  */
-export async function readiness(studentId: string): Promise<Readiness> {
-  const [profile, mockRows] = await Promise.all([
+export async function readiness(studentId: string, trend?: TrendPoint[]): Promise<Readiness> {
+  const [profile, mockRows, points] = await Promise.all([
     getProfile(studentId),
     db.execute<{ total: number }>(sql`
       SELECT total_score AS total
@@ -216,6 +248,7 @@ export async function readiness(studentId: string): Promise<Readiness> {
          AND total_score IS NOT NULL
        ORDER BY completed_at DESC
     `),
+    trend ?? scoreTrend(studentId),
   ]);
 
   const totals = (mockRows.rows as { total: number }[]).map((r) => Number(r.total));
@@ -225,6 +258,7 @@ export async function readiness(studentId: string): Promise<Readiness> {
     ? Math.round(recent.reduce((sum, v) => sum + v, 0) / recent.length)
     : null;
 
+  const estimate = estimateFrom(points);
   const targetScore = profile?.targetScore ?? null;
   const daysToTest = profile?.testDate
     ? Math.round((new Date(`${profile.testDate}T00:00:00`).getTime() - startOfToday()) / 86_400_000)
@@ -235,10 +269,27 @@ export async function readiness(studentId: string): Promise<Readiness> {
     rollingAverage,
     mocksTaken: totals.length,
     targetScore,
-    gap: targetScore !== null && latestTotal !== null ? targetScore - latestTotal : null,
+    gap: targetScore !== null && estimate.total !== null ? targetScore - estimate.total : null,
     testDate: profile?.testDate ?? null,
     daysToTest,
     confidence: totals.length === 0 ? 'none' : totals.length < MIN_MOCKS_FOR_CONFIDENCE ? 'low' : 'fair',
+    estimate,
+  };
+}
+
+/** See `Readiness.estimate`. `points` is scoreTrend's output, oldest first. */
+function estimateFrom(points: TrendPoint[]): Readiness['estimate'] {
+  const newestFirst = [...points].reverse();
+  const mock = newestFirst.find((p) => p.kind === 'mock' && p.total !== null);
+  if (mock) return { total: mock.total, rw: mock.rw, math: mock.math, source: 'mock' };
+
+  const rw = newestFirst.find((p) => p.kind === 'practice' && p.rw !== null)?.rw ?? null;
+  const math = newestFirst.find((p) => p.kind === 'practice' && p.math !== null)?.math ?? null;
+  return {
+    total: rw !== null && math !== null ? rw + math : null,
+    rw,
+    math,
+    source: rw !== null || math !== null ? 'practice' : null,
   };
 }
 
@@ -250,11 +301,11 @@ function startOfToday(): number {
 
 /** Everything the progress view needs, in one round trip. */
 export async function overview(studentId: string) {
-  const [domains, skills, trend, ready] = await Promise.all([
+  const trend = await scoreTrend(studentId);
+  const [domains, skills, ready] = await Promise.all([
     domainAccuracy([studentId]),
     skillAccuracy([studentId]),
-    scoreTrend(studentId),
-    readiness(studentId),
+    readiness(studentId, trend),
   ]);
 
   return { domains, skills, trend, readiness: ready, minAttempts: MIN_ATTEMPTS_FOR_ACCURACY };

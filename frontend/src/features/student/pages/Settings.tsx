@@ -14,7 +14,7 @@ import { TOTAL_MAX, TOTAL_MIN, daysUntil } from '@/shared/lib/score';
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function SectionTitle({ children }: { children: string }) {
-  return <h3 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.45)', margin: '0 0 10px' }}>{children}</h3>;
+  return <h3 style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', margin: '0 0 10px' }}>{children}</h3>;
 }
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
@@ -38,7 +38,7 @@ function Row({ title, desc, control, last, stack }: { title: string; desc?: stri
     }}>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 14.5, fontWeight: 600 }}>{title}</div>
-        {desc && <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.5)', marginTop: 2 }}>{desc}</div>}
+        {desc && <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.64)', marginTop: 2 }}>{desc}</div>}
       </div>
       <div style={{ width: stack ? '100%' : undefined }}>{control}</div>
     </div>
@@ -86,15 +86,15 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(11,11,14,0.35)' }} onClick={onClose} />
       <div className="pop" style={{ position: 'relative', background: '#fff', borderRadius: 20, padding: '28px 28px 24px', width: '100%', maxWidth: 420, boxShadow: '0 24px 64px rgba(11,11,14,0.18)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 26, margin: 0, letterSpacing: '-0.02em' }}>Change password</h2>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#8C8880', fontSize: 22, lineHeight: 1, padding: 0 }}>×</button>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, margin: 0, letterSpacing: '-0.02em' }}>Change password</h2>
+          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#6F6B64', fontSize: 22, lineHeight: 1, padding: 0 }}>×</button>
         </div>
 
         {done ? (
           <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>✅</div>
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Password updated</div>
-            <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.5)', marginBottom: 24 }}>Your password has been changed successfully.</div>
+            <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)', marginBottom: 24 }}>Your password has been changed successfully.</div>
             <button onClick={onClose} style={{ height: 44, padding: '0 28px', background: '#0B0B0E', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Done</button>
           </div>
         ) : (
@@ -243,8 +243,8 @@ export default function StudentSettings() {
 
   return (
     <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 80px' : '36px 48px 64px', maxWidth: 820, margin: '0 auto' }}>
-      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Settings</h1>
-      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.55)', margin: '0 0 28px' }}>Manage your profile and how the platform behaves for you.</p>
+      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Settings</h1>
+      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.64)', margin: '0 0 28px' }}>Manage your profile and how the platform behaves for you.</p>
 
       {/* ── Profile ── */}
       <div style={{ marginBottom: 26 }}>
@@ -257,7 +257,7 @@ export default function StudentSettings() {
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: isMobile ? 15 : 16, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
-              <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
+              <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.64)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
             </div>
           </div>
 
@@ -275,7 +275,7 @@ export default function StudentSettings() {
               <button
                 onClick={handleSaveName}
                 disabled={nameSaving || !nameChanged}
-                style={{ height: 42, padding: '0 18px', border: 'none', borderRadius: 10, fontSize: 13.5, fontWeight: 600, cursor: (nameSaving || !nameChanged) ? 'default' : 'pointer', fontFamily: 'inherit', background: nameSaved ? '#2E7D5A' : (nameSaving || !nameChanged) ? '#E7E4DE' : '#0B0B0E', color: nameSaved ? '#fff' : (nameSaving || !nameChanged) ? '#A8A49C' : '#fff', transition: 'background 0.2s', flexShrink: 0 }}
+                style={{ height: 42, padding: '0 18px', border: 'none', borderRadius: 10, fontSize: 13.5, fontWeight: 600, cursor: (nameSaving || !nameChanged) ? 'default' : 'pointer', fontFamily: 'inherit', background: nameSaved ? '#2E7D5A' : (nameSaving || !nameChanged) ? '#E7E4DE' : '#0B0B0E', color: nameSaved ? '#fff' : (nameSaving || !nameChanged) ? '#6F6B64' : '#fff', transition: 'background 0.2s', flexShrink: 0 }}
               >
                 {nameSaving ? 'Saving…' : nameSaved ? '✓ Saved' : 'Save'}
               </button>
@@ -286,10 +286,10 @@ export default function StudentSettings() {
           {/* Email — read only */}
           <div style={{ padding: '15px 20px' }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 7 }}>Email address</label>
-            <div style={{ height: 42, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 10, fontSize: 14, background: '#F8F6F2', color: 'rgba(11,11,14,0.5)', display: 'flex', alignItems: 'center' }}>
+            <div style={{ height: 42, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 10, fontSize: 14, background: '#F8F6F2', color: 'rgba(11,11,14,0.64)', display: 'flex', alignItems: 'center' }}>
               {user?.email}
             </div>
-            <p style={{ margin: '5px 0 0', fontSize: 12, color: 'rgba(11,11,14,0.4)' }}>Email cannot be changed here. Contact your teacher or admin.</p>
+            <p style={{ margin: '5px 0 0', fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>Email cannot be changed here. Contact your teacher or admin.</p>
           </div>
         </div>
       </div>
@@ -342,7 +342,7 @@ export default function StudentSettings() {
               <button
                 onClick={handleSaveGoal}
                 disabled={goalMutation.isPending}
-                style={{ height: 38, padding: '0 16px', border: 'none', background: '#E2562B', color: '#fff', borderRadius: 9999, fontSize: 13, fontWeight: 600, cursor: goalMutation.isPending ? 'default' : 'pointer', opacity: goalMutation.isPending ? 0.6 : 1, fontFamily: 'inherit', width: isMobile ? '100%' : undefined }}
+                style={{ height: 38, padding: '0 16px', border: 'none', background: '#C4471F', color: '#fff', borderRadius: 9999, fontSize: 13, fontWeight: 600, cursor: goalMutation.isPending ? 'default' : 'pointer', opacity: goalMutation.isPending ? 0.6 : 1, fontFamily: 'inherit', width: isMobile ? '100%' : undefined }}
               >
                 {goalMutation.isPending ? 'Saving…' : 'Save'}
               </button>

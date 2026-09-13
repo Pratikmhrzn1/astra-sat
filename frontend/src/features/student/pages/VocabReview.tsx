@@ -34,7 +34,7 @@ export default function VocabReview() {
   if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-        <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, color: 'rgba(11,11,14,0.4)' }}>Loading your vocab queue…</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: 'rgba(11,11,14,0.58)' }}>Loading your vocab queue…</div>
       </div>
     );
   }
@@ -43,8 +43,8 @@ export default function VocabReview() {
     return (
       <div style={{ padding: isMobile ? '40px 20px 80px' : '60px 48px', maxWidth: 580, margin: '0 auto', textAlign: 'center' }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
-        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 28 : 34, margin: '0 0 10px' }}>All caught up!</h2>
-        <p style={{ color: 'rgba(11,11,14,0.5)', fontSize: 15, margin: '0 0 28px' }}>No words are due for review right now. Come back tomorrow.</p>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 28 : 34, margin: '0 0 10px' }}>All caught up!</h2>
+        <p style={{ color: 'rgba(11,11,14,0.64)', fontSize: 15, margin: '0 0 28px' }}>No words are due for review right now. Come back tomorrow.</p>
         <button
           onClick={() => navigate('/student/dashboard')}
           style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#0B0B0E', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
@@ -59,8 +59,8 @@ export default function VocabReview() {
     return (
       <div style={{ padding: isMobile ? '40px 20px 80px' : '60px 48px', maxWidth: 560, margin: '0 auto', textAlign: 'center' }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>{correctCount === sessionResults.length ? '🌟' : '📚'}</div>
-        <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 28 : 34, margin: '0 0 10px' }}>Session complete</h2>
-        <p style={{ color: 'rgba(11,11,14,0.5)', fontSize: 15, margin: '0 0 28px' }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 28 : 34, margin: '0 0 10px' }}>Session complete</h2>
+        <p style={{ color: 'rgba(11,11,14,0.64)', fontSize: 15, margin: '0 0 28px' }}>
           {correctCount} / {sessionResults.length} correct
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 32, textAlign: 'left', background: '#fff', borderRadius: 14, border: '1px solid #E7E4DE', padding: '16px 20px' }}>
@@ -102,7 +102,7 @@ export default function VocabReview() {
   };
 
   const nextBtn = (
-    <button onClick={handleNext} style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#E2562B', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+    <button onClick={handleNext} style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#C4471F', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
       {idx + 1 >= items.length ? 'Finish session' : 'Next word →'}
     </button>
   );
@@ -114,11 +114,11 @@ export default function VocabReview() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 4 }}>Vocab Review</div>
-          <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 24 : 32, margin: 0 }}>Daily flashcards</h1>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 4 }}>Vocab Review</div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 24 : 32, margin: 0 }}>Daily flashcards</h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 16 }}>
-          <span style={{ fontSize: 13, color: 'rgba(11,11,14,0.45)', fontWeight: 600 }}>{idx + 1} / {items.length}</span>
+          <span style={{ fontSize: 13, color: 'rgba(11,11,14,0.58)', fontWeight: 600 }}>{idx + 1} / {items.length}</span>
           <button onClick={() => navigate('/student/dashboard')} style={{ height: 36, padding: '0 14px', borderRadius: 9999, border: '1px solid #C8C4BC', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Exit</button>
         </div>
       </div>
@@ -133,7 +133,7 @@ export default function VocabReview() {
         <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#0D7377', marginBottom: 10 }}>
           {item.source === 'teacher' ? 'Example sentence' : 'Word in context'}
         </div>
-        <p style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 17 : 20, lineHeight: 1.65, color: '#0B0B0E', margin: '0 0 14px', fontStyle: 'italic' }}>
+        <p style={{ fontFamily: 'var(--font-reading)', fontSize: isMobile ? 17 : 20, lineHeight: 1.6, color: '#0B0B0E', margin: '0 0 14px', fontStyle: 'italic' }}>
           "{item.passageExcerpt || (vd?.sentenceContext ?? '')}"
         </p>
         <div style={{ display: 'inline-block', background: 'rgba(0,128,128,0.08)', border: '1px solid rgba(0,128,128,0.2)', borderRadius: 8, padding: '5px 12px', fontSize: 15, fontWeight: 700, color: '#0D7377' }}>
@@ -145,14 +145,14 @@ export default function VocabReview() {
       {item.source === 'teacher' && (
         !flipped ? (
           <div style={{ textAlign: 'center' }}>
-            <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.5)', marginBottom: 16 }}>Try to recall the definition of "{item.word}", then reveal.</p>
+            <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)', marginBottom: 16 }}>Try to recall the definition of "{item.word}", then reveal.</p>
             <button onClick={handleFlip} style={{ height: 44, padding: '0 28px', borderRadius: 9999, border: '2px solid #0D7377', background: '#fff', color: '#0D7377', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
               Reveal definition
             </button>
           </div>
         ) : (
           <div style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 18, padding: isMobile ? '20px 20px' : '28px 32px', boxShadow: '0 2px 12px rgba(11,11,14,0.06)' }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 8 }}>Definition</div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 8 }}>Definition</div>
             <p style={{ fontSize: 16, lineHeight: 1.6, color: '#0B0B0E', margin: '0 0 20px' }}>{item.definition}</p>
             {!submitted ? (
               <div style={{ display: 'flex', gap: 10 }}>
@@ -178,7 +178,7 @@ export default function VocabReview() {
       {item.source === 'question' && vd && (
         !flipped ? (
           <div style={{ textAlign: 'center' }}>
-            <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.5)', marginBottom: 16 }}>Try to recall what "{item.word}" means in this sentence, then flip.</p>
+            <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)', marginBottom: 16 }}>Try to recall what "{item.word}" means in this sentence, then flip.</p>
             <button onClick={handleFlip} style={{ height: 44, padding: '0 28px', borderRadius: 9999, border: '2px solid #0D7377', background: '#fff', color: '#0D7377', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em' }}>
               Flip — show question
             </button>

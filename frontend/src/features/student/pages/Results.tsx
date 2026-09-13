@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getExams, getMockTests } from '@/features/student/api/student.api';
+import { getAnalytics, getExams } from '@/features/student/api/student.api';
+import { TREND_COLORS } from '@/shared/ui';
 import { getLiveExamResults, type LiveExamResult } from '@/features/live-exam/api/live-exam.api';
 import { useMobile } from '@/shared/hooks/useMobile';
 import { NO_SCORE, SECTION_MAX, formatExamScore, scoreColor } from '@/shared/lib/score';
@@ -30,7 +31,6 @@ export default function Results() {
   }, [mainTab]);
 
   const { data: exams = [], isLoading } = useQuery({ queryKey: ['student', 'exams'], queryFn: getExams });
-  const { data: mockTests = [] } = useQuery({ queryKey: ['student', 'mock-tests'], queryFn: getMockTests });
 
   const completed = exams.filter((e) => e.status === 'completed');
   const shown = filter === 'All' ? completed : completed.filter((e) => e.type === filter);
@@ -41,73 +41,26 @@ export default function Results() {
     { label: 'Individual', value: 'individual' },
   ];
 
-  /**
-   * Every 200-800 section score this student has, oldest first.
-   *
-   * Two sources, because a section score can be earned two ways and both belong
-   * on the same trend line:
-   *
-   *  - a standalone exam (practice, or a live exam) carries its own
-   *    `scaledScore`;
-   *  - a mock's section score lives on the *mock*, not its modules. A module is
-   *    half a section and is deliberately left unscored, so reading only the
-   *    exam list would silently drop every mock a student has ever sat — for
-   *    most students, the majority of their history and the only measurement
-   *    taken under test conditions.
-   *
-   * An exam too short to scale contributes nothing rather than a number invented
-   * here.
-   */
-  const sectionScores = (subject: 'english' | 'math') => {
-    const fromExams = completed
-      .filter((e) => e.subject === subject && e.scaledScore !== null)
-      .map((e) => ({ at: e.completedAt ?? e.startedAt, score: e.scaledScore! }));
+  // Both trend lines and the best score read the server's scoreTrend — the same
+  // series the Progress page and the teacher see — rather than re-deriving it
+  // here from the exam and mock lists. The client copy had already drifted:
+  // topic-practice exams carry no set, so it could not tell their subject.
+  const { data: analytics } = useQuery({ queryKey: ['student', 'analytics'], queryFn: getAnalytics });
+  const trend = analytics?.trend ?? [];
+  const rwPoints = trend.filter((p) => p.rw !== null).map((p) => ({ at: p.at, value: p.rw }));
+  const mathPoints = trend.filter((p) => p.math !== null).map((p) => ({ at: p.at, value: p.math }));
 
-    const fromMocks = mockTests
-      .filter((m) => m.status === 'completed')
-      .map((m) => ({
-        at: m.completedAt ?? m.startedAt,
-        score: subject === 'english' ? m.rwScore : m.mathScore,
-      }))
-      .filter((point): point is { at: string; score: number } => point.score !== null);
-
-    return [...fromExams, ...fromMocks]
-      .sort((a, b) => a.at.localeCompare(b.at))
-      .map((point) => point.score);
-  };
-
-  const rwSeries = sectionScores('english');
-  const mathSeries = sectionScores('math');
-
-  const bestScore = [...rwSeries, ...mathSeries].reduce<number | null>(
-    (best, score) => (best === null || score > best ? score : best),
+  const bestScore = [...rwPoints, ...mathPoints].reduce<number | null>(
+    (best, p) => (p.value !== null && (best === null || p.value > best) ? p.value : best),
     null,
   );
-
-  const Spark = ({ series, color }: { series: number[]; color: string }) => {
-    if (series.length < 2) return <div style={{ height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(11,11,14,0.3)', fontSize: 12 }}>Not enough data</div>;
-    const w = 280, ht = isMobile ? 50 : 70, pad = 8;
-    const min = Math.min(...series) - 15, max = Math.max(...series) + 15;
-    const rng = Math.max(1, max - min);
-    const step = (w - pad * 2) / (series.length - 1);
-    const pts = series.map((v, i) => [pad + i * step, ht - pad - ((v - min) / rng) * (ht - pad * 2)] as [number, number]);
-    const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
-    const area = d + ' L ' + pts[pts.length - 1][0].toFixed(1) + ' ' + ht + ' L ' + pts[0][0].toFixed(1) + ' ' + ht + ' Z';
-    return (
-      <svg viewBox={`0 0 ${w} ${ht}`} preserveAspectRatio="none" style={{ width: '100%', height: ht, display: 'block' }}>
-        <path d={area} fill={color} opacity={0.09} />
-        <path d={d} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r={i === pts.length - 1 ? 4 : 2.6} fill={i === pts.length - 1 ? color : '#fff'} stroke={color} strokeWidth={1.6} />)}
-      </svg>
-    );
-  };
 
   const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)' };
 
   return (
     <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 80px' : '36px 48px 64px' }}>
-      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>History</h1>
-      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.55)', margin: '0 0 16px' }}>Every test you've taken, scored and timestamped.</p>
+      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>History</h1>
+      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.64)', margin: '0 0 16px' }}>Every test you've taken, scored and timestamped.</p>
 
       {/* Main tab switcher */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
@@ -122,9 +75,9 @@ export default function Results() {
       {mainTab === 'live' && (
         <div>
           {liveLoading ? (
-            <div style={{ color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>Loading…</div>
+            <div style={{ color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>Loading…</div>
           ) : liveResults.length === 0 ? (
-            <div style={{ ...CARD, padding: '48px 24px', textAlign: 'center', color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>
+            <div style={{ ...CARD, padding: '48px 24px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>
               No live exam results yet. Results appear here once your teacher releases them.
             </div>
           ) : (
@@ -134,7 +87,7 @@ export default function Results() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                     <div>
                       <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>{r.sessionTitle}</p>
-                      <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.5)', margin: '2px 0 0' }}>
+                      <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.64)', margin: '2px 0 0' }}>
                         {r.startedAt ? new Date(r.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date unknown'}
                       </p>
                     </div>
@@ -153,7 +106,7 @@ export default function Results() {
                   </div>
                   {r.globalFeedback && (
                     <div style={{ marginTop: 12, borderTop: '1px solid #F0ECE4', paddingTop: 12 }}>
-                      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', margin: '0 0 4px' }}>Teacher Feedback</p>
+                      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', margin: '0 0 4px' }}>Teacher Feedback</p>
                       <p style={{ fontSize: 14, color: '#0B0B0E', margin: 0, whiteSpace: 'pre-line' }}>{r.globalFeedback}</p>
                     </div>
                   )}
@@ -172,36 +125,37 @@ export default function Results() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
           <div style={{ ...CARD, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 16 }}>
             <div>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 2 }}>Best score</div>
-              <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 38, lineHeight: 1, color: '#1A6B3C' }}>{bestScore ?? NO_SCORE}</div>
-              <div style={{ fontSize: 11, color: 'rgba(11,11,14,0.4)', marginTop: 4 }}>out of 800</div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 2 }}>Best score</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 38, lineHeight: 1, color: '#1A6B3C' }}>{bestScore ?? NO_SCORE}</div>
+              <div style={{ fontSize: 11, color: 'rgba(11,11,14,0.58)', marginTop: 4 }}>out of 800</div>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {/* Stacked, not side by side: a chart at half a phone's width shrinks its labels past legibility. */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
             <div style={{ ...CARD, padding: '14px 16px' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 6 }}>R&W trend</div>
-              <Spark series={rwSeries} color="#2E7D5A" />
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 6 }}>R&W trend</div>
+              <SectionTrend points={rwPoints} label="Reading & Writing" color={TREND_COLORS.english} isMobile={isMobile} />
             </div>
             <div style={{ ...CARD, padding: '14px 16px' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 6 }}>Math trend</div>
-              <Spark series={mathSeries} color="#2563A8" />
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 6 }}>Math trend</div>
+              <SectionTrend points={mathPoints} label="Math" color={TREND_COLORS.math} isMobile={isMobile} />
             </div>
           </div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 28 }}>
           <div style={{ ...CARD, padding: '20px 22px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 4 }}>Best score</div>
-            <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 46, lineHeight: 1, color: '#1A6B3C' }}>{bestScore ?? NO_SCORE}</div>
-            <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)', marginTop: 6 }}>out of 800</div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 4 }}>Best score</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 46, lineHeight: 1, color: '#1A6B3C' }}>{bestScore ?? NO_SCORE}</div>
+            <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)', marginTop: 6 }}>out of 800</div>
           </div>
           <div style={{ ...CARD, padding: '20px 22px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 8 }}>Reading & Writing trend</div>
-            <Spark series={rwSeries} color="#2E7D5A" />
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 8 }}>Reading & Writing trend</div>
+            <SectionTrend points={rwPoints} label="Reading & Writing" color={TREND_COLORS.english} isMobile={isMobile} />
           </div>
           <div style={{ ...CARD, padding: '20px 22px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 8 }}>Math trend</div>
-            <Spark series={mathSeries} color="#2563A8" />
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 8 }}>Math trend</div>
+            <SectionTrend points={mathPoints} label="Math" color={TREND_COLORS.math} isMobile={isMobile} />
           </div>
         </div>
       )}
@@ -217,9 +171,9 @@ export default function Results() {
 
       {/* List */}
       {isLoading ? (
-        <div style={{ color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>Loading…</div>
+        <div style={{ color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>Loading…</div>
       ) : shown.length === 0 ? (
-        <div style={{ ...CARD, padding: '48px 24px', textAlign: 'center', color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>No completed tests yet.</div>
+        <div style={{ ...CARD, padding: '48px 24px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>No completed tests yet.</div>
       ) : isMobile ? (
         /* Mobile: card list */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -234,19 +188,19 @@ export default function Results() {
                 key={e.id}
                 onClick={() => navigate(`/student/results/${e.id}`)}
                 style={{ ...CARD, padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
-                onMouseEnter={(el) => (el.currentTarget.style.background = '#FBFAF8')}
-                onMouseLeave={(el) => (el.currentTarget.style.background = '#fff')}
+                onPointerEnter={(el) => { if (el.pointerType !== 'mouse') return; el.currentTarget.style.background = '#FBFAF8'; }}
+                onPointerLeave={(el) => (el.currentTarget.style.background = '#fff')}
               >
                 <span style={{ width: 8, height: 8, borderRadius: 9999, background: dotColor, flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.setTitle ?? e.label ?? 'Practice'}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.5)', marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.64)', marginTop: 2 }}>
                     {kindLabel} · {new Date(e.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, lineHeight: 1, color: scoreColor(e.scaledScore, SECTION_MAX) }}>{score}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.5)', marginTop: 2 }}>{accuracy !== null ? accuracy + '%' : '—'}</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, lineHeight: 1, color: scoreColor(e.scaledScore, SECTION_MAX) }}>{score}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.64)', marginTop: 2 }}>{accuracy !== null ? accuracy + '%' : '—'}</div>
                 </div>
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(11,11,14,0.25)', flexShrink: 0 }}>
                   <polyline points="9 18 15 12 9 6"/>
@@ -260,7 +214,7 @@ export default function Results() {
         <div style={{ ...CARD, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr 1fr', gap: 12, padding: '14px 22px', borderBottom: '1px solid #EEEBE5' }}>
             {['Test', 'Date', 'Subject', 'Score', 'Accuracy'].map((c, i) => (
-              <span key={i} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', textAlign: i >= 3 ? 'right' : 'left' }}>{c}</span>
+              <span key={i} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', textAlign: i >= 3 ? 'right' : 'left' }}>{c}</span>
             ))}
           </div>
           {shown.map((e, i) => {
@@ -274,8 +228,8 @@ export default function Results() {
                 key={e.id}
                 onClick={() => navigate(`/student/results/${e.id}`)}
                 style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr 1fr', gap: 12, padding: '16px 22px', borderBottom: i < shown.length - 1 ? '1px solid #F2F0EC' : 'none', alignItems: 'center', cursor: 'pointer' }}
-                onMouseEnter={(el) => (el.currentTarget.style.background = '#FBFAF8')}
-                onMouseLeave={(el) => (el.currentTarget.style.background = 'transparent')}
+                onPointerEnter={(el) => { if (el.pointerType !== 'mouse') return; el.currentTarget.style.background = '#FBFAF8'; }}
+                onPointerLeave={(el) => (el.currentTarget.style.background = 'transparent')}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
                   <span style={{ width: 8, height: 8, borderRadius: 9999, background: dotColor, flexShrink: 0 }} />
@@ -283,7 +237,7 @@ export default function Results() {
                 </div>
                 <span style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.6)' }}>{new Date(e.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                 <span style={{ fontSize: 13, color: 'rgba(11,11,14,0.6)' }}>{kindLabel}</span>
-                <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, textAlign: 'right', color: scoreColor(e.scaledScore, SECTION_MAX) }}>{score}</span>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, textAlign: 'right', color: scoreColor(e.scaledScore, SECTION_MAX) }}>{score}</span>
                 <span style={{ fontSize: 14, fontWeight: 600, textAlign: 'right', color: 'rgba(11,11,14,0.7)' }}>{accuracy !== null ? accuracy + '%' : '—'}</span>
               </div>
             );
@@ -291,6 +245,68 @@ export default function Results() {
         </div>
       )}
       </>}
+    </div>
+  );
+}
+
+/**
+ * One section's score history in a compact trend card: the latest score, the
+ * change since the first, and a sparkline.
+ *
+ * Not `TrendChart`: that draws on a fixed 640-unit canvas for full-width panels
+ * (Progress), and at a third of the page its axis labels shrink past legibility.
+ * Declared at module scope — the sparkline this replaces lived inside `Results`,
+ * so it was a new component type every render and remounted each time.
+ */
+function SectionTrend({
+  points, color, isMobile,
+}: {
+  points: { at: string; value: number | null }[];
+  label: string;
+  color: string;
+  isMobile: boolean;
+}) {
+  const values = points.map((p) => p.value).filter((v): v is number => v !== null);
+  const latest = values[values.length - 1];
+
+  // One score is still worth showing: a blank card read as "nothing recorded"
+  // when the student had in fact been scored once.
+  if (values.length < 2) {
+    return (
+      <div style={{ height: isMobile ? 70 : 84, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
+        {values.length === 1 && (
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 24 : 30, lineHeight: 1, color }}>{latest}</div>
+        )}
+        <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)', lineHeight: 1.35 }}>
+          {values.length === 1 ? 'One scored test · take another to see a trend' : 'No scored tests yet'}
+        </div>
+      </div>
+    );
+  }
+
+  const change = latest - values[0];
+  const w = 280, ht = isMobile ? 44 : 52, pad = 5;
+  const lo = Math.min(...values) - 15, hi = Math.max(...values) + 15;
+  const span = Math.max(1, hi - lo);
+  const step = (w - pad * 2) / (values.length - 1);
+  const pts = values.map((v, i) => [pad + i * step, ht - pad - ((v - lo) / span) * (ht - pad * 2)] as const);
+  const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+  const area = `${line} L${pts[pts.length - 1][0].toFixed(1)} ${ht} L${pts[0][0].toFixed(1)} ${ht} Z`;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 24 : 28, lineHeight: 1, color }}>{latest}</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: change > 0 ? '#1A6B3C' : change < 0 ? '#C0392B' : 'rgba(11,11,14,0.58)' }}>
+          {change > 0 ? `+${change}` : change < 0 ? `−${Math.abs(change)}` : '±0'}
+        </span>
+        <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>over {values.length} tests</span>
+      </div>
+      <svg viewBox={`0 0 ${w} ${ht}`} preserveAspectRatio="none" style={{ width: '100%', height: ht, display: 'block' }} role="img"
+        aria-label={`From ${values[0]} to ${latest} over ${values.length} tests`}>
+        <path d={area} fill={color} opacity={0.08} />
+        <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      </svg>
     </div>
   );
 }

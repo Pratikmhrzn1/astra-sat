@@ -93,11 +93,11 @@ export default function Users() {
 
   return (
     <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
-      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, margin: '0 0 24px', letterSpacing: '-0.02em', color: '#0B0B0E' }}>User Management</h1>
+      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 44, margin: '0 0 24px', letterSpacing: '-0.02em', color: '#0B0B0E' }}>User Management</h1>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-          <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: 'rgba(11,11,14,0.35)', pointerEvents: 'none' }} />
+          <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: 'rgba(11,11,14,0.58)', pointerEvents: 'none' }} />
           <input
             type="text"
             placeholder="Search users…"
@@ -156,7 +156,7 @@ export default function Users() {
           </Button>
           <button
             onClick={() => setSelected(new Set())}
-            style={{ height: 38, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 9999, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: 'rgba(11,11,14,0.55)' }}
+            style={{ height: 38, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 9999, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: 'rgba(11,11,14,0.64)' }}
           >Clear</button>
           {teachers.length === 0 && (
             <span style={{ fontSize: 12.5, color: '#C0392B' }}>No teacher accounts exist yet — create one first.</span>
@@ -171,7 +171,7 @@ export default function Users() {
       )}
 
       {isLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#E2562B]" /></div>
+        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#C4471F]" /></div>
       ) : (
         <div style={{ ...CARD, overflow: 'hidden' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '28px 1.8fr 1fr 1fr 1fr', gap: 12, padding: '12px 22px', borderBottom: '1px solid #EEEBE5', alignItems: 'center' }}>
@@ -184,11 +184,11 @@ export default function Users() {
               style={{ width: 15, height: 15, cursor: selectableIds.length ? 'pointer' : 'default' }}
             />
             {['User', 'Role', 'Joined', 'Actions'].map((c, i) => (
-              <span key={c} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', textAlign: i === 3 ? 'right' : 'left' }}>{c}</span>
+              <span key={c} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', textAlign: i === 3 ? 'right' : 'left' }}>{c}</span>
             ))}
           </div>
           {filtered.length === 0 ? (
-            <div style={{ padding: '48px 22px', textAlign: 'center', color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>No users found</div>
+            <div style={{ padding: '48px 22px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>No users found</div>
           ) : (
             filtered.map((u, i) => (
               <div key={u.id} style={{ display: 'grid', gridTemplateColumns: '28px 1.8fr 1fr 1fr 1fr', gap: 12, padding: '14px 22px', borderBottom: i < filtered.length - 1 ? '1px solid #F2F0EC' : 'none', alignItems: 'center', background: selected.has(u.id) ? 'rgba(226,86,43,0.04)' : undefined }}>
@@ -202,10 +202,10 @@ export default function Users() {
                 ) : <span />}
                 <div>
                   <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0B0B0E' }}>{u.name}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)' }}>
+                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>
                     {u.email}
                     {u.role === 'student' && (
-                      <span style={{ marginLeft: 8, color: u.teacherId ? 'rgba(11,11,14,0.45)' : '#C47A1B' }}>
+                      <span style={{ marginLeft: 8, color: u.teacherId ? 'rgba(11,11,14,0.58)' : '#C47A1B' }}>
                         {u.teacherId
                           ? `· ${teachers.find((t) => t.id === u.teacherId)?.name ?? 'teacher'}`
                           : '· no teacher'}
@@ -214,16 +214,16 @@ export default function Users() {
                   </div>
                 </div>
                 <div><RoleBadge role={u.role} /></div>
-                <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.55)' }}>{formatDate(u.createdAt)}</div>
+                <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)' }}>{formatDate(u.createdAt)}</div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
-                  <button onClick={() => openEdit(u)} style={{ padding: 7, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.4)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(37,99,168,0.08)'; e.currentTarget.style.color = '#2563A8'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.4)'; }}
+                  <button onClick={() => openEdit(u)} style={{ padding: 7, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.58)' }}
+                    onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.background = 'rgba(37,99,168,0.08)'; e.currentTarget.style.color = '#2563A8'; }}
+                    onPointerLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.58)'; }}
                   ><Pencil size={15} /></button>
                   {u.id !== me?.id && (
-                    <button onClick={() => setDeleteTarget(u)} style={{ padding: 7, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.4)' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.4)'; }}
+                    <button onClick={() => setDeleteTarget(u)} style={{ padding: 7, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.58)' }}
+                      onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
+                      onPointerLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.58)'; }}
                     ><Trash2 size={15} /></button>
                   )}
                 </div>

@@ -42,7 +42,7 @@ export function TrendChart({
 
   if (plotted.length === 0 || length < 2) {
     return (
-      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(11,11,14,0.35)', fontSize: 13 }}>
+      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 13 }}>
         {length === 1 ? 'One result so far — a trend needs two.' : 'No scored results yet.'}
       </div>
     );
@@ -81,7 +81,7 @@ export function TrendChart({
         {ticks.map((t) => (
           <g key={t}>
             <line x1={PAD.left} x2={W - PAD.right} y1={yAt(t)} y2={yAt(t)} stroke="#EEEBE5" strokeWidth={1} />
-            <text x={PAD.left - 8} y={yAt(t) + 4} textAnchor="end" fontSize={10.5} fill="rgba(11,11,14,0.35)" fontFamily="'JetBrains Mono', monospace">{t}</text>
+            <text x={PAD.left - 8} y={yAt(t) + 4} textAnchor="end" fontSize={10.5} fill="rgba(11,11,14,0.35)" fontFamily="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace">{t}</text>
           </g>
         ))}
 
@@ -112,7 +112,7 @@ export function TrendChart({
               <text
                 x={last.x + 8} y={last.y + 4}
                 fontSize={11.5} fontWeight={600} fill={s.color}
-                fontFamily="'JetBrains Mono', monospace"
+                fontFamily="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace"
               >{last.value}{valueSuffix}</text>
             </g>
           );
@@ -158,7 +158,7 @@ export function TrendChart({
       {plotted.length > 1 && (
         <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 6 }}>
           {plotted.map((s) => (
-            <span key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(11,11,14,0.55)' }}>
+            <span key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(11,11,14,0.64)' }}>
               <span style={{ width: 9, height: 9, borderRadius: 9999, background: s.color }} />
               {s.label}
             </span>

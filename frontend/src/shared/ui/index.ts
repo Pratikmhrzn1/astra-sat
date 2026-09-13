@@ -8,6 +8,7 @@ export { Card, CardHeader, CardBody, CardTitle } from './Card';
 export { Badge, SubjectBadge, RoleBadge } from './Badge';
 export { Input, Textarea, Select } from './Input';
 export { Modal, ConfirmModal } from './Modal';
+export { Sheet } from './Sheet';
 export { Spinner, PageLoader } from './Spinner';
 export { TrendChart, TREND_COLORS, type TrendSeries } from './TrendChart';
 export { AccuracyBars, type AccuracyRow } from './AccuracyBars';

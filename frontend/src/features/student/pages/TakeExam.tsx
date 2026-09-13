@@ -51,6 +51,9 @@ export default function TakeExam() {
   // Always-current answers for use inside timer/IDB closures
   const answersRef = useRef<Record<string, string | null>>({});
   const dataRef = useRef<{ exam: import('@/features/student/api/student.api').Exam; questions: import('@/features/student/api/student.api').Question[]; answers: { questionId: string; selectedAnswer: string | null; selectedAnswerText: string | null }[]; mockTestId: string | null; mathExamId: string | null } | undefined>(undefined);
+  // Each question opens at its top; otherwise "Next" lands mid-passage on phones.
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { contentRef.current?.scrollTo({ top: 0 }); }, [index]);
 
   // Keep refs in sync with state/query
   useEffect(() => { timerEnabledRef.current = timerEnabled; }, [timerEnabled]);
@@ -325,7 +328,7 @@ export default function TakeExam() {
   if (isLoading || !data) {
     return (
       <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAF9F6' }}>
-        <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 24, color: 'rgba(11,11,14,0.4)' }}>Loading exam…</div>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, color: 'rgba(11,11,14,0.58)' }}>Loading exam…</div>
       </div>
     );
   }
@@ -387,14 +390,14 @@ export default function TakeExam() {
         <button
           onClick={isNextSection ? handleNextSection : handleSubmit}
           disabled={transitioning}
-          style={{ ...btnStyle, border: 'none', background: isNextSection ? '#2563A8' : '#E2562B', color: '#fff', cursor: transitioning ? 'default' : 'pointer' }}
+          style={{ ...btnStyle, border: 'none', background: isNextSection ? '#2563A8' : '#C4471F', color: '#fff', cursor: transitioning ? 'default' : 'pointer' }}
         >{isNextSection ? 'Next Section →' : 'Submit test'}</button>
       );
     }
     return (
       <button
         onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
-        style={{ ...btnStyle, border: selected ? 'none' : '1px solid #C8C4BC', background: selected ? '#E2562B' : '#fff', color: selected ? '#fff' : '#8C8880' }}
+        style={{ ...btnStyle, border: selected ? 'none' : '1px solid #C8C4BC', background: selected ? '#C4471F' : '#fff', color: selected ? '#fff' : '#6F6B64' }}
       >{selected ? 'Next →' : 'Skip →'}</button>
     );
   };
@@ -406,25 +409,28 @@ export default function TakeExam() {
         <div style={{ height: 56, flexShrink: 0, background: '#fff', borderBottom: '1px solid #E7E4DE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', gap: 8 }}>
           <button
             onClick={() => navigate(-1)}
+            aria-label="Exit test"
             style={{ border: '1px solid #C8C4BC', background: '#fff', borderRadius: 9999, padding: '7px 12px', fontSize: 14, fontWeight: 700, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit', flexShrink: 0, lineHeight: 1 }}
           >←</button>
           <div style={{ textAlign: 'center', flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)' }}>
               {isActuallyMath ? 'Math' : 'R&W'}{isPractice && ' · Practice'}
             </div>
             <div style={{ fontSize: 14, fontWeight: 700 }}>Q {index + 1} / {total}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {timerEnabled ? (
-              <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, lineHeight: 1, letterSpacing: '-0.02em', color: low ? '#C0392B' : '#0B0B0E' }}>{mins}:{secs}</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: low ? '#C0392B' : '#0B0B0E' }}>{mins}:{secs}</div>
             ) : isPractice ? (
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(11,11,14,0.3)', letterSpacing: '0.04em' }}>Untimed</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(11,11,14,0.58)', letterSpacing: '0.04em' }}>Untimed</span>
             ) : null}
             {!isOnline && (
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#B8893E" strokeWidth="2" strokeLinecap="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
             )}
             <button
               onClick={() => setFlags((f) => ({ ...f, [index]: !f[index] }))}
+              aria-label={flagged ? 'Remove flag' : 'Flag for review'}
+              aria-pressed={flagged}
               style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', border: flagged ? '1px solid #E2562B' : '1px solid #C8C4BC', background: flagged ? 'rgba(226,86,43,0.07)' : '#fff', borderRadius: 9999, cursor: 'pointer', padding: 0 }}
             >
               <svg viewBox="0 0 24 24" width="15" height="15" fill={flagged ? '#E2562B' : 'none'} stroke={flagged ? '#E2562B' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -441,7 +447,7 @@ export default function TakeExam() {
               style={{ display: 'flex', alignItems: 'center', gap: 7, border: '1px solid #C8C4BC', background: '#fff', borderRadius: 9999, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit' }}
             >← Exit</button>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)' }}>
                 {isActuallyMath ? 'Math' : 'Reading & Writing'}
                 {isPractice && <span style={{ marginLeft: 8, color: '#2563A8' }}>· Practice</span>}
               </div>
@@ -451,12 +457,12 @@ export default function TakeExam() {
 
           {timerEnabled ? (
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, lineHeight: 1, letterSpacing: '-0.02em', color: low ? '#C0392B' : '#0B0B0E' }}>{mins}:{secs}</div>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>Time left</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 30, lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: low ? '#C0392B' : '#0B0B0E' }}>{mins}:{secs}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)' }}>Time left</div>
             </div>
           ) : isPractice ? (
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.3)', letterSpacing: '0.04em' }}>Untimed</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.58)', letterSpacing: '0.04em' }}>Untimed</div>
             </div>
           ) : null}
 
@@ -469,7 +475,9 @@ export default function TakeExam() {
             )}
             <button
               onClick={() => setFlags((f) => ({ ...f, [index]: !f[index] }))}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, border: flagged ? '1px solid #E2562B' : '1px solid #C8C4BC', background: flagged ? 'rgba(226,86,43,0.07)' : '#fff', color: flagged ? '#E2562B' : '#0B0B0E', borderRadius: 9999, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+              aria-label={flagged ? 'Remove flag' : 'Flag for review'}
+              aria-pressed={flagged}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, border: flagged ? '1px solid #E2562B' : '1px solid #C8C4BC', background: flagged ? 'rgba(226,86,43,0.07)' : '#fff', color: flagged ? '#C4471F' : '#0B0B0E', borderRadius: 9999, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             >
               <svg viewBox="0 0 24 24" width="15" height="15" fill={flagged ? '#E2562B' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>
@@ -503,13 +511,13 @@ export default function TakeExam() {
       )}
 
       {/* Content */}
-      <div className="scrollarea" style={{ flex: 1, overflowY: 'auto', background: '#FAF9F6' }}>
+      <div ref={contentRef} className="scrollarea" style={{ flex: 1, overflowY: 'auto', background: '#FAF9F6' }}>
         <div style={{ maxWidth: q.passageText ? (isMobile ? '100%' : 1100) : 760, margin: '0 auto', padding: isMobile ? '20px 16px 60px' : '40px 40px 60px', display: q.passageText && !isMobile ? 'grid' : 'block', gridTemplateColumns: '1fr 1fr', gap: 48 }}>
           {/* Passage */}
           {q.passageText && (
             <div style={{ paddingRight: isMobile ? 0 : 40, borderRight: isMobile ? 'none' : '1px solid #EAE7E1', paddingBottom: isMobile ? 20 : 0, borderBottom: isMobile ? '1px solid #EAE7E1' : 'none', marginBottom: isMobile ? 24 : 0 }}>
-              {q.passageTitle && <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', marginBottom: 10 }}>{q.passageTitle}</div>}
-              <p style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 16 : 19, lineHeight: 1.7, color: '#0B0B0E', margin: 0, whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: q.passageText }} />
+              {q.passageTitle && <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 10 }}>{q.passageTitle}</div>}
+              <p style={{ fontFamily: 'var(--font-reading)', fontSize: isMobile ? 17 : 19, lineHeight: 1.65, color: '#0B0B0E', margin: 0, whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: q.passageText }} />
             </div>
           )}
 
@@ -517,7 +525,7 @@ export default function TakeExam() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <span style={{ width: 26, height: 26, borderRadius: 7, background: '#0B0B0E', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{index + 1}</span>
-              {isSPR && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'rgba(226,86,43,0.08)', color: '#E2562B' }}>Grid-in</span>}
+              {isSPR && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'rgba(226,86,43,0.08)', color: '#C4471F' }}>Grid-in</span>}
             </div>
             <p style={{ fontSize: largeFontSize ? 20 : 16.5, lineHeight: 1.55, fontWeight: 500, color: '#0B0B0E', margin: '0 0 22px' }} dangerouslySetInnerHTML={{ __html: q.questionText }} />
             {q.imageUrl && (
@@ -534,9 +542,9 @@ export default function TakeExam() {
                   value={selected ?? ''}
                   onChange={(e) => selectAnswer(e.target.value)}
                   placeholder="Enter your answer…"
-                  style={{ width: '100%', maxWidth: 280, height: 52, padding: '0 16px', border: selected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', borderRadius: 12, fontSize: 18, fontFamily: "'JetBrains Mono', monospace", background: '#fff', color: '#0B0B0E', outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', maxWidth: 280, height: 52, padding: '0 16px', border: selected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', borderRadius: 12, fontSize: 18, fontFamily: 'var(--font-mono)', background: '#fff', color: '#0B0B0E', outline: 'none', boxSizing: 'border-box' }}
                 />
-                <p style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)', marginTop: 8 }}>Accepted formats: whole number, decimal (1.5), or fraction (3/4)</p>
+                <p style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)', marginTop: 8 }}>Accepted formats: whole number, decimal (1.5), or fraction (3/4)</p>
               </div>
             )}
 
@@ -551,15 +559,19 @@ export default function TakeExam() {
                     <div key={key} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
                       <button
                         onClick={() => selectAnswer(key)}
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '15px 18px', borderRadius: 12, cursor: 'pointer', background: isSelected ? 'rgba(226,86,43,0.06)' : '#fff', border: isSelected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', opacity: isElim ? 0.4 : 1, transition: 'all 0.15s', fontFamily: 'inherit' }}
+                        data-press="soft"
+                        aria-pressed={isSelected}
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '15px 18px', borderRadius: 12, cursor: 'pointer', background: isSelected ? 'rgba(226,86,43,0.06)' : '#fff', border: isSelected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', opacity: isElim ? 0.4 : 1, transition: 'background-color 150ms ease, border-color 150ms ease, opacity 150ms ease, transform 100ms ease-out', fontFamily: 'inherit' }}
                       >
-                        <span style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 9999, border: isSelected ? '1.5px solid #E2562B' : '1.5px solid #C8C4BC', background: isSelected ? '#E2562B' : 'transparent', color: isSelected ? '#fff' : '#8C8880', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{LETTER[oi]}</span>
+                        <span style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 9999, border: isSelected ? '1.5px solid #E2562B' : '1.5px solid #C8C4BC', background: isSelected ? '#C4471F' : 'transparent', color: isSelected ? '#fff' : '#6F6B64', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{LETTER[oi]}</span>
                         <span style={{ fontSize: largeFontSize ? 18 : 15, color: '#0B0B0E', lineHeight: 1.5, textDecoration: isElim ? 'line-through' : 'none' }}>{optTexts[oi]}</span>
                       </button>
                       <button
                         title="Cross out"
+                        aria-label={`Cross out ${LETTER[oi]}`}
+                        aria-pressed={isElim}
                         onClick={() => toggleElim(key)}
-                        style={{ width: 44, flexShrink: 0, borderRadius: 10, border: '1px solid #E7E4DE', background: isElim ? 'rgba(11,11,14,0.04)' : '#fff', color: isElim ? '#E2562B' : '#A8A49C', cursor: 'pointer', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', textDecoration: 'line-through', fontFamily: 'inherit' }}
+                        style={{ width: 44, flexShrink: 0, borderRadius: 10, border: '1px solid #E7E4DE', background: isElim ? 'rgba(11,11,14,0.04)' : '#fff', color: isElim ? '#C4471F' : '#6F6B64', cursor: 'pointer', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', textDecoration: 'line-through', fontFamily: 'inherit' }}
                       >ABC</button>
                     </div>
                   );
@@ -572,10 +584,10 @@ export default function TakeExam() {
 
       {/* Question navigator popup */}
       {navOpen && (
-        <div style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: isMobile ? 78 : 84, width: isMobile ? 'calc(100vw - 28px)' : 'min(560px, 90vw)', background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 16px 48px rgba(11,11,14,0.18)', padding: isMobile ? 14 : 20, zIndex: 45, maxHeight: isMobile ? '60vh' : '70vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="nav-pop" role="dialog" aria-label="Question navigator" style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: isMobile ? 78 : 84, width: isMobile ? 'calc(100vw - 28px)' : 'min(560px, 90vw)', background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 16px 48px rgba(11,11,14,0.18)', padding: isMobile ? 14 : 20, zIndex: 45, maxHeight: isMobile ? '60vh' : '70vh', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexShrink: 0 }}>
             <span style={{ fontSize: 13, fontWeight: 700 }}>Navigator</span>
-            <div style={{ display: 'flex', gap: isMobile ? 8 : 14, fontSize: 10, color: 'rgba(11,11,14,0.5)' }}>
+            <div style={{ display: 'flex', gap: isMobile ? 8 : 14, fontSize: 10, color: 'rgba(11,11,14,0.64)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#0B0B0E', display: 'inline-block', flexShrink: 0 }} />Done</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#fff', border: '1px solid #C8C4BC', display: 'inline-block', flexShrink: 0 }} />Unseen</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#E2562B', display: 'inline-block', flexShrink: 0 }} />Flagged</span>
@@ -607,6 +619,7 @@ export default function TakeExam() {
       <div style={{ height: isMobile ? 64 : 70, flexShrink: 0, background: '#fff', borderTop: '1px solid #E7E4DE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '0 12px' : '0 24px', gap: 8 }}>
         <button
           onClick={() => setNavOpen((n) => !n)}
+          aria-expanded={navOpen}
           style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #C8C4BC', background: navOpen ? '#F2F0EC' : '#fff', borderRadius: 10, padding: isMobile ? '0 10px' : '9px 16px', fontSize: isMobile ? 12 : 13.5, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit', whiteSpace: 'nowrap', height: isMobile ? 40 : 42, flexShrink: 0 }}
         >
           <svg viewBox="0 0 24 24" width={isMobile ? 14 : 16} height={isMobile ? 14 : 16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

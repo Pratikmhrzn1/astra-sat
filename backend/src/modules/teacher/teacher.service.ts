@@ -54,13 +54,25 @@ import type {
  * `publicUserColumns` is the shared definition of what is safe to put on the
  * wire — widen that, never this call site.
  */
-async function assertOwnsStudent(teacherId: string, studentId: string) {
+async function assertOwnsStudent(
+  teacherId: string,
+  studentId: string,
+  /**
+   * Reads answer 404 — the teacher shouldn't learn whether the id exists. A
+   * write names a student the teacher chose, so it answers 403.
+   */
+  onMissing: 'notFound' | 'forbidden' = 'notFound',
+) {
   const [student] = await db
     .select(publicUserColumns)
     .from(users)
     .where(and(eq(users.id, studentId), eq(users.teacherId, teacherId)))
     .limit(1);
-  if (!student) throw notFound('Student not found or not assigned to you');
+  if (!student) {
+    throw onMissing === 'forbidden'
+      ? forbidden('Student not assigned to you')
+      : notFound('Student not found or not assigned to you');
+  }
   return student;
 }
 
@@ -187,13 +199,7 @@ export async function getStudentExamResults(teacherId: string, studentId: string
 // ── Feedback to students ──────────────────────────────────────────────────────
 
 export async function sendFeedback(teacherId: string, input: SendFeedbackInput) {
-  const [student] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(and(eq(users.id, input.studentId), eq(users.teacherId, teacherId)))
-    .limit(1);
-  // 403 rather than 404: the teacher named a real student, just not theirs.
-  if (!student) throw forbidden('Student not assigned to you');
+  await assertOwnsStudent(teacherId, input.studentId, 'forbidden');
 
   const [created] = await db
     .insert(feedback)

@@ -11,7 +11,7 @@ export function Badge({ children, variant = 'neutral', className }: BadgeProps) 
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-[0.01em] leading-5',
         {
           'bg-blue-50 text-blue-700 border border-blue-200': variant === 'english' || variant === 'student',
           'bg-amber-50 text-amber-700 border border-amber-200': variant === 'math' || variant === 'warning',

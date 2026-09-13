@@ -35,11 +35,14 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer }:
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+    <div className="modal-wrap fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="modal-scrim absolute inset-0 bg-[rgba(11,11,14,0.36)] backdrop-blur-[2px]" onClick={onClose} />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className={cn(
-          'relative bg-white border border-[#E7E4DE] rounded-2xl shadow-2xl w-full flex flex-col max-h-[90vh]',
+          'modal-panel relative bg-white rounded-[20px] shadow-[0_4px_12px_rgba(11,11,14,0.06),0_24px_64px_rgba(11,11,14,0.18)] w-full flex flex-col max-h-[90vh]',
           {
             'max-w-sm': size === 'sm',
             'max-w-lg': size === 'md',
@@ -47,18 +50,19 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer }:
           }
         )}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E7E4DE] shrink-0">
-          <h2 className="text-lg font-semibold text-[#0B0B0E]">{title}</h2>
+        <div className="flex items-center justify-between gap-4 pl-6 pr-4 pt-5 pb-3 shrink-0">
+          <h2 className="text-[19px] leading-tight font-semibold tracking-[-0.02em] text-[#0B0B0E]">{title}</h2>
           <button
             onClick={onClose}
-            className="text-[rgba(11,11,14,0.4)] hover:text-[#0B0B0E] transition-colors p-1 rounded-lg hover:bg-[rgba(11,11,14,0.05)]"
+            aria-label="Close"
+            className="flex items-center justify-center w-8 h-8 rounded-full text-[rgba(11,11,14,0.62)] bg-[rgba(11,11,14,0.05)] hover:bg-[rgba(11,11,14,0.09)] hover:text-[#0B0B0E] transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" strokeWidth={2.25} />
           </button>
         </div>
-        <div className="px-6 py-4 overflow-y-auto flex-1">{children}</div>
+        <div className="px-6 pt-1 pb-5 overflow-y-auto flex-1 text-[15px] leading-relaxed">{children}</div>
         {footer && (
-          <div className="px-6 py-4 border-t border-[#E7E4DE] shrink-0 flex justify-end gap-3">
+          <div className="px-6 py-4 border-t border-[#EEEBE5] shrink-0 flex justify-end gap-2.5">
             {footer}
           </div>
         )}

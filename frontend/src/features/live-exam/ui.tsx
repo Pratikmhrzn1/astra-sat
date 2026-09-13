@@ -13,13 +13,14 @@ import React, { useState } from 'react';
 export const T = {
   ink: '#0B0B0E',
   accent: '#E2562B',
+  accentText: '#C4471F', // accent as text or behind white text (AA)
   paper: '#FAF9F6',
   card: '#FFFFFF',
   line: '#E7E4DE',
   lineSoft: '#F2F0EC',
   wash: '#FBFAF8',
-  muted: 'rgba(11,11,14,0.45)',
-  faint: 'rgba(11,11,14,0.3)',
+  muted: 'rgba(11,11,14,0.64)',
+  faint: 'rgba(11,11,14,0.58)',
   english: '#2E7D5A',
   math: '#2563A8',
   amber: '#B8893E',
@@ -35,7 +36,8 @@ export const CARD: React.CSSProperties = {
 };
 
 export const H1: React.CSSProperties = {
-  fontFamily: "'Instrument Serif', serif",
+  fontFamily: 'var(--font-display)',
+  fontWeight: 600,
   letterSpacing: '-0.02em',
   margin: 0,
 };
@@ -52,7 +54,7 @@ export function PillButton({
   style?: React.CSSProperties;
 }) {
   const palette = {
-    primary: { background: T.accent, color: '#fff', border: 'none' },
+    primary: { background: T.accentText, color: '#fff', border: 'none' },
     secondary: { background: '#fff', color: T.ink, border: `1px solid ${T.line}` },
     quiet: { background: 'transparent', color: T.muted, border: `1px solid ${T.line}` },
   }[variant];
@@ -81,7 +83,7 @@ export function StatusPill({ status }: { status: string }) {
   const spec: Record<string, { label: string; color: string; bg: string }> = {
     waiting: { label: 'Lobby open', color: '#8A6020', bg: 'rgba(184,137,62,0.12)' },
     active: { label: 'In progress', color: T.green, bg: 'rgba(26,107,60,0.10)' },
-    completed: { label: 'Finished', color: 'rgba(11,11,14,0.5)', bg: T.lineSoft },
+    completed: { label: 'Finished', color: 'rgba(11,11,14,0.64)', bg: T.lineSoft },
   };
   const { label, color, bg } = spec[status] ?? spec.completed;
 
@@ -121,7 +123,7 @@ export function JoinCodePlate({ code, size = 'large' }: { code: string; size?: '
             width: cell.w, height: cell.h, display: 'flex', alignItems: 'center',
             justifyContent: 'center', borderRadius: size === 'large' ? 10 : 6,
             background: T.wash, border: `1px solid ${T.line}`,
-            fontFamily: "'JetBrains Mono', monospace", fontSize: cell.font,
+            fontFamily: 'var(--font-mono)', fontSize: cell.font,
             fontWeight: 600, color: T.ink,
           }}
         >{char}</span>
@@ -155,7 +157,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
 export function EmptyState({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <div style={{ ...CARD, padding: '48px 24px', textAlign: 'center' }}>
-      <div style={{ ...H1, fontSize: 24, color: 'rgba(11,11,14,0.55)', marginBottom: 6 }}>{title}</div>
+      <div style={{ ...H1, fontSize: 24, color: 'rgba(11,11,14,0.64)', marginBottom: 6 }}>{title}</div>
       {children && (
         <p style={{ fontSize: 14, color: T.muted, margin: '0 auto', maxWidth: 380, lineHeight: 1.6 }}>
           {children}

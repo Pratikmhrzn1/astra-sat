@@ -8,18 +8,18 @@ export default function TeacherFeedback() {
   const { data: feedbacks = [], isLoading } = useQuery({ queryKey: ['teacher', 'feedback'], queryFn: getSentFeedback });
 
   if (isLoading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#E2562B]" /></div>;
+    return <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#C4471F]" /></div>;
   }
 
   return (
     <div className="screen-fade" style={{ padding: '36px 48px 64px', maxWidth: 820, margin: '0 auto' }}>
-      <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, margin: '0 0 4px', letterSpacing: '-0.02em', color: '#0B0B0E' }}>Sent Feedback</h1>
-      <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.55)', margin: '0 0 24px' }}>Feedback you've sent to your students</p>
+      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 44, margin: '0 0 4px', letterSpacing: '-0.02em', color: '#0B0B0E' }}>Sent Feedback</h1>
+      <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.64)', margin: '0 0 24px' }}>Feedback you've sent to your students</p>
 
       {feedbacks.length === 0 ? (
         <div style={{ textAlign: 'center', paddingTop: 64 }}>
           <MessageSquare size={48} color="rgba(11,11,14,0.2)" style={{ margin: '0 auto 16px', display: 'block' }} />
-          <p style={{ color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>No feedback sent yet.</p>
+          <p style={{ color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>No feedback sent yet.</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -28,11 +28,11 @@ export default function TeacherFeedback() {
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
                 <div>
                   <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0B0B0E' }}>{fb.studentName}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)' }}>{fb.studentEmail}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>{fb.studentEmail}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
                   <Badge variant={fb.isRead ? 'success' : 'neutral'}>{fb.isRead ? 'Read' : 'Unread'}</Badge>
-                  <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.4)' }}>{formatDateTime(fb.createdAt)}</span>
+                  <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>{formatDateTime(fb.createdAt)}</span>
                 </div>
               </div>
               <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.7)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{fb.content}</p>

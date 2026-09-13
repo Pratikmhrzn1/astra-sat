@@ -57,7 +57,7 @@ export default function Register() {
       {/* IELTS ↔ SAT toggle */}
       <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(10px)', borderRadius: 9999, padding: 4, boxShadow: '0 2px 20px rgba(0,0,0,0.14)', display: 'flex' }}>
         <button onClick={() => { window.location.href = '/'; }} style={{ padding: '8px 26px', border: 'none', borderRadius: 9999, fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.4)', cursor: 'pointer', background: 'transparent', fontFamily: 'inherit' }}>IELTS</button>
-        <button style={{ padding: '8px 26px', border: 'none', borderRadius: 9999, fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#fff', cursor: 'default', background: '#E2562B', boxShadow: '0 2px 8px rgba(226,86,43,0.35)', fontFamily: 'inherit' }}>SAT</button>
+        <button style={{ padding: '8px 26px', border: 'none', borderRadius: 9999, fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#fff', cursor: 'default', background: '#C4471F', boxShadow: '0 2px 8px rgba(226,86,43,0.35)', fontFamily: 'inherit' }}>SAT</button>
       </div>
       {/* Left — dark panel (desktop only) */}
       {!isMobile && (
@@ -67,9 +67,9 @@ export default function Register() {
             Digital SAT · Practice Platform
           </div>
           <div style={{ position: 'relative' }}>
-            <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 60, lineHeight: 1.05, letterSpacing: '-0.02em', margin: 0 }}>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 60, lineHeight: 1.05, letterSpacing: '-0.02em', margin: 0 }}>
               Know exactly<br />where you<br />stand — and<br />
-              <span style={{ color: '#E2562B', fontStyle: 'italic' }}>how to climb.</span>
+              <span style={{ color: '#C4471F', fontStyle: 'italic' }}>how to climb.</span>
             </h1>
             <p style={{ marginTop: 28, maxWidth: 380, fontSize: 16, lineHeight: 1.65, color: 'rgba(255,255,255,0.6)' }}>
               Create a free account to start tracking your section scores, accuracy, and estimated SAT total over time.
@@ -78,7 +78,7 @@ export default function Register() {
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
             {['Full-length mocks', 'Per-topic analysis', 'Score trends'].map((f) => (
               <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
-                <span style={{ color: '#E2562B' }}>✓</span> {f}
+                <span style={{ color: '#C4471F' }}>✓</span> {f}
               </div>
             ))}
           </div>
@@ -95,16 +95,16 @@ export default function Register() {
                 <div style={{ width: 22, height: 22, borderRadius: 7, background: '#E2562B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <div style={{ width: 9, height: 9, borderRadius: 2, background: '#fff' }} />
                 </div>
-                <span style={{ fontFamily: "'Instrument Serif', serif", fontSize: 20, color: '#0B0B0E' }}>Score Studio</span>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20, color: '#0B0B0E' }}>Score Studio</span>
               </div>
-              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)' }}>
                 Digital SAT · Practice Platform
               </div>
             </div>
           )}
 
-          <h2 style={{ fontFamily: "'Instrument Serif', serif", fontSize: isMobile ? 34 : 40, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Create your account</h2>
-          <p style={{ margin: '0 0 28px', color: 'rgba(11,11,14,0.55)', fontSize: 15 }}>It takes less than a minute.</p>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 34 : 40, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Create your account</h2>
+          <p style={{ margin: '0 0 28px', color: 'rgba(11,11,14,0.64)', fontSize: 15 }}>It takes less than a minute.</p>
 
           <form onSubmit={handleSubmit(onSubmit)}>
             <div style={{ marginBottom: 16 }}>
@@ -123,7 +123,7 @@ export default function Register() {
               {label('Phone number')}
               <input type="tel" autoComplete="tel" placeholder="+977 98XXXXXXXX" {...register('phone')} style={fieldStyle(!!errors.phone)} />
               {err(errors.phone?.message)}
-              {!errors.phone && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(11,11,14,0.4)' }}>Required for student accounts.</p>}
+              {!errors.phone && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>Required for student accounts.</p>}
             </div>
 
             {/* Password fields — side by side on desktop, stacked on mobile */}
@@ -144,7 +144,7 @@ export default function Register() {
               {label('Access code')}
               <input type="text" placeholder="Enter your access code" {...register('accessCode')} style={fieldStyle(!!errors.accessCode)} />
               {err(errors.accessCode?.message)}
-              {!errors.accessCode && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(11,11,14,0.4)' }}>Determines your role — student, teacher, or admin.</p>}
+              {!errors.accessCode && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>Determines your role — student, teacher, or admin.</p>}
             </div>
 
             {apiError && (
@@ -156,15 +156,15 @@ export default function Register() {
             <button
               type="submit"
               disabled={isSubmitting}
-              style={{ width: '100%', height: 48, marginTop: 20, background: isSubmitting ? '#e89070' : '#E2562B', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: isSubmitting ? 'default' : 'pointer', boxShadow: '0 2px 10px rgba(226,86,43,0.28)', transition: 'background 0.15s', fontFamily: 'inherit' }}
+              style={{ width: '100%', height: 48, marginTop: 20, background: isSubmitting ? '#e89070' : '#C4471F', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: isSubmitting ? 'default' : 'pointer', boxShadow: '0 2px 10px rgba(226,86,43,0.28)', transition: 'background 0.15s', fontFamily: 'inherit' }}
             >
               {isSubmitting ? 'Creating account…' : 'Create account'}
             </button>
           </form>
 
-          <div style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: 'rgba(11,11,14,0.55)' }}>
+          <div style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: 'rgba(11,11,14,0.64)' }}>
             Already registered?{' '}
-            <Link to="/login" style={{ color: '#E2562B', fontWeight: 600, textDecoration: 'none' }}>Sign in</Link>
+            <Link to="/login" style={{ color: '#C4471F', fontWeight: 600, textDecoration: 'none' }}>Sign in</Link>
           </div>
         </div>
       </div>

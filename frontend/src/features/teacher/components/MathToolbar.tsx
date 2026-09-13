@@ -22,7 +22,7 @@ export function MathToolbar({ onInsert }: { onInsert: (s: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
   return (
     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
-      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', alignSelf: 'center', marginRight: 4 }}>Math</span>
+      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', alignSelf: 'center', marginRight: 4 }}>Math</span>
       {SYMBOL_GROUPS.map((g) => (
         <div key={g.label} style={{ position: 'relative' }}>
           <button

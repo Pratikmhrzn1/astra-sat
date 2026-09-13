@@ -37,55 +37,55 @@ export default function AccessCodes() {
   const roleStyle: Record<Role, React.CSSProperties> = {
     student: { background: 'rgba(37,99,168,0.08)', color: '#2563A8', border: '1px solid rgba(37,99,168,0.2)' },
     teacher: { background: 'rgba(46,125,90,0.08)', color: '#2E7D5A', border: '1px solid rgba(46,125,90,0.2)' },
-    admin: { background: 'rgba(226,86,43,0.08)', color: '#E2562B', border: '1px solid rgba(226,86,43,0.2)' },
+    admin: { background: 'rgba(226,86,43,0.08)', color: '#C4471F', border: '1px solid rgba(226,86,43,0.2)' },
   };
 
   return (
     <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#E2562B', marginBottom: 6 }}>Registration</div>
-          <h1 style={{ fontFamily: "'Instrument Serif', serif", fontSize: 44, margin: '0 0 6px', letterSpacing: '-0.02em', color: '#0B0B0E' }}>Access Codes</h1>
-          <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.55)', margin: 0 }}>Required during registration to assign a role to new accounts.</p>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#C4471F', marginBottom: 6 }}>Registration</div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 44, margin: '0 0 6px', letterSpacing: '-0.02em', color: '#0B0B0E' }}>Access Codes</h1>
+          <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.64)', margin: 0 }}>Required during registration to assign a role to new accounts.</p>
         </div>
         <button
           onClick={() => { setShowCreate(true); setCreateError(''); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, height: 42, padding: '0 18px', background: '#E2562B', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 10px rgba(226,86,43,0.26)', flexShrink: 0, marginTop: 8 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, height: 42, padding: '0 18px', background: '#C4471F', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 10px rgba(226,86,43,0.26)', flexShrink: 0, marginTop: 8 }}
         >
           <Plus size={16} /> Create Code
         </button>
       </div>
 
       {isLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#E2562B]" /></div>
+        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#C4471F]" /></div>
       ) : codes.length === 0 ? (
         <div style={{ textAlign: 'center', paddingTop: 64 }}>
           <Key size={48} color="rgba(11,11,14,0.2)" style={{ margin: '0 auto 16px', display: 'block' }} />
-          <p style={{ color: 'rgba(11,11,14,0.4)', fontSize: 14 }}>No access codes yet.</p>
+          <p style={{ color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>No access codes yet.</p>
         </div>
       ) : (
         <div style={CARD}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1fr', gap: 12, padding: '12px 22px', borderBottom: '1px solid #EEEBE5' }}>
             {['Code', 'Role', 'Uses', 'Created', 'Action'].map((c, i) => (
-              <span key={c} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.4)', textAlign: i === 4 ? 'right' : 'left' }}>{c}</span>
+              <span key={c} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', textAlign: i === 4 ? 'right' : 'left' }}>{c}</span>
             ))}
           </div>
           {codes.map((c, i) => (
             <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1fr', gap: 12, padding: '14px 22px', borderBottom: i < codes.length - 1 ? '1px solid #F2F0EC' : 'none', alignItems: 'center' }}
-              onMouseEnter={(el) => (el.currentTarget.style.background = '#FBFAF8')}
-              onMouseLeave={(el) => (el.currentTarget.style.background = 'transparent')}
+              onPointerEnter={(el) => { if (el.pointerType !== 'mouse') return; el.currentTarget.style.background = '#FBFAF8'; }}
+              onPointerLeave={(el) => (el.currentTarget.style.background = 'transparent')}
             >
               <div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700, color: '#0B0B0E' }}>{c.code}</div>
-                {c.description && <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.45)' }}>{c.description}</div>}
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 700, color: '#0B0B0E' }}>{c.code}</div>
+                {c.description && <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>{c.description}</div>}
               </div>
               <div><RoleBadge role={c.role} /></div>
-              <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.55)' }}>{c.useCount}{c.maxUses ? ` / ${c.maxUses}` : ''}</div>
-              <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.55)' }}>{formatDate(c.createdAt)}</div>
+              <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)' }}>{c.useCount}{c.maxUses ? ` / ${c.maxUses}` : ''}</div>
+              <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)' }}>{formatDate(c.createdAt)}</div>
               <div style={{ textAlign: 'right' }}>
-                <button onClick={() => setDeleteTarget(c.id)} style={{ padding: 7, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.4)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.4)'; }}
+                <button onClick={() => setDeleteTarget(c.id)} style={{ padding: 7, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.58)' }}
+                  onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
+                  onPointerLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.58)'; }}
                 ><Trash2 size={15} /></button>
               </div>
             </div>
@@ -105,7 +105,7 @@ export default function AccessCodes() {
                 value={form.code}
                 onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
                 placeholder="e.g. STUDENT2024"
-                style={{ flex: 1, height: 40, padding: '0 12px', border: '1px solid #E7E4DE', borderRadius: 10, background: '#fff', color: '#0B0B0E', fontFamily: "'JetBrains Mono', monospace", fontSize: 14, outline: 'none' }}
+                style={{ flex: 1, height: 40, padding: '0 12px', border: '1px solid #E7E4DE', borderRadius: 10, background: '#fff', color: '#0B0B0E', fontFamily: 'var(--font-mono)', fontSize: 14, outline: 'none' }}
               />
               <button onClick={() => setForm((f) => ({ ...f, code: randomCode() }))}
                 style={{ width: 40, height: 40, borderRadius: 10, border: '1px solid #E7E4DE', background: '#F2F0EC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -117,7 +117,7 @@ export default function AccessCodes() {
             <div style={{ display: 'flex', gap: 8 }}>
               {(['student', 'teacher', 'admin'] as Role[]).map((r) => (
                 <button key={r} onClick={() => setForm((f) => ({ ...f, role: r }))}
-                  style={{ padding: '8px 18px', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', ...(form.role === r ? roleStyle[r] : { background: '#F2F0EC', color: '#8C8880', border: '1px solid #E7E4DE' }) }}
+                  style={{ padding: '8px 18px', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', ...(form.role === r ? roleStyle[r] : { background: '#F2F0EC', color: '#6F6B64', border: '1px solid #E7E4DE' }) }}
                 >{r.charAt(0).toUpperCase() + r.slice(1)}</button>
               ))}
             </div>
