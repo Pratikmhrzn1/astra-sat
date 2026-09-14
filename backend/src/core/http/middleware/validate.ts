@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import type { ZodSchema } from 'zod';
+import type { ZodSchema, ZodTypeAny, output } from 'zod';
 import { badRequest } from '../../errors';
 
 /**
@@ -40,8 +40,10 @@ export const params = <T>(req: { params: unknown }): T => req.params as T;
  * per-field details. A few endpoints predate that and their clients read a
  * single message from a 400 instead; this keeps that contract intact without
  * spreading two validation styles through the routing layer.
+ *
+ * Returns the parsed value (defaults applied), so it is typed as the schema's output.
  */
-export function parseOrBadRequest<T>(schema: ZodSchema<T>, payload: unknown): T {
+export function parseOrBadRequest<S extends ZodTypeAny>(schema: S, payload: unknown): output<S> {
   const result = schema.safeParse(payload);
   if (!result.success) {
     throw badRequest(result.error.errors[0]?.message ?? 'Invalid request body');

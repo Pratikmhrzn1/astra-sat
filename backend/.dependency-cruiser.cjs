@@ -36,6 +36,13 @@ module.exports = {
       to: { path: '^src/modules/[^/]+/', pathNot: ['^src/modules/[^/]+/index\\.ts$'] },
     },
     {
+      name: 'routes-use-services',
+      severity: 'error',
+      comment: 'Route files handle HTTP only; queries live in a service or repository.',
+      from: { path: '\\.routes\\.ts$' },
+      to: { path: '^src/core/db/' },
+    },
+    {
       name: 'no-orphans',
       severity: 'warn',
       comment: 'A module nothing imports is dead code or a missing route.',
