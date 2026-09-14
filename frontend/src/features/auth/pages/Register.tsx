@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { register as apiRegister } from '@/features/auth/api/auth.api';
 import { useAuthStore } from '@/shared/store/auth';
 import { getApiError } from '@/shared/api/client';
-import { useMobile } from '@/shared/hooks/useMobile';
+import { cn } from '@/shared/lib/utils';
 
 const schema = z
   .object({
@@ -23,16 +23,17 @@ type FormData = z.infer<typeof schema>;
 
 const ROLE_ROUTES = { student: '/student/dashboard', teacher: '/teacher/dashboard', admin: '/admin/dashboard' } as const;
 
-const fieldStyle = (hasError: boolean): React.CSSProperties => ({
-  width: '100%', height: 46, padding: '0 15px', border: `1px solid ${hasError ? '#ef4444' : '#C8C4BC'}`,
-  borderRadius: 12, fontSize: 15, background: '#fff', outline: 'none', fontFamily: 'inherit',
-});
+const toggleBtn = 'px-[26px] py-2 rounded-full text-[13px] font-bold tracking-[0.05em] uppercase';
+const fieldClass = (hasError: boolean) => cn(
+  'w-full h-[46px] px-[15px] border rounded-xl text-[15px] bg-white outline-none',
+  hasError ? 'border-error-field' : 'border-field',
+);
+const hintClass = 'mt-1 text-xs text-ink/[.58]';
 
 export default function Register() {
   const navigate = useNavigate();
   const { login: storeLogin } = useAuthStore();
   const [apiError, setApiError] = useState('');
-  const isMobile = useMobile();
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
@@ -48,107 +49,103 @@ export default function Register() {
   };
 
   const label = (text: string) => (
-    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.7)', marginBottom: 7 }}>{text}</label>
+    <label className="block text-[13px] font-semibold text-ink/70 mb-[7px]">{text}</label>
   );
-  const err = (msg?: string) => msg ? <p style={{ margin: '4px 0 0', fontSize: 12, color: '#ef4444' }}>{msg}</p> : null;
+  const err = (msg?: string) => msg ? <p className="mt-1 text-xs text-error-field">{msg}</p> : null;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.05fr 1fr', minHeight: '100vh', position: 'relative' }}>
+    <div className="grid grid-cols-1 sm:grid-cols-[1.05fr_1fr] min-h-screen relative">
       {/* IELTS ↔ SAT toggle */}
-      <div style={{ position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 100, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(10px)', borderRadius: 9999, padding: 4, boxShadow: '0 2px 20px rgba(0,0,0,0.14)', display: 'flex' }}>
-        <button onClick={() => { window.location.href = '/'; }} style={{ padding: '8px 26px', border: 'none', borderRadius: 9999, fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.4)', cursor: 'pointer', background: 'transparent', fontFamily: 'inherit' }}>IELTS</button>
-        <button style={{ padding: '8px 26px', border: 'none', borderRadius: 9999, fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#fff', cursor: 'default', background: '#C4471F', boxShadow: '0 2px 8px rgba(226,86,43,0.35)', fontFamily: 'inherit' }}>SAT</button>
+      <div className="absolute top-5 left-1/2 -translate-x-1/2 z-[100] bg-white/85 backdrop-blur-[10px] rounded-full p-1 shadow-[0_2px_20px_rgba(0,0,0,0.14)] flex">
+        <button onClick={() => { window.location.href = '/'; }} className={cn(toggleBtn, 'text-black/40 cursor-pointer bg-transparent')}>IELTS</button>
+        <button className={cn(toggleBtn, 'text-white cursor-default bg-accent-text shadow-[0_2px_8px_rgba(226,86,43,0.35)]')}>SAT</button>
       </div>
       {/* Left — dark panel (desktop only) */}
-      {!isMobile && (
-        <div style={{ background: '#0B0B0E', color: '#fff', padding: '64px 72px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', right: -120, bottom: -100, width: 380, height: 380, borderRadius: 9999, background: 'radial-gradient(circle, rgba(184,137,62,0.20), transparent 70%)' }} />
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.45)' }}>
-            Digital SAT · Practice Platform
-          </div>
-          <div style={{ position: 'relative' }}>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 60, lineHeight: 1.05, letterSpacing: '-0.02em', margin: 0 }}>
-              Know exactly<br />where you<br />stand — and<br />
-              <span style={{ color: '#C4471F', fontStyle: 'italic' }}>how to climb.</span>
-            </h1>
-            <p style={{ marginTop: 28, maxWidth: 380, fontSize: 16, lineHeight: 1.65, color: 'rgba(255,255,255,0.6)' }}>
-              Create a free account to start tracking your section scores, accuracy, and estimated SAT total over time.
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-            {['Full-length mocks', 'Per-topic analysis', 'Score trends'].map((f) => (
-              <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14, color: 'rgba(255,255,255,0.7)' }}>
-                <span style={{ color: '#C4471F' }}>✓</span> {f}
-              </div>
-            ))}
-          </div>
+      <div className="hidden sm:flex bg-ink text-white px-[72px] py-16 flex-col justify-between relative overflow-hidden">
+        <div className="absolute -right-[120px] -bottom-[100px] w-[380px] h-[380px] rounded-full bg-[radial-gradient(circle,rgba(184,137,62,0.20),transparent_70%)]" />
+        <div className="text-xs font-bold tracking-[0.14em] uppercase text-white/45">
+          Digital SAT · Practice Platform
         </div>
-      )}
+        <div className="relative">
+          <h1 className="font-display font-semibold text-[60px] leading-[1.05] tracking-[-0.02em] m-0">
+            Know exactly<br />where you<br />stand — and<br />
+            <span className="text-accent-text italic">how to climb.</span>
+          </h1>
+          <p className="mt-7 max-w-[380px] text-base leading-[1.65] text-white/60">
+            Create a free account to start tracking your section scores, accuracy, and estimated SAT total over time.
+          </p>
+        </div>
+        <div className="flex gap-3.5 flex-wrap">
+          {['Full-length mocks', 'Per-topic analysis', 'Score trends'].map((f) => (
+            <div key={f} className="flex items-center gap-[9px] text-sm text-white/70">
+              <span className="text-accent-text">✓</span> {f}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Right — form */}
-      <div className="scrollarea" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '40px 24px' : 48, overflowY: 'auto', background: '#FAF9F6', minHeight: '100vh' }}>
-        <div style={{ width: '100%', maxWidth: 388 }}>
+      <div className="scrollarea flex items-center justify-center px-6 py-10 sm:p-12 overflow-y-auto bg-paper min-h-screen">
+        <div className="w-full max-w-[388px]">
           {/* Mobile brand header */}
-          {isMobile && (
-            <div style={{ textAlign: 'center', marginBottom: 32 }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <div style={{ width: 22, height: 22, borderRadius: 7, background: '#E2562B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ width: 9, height: 9, borderRadius: 2, background: '#fff' }} />
-                </div>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20, color: '#0B0B0E' }}>Score Studio</span>
+          <div className="sm:hidden text-center mb-8">
+            <div className="inline-flex items-center gap-2.5 mb-2">
+              <div className="w-[22px] h-[22px] rounded-[7px] bg-ember flex items-center justify-center">
+                <div className="w-[9px] h-[9px] rounded-sm bg-white" />
               </div>
-              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)' }}>
-                Digital SAT · Practice Platform
-              </div>
+              <span className="font-display font-semibold text-xl text-ink">Score Studio</span>
             </div>
-          )}
+            <div className="text-xs font-bold tracking-[0.12em] uppercase text-ink/[.58]">
+              Digital SAT · Practice Platform
+            </div>
+          </div>
 
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 34 : 40, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Create your account</h2>
-          <p style={{ margin: '0 0 28px', color: 'rgba(11,11,14,0.64)', fontSize: 15 }}>It takes less than a minute.</p>
+          <h2 className="font-display font-semibold text-[34px] sm:text-[40px] mb-1.5 mt-0 tracking-[-0.02em]">Create your account</h2>
+          <p className="mb-7 mt-0 text-ink/[.64] text-[15px]">It takes less than a minute.</p>
 
           <form onSubmit={handleSubmit(onSubmit)}>
-            <div style={{ marginBottom: 16 }}>
+            <div className="mb-4">
               {label('Full name')}
-              <input type="text" autoComplete="name" placeholder="Aarav Sharma" {...register('name')} style={fieldStyle(!!errors.name)} />
+              <input type="text" autoComplete="name" placeholder="Aarav Sharma" {...register('name')} className={fieldClass(!!errors.name)} />
               {err(errors.name?.message)}
             </div>
 
-            <div style={{ marginBottom: 16 }}>
+            <div className="mb-4">
               {label('Email')}
-              <input type="email" autoComplete="email" placeholder="you@email.com" {...register('email')} style={fieldStyle(!!errors.email)} />
+              <input type="email" autoComplete="email" placeholder="you@email.com" {...register('email')} className={fieldClass(!!errors.email)} />
               {err(errors.email?.message)}
             </div>
 
-            <div style={{ marginBottom: 16 }}>
+            <div className="mb-4">
               {label('Phone number')}
-              <input type="tel" autoComplete="tel" placeholder="+977 98XXXXXXXX" {...register('phone')} style={fieldStyle(!!errors.phone)} />
+              <input type="tel" autoComplete="tel" placeholder="+977 98XXXXXXXX" {...register('phone')} className={fieldClass(!!errors.phone)} />
               {err(errors.phone?.message)}
-              {!errors.phone && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>Required for student accounts.</p>}
+              {!errors.phone && <p className={hintClass}>Required for student accounts.</p>}
             </div>
 
             {/* Password fields — side by side on desktop, stacked on mobile */}
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               <div>
                 {label('Password')}
-                <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('password')} style={fieldStyle(!!errors.password)} />
+                <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('password')} className={fieldClass(!!errors.password)} />
                 {err(errors.password?.message)}
               </div>
               <div>
                 {label('Confirm')}
-                <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('confirmPassword')} style={fieldStyle(!!errors.confirmPassword)} />
+                <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('confirmPassword')} className={fieldClass(!!errors.confirmPassword)} />
                 {err(errors.confirmPassword?.message)}
               </div>
             </div>
 
-            <div style={{ marginBottom: 10 }}>
+            <div className="mb-2.5">
               {label('Access code')}
-              <input type="text" placeholder="Enter your access code" {...register('accessCode')} style={fieldStyle(!!errors.accessCode)} />
+              <input type="text" placeholder="Enter your access code" {...register('accessCode')} className={fieldClass(!!errors.accessCode)} />
               {err(errors.accessCode?.message)}
-              {!errors.accessCode && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>Determines your role — student, teacher, or admin.</p>}
+              {!errors.accessCode && <p className={hintClass}>Determines your role — student, teacher, or admin.</p>}
             </div>
 
             {apiError && (
-              <div style={{ background: 'rgba(192,57,43,0.08)', color: '#C0392B', fontSize: 13, padding: '10px 14px', borderRadius: 10, margin: '8px 0 0' }}>
+              <div className="bg-danger/[.08] text-danger text-[13px] px-3.5 py-2.5 rounded-[10px] mt-2">
                 {apiError}
               </div>
             )}
@@ -156,15 +153,18 @@ export default function Register() {
             <button
               type="submit"
               disabled={isSubmitting}
-              style={{ width: '100%', height: 48, marginTop: 20, background: isSubmitting ? '#e89070' : '#C4471F', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 15, fontWeight: 600, cursor: isSubmitting ? 'default' : 'pointer', boxShadow: '0 2px 10px rgba(226,86,43,0.28)', transition: 'background 0.15s', fontFamily: 'inherit' }}
+              className={cn(
+                'w-full h-12 mt-5 text-white rounded-full text-[15px] font-semibold shadow-accent',
+                isSubmitting ? 'bg-accent-disabled cursor-default' : 'bg-accent-text cursor-pointer',
+              )}
             >
               {isSubmitting ? 'Creating account…' : 'Create account'}
             </button>
           </form>
 
-          <div style={{ textAlign: 'center', marginTop: 24, fontSize: 14, color: 'rgba(11,11,14,0.64)' }}>
+          <div className="text-center mt-6 text-sm text-ink/[.64]">
             Already registered?{' '}
-            <Link to="/login" style={{ color: '#C4471F', fontWeight: 600, textDecoration: 'none' }}>Sign in</Link>
+            <Link to="/login" className="text-accent-text font-semibold no-underline">Sign in</Link>
           </div>
         </div>
       </div>

@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/shared/store/auth';
 import { getExams, getFeedback, getAvailableSkillPassages, getAnalytics, getMistakeSummary, getProfile, startExam, startTopicExam } from '@/features/student/api/student.api';
 import { weakestDomain } from '@/features/student/components/ProgressPanels';
-import { useMobile } from '@/shared/hooks/useMobile';
+import { cn } from '@/shared/lib/utils';
 import {
   NO_SCORE, SECTION_MAX,
   daysUntil, formatExamScore, formatScore, scoreColor,
@@ -13,7 +13,6 @@ import {
 export default function Dashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const isMobile = useMobile();
 
   const { data: exams = [] } = useQuery({ queryKey: ['student', 'exams'], queryFn: getExams });
   const { data: feedback = [] } = useQuery({ queryKey: ['student', 'feedback'], queryFn: getFeedback });
@@ -73,54 +72,50 @@ export default function Dashboard() {
     ? Math.round(completedExams.reduce((s, e) => s + (e.score ?? 0) / e.totalQuestions, 0) / completedExams.length * 100)
     : 0;
 
-  const btn = (label: string, style: React.CSSProperties, onClick: () => void) => (
+  const btn = (label: string, className: string, onClick: () => void) => (
     <button
       onClick={onClick}
-      style={{ height: 40, padding: '0 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', ...style }}
-      onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; (e.currentTarget as HTMLElement).style.opacity = '0.85'; }}
-      onPointerLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+      className={cn('h-10 px-[18px] rounded-full text-[13.5px] font-semibold cursor-pointer whitespace-nowrap hover:opacity-[.85]', className)}
     >
       {label}
     </button>
   );
 
-  const pad = isMobile ? '20px 16px 80px' : '36px 48px 64px';
+  const cardClass = 'lift bg-white border border-border rounded-[13px] cursor-pointer shadow-card hover:shadow-card-hover hover:border-border-strong';
+  const eyebrowClass = 'text-[10px] font-bold tracking-[0.1em] uppercase mb-1';
+  const sectionTitleClass = 'text-[17px] m-0 font-sans';
 
   return (
-    <div className="screen-fade" style={{ padding: pad }}>
+    <div className="screen-fade px-4 pt-5 pb-20 sm:px-12 sm:pt-9 sm:pb-16">
       {/* Header */}
-      <div style={{ marginBottom: isMobile ? 20 : 28 }}>
-        {!isMobile && (
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 4 }}>{todayStr}</div>
-        )}
-        <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 32 : 44, margin: 0, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+      <div className="mb-5 sm:mb-7">
+        <div className="hidden sm:block text-xs font-bold tracking-[0.1em] uppercase text-ink/[.58] mb-1">{todayStr}</div>
+        <div className="flex items-start sm:items-end justify-between gap-3 flex-wrap sm:flex-nowrap">
+          <h1 className="font-display font-semibold text-[32px] sm:text-[44px] m-0 tracking-[-0.02em] leading-[1.1]">
             Welcome back, {firstName}
           </h1>
           <button
             onClick={() => navigate('/student/mock-test')}
-            style={{ height: isMobile ? 40 : 46, padding: '0 18px', background: '#C4471F', color: '#fff', border: 'none', borderRadius: 9999, fontSize: isMobile ? 13.5 : 14.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 10px rgba(226,86,43,0.26)', fontFamily: 'inherit', flexShrink: 0 }}
+            className="h-10 sm:h-[46px] px-[18px] bg-accent-text text-white rounded-full text-[13.5px] sm:text-[14.5px] font-semibold cursor-pointer shadow-[0_2px_10px_rgba(226,86,43,0.26)] shrink-0"
           >
-            {isMobile ? 'Full mock test' : 'Start full mock test'}
+            <span className="sm:hidden">Full mock test</span>
+            <span className="hidden sm:inline">Start full mock test</span>
           </button>
         </div>
       </div>
 
       {/* Hero — estimated score */}
-      <div style={{
-        background: '#0B0B0E', borderRadius: 18, padding: isMobile ? '24px 20px' : '32px 36px', marginBottom: 16,
-        position: 'relative', overflow: 'hidden',
-        display: isMobile ? 'block' : 'grid',
-        gridTemplateColumns: 'auto 1px 1fr auto',
-        gap: 36, alignItems: 'center',
-      }}>
-        <div style={{ position: 'absolute', right: -80, top: -80, width: 260, height: 260, borderRadius: 9999, background: 'radial-gradient(circle, rgba(226,86,43,0.16), transparent 70%)' }} />
+      <div className="bg-ink rounded-3xl px-5 py-6 sm:px-9 sm:py-8 mb-4 relative overflow-hidden block sm:grid sm:grid-cols-[auto_1px_1fr_auto] gap-9 items-center">
+        <div className="absolute -right-20 -top-20 w-[260px] h-[260px] rounded-full bg-[radial-gradient(circle,rgba(226,86,43,0.16),transparent_70%)]" />
 
         {/* Score */}
-        <div style={{ position: 'relative', marginBottom: isMobile ? 20 : 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>Estimated SAT score</div>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 68 : 88, lineHeight: 1, letterSpacing: '-0.03em', color: estTotal === null ? 'rgba(255,255,255,0.5)' : '#fff', marginTop: 4 }}>{formatScore(estTotal)}</div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 6 }}>
+        <div className="relative mb-5 sm:mb-0">
+          <div className="text-[11px] font-bold tracking-[0.12em] uppercase text-white/50">Estimated SAT score</div>
+          <div className={cn(
+            'font-display font-semibold text-[68px] sm:text-[88px] leading-none tracking-[-0.03em] mt-1',
+            estTotal === null ? 'text-white/50' : 'text-white',
+          )}>{formatScore(estTotal)}</div>
+          <div className="text-[13px] text-white/50 mt-1.5">
             {estTotal === null ? (
               estRW !== null
                 ? 'Score a Math practice test to complete your estimate'
@@ -130,13 +125,13 @@ export default function Dashboard() {
             ) : target === null ? (
               <button
                 onClick={() => navigate('/student/settings')}
-                style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: '#B8893E', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
+                className="bg-transparent p-0 [font:inherit] text-gold font-semibold cursor-pointer underline"
               >
                 Set your target score
               </button>
             ) : (
               <>
-                Target <span style={{ color: '#B8893E', fontWeight: 600 }}>{target}</span>
+                Target <span className="text-gold font-semibold">{target}</span>
                 {' · '}
                 {targetGap && targetGap > 0 ? `${targetGap} to go` : 'Goal reached! 🎉'}
                 {daysToTest !== null && (daysToTest >= 0
@@ -146,91 +141,88 @@ export default function Dashboard() {
             )}
           </div>
           {estFromPractice && (
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>
+            <div className="text-xs text-white/50 mt-1">
               From your latest practice tests · a full mock gives a test-day estimate
             </div>
           )}
         </div>
 
         {/* Divider — desktop only */}
-        {!isMobile && <div style={{ width: 1, height: 120, background: 'rgba(255,255,255,0.12)' }} />}
+        <div className="hidden sm:block w-px h-[120px] bg-white/[.12]" />
 
         {/* Section bars */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'relative', marginBottom: isMobile ? 20 : 0 }}>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Reading &amp; Writing</span>
-              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: '#fff' }}>{estRW ?? NO_SCORE}</span>
+        <div className="flex flex-col gap-4 relative mb-5 sm:mb-0">
+          {[
+            { label: 'Reading & Writing', value: estRW, bar: 'bg-ember' },
+            { label: 'Math', value: estMath, bar: 'bg-[#3D8C60]' },
+          ].map(({ label, value, bar }) => (
+            <div key={label}>
+              <div className="flex justify-between items-baseline mb-[7px]">
+                <span className="text-[13px] font-semibold text-white/70">{label}</span>
+                <span className="font-display font-semibold text-[22px] text-white">{value ?? NO_SCORE}</span>
+              </div>
+              <div className="h-[5px] bg-white/10 rounded-full">
+                {/* width is data-driven, so it stays inline */}
+                <div className={cn('h-[5px] rounded-full', bar)} style={{ width: `${((value ?? 0) / SECTION_MAX) * 100}%` }} />
+              </div>
             </div>
-            <div style={{ height: 5, background: 'rgba(255,255,255,0.1)', borderRadius: 9999 }}>
-              <div style={{ height: 5, width: `${((estRW ?? 0) / SECTION_MAX) * 100}%`, background: '#E2562B', borderRadius: 9999 }} />
-            </div>
-          </div>
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Math</span>
-              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: '#fff' }}>{estMath ?? NO_SCORE}</span>
-            </div>
-            <div style={{ height: 5, background: 'rgba(255,255,255,0.1)', borderRadius: 9999 }}>
-              <div style={{ height: 5, width: `${((estMath ?? 0) / SECTION_MAX) * 100}%`, background: '#3D8C60', borderRadius: 9999 }} />
-            </div>
-          </div>
+          ))}
         </div>
 
         {/* Practice buttons */}
-        <div style={{ position: 'relative', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: 10 }}>
-          {btn('Practice Math', { background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.16)' }, () => navigate('/student/exams'))}
-          {btn('Practice R&W', { background: 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.16)' }, () => navigate('/student/exams'))}
+        <div className="relative flex flex-row sm:flex-col gap-2.5">
+          {btn('Practice Math', 'bg-white/10 text-white border border-white/[.16]', () => navigate('/student/exams'))}
+          {btn('Practice R&W', 'bg-white/10 text-white border border-white/[.16]', () => navigate('/student/exams'))}
         </div>
       </div>
 
       {/* Stats row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: isMobile ? 10 : 16, marginBottom: isMobile ? 20 : 28 }}>
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-4 mb-5 sm:mb-7">
         {[
-          { value: completedExams.length || 0, suffix: '', label: 'Tests completed', color: '#C4471F' },
-          { value: accuracy, suffix: '%', label: 'Avg accuracy', color: '#2E7D5A' },
-          { value: unreadFeedback, suffix: '', label: 'Unread feedback', color: '#B8893E' },
+          { value: completedExams.length || 0, suffix: '', label: 'Tests completed', color: 'text-accent-text' },
+          { value: accuracy, suffix: '%', label: 'Avg accuracy', color: 'text-green-sat' },
+          { value: unreadFeedback, suffix: '', label: 'Unread feedback', color: 'text-gold' },
         ].map(({ value, suffix, label, color }) => (
-          <div key={label} style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 14, padding: isMobile ? '16px 14px' : '22px 24px', boxShadow: '0 1px 3px rgba(11,11,14,0.05)' }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 34 : 46, lineHeight: 1, color }}>{value}{suffix}</div>
-            <div style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginTop: 6 }}>{label}</div>
+          <div key={label} className="bg-white border border-border rounded-[14px] px-3.5 py-4 sm:px-6 sm:py-[22px] shadow-stat">
+            <div className={cn('font-display font-semibold text-[34px] sm:text-[46px] leading-none', color)}>{value}{suffix}</div>
+            <div className="text-[10px] sm:text-[11px] font-bold tracking-[0.08em] uppercase text-ink/[.58] mt-1.5">{label}</div>
           </div>
         ))}
       </div>
 
       {/* Recent tests + Jump back in */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: isMobile ? 20 : 24 }}>
+      <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr] gap-5 sm:gap-6">
         {/* Recent tests */}
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <h3 style={{ fontSize: 17, margin: 0, fontFamily: 'var(--font-sans)' }}>Recent tests</h3>
-            <span onClick={() => navigate('/student/results')} style={{ fontSize: 13, color: '#C4471F', fontWeight: 600, cursor: 'pointer' }}>View all →</span>
+          <div className="flex justify-between items-center mb-3.5">
+            <h3 className={sectionTitleClass}>Recent tests</h3>
+            <span onClick={() => navigate('/student/results')} className="text-[13px] text-accent-text font-semibold cursor-pointer">View all →</span>
           </div>
           {recentTests.length === 0 ? (
-            <div style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 14, padding: '32px 24px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>
+            <div className="bg-white border border-border rounded-[14px] px-6 py-8 text-center text-ink/[.58] text-sm">
               No completed tests yet. Start practicing!
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="flex flex-col gap-2.5">
               {recentTests.map(({ e, score, color, iconBg, iconColor, iconChar }) => (
                 <div
                   key={e.id}
                   onClick={() => navigate(`/student/results/${e.id}`)}
-                  className="lift"
-                  style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 13, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', boxShadow: '0 1px 3px rgba(11,11,14,0.04)' }}
-                  onPointerEnter={(el) => { if (el.pointerType !== 'mouse') return; el.currentTarget.style.boxShadow = '0 6px 20px rgba(11,11,14,0.09)'; el.currentTarget.style.borderColor = '#D8D4CC'; }}
-                  onPointerLeave={(el) => { el.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.04)'; el.currentTarget.style.borderColor = '#E7E4DE'; }}
+                  className={cn(cardClass, 'px-4 py-3.5 flex items-center gap-3.5')}
                 >
-                  <div style={{ width: 40, height: 40, borderRadius: 11, background: iconBg, color: iconColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20, flexShrink: 0 }}>
+                  <div
+                    className="w-10 h-10 rounded-[11px] flex items-center justify-center font-display font-semibold text-xl shrink-0"
+                    style={{ background: iconBg, color: iconColor }}
+                  >
                     {iconChar}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.setTitle ?? e.label ?? 'Practice'}</div>
-                    <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>{e.subject === 'math' ? 'Math' : 'R&W'}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold truncate">{e.setTitle ?? e.label ?? 'Practice'}</div>
+                    <div className="text-xs text-ink/[.58]">{e.subject === 'math' ? 'Math' : 'R&W'}</div>
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, lineHeight: 1, color }}>{score}</div>
-                    <div style={{ fontSize: 11, color: 'rgba(11,11,14,0.58)' }}>/ 800</div>
+                  <div className="text-right shrink-0">
+                    <div className="font-display font-semibold text-[26px] leading-none" style={{ color }}>{score}</div>
+                    <div className="text-[11px] text-ink/[.58]">/ 800</div>
                   </div>
                 </div>
               ))}
@@ -240,23 +232,23 @@ export default function Dashboard() {
 
         {/* Quick start */}
         <div>
-          <h3 style={{ fontSize: 17, margin: '0 0 14px', fontFamily: 'var(--font-sans)' }}>Jump back in</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <h3 className={cn(sectionTitleClass, 'mb-3.5')}>Jump back in</h3>
+          <div className="flex flex-col gap-2.5">
             {[
-              { label: 'Full length', sub: 'R&W + Math · scored /1600', title: 'Take a mock SAT', color: '#C4471F', path: '/student/mock-test' },
-              { label: 'Section', sub: 'Algebra, geometry & data', title: 'Math practice', color: '#2563A8', path: '/student/exams' },
-              { label: 'Section', sub: 'Grammar, vocab & comprehension', title: 'Reading & Writing', color: '#2E7D5A', path: '/student/exams' },
-              { label: 'Daily review', sub: 'Words due for spaced repetition', title: 'Vocab flashcards', color: '#0D7377', path: '/student/vocab-review' },
+              { label: 'Full length', sub: 'R&W + Math · scored /1600', title: 'Take a mock SAT', color: 'text-accent-text', path: '/student/mock-test' },
+              { label: 'Section', sub: 'Algebra, geometry & data', title: 'Math practice', color: 'text-blue-sat', path: '/student/exams' },
+              { label: 'Section', sub: 'Grammar, vocab & comprehension', title: 'Reading & Writing', color: 'text-green-sat', path: '/student/exams' },
+              { label: 'Daily review', sub: 'Words due for spaced repetition', title: 'Vocab flashcards', color: 'text-[#0D7377]', path: '/student/vocab-review' },
               // Always shown, unlike the conditional cards below it: a student
               // needs this the moment their teacher reads out a code, and has no
               // way to know in advance that they will.
-              { label: 'In class', sub: 'Enter the code from your teacher', title: 'Join a live exam', color: '#8E44AD', path: '/student/live-exam' },
+              { label: 'In class', sub: 'Enter the code from your teacher', title: 'Join a live exam', color: 'text-[#8E44AD]', path: '/student/live-exam' },
               ...(weakest
                 ? [{
                     label: 'Weakest topic',
                     sub: `${weakest.accuracy}% across ${weakest.attempted} questions`,
                     title: weakest.domainLabel,
-                    color: '#B8893E',
+                    color: 'text-gold',
                     path: '__topic__',
                   }]
                 : []),
@@ -267,7 +259,7 @@ export default function Dashboard() {
                     label: 'Targeted',
                     sub: `${openMistakes} question${openMistakes === 1 ? '' : 's'} you've missed`,
                     title: 'Review your mistakes',
-                    color: '#C47A1B',
+                    color: 'text-[#C47A1B]',
                     path: '/student/mistakes',
                   }]
                 : []),
@@ -278,14 +270,11 @@ export default function Dashboard() {
                   if (path !== '__topic__') { navigate(path); return; }
                   if (weakest) topicMutation.mutate({ subject: weakest.subject, skillCode: weakest.domainCode, count: 10 });
                 }}
-                className="lift"
-                style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 13, padding: '16px 18px', cursor: 'pointer', boxShadow: '0 1px 3px rgba(11,11,14,0.04)' }}
-                onPointerEnter={(el) => { if (el.pointerType !== 'mouse') return; el.currentTarget.style.boxShadow = '0 6px 20px rgba(11,11,14,0.09)'; el.currentTarget.style.borderColor = '#D8D4CC'; }}
-                onPointerLeave={(el) => { el.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.04)'; el.currentTarget.style.borderColor = '#E7E4DE'; }}
+                className={cn(cardClass, 'px-[18px] py-4')}
               >
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color, marginBottom: 4 }}>{label}</div>
-                <div style={{ fontSize: 14.5, fontWeight: 600 }}>{title}</div>
-                <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)', marginTop: 2 }}>{sub}</div>
+                <div className={cn(eyebrowClass, color)}>{label}</div>
+                <div className="text-[14.5px] font-semibold">{title}</div>
+                <div className="text-xs text-ink/[.58] mt-0.5">{sub}</div>
               </div>
             ))}
           </div>
@@ -294,18 +283,17 @@ export default function Dashboard() {
 
       {/* Weak-area practice */}
       {weakAreaPassages.length > 0 && (
-        <div style={{ marginTop: isMobile ? 20 : 28 }}>
-          <h3 style={{ fontSize: 17, margin: '0 0 14px', fontFamily: 'var(--font-sans)' }}>Practice your weak areas</h3>
+        <div className="mt-5 sm:mt-7">
+          <h3 className={cn(sectionTitleClass, 'mb-3.5')}>Practice your weak areas</h3>
           {weakAreaError && (
-            <div style={{ background: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 10, padding: '10px 16px', marginBottom: 12, fontSize: 13, color: '#C0392B' }}>
+            <div className="bg-danger/[.06] border border-danger/20 rounded-[10px] px-4 py-2.5 mb-3 text-[13px] text-danger">
               {weakAreaError}
             </div>
           )}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+          <div className="grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
             {weakAreaPassages.map((p) => (
               <div
                 key={p.subSkill}
-                className="lift"
                 onClick={async () => {
                   setWeakAreaError(null);
                   try {
@@ -315,13 +303,11 @@ export default function Dashboard() {
                     setWeakAreaError('Could not start practice session. Please try again.');
                   }
                 }}
-                style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 13, padding: '18px 16px', cursor: 'pointer', boxShadow: '0 1px 3px rgba(11,11,14,0.04)' }}
-                onPointerEnter={(el) => { if (el.pointerType !== 'mouse') return; el.currentTarget.style.boxShadow = '0 6px 20px rgba(11,11,14,0.09)'; el.currentTarget.style.borderColor = '#D8D4CC'; }}
-                onPointerLeave={(el) => { el.currentTarget.style.boxShadow = '0 1px 3px rgba(11,11,14,0.04)'; el.currentTarget.style.borderColor = '#E7E4DE'; }}
+                className={cn(cardClass, 'px-4 py-[18px]')}
               >
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#C4471F', marginBottom: 4 }}>Targeted</div>
-                <div style={{ fontSize: 14, fontWeight: 600, textTransform: 'capitalize' }}>{p.subSkill.replace(/_/g, ' ')}</div>
-                <div style={{ fontSize: 11.5, color: 'rgba(11,11,14,0.58)', marginTop: 2 }}>AI-generated · module 2</div>
+                <div className={cn(eyebrowClass, 'text-accent-text')}>Targeted</div>
+                <div className="text-sm font-semibold capitalize">{p.subSkill.replace(/_/g, ' ')}</div>
+                <div className="text-[11.5px] text-ink/[.58] mt-0.5">AI-generated · module 2</div>
               </div>
             ))}
           </div>

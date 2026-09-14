@@ -19,6 +19,19 @@ export default {
         'green-dark': '#1A6B3C',
         'blue-sat': '#2563A8',
         card: '#FFFFFF',
+        // accent as text or behind white text (4.9:1) — mirrors --accent-text
+        'accent-text': '#C4471F',
+        'accent-disabled': '#E89070',
+        'border-strong': '#D8D4CC',
+        field: '#C8C4BC',
+        danger: '#C0392B',
+        'error-field': '#EF4444',
+      },
+      boxShadow: {
+        card: '0 1px 3px rgba(11,11,14,0.04)',
+        'card-hover': '0 6px 20px rgba(11,11,14,0.09)',
+        stat: '0 1px 3px rgba(11,11,14,0.05)',
+        accent: '0 2px 10px rgba(226,86,43,0.28)',
       },
       fontFamily: {
         sans: ['var(--font-sans)'],
