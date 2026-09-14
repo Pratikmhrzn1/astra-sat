@@ -5,9 +5,13 @@ import { isAxiosError } from 'axios';
 import { getExam, saveAnswers, submitExamIfOpen, nextModule, type MockSection } from '@/api/student';
 import { getApiError } from '@/api/http';
 import { saveExamProgress, loadExamProgress, clearExamProgress } from '@/lib/offline';
-import { useMobile } from '@/hooks/useMobile';
-import { Modal } from '@/components/common/Modal';
-import { Button } from '@/components/common/Button';
+import { FinishConfirmModal } from '@/sections/student/take-exam/FinishConfirmModal';
+import { NavigatorPopup } from '@/sections/student/take-exam/NavigatorPopup';
+import { ActionErrorBanner, SectionBanner } from '@/sections/student/take-exam/PlayerBanners';
+import { PlayerBottomBar, type BottomAction } from '@/sections/student/take-exam/PlayerBottomBar';
+import { PlayerEmpty, PlayerLoadError, PlayerLoading, TransitionOverlay } from '@/sections/student/take-exam/PlayerStates';
+import { PlayerTopBar } from '@/sections/student/take-exam/PlayerTopBar';
+import { QuestionPane } from '@/sections/student/take-exam/QuestionPane';
 
 export default function TakeExam() {
   const { examId } = useParams<{ examId: string }>();
@@ -36,7 +40,6 @@ export default function TakeExam() {
   const [timeLeft, setTimeLeft] = useState(20 * 60);
   const [navOpen, setNavOpen] = useState(false);
   const largeFontSize = localStorage.getItem('sat-font-pref') === 'true';
-  const isMobile = useMobile();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [timerEnabled, setTimerEnabled] = useState<boolean>(locationState?.timerEnabled ?? false);
   const [sectionBanner, setSectionBanner] = useState<boolean>(locationState?.fromMockSection1 ?? false);
@@ -504,33 +507,21 @@ export default function TakeExam() {
 
   if (isError && !data) {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24, textAlign: 'center', background: '#FAF9F6' }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, color: '#0B0B0E' }}>Couldn't open this exam</div>
-        <p style={{ fontSize: 14.5, color: 'rgba(11,11,14,0.64)', margin: 0, maxWidth: 420 }}>{getApiError(loadError)}</p>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <Button variant="secondary" onClick={() => navigate('/student/dashboard', { replace: true })}>Back to dashboard</Button>
-          <Button onClick={() => refetch()}>Try again</Button>
-        </div>
-      </div>
+      <PlayerLoadError
+        message={getApiError(loadError)}
+        onBack={() => navigate('/student/dashboard', { replace: true })}
+        onRetry={() => refetch()}
+      />
     );
   }
 
   if (isLoading || !data || data.exam.id !== examId) {
-    return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAF9F6' }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, color: 'rgba(11,11,14,0.58)' }}>Loading exam…</div>
-      </div>
-    );
+    return <PlayerLoading />;
   }
 
   const { exam, questions } = data;
   if (questions.length === 0) {
-    return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24, background: '#FAF9F6' }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24 }}>This exam has no questions</div>
-        <Button variant="secondary" onClick={() => navigate('/student/dashboard', { replace: true })}>Back to dashboard</Button>
-      </div>
-    );
+    return <PlayerEmpty onBack={() => navigate('/student/dashboard', { replace: true })} />;
   }
   const isPractice = exam.type === 'individual';
   const isActuallyMath = exam.type === 'mock_math';
@@ -543,10 +534,6 @@ export default function TakeExam() {
   const flagged = flags[index];
   const isLast = index === total - 1;
   const qElim = elim[index] ?? {};
-  const isSPR = q.questionType === 'student_produced_response';
-  const LETTER = ['A', 'B', 'C', 'D'];
-  const optKeys = ['a', 'b', 'c', 'd'];
-  const optTexts = [q.optionA, q.optionB, q.optionC, q.optionD];
 
   const selectAnswer = (opt: string) => setAnswers((a) => ({ ...a, [q.id]: opt }));
 
@@ -566,336 +553,99 @@ export default function TakeExam() {
   const finishLabel = isModuleOne ? 'Finish module' : isNextSection ? 'Finish section' : 'Submit test';
   const requestFinish = () => { if (!transitioningRef.current) setConfirmOpen(true); };
 
-  const renderBottomAction = () => {
-    const btnStyle: React.CSSProperties = {
-      height: isMobile ? 40 : 42,
-      padding: isMobile ? '0 14px' : '0 22px',
-      borderRadius: 9999,
-      fontSize: isMobile ? 13 : 14,
-      fontWeight: 600,
-      cursor: 'pointer',
-      fontFamily: 'inherit',
-      whiteSpace: 'nowrap',
-    };
-    if (isLast) {
+  // On the last question the primary button finishes the section; before it, it advances.
+  const bottomAction: BottomAction = !isLast
+    ? { kind: 'next', answered: !!selected, onClick: () => setIndex((i) => Math.min(total - 1, i + 1)) }
+    : isModuleOne
       // Adaptive: M1 sections go to M2
-      if (mockSection === 'english_m1' || mockSection === 'math_m1') {
-        return (
-          <button
-            onClick={requestFinish}
-            disabled={transitioning}
-            style={{ ...btnStyle, border: 'none', background: '#2563A8', color: '#fff', cursor: transitioning ? 'default' : 'pointer' }}
-          >{transitioning ? 'Loading…' : 'Next Module →'}</button>
-        );
-      }
-      // Live exam: English → Math directly
-      return (
-        <button
-          onClick={requestFinish}
-          disabled={transitioning}
-          style={{ ...btnStyle, border: 'none', background: isNextSection ? '#2563A8' : '#C4471F', color: '#fff', cursor: transitioning ? 'default' : 'pointer' }}
-        >{isNextSection ? 'Next Section →' : transitioning ? 'Submitting…' : 'Submit test'}</button>
-      );
-    }
-    return (
-      <button
-        onClick={() => setIndex((i) => Math.min(total - 1, i + 1))}
-        style={{ ...btnStyle, border: selected ? 'none' : '1px solid #C8C4BC', background: selected ? '#C4471F' : '#fff', color: selected ? '#fff' : '#6F6B64' }}
-      >{selected ? 'Next →' : 'Skip →'}</button>
-    );
-  };
+      ? { kind: 'finish', tone: 'blue', label: transitioning ? 'Loading…' : 'Next Module →', onClick: requestFinish, disabled: transitioning }
+      // Live exam / legacy mock: English → Math directly; otherwise a submit
+      : {
+          kind: 'finish',
+          tone: isNextSection ? 'blue' : 'accent',
+          label: isNextSection ? 'Next Section →' : transitioning ? 'Submitting…' : 'Submit test',
+          onClick: requestFinish,
+          disabled: transitioning,
+        };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', background: '#FAF9F6', zIndex: 50 }}>
-      {/* Top bar */}
-      {isMobile ? (
-        <div style={{ height: 56, flexShrink: 0, background: '#fff', borderBottom: '1px solid #E7E4DE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', gap: 8 }}>
-          <button
-            onClick={handleExit}
-            aria-label="Exit test"
-            style={{ border: '1px solid #C8C4BC', background: '#fff', borderRadius: 9999, padding: '7px 12px', fontSize: 14, fontWeight: 700, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit', flexShrink: 0, lineHeight: 1 }}
-          >←</button>
-          <div style={{ textAlign: 'center', flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)' }}>
-              {isActuallyMath ? 'Math' : 'R&W'}{isPractice && ' · Practice'}
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>Q {index + 1} / {total}</div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            {timerEnabled ? (
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: low ? '#C0392B' : '#0B0B0E' }}>{mins}:{secs}</div>
-            ) : isPractice ? (
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(11,11,14,0.58)', letterSpacing: '0.04em' }}>Untimed</span>
-            ) : null}
-            {!isOnline && (
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#B8893E" strokeWidth="2" strokeLinecap="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
-            )}
-            <button
-              onClick={() => setFlags((f) => ({ ...f, [index]: !f[index] }))}
-              aria-label={flagged ? 'Remove flag' : 'Flag for review'}
-              aria-pressed={flagged}
-              style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', border: flagged ? '1px solid #E2562B' : '1px solid #C8C4BC', background: flagged ? 'rgba(226,86,43,0.07)' : '#fff', borderRadius: 9999, cursor: 'pointer', padding: 0 }}
-            >
-              <svg viewBox="0 0 24 24" width="15" height="15" fill={flagged ? '#E2562B' : 'none'} stroke={flagged ? '#E2562B' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div style={{ height: 62, flexShrink: 0, background: '#fff', borderBottom: '1px solid #E7E4DE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-            <button
-              onClick={handleExit}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, border: '1px solid #C8C4BC', background: '#fff', borderRadius: 9999, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit' }}
-            >← Exit</button>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)' }}>
-                {isActuallyMath ? 'Math' : 'Reading & Writing'}
-                {isPractice && <span style={{ marginLeft: 8, color: '#2563A8' }}>· Practice</span>}
-              </div>
-              <div style={{ fontSize: 14.5, fontWeight: 600 }}>Question {index + 1} of {total}</div>
-            </div>
-          </div>
+    <div className="fixed inset-0 flex flex-col bg-paper z-50">
+      <PlayerTopBar
+        isMath={isActuallyMath}
+        isPractice={isPractice}
+        index={index}
+        total={total}
+        timerEnabled={timerEnabled}
+        clock={`${mins}:${secs}`}
+        lowTime={low}
+        isOnline={isOnline}
+        flagged={!!flagged}
+        onToggleFlag={() => setFlags((f) => ({ ...f, [index]: !f[index] }))}
+        onExit={handleExit}
+        finishLabel={finishLabel}
+        onFinish={requestFinish}
+        transitioning={transitioning}
+      />
 
-          {timerEnabled ? (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 30, lineHeight: 1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: low ? '#C0392B' : '#0B0B0E' }}>{mins}:{secs}</div>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)' }}>Time left</div>
-            </div>
-          ) : isPractice ? (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.58)', letterSpacing: '0.04em' }}>Untimed</div>
-            </div>
-          ) : null}
+      {sectionBanner && <SectionBanner mockSection={mockSection} onDismiss={() => setSectionBanner(false)} />}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {!isOnline && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#B8893E', background: 'rgba(184,137,62,0.1)', padding: '5px 10px', borderRadius: 9999, border: '1px solid rgba(184,137,62,0.3)' }}>
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
-                Offline
-              </div>
-            )}
-            <button
-              onClick={() => setFlags((f) => ({ ...f, [index]: !f[index] }))}
-              aria-label={flagged ? 'Remove flag' : 'Flag for review'}
-              aria-pressed={flagged}
-              style={{ display: 'flex', alignItems: 'center', gap: 7, border: flagged ? '1px solid #E2562B' : '1px solid #C8C4BC', background: flagged ? 'rgba(226,86,43,0.07)' : '#fff', color: flagged ? '#C4471F' : '#0B0B0E', borderRadius: 9999, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-            >
-              <svg viewBox="0 0 24 24" width="15" height="15" fill={flagged ? '#E2562B' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/>
-              </svg>
-              {flagged ? 'Flagged' : 'Flag'}
-            </button>
-            <button
-              onClick={requestFinish}
-              disabled={transitioning}
-              style={{ border: '1px solid #0B0B0E', background: '#0B0B0E', color: '#fff', borderRadius: 9999, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: transitioning ? 'default' : 'pointer', fontFamily: 'inherit' }}
-            >{finishLabel}</button>
-          </div>
-        </div>
-      )}
-
-      {/* Section transition banner */}
-      {sectionBanner && (
-        <div style={{ flexShrink: 0, background: 'rgba(37,99,168,0.07)', borderBottom: '1px solid rgba(37,99,168,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '10px 14px' : '10px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#2563A8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#1D4ED8' }}>
-              {mockSection === 'english_m2'
-                ? (isMobile ? 'R&W Module 1 done — Module 2 starts' : 'Reading & Writing Module 1 complete — now on Module 2')
-                : mockSection === 'math_m2'
-                ? (isMobile ? 'Math Module 1 done — Module 2 starts' : 'Math Module 1 complete — now on Module 2')
-                : (isMobile ? 'Section 1 done — now on Section 2: Math' : "Section 1 (Reading & Writing) complete — you're now on Section 2: Math")}
-            </span>
-          </div>
-          <button onClick={() => setSectionBanner(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#6B7280', fontSize: 18, lineHeight: 1, padding: '0 4px', fontFamily: 'inherit' }}>×</button>
-        </div>
-      )}
-
-      {/* Failed submit / transition */}
       {actionError && (
-        <div role="alert" style={{ flexShrink: 0, background: 'rgba(192,57,43,0.07)', borderBottom: '1px solid rgba(192,57,43,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: isMobile ? '10px 14px' : '10px 24px' }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#A93226' }}>{actionError}</span>
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <button onClick={finishSection} style={{ border: 'none', background: '#C0392B', color: '#fff', borderRadius: 9999, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Retry</button>
-            <button onClick={() => setActionError(null)} aria-label="Dismiss" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#6B7280', fontSize: 18, lineHeight: 1, padding: '0 4px', fontFamily: 'inherit' }}>×</button>
-          </div>
-        </div>
+        <ActionErrorBanner message={actionError} onRetry={finishSection} onDismiss={() => setActionError(null)} />
       )}
 
-      {/* Content */}
-      <div ref={contentRef} className="scrollarea" style={{ flex: 1, overflowY: 'auto', background: '#FAF9F6' }}>
-        <div style={{ maxWidth: q.passageText ? (isMobile ? '100%' : 1100) : 760, margin: '0 auto', padding: isMobile ? '20px 16px 60px' : '40px 40px 60px', display: q.passageText && !isMobile ? 'grid' : 'block', gridTemplateColumns: '1fr 1fr', gap: 48 }}>
-          {/* Passage */}
-          {q.passageText && (
-            <div style={{ paddingRight: isMobile ? 0 : 40, borderRight: isMobile ? 'none' : '1px solid #EAE7E1', paddingBottom: isMobile ? 20 : 0, borderBottom: isMobile ? '1px solid #EAE7E1' : 'none', marginBottom: isMobile ? 24 : 0 }}>
-              {q.passageTitle && <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 10 }}>{q.passageTitle}</div>}
-              <p style={{ fontFamily: 'var(--font-reading)', fontSize: isMobile ? 17 : 19, lineHeight: 1.65, color: '#0B0B0E', margin: 0, whiteSpace: 'pre-wrap' }} dangerouslySetInnerHTML={{ __html: q.passageText }} />
-            </div>
-          )}
+      <QuestionPane
+        ref={contentRef}
+        q={q}
+        index={index}
+        selected={selected}
+        eliminated={qElim}
+        largeFont={largeFontSize}
+        onSelect={selectAnswer}
+        onToggleElim={toggleElim}
+      />
 
-          {/* Question */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <span style={{ width: 26, height: 26, borderRadius: 7, background: '#0B0B0E', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{index + 1}</span>
-              {isSPR && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 6, background: 'rgba(226,86,43,0.08)', color: '#C4471F' }}>Grid-in</span>}
-            </div>
-            <p style={{ fontSize: largeFontSize ? 20 : 16.5, lineHeight: 1.55, fontWeight: 500, color: '#0B0B0E', margin: '0 0 22px' }} dangerouslySetInnerHTML={{ __html: q.questionText }} />
-            {q.imageUrl && (
-              <div style={{ marginBottom: 22 }}>
-                <img src={q.imageUrl} alt="Question diagram" style={{ maxWidth: '100%', maxHeight: 400, borderRadius: 10, border: '1px solid #E7E4DE', objectFit: 'contain', display: 'block' }} />
-              </div>
-            )}
-
-            {/* SPR input */}
-            {isSPR && (
-              <div>
-                <input
-                  type="text"
-                  value={selected ?? ''}
-                  onChange={(e) => selectAnswer(e.target.value)}
-                  placeholder="Enter your answer…"
-                  style={{ width: '100%', maxWidth: 280, height: 52, padding: '0 16px', border: selected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', borderRadius: 12, fontSize: 18, fontFamily: 'var(--font-mono)', background: '#fff', color: '#0B0B0E', outline: 'none', boxSizing: 'border-box' }}
-                />
-                <p style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)', marginTop: 8 }}>Accepted formats: whole number, decimal (1.5), or fraction (3/4)</p>
-              </div>
-            )}
-
-            {/* MC options */}
-            {!isSPR && (
-              <div>
-                {optKeys.map((key, oi) => {
-                  if (!optTexts[oi]) return null;
-                  const isSelected = selected === key;
-                  const isElim = !!qElim[key];
-                  return (
-                    <div key={key} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                      <button
-                        onClick={() => selectAnswer(key)}
-                        data-press="soft"
-                        aria-pressed={isSelected}
-                        style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '15px 18px', borderRadius: 12, cursor: 'pointer', background: isSelected ? 'rgba(226,86,43,0.06)' : '#fff', border: isSelected ? '1.5px solid #E2562B' : '1px solid #C8C4BC', opacity: isElim ? 0.4 : 1, transition: 'background-color 150ms ease, border-color 150ms ease, opacity 150ms ease, transform 100ms ease-out', fontFamily: 'inherit' }}
-                      >
-                        <span style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 9999, border: isSelected ? '1.5px solid #E2562B' : '1.5px solid #C8C4BC', background: isSelected ? '#C4471F' : 'transparent', color: isSelected ? '#fff' : '#6F6B64', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700 }}>{LETTER[oi]}</span>
-                        <span style={{ fontSize: largeFontSize ? 18 : 15, color: '#0B0B0E', lineHeight: 1.5, textDecoration: isElim ? 'line-through' : 'none' }}>{optTexts[oi]}</span>
-                      </button>
-                      <button
-                        title="Cross out"
-                        aria-label={`Cross out ${LETTER[oi]}`}
-                        aria-pressed={isElim}
-                        onClick={() => toggleElim(key)}
-                        style={{ width: 44, flexShrink: 0, borderRadius: 10, border: '1px solid #E7E4DE', background: isElim ? 'rgba(11,11,14,0.04)' : '#fff', color: isElim ? '#C4471F' : '#6F6B64', cursor: 'pointer', fontSize: 11, fontWeight: 700, letterSpacing: '0.02em', textDecoration: 'line-through', fontFamily: 'inherit' }}
-                      >ABC</button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Question navigator popup */}
       {navOpen && (
-        <div className="nav-pop" role="dialog" aria-label="Question navigator" style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: isMobile ? 78 : 84, width: isMobile ? 'calc(100vw - 28px)' : 'min(560px, 90vw)', background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 16px 48px rgba(11,11,14,0.18)', padding: isMobile ? 14 : 20, zIndex: 45, maxHeight: isMobile ? '60vh' : '70vh', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexShrink: 0 }}>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>Navigator</span>
-            <div style={{ display: 'flex', gap: isMobile ? 8 : 14, fontSize: 10, color: 'rgba(11,11,14,0.64)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#0B0B0E', display: 'inline-block', flexShrink: 0 }} />Done</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#fff', border: '1px solid #C8C4BC', display: 'inline-block', flexShrink: 0 }} />Unseen</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: '#E2562B', display: 'inline-block', flexShrink: 0 }} />Flagged</span>
-            </div>
-          </div>
-          <div style={{ overflowY: 'auto', flex: 1 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(6, 1fr)' : 'repeat(auto-fill, minmax(44px, 1fr))', gap: isMobile ? 6 : 8 }}>
-              {questions.map((qq, qi) => {
-                const ans = !!answers[qq.id], fl = !!flags[qi], cur = qi === index;
-                const bg = fl ? '#E2562B' : ans ? '#0B0B0E' : '#fff';
-                const col = (fl || ans) ? '#fff' : '#8C8880';
-                return <button key={qi} onClick={() => { setIndex(qi); setNavOpen(false); }} style={{ height: isMobile ? 36 : 44, borderRadius: 8, border: cur ? '2px solid #E2562B' : '1px solid #C8C4BC', background: bg, color: col, fontWeight: 600, fontSize: isMobile ? 12 : 14, cursor: 'pointer', fontFamily: 'inherit' }}>{qi + 1}</button>;
-              })}
-            </div>
-          </div>
-          {isMobile && (
-            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #F0ECE4', flexShrink: 0 }}>
-              <button
-                onClick={() => { setNavOpen(false); requestFinish(); }}
-                disabled={transitioning}
-                style={{ width: '100%', height: 42, borderRadius: 9999, border: 'none', background: '#0B0B0E', color: '#fff', fontSize: 14, fontWeight: 600, cursor: transitioning ? 'default' : 'pointer', fontFamily: 'inherit' }}
-              >{finishLabel}</button>
-            </div>
-          )}
-        </div>
+        <NavigatorPopup
+          questions={questions}
+          answers={answers}
+          flags={flags}
+          index={index}
+          onJump={(qi) => { setIndex(qi); setNavOpen(false); }}
+          finishLabel={finishLabel}
+          onFinish={() => { setNavOpen(false); requestFinish(); }}
+          transitioning={transitioning}
+        />
       )}
 
-      {/* Bottom bar */}
-      <div style={{ height: isMobile ? 64 : 70, flexShrink: 0, background: '#fff', borderTop: '1px solid #E7E4DE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '0 12px' : '0 24px', gap: 8 }}>
-        <button
-          onClick={() => setNavOpen((n) => !n)}
-          aria-expanded={navOpen}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid #C8C4BC', background: navOpen ? '#F2F0EC' : '#fff', borderRadius: 10, padding: isMobile ? '0 10px' : '9px 16px', fontSize: isMobile ? 12 : 13.5, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit', whiteSpace: 'nowrap', height: isMobile ? 40 : 42, flexShrink: 0 }}
-        >
-          <svg viewBox="0 0 24 24" width={isMobile ? 14 : 16} height={isMobile ? 14 : 16} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
-          </svg>
-          {isMobile ? `Q ${index + 1}/${total}` : `Question ${index + 1} of ${total}`}
-        </button>
+      <PlayerBottomBar
+        index={index}
+        total={total}
+        navOpen={navOpen}
+        onToggleNav={() => setNavOpen((n) => !n)}
+        onBack={() => setIndex((i) => Math.max(0, i - 1))}
+        action={bottomAction}
+      />
 
-        <div style={{ display: 'flex', gap: isMobile ? 7 : 10 }}>
-          <button
-            onClick={() => setIndex((i) => Math.max(0, i - 1))}
-            disabled={index === 0}
-            style={{ height: isMobile ? 40 : 42, padding: isMobile ? '0 14px' : '0 22px', borderRadius: 9999, border: '1px solid #C8C4BC', background: index === 0 ? '#EDEAE4' : '#fff', color: index === 0 ? '#B0ACA4' : '#0B0B0E', fontSize: isMobile ? 13 : 14, fontWeight: 600, cursor: index === 0 ? 'default' : 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
-          >{isMobile ? '←' : '← Back'}</button>
-          {renderBottomAction()}
-        </div>
-      </div>
-
-      {/* Finish confirmation — ending a section cannot be undone */}
-      <Modal
-        isOpen={confirmOpen}
+      <FinishConfirmModal
+        open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         title={isModuleOne ? 'Finish this module?' : isNextSection ? 'Finish this section?' : 'Submit your test?'}
-        size="sm"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setConfirmOpen(false)}>Keep working</Button>
-            <Button onClick={finishSection} loading={transitioning}>{finishLabel}</Button>
-          </>
-        }
-      >
-        <p style={{ margin: '0 0 12px', color: 'rgba(11,11,14,0.7)' }}>
-          {isModuleOne || isNextSection
-            ? "You won't be able to come back to these questions once the next part starts."
-            : "You won't be able to change your answers after submitting."}
-        </p>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 13.5 }}>
-          <span style={{ padding: '5px 10px', borderRadius: 9999, background: '#F2F0EC' }}><strong>{answeredCount}</strong> of {total} answered</span>
-          {unansweredCount > 0 && <span style={{ padding: '5px 10px', borderRadius: 9999, background: 'rgba(192,57,43,0.08)', color: '#A93226' }}><strong>{unansweredCount}</strong> unanswered</span>}
-          {flaggedCount > 0 && <span style={{ padding: '5px 10px', borderRadius: 9999, background: 'rgba(226,86,43,0.08)', color: '#C4471F' }}><strong>{flaggedCount}</strong> flagged</span>}
-        </div>
-        {(unansweredCount > 0 || flaggedCount > 0) && (
-          <button
-            onClick={() => {
-              const target = questions.findIndex((qq, qi) => !answers[qq.id] || flags[qi]);
-              if (target >= 0) setIndex(target);
-              setConfirmOpen(false);
-            }}
-            style={{ marginTop: 12, border: 'none', background: 'none', padding: 0, color: '#2563A8', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-          >Review {unansweredCount > 0 ? 'unanswered' : 'flagged'} questions →</button>
-        )}
-      </Modal>
+        finishLabel={finishLabel}
+        onFinish={finishSection}
+        loading={transitioning}
+        movesOn={isModuleOne || isNextSection}
+        total={total}
+        answeredCount={answeredCount}
+        unansweredCount={unansweredCount}
+        flaggedCount={flaggedCount}
+        onReview={() => {
+          const target = questions.findIndex((qq, qi) => !answers[qq.id] || flags[qi]);
+          if (target >= 0) setIndex(target);
+          setConfirmOpen(false);
+        }}
+      />
 
-      {/* Full-screen overlay during section submit / transition */}
-      {transitioning && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: '#FAF9F6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14 }}>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid #E2562B', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
-          <div style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E' }}>Completing section…</div>
-        </div>
-      )}
+      {transitioning && <TransitionOverlay />}
     </div>
   );
 }
