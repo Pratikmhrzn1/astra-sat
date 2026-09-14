@@ -1,9 +1,9 @@
 import crypto from 'crypto';
-import { badRequest, conflict, notFound, tooManyRequests, unauthorized } from '../../http/errors';
-import { LockoutTracker } from '../../lib/rate-limit';
-import { comparePassword, hashPassword } from '../../lib/password';
-import { signAccessToken, verifyRefreshToken } from '../../lib/jwt';
-import { sendPasswordResetEmail, sendWelcomeEmail } from '../../lib/email';
+import { badRequest, conflict, notFound, tooManyRequests, unauthorized } from '../../core/errors';
+import { LockoutTracker } from '../../core/lib/rate-limit';
+import { comparePassword, hashPassword } from '../../core/lib/password';
+import { signAccessToken, verifyRefreshToken } from '../../core/lib/jwt';
+import { sendPasswordResetEmail, sendWelcomeEmail } from '../../core/lib/email';
 import * as repo from './auth.repository';
 import * as tokens from './auth.tokens';
 import type {

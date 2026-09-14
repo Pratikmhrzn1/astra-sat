@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { db } from '../../db';
+import { db } from '../../core/db';
 import {
   examAnswers,
   exams,
@@ -11,8 +11,8 @@ import {
   questionSets,
   questions,
   users,
-} from '../../db/schema';
-import { badRequest, notFound } from '../../http/errors';
+} from '../../core/db/schema';
+import { badRequest, notFound } from '../../core/errors';
 import { createExamForSet } from '../exams/exam-provisioning';
 import { recordMistakesOnRelease } from '../student/mistakes.service';
 

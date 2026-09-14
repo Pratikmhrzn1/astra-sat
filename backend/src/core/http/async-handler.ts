@@ -8,7 +8,7 @@ import type { NextFunction, Request, RequestHandler, Response } from 'express';
  * the client waiting until it times out. The previous codebase solved this by
  * requiring every handler to wrap its whole body in try/catch, which is easy to
  * forget and noisy to read. Wrapping once here replaces that convention —
- * handlers now throw (see http/errors.ts) and stay linear.
+ * handlers now throw (see core/errors.ts) and stay linear.
  */
 export function asyncHandler(
   handler: (req: Request, res: Response, next: NextFunction) => Promise<unknown> | unknown,

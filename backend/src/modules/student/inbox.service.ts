@@ -1,7 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm';
-import { db } from '../../db';
-import { feedback, users } from '../../db/schema';
-import { notFound } from '../../http/errors';
+import { db } from '../../core/db';
+import { feedback, users } from '../../core/db/schema';
+import { notFound } from '../../core/errors';
 
 /** Teacher-written feedback addressed to this student. */
 export async function listFeedback(studentId: string) {

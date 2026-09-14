@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
-import { db } from '../../db';
-import { skills } from '../../db/schema';
-import { badRequest, notFound } from '../../http/errors';
+import { db } from '../../core/db';
+import { skills } from '../../core/db/schema';
+import { badRequest, notFound } from '../../core/errors';
 import { createExamWithAnswerSheet } from '../exams/exam-provisioning';
 import type { TopicExamInput } from './student.schemas';
 

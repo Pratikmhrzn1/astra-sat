@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { db } from '../../db';
-import { platformFeedback, users } from '../../db/schema';
-import { asyncHandler } from '../../http/async-handler';
-import { notFound } from '../../http/errors';
-import { currentUserId, requireAuth, requireRole } from '../../http/middleware/auth';
-import { parseOrBadRequest } from '../../http/middleware/validate';
+import { db } from '../../core/db';
+import { platformFeedback, users } from '../../core/db/schema';
+import { asyncHandler } from '../../core/http/async-handler';
+import { notFound } from '../../core/errors';
+import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
+import { parseOrBadRequest } from '../../core/http/middleware/validate';
 
 /**
  * Bug reports and suggestions about the platform itself, submitted from the

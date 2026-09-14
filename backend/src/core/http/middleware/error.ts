@@ -1,7 +1,20 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { ZodError } from 'zod';
-import { isHttpError } from '../errors';
+import { isAppError, type ErrorKind } from '../../errors';
 import { env } from '../../config/env';
+
+/** How each domain error kind is answered over HTTP. */
+const STATUS: Record<ErrorKind, number> = {
+  bad_request: 400,
+  unauthorized: 401,
+  forbidden: 403,
+  not_found: 404,
+  conflict: 409,
+  unprocessable: 422,
+  too_many_requests: 429,
+  unavailable: 503,
+  internal: 500,
+};
 
 export const notFoundHandler: RequestHandler = (_req, res) => {
   res.status(404).json({ error: 'Not found' });
@@ -10,7 +23,7 @@ export const notFoundHandler: RequestHandler = (_req, res) => {
 /**
  * The single place an error becomes a response.
  *
- * Known failures (HttpError, ZodError) keep their message; everything else is
+ * Known failures (AppError, ZodError) keep their message; everything else is
  * logged in full and answered with a generic 500, so internal details — SQL
  * text, file paths, driver messages — never reach a client.
  */
@@ -19,9 +32,10 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   // background-work pattern) cannot be answered again; let Express close it.
   if (res.headersSent) return next(err);
 
-  if (isHttpError(err)) {
-    if (err.status >= 500) console.error(`[${req.method} ${req.originalUrl}]`, err);
-    return res.status(err.status).json({
+  if (isAppError(err)) {
+    const status = STATUS[err.kind];
+    if (status >= 500) console.error(`[${req.method} ${req.originalUrl}]`, err);
+    return res.status(status).json({
       error: err.message,
       ...(err.details !== undefined ? { details: err.details } : {}),
       ...(err.meta ?? {}),

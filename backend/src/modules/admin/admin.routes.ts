@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { asyncHandler } from '../../http/async-handler';
-import { currentUserId, requireAuth, requireRole } from '../../http/middleware/auth';
-import { body, query, validateBody, validateQuery } from '../../http/middleware/validate';
+import { asyncHandler } from '../../core/http/async-handler';
+import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
+import { body, query, validateBody, validateQuery } from '../../core/http/middleware/validate';
 import { listAudit, logAudit } from '../audit/audit.service';
 import * as classification from './classification.service';
 import * as contentReview from './content-review.service';

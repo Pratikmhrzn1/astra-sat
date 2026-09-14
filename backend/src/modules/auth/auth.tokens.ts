@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import type { Response } from 'express';
-import { db } from '../../db';
-import { env } from '../../config/env';
-import { signAccessToken, signRefreshToken } from '../../lib/jwt';
+import { db } from '../../core/db';
+import { env } from '../../core/config/env';
+import { signAccessToken, signRefreshToken } from '../../core/lib/jwt';
 import * as repo from './auth.repository';
 
 /**

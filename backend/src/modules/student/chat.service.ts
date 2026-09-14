@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
-import { db } from '../../db';
-import { chatMessages, chatSessions, exams, passages, questionSets, questions } from '../../db/schema';
-import { badRequest, notFound, tooManyRequests } from '../../http/errors';
+import { db } from '../../core/db';
+import { chatMessages, chatSessions, exams, passages, questionSets, questions } from '../../core/db/schema';
+import { badRequest, notFound, tooManyRequests } from '../../core/errors';
 import { aiRateLimiter, generateChatResponse } from '../ai';
 import type { ChatInput } from './student.schemas';
 

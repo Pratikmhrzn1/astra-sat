@@ -1,6 +1,6 @@
 import { and, eq, gt } from 'drizzle-orm';
-import { db, type Transaction } from '../../db';
-import { accessCodes, passwordResetTokens, refreshTokens, users } from '../../db/schema';
+import { db, type Transaction } from '../../core/db';
+import { accessCodes, passwordResetTokens, refreshTokens, users } from '../../core/db/schema';
 
 /**
  * All database access for authentication. Keeping queries here means the

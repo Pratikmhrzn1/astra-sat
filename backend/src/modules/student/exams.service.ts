@@ -1,7 +1,7 @@
 import { and, eq, lt, sql } from 'drizzle-orm';
-import { db } from '../../db';
-import { examAnswers, exams, questionSets, questions } from '../../db/schema';
-import { HttpError, badRequest, conflict, notFound } from '../../http/errors';
+import { db } from '../../core/db';
+import { examAnswers, exams, questionSets, questions } from '../../core/db/schema';
+import { badRequest, conflict, isAppError, notFound } from '../../core/errors';
 import { toSectionScore } from '../scoring';
 import { DEADLINE_GRACE_SECONDS, isPastGrace, resolveDeadline, serverTimeSpent } from './exam-timing';
 import * as mistakes from './mistakes.service';
@@ -197,7 +197,7 @@ export async function submitExam(
     try {
       await saveAnswers(examId, studentId, { answers: finalAnswers });
     } catch (err) {
-      if (!(err instanceof HttpError && err.status === 409)) throw err;
+      if (!(isAppError(err) && err.kind === 'conflict')) throw err;
     }
   }
 

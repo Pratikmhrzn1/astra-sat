@@ -1,6 +1,6 @@
 import { and, eq, isNull, or } from 'drizzle-orm';
-import { db } from '../../db';
-import { exams, mockTests } from '../../db/schema';
+import { db } from '../../core/db';
+import { exams, mockTests } from '../../core/db/schema';
 import { finalizeMockIfComplete, findMockContextForExam } from '../student/mock.service';
 import { toSectionScore } from '../scoring';
 

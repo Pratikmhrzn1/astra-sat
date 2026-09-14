@@ -1,7 +1,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { db } from '../../db';
-import { exams } from '../../db/schema';
-import { parseDbTimestamp } from '../../lib/db-time';
+import { db } from '../../core/db';
+import { exams } from '../../core/db/schema';
+import { parseDbTimestamp } from '../../core/lib/db-time';
 
 /**
  * Server-authoritative exam time.

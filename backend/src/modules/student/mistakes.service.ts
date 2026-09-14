@@ -1,13 +1,13 @@
 import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
-import { db } from '../../db';
+import { db } from '../../core/db';
 import {
   examAnswers,
   mistakes,
   questionSets,
   questions,
   skills,
-} from '../../db/schema';
-import { badRequest } from '../../http/errors';
+} from '../../core/db/schema';
+import { badRequest } from '../../core/errors';
 import { createExamWithAnswerSheet } from '../exams/exam-provisioning';
 import type { MistakePracticeInput } from './student.schemas';
 

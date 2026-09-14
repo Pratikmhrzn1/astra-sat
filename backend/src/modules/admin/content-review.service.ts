@@ -1,7 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm';
-import { db } from '../../db';
-import { generatedContent, passages, questionSets, questions } from '../../db/schema';
-import { notFound, unprocessable } from '../../http/errors';
+import { db } from '../../core/db';
+import { generatedContent, passages, questionSets, questions } from '../../core/db/schema';
+import { notFound, unprocessable } from '../../core/errors';
 import type { FlagContentInput, ListContentQuery } from './admin.schemas';
 
 /**

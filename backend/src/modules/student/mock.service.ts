@@ -1,7 +1,7 @@
 import { desc, eq, and, inArray, or, sql } from 'drizzle-orm';
-import { db } from '../../db';
-import { exams, mockTests, questionSets } from '../../db/schema';
-import { badRequest, notFound } from '../../http/errors';
+import { db } from '../../core/db';
+import { exams, mockTests, questionSets } from '../../core/db/schema';
+import { badRequest, notFound } from '../../core/errors';
 import { pathFromModuleDifficulty, toSectionScore, toTotalScore } from '../scoring';
 import * as repo from './student.repository';
 import { MOCK_MODULE_LIMIT_SECONDS } from './exam-timing';

@@ -1,5 +1,5 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
-import { db } from '../../db';
+import { db } from '../../core/db';
 import {
   examAnswers,
   exams,
@@ -10,9 +10,9 @@ import {
   questions,
   teacherVocabWords,
   users,
-} from '../../db/schema';
-import { badRequest, conflict, forbidden, notFound } from '../../http/errors';
-import { normalizeFileUrl } from '../../lib/url';
+} from '../../core/db/schema';
+import { badRequest, conflict, forbidden, notFound } from '../../core/errors';
+import { normalizeFileUrl } from '../../core/lib/url';
 import { publicUserColumns } from '../auth/auth.repository';
 import { getProfile } from '../student/profile.service';
 import { listSkillCodes } from '../skills/skills.service';

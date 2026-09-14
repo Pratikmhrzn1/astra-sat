@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { db } from '../../db';
+import { db } from '../../core/db';
 import {
   aiFeedback,
   examAnswers,
@@ -8,8 +8,8 @@ import {
   questionSets,
   questions,
   studentVocab,
-} from '../../db/schema';
-import { badRequest, notFound, tooManyRequests } from '../../http/errors';
+} from '../../core/db/schema';
+import { badRequest, notFound, tooManyRequests } from '../../core/errors';
 import {
   aiRateLimiter,
   extractSentenceWithWord,

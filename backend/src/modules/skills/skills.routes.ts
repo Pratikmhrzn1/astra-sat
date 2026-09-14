@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { asyncHandler } from '../../http/async-handler';
-import { requireAuth } from '../../http/middleware/auth';
-import { query, validateQuery } from '../../http/middleware/validate';
+import { asyncHandler } from '../../core/http/async-handler';
+import { requireAuth } from '../../core/http/middleware/auth';
+import { query, validateQuery } from '../../core/http/middleware/validate';
 import * as service from './skills.service';
 
 export const skillsRouter = Router();

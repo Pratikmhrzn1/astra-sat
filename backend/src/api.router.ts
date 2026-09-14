@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { authRouter } from './auth/auth.routes';
-import { studentRouter } from './student/student.routes';
-import { teacherRouter } from './teacher/teacher.routes';
-import { adminRouter } from './admin/admin.routes';
-import { platformFeedbackRouter } from './platform-feedback/platform-feedback.routes';
-import { libraryRouter } from './library/library.routes';
-import { skillsRouter } from './skills/skills.routes';
-import { liveExamRouter } from './live-exam/live-exam.routes';
+import { authRouter } from './modules/auth/auth.routes';
+import { studentRouter } from './modules/student/student.routes';
+import { teacherRouter } from './modules/teacher/teacher.routes';
+import { adminRouter } from './modules/admin/admin.routes';
+import { platformFeedbackRouter } from './modules/platform-feedback/platform-feedback.routes';
+import { libraryRouter } from './modules/library/library.routes';
+import { skillsRouter } from './modules/skills/skills.routes';
+import { liveExamRouter } from './modules/live-exam/live-exam.routes';
 
 /**
  * Everything under `/api`. Mount paths are part of the public contract the

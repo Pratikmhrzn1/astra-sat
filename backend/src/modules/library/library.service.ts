@@ -2,11 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import { desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { env } from '../../config/env';
-import { db } from '../../db';
-import { libraryItems, users } from '../../db/schema';
-import { forbidden, notFound } from '../../http/errors';
-import { normalizeFileUrl } from '../../lib/url';
+import { env } from '../../core/config/env';
+import { db } from '../../core/db';
+import { libraryItems, users } from '../../core/db/schema';
+import { forbidden, notFound } from '../../core/errors';
+import { normalizeFileUrl } from '../../core/lib/url';
 
 /**
  * Shared library of teaching material: uploaded files and written notes.

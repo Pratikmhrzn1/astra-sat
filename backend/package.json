@@ -8,7 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "migrate": "drizzle-kit push",
-    "seed": "tsx src/db/seed.ts",
+    "seed": "tsx src/core/db/seed.ts",
     "depcruise": "depcruise src --config .dependency-cruiser.cjs"
   },
   "dependencies": {

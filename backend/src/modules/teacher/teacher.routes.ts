@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { asyncHandler } from '../../http/async-handler';
-import { currentUserId, requireAuth, requireRole } from '../../http/middleware/auth';
-import { body, validateBody } from '../../http/middleware/validate';
+import { asyncHandler } from '../../core/http/async-handler';
+import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
+import { body, validateBody } from '../../core/http/middleware/validate';
 import { logAudit } from '../audit/audit.service';
 import * as service from './teacher.service';
 import {

@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { env } from '../../config/env';
-import { asyncHandler } from '../../http/async-handler';
-import { badRequest } from '../../http/errors';
-import { currentUser, requireAuth, requireRole } from '../../http/middleware/auth';
-import { parseOrBadRequest } from '../../http/middleware/validate';
+import { env } from '../../core/config/env';
+import { asyncHandler } from '../../core/http/async-handler';
+import { badRequest } from '../../core/errors';
+import { currentUser, requireAuth, requireRole } from '../../core/http/middleware/auth';
+import { parseOrBadRequest } from '../../core/http/middleware/validate';
 import * as service from './library.service';
 
 export const libraryRouter = Router();

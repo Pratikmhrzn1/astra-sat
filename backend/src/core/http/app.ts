@@ -1,9 +1,8 @@
-import express, { type Express } from 'express';
+import express, { type Express, type Router } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { env } from '../config/env';
-import { apiRouter } from '../modules/router';
 import { errorHandler, notFoundHandler } from './middleware/error';
 
 /**
@@ -11,8 +10,9 @@ import { errorHandler, notFoundHandler } from './middleware/error';
  *
  * Kept free of side effects (no port binding, no migrations) so tests can
  * construct an app without starting a server — see http/server.ts for boot.
+ * The API router is passed in so core never imports a feature module.
  */
-export function createApp(): Express {
+export function createApp(apiRouter: Router): Express {
   const app = express();
 
   // Behind nginx/Render: trust one proxy hop so req.ip and `secure` reflect the

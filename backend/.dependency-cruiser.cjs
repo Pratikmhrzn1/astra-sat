@@ -15,6 +15,13 @@ module.exports = {
       to: { circular: true },
     },
     {
+      name: 'core-is-infrastructure',
+      severity: 'error',
+      comment: 'core/ (config, db, http, lib, errors) must not know about features. Wire modules in src/index.ts.',
+      from: { path: '^src/core/' },
+      to: { path: '^src/(modules|jobs|api\\.router)' },
+    },
+    {
       name: 'no-orphans',
       severity: 'warn',
       comment: 'A module nothing imports is dead code or a missing route.',

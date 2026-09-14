@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { env } from '../../config/env';
+import { env } from '../../core/config/env';
 import type { AIResult, ModelPurpose } from './ai.types';
 
 /**

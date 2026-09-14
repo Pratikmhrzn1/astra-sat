@@ -1,6 +1,6 @@
 import { and, desc, eq, ne, sql } from 'drizzle-orm';
-import { db } from '../../db';
-import { examAnswers, exams, generatedContent, questions, studentSkillTriggers } from '../../db/schema';
+import { db } from '../../core/db';
+import { examAnswers, exams, generatedContent, questions, studentSkillTriggers } from '../../core/db/schema';
 import { generateStructuredOutput, isConfigured } from '../ai';
 
 /**

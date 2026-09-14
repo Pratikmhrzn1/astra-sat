@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { env } from '../../config/env';
-import { asyncHandler } from '../../http/async-handler';
-import { currentUserId, requireAuth } from '../../http/middleware/auth';
-import { body, validateBody } from '../../http/middleware/validate';
+import { env } from '../../core/config/env';
+import { asyncHandler } from '../../core/http/async-handler';
+import { currentUserId, requireAuth } from '../../core/http/middleware/auth';
+import { body, validateBody } from '../../core/http/middleware/validate';
 import * as service from './auth.service';
 import * as tokens from './auth.tokens';
 import {

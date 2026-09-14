@@ -1,7 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
-import { db } from '../../db';
-import { questionSets, questions } from '../../db/schema';
-import { HttpError } from '../../http/errors';
+import { db } from '../../core/db';
+import { questionSets, questions } from '../../core/db/schema';
+import { unavailable } from '../../core/errors';
 import { generateStructuredOutput, isConfigured } from '../ai';
 
 /**
@@ -105,7 +105,7 @@ export interface ClassificationRun {
 
 export async function autoTagSubSkills(): Promise<ClassificationRun> {
   if (!isConfigured('classify')) {
-    throw new HttpError(503, 'Classification model not configured (needs OPENROUTER_API_KEY and AI_MODEL_CLASSIFY)');
+    throw unavailable('Classification model not configured (needs OPENROUTER_API_KEY and AI_MODEL_CLASSIFY)');
   }
 
   // Both subjects. The `subject = 'english'` filter that used to be here is

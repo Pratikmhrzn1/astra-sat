@@ -1,7 +1,7 @@
 import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
-import { db } from '../../db';
-import { examAnswers, exams, passages, questionSets, questions } from '../../db/schema';
-import { normalizeFileUrl } from '../../lib/url';
+import { db } from '../../core/db';
+import { examAnswers, exams, passages, questionSets, questions } from '../../core/db/schema';
+import { normalizeFileUrl } from '../../core/lib/url';
 
 /**
  * Shared reads for the student portal.

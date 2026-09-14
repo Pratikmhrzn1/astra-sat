@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express';
 import type { ZodSchema } from 'zod';
-import { badRequest } from '../errors';
+import { badRequest } from '../../errors';
 
 /**
  * Request validation. A failure is a 422 carrying per-field messages, matching

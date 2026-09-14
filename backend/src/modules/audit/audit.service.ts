@@ -1,6 +1,6 @@
 import { desc, eq } from 'drizzle-orm';
-import { db } from '../../db';
-import { auditLog, users } from '../../db/schema';
+import { db } from '../../core/db';
+import { auditLog, users } from '../../core/db/schema';
 
 /**
  * Who did what, for the actions that cannot be undone.

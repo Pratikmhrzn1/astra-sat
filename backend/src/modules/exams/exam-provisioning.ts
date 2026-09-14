@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
-import { db } from '../../db';
-import { examAnswers, exams, questions } from '../../db/schema';
+import { db } from '../../core/db';
+import { examAnswers, exams, questions } from '../../core/db/schema';
 
 /**
  * Creating an exam, in one place.

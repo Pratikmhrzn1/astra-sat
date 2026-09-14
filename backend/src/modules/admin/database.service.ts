@@ -1,7 +1,7 @@
 import { getTableColumns, getTableName, is } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
-import { db, pool } from '../../db';
-import * as schema from '../../db/schema';
+import { db, pool } from '../../core/db';
+import * as schema from '../../core/db/schema';
 import {
   accessCodes,
   auditLog,
@@ -25,9 +25,9 @@ import {
   studentVocab,
   teacherVocabWords,
   users,
-} from '../../db/schema';
-import { runMigrations } from '../../db/migrate';
-import { HttpError } from '../../http/errors';
+} from '../../core/db/schema';
+import { runMigrations } from '../../core/db/migrate';
+import { badRequest, internal } from '../../core/errors';
 import type { RestoreInput } from './admin.schemas';
 
 /**
@@ -232,7 +232,7 @@ export async function restoreBackup(input: RestoreInput): Promise<{ ok: true; me
   } catch (err) {
     await client.query('ROLLBACK').catch(() => undefined);
     console.error('[admin] Restore failed:', err);
-    throw new HttpError(500, 'Restore failed', { meta: { details: String(err) } });
+    throw internal('Restore failed', { details: String(err) });
   } finally {
     client.release();
   }
@@ -298,7 +298,7 @@ export async function runMigrationsNow(): Promise<{ ok: true; message: string }>
     return { ok: true, message: 'Migrations completed successfully' };
   } catch (err) {
     console.error('[admin] Migration failed:', err);
-    throw new HttpError(500, 'Migration failed', { meta: { details: String(err) } });
+    throw internal('Migration failed', { details: String(err) });
   }
 }
 
@@ -332,7 +332,7 @@ export async function runSql(statement: string): Promise<SqlResult> {
     };
   } catch (err) {
     console.error('[admin] SQL runner error:', err);
-    throw new HttpError(400, String(err));
+    throw badRequest(String(err));
   } finally {
     client.release();
   }

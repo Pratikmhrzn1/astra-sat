@@ -1,12 +1,12 @@
 import { and, desc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
-import { db } from '../../db';
+import { db } from '../../core/db';
 import {
   generatedContent,
   studentTeacherVocabProgress,
   studentVocab,
   teacherVocabWords,
-} from '../../db/schema';
-import { notFound } from '../../http/errors';
+} from '../../core/db/schema';
+import { notFound } from '../../core/errors';
 
 /**
  * Vocabulary spaced repetition (SM-2 style).

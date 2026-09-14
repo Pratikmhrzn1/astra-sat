@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { env, type SeedAccount } from '../config/env';
-import { db, pool } from '../db';
+import { db, pool } from './index';
 import { users } from './schema';
 import { hashPassword } from '../lib/password';
 import { runMigrations } from './migrate';

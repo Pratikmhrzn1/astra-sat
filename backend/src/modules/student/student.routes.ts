@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { asyncHandler } from '../../http/async-handler';
-import { currentUserId, requireAuth, requireRole } from '../../http/middleware/auth';
-import { body, query, validateBody, validateQuery } from '../../http/middleware/validate';
-import { HttpError } from '../../http/errors';
+import { asyncHandler } from '../../core/http/async-handler';
+import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
+import { body, query, validateBody, validateQuery } from '../../core/http/middleware/validate';
+import { unavailable } from '../../core/errors';
 import * as analytics from '../analytics/analytics.service';
 import * as chat from './chat.service';
 import * as exams from './exams.service';
@@ -260,7 +260,7 @@ studentRouter.post(
   '/exams/:examId/narrative/retry',
   asyncHandler(async (req, res) => {
     if (!narrative.narrativesEnabled()) {
-      throw new HttpError(503, 'Narrative model not configured');
+      throw unavailable('Narrative model not configured');
     }
 
     const { narrativeId, exam } = await exams.retryNarrative(req.params.examId, currentUserId(req));

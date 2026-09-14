@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
-import { db } from '../../db';
+import { db } from '../../core/db';
 import { skillAccuracy } from '../analytics/analytics.service';
-import { examAnswers, exams, mockNarratives, questionSets, questions } from '../../db/schema';
+import { examAnswers, exams, mockNarratives, questionSets, questions } from '../../core/db/schema';
 import { generateStructuredOutput, isConfigured } from '../ai';
 
 /**

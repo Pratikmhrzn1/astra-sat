@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../../db';
-import { studentProfiles } from '../../db/schema';
+import { db } from '../../core/db';
+import { studentProfiles } from '../../core/db/schema';
 import type { UpdateProfileInput } from './student.schemas';
 
 /**

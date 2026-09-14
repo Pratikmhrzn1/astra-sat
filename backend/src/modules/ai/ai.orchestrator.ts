@@ -1,5 +1,5 @@
-import { env } from '../../config/env';
-import { FixedWindowRateLimiter } from '../../lib/rate-limit';
+import { env } from '../../core/config/env';
+import { FixedWindowRateLimiter } from '../../core/lib/rate-limit';
 import { AINotConfiguredError, AIParseError, generateStructuredOutput } from './ai.client';
 import {
   buildCommandOfEvidence,

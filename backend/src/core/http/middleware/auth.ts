@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express';
 import { verifyAccessToken, type TokenPayload } from '../../lib/jwt';
-import { forbidden, unauthorized } from '../errors';
+import { forbidden, unauthorized } from '../../errors';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace

@@ -1,8 +1,8 @@
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import { db } from '../../db';
-import { accessCodes, aiFeedback, exams, questionSets, questions, users } from '../../db/schema';
-import { badRequest, conflict, notFound } from '../../http/errors';
-import { hashPassword } from '../../lib/password';
+import { db } from '../../core/db';
+import { accessCodes, aiFeedback, exams, questionSets, questions, users } from '../../core/db/schema';
+import { badRequest, conflict, notFound } from '../../core/errors';
+import { hashPassword } from '../../core/lib/password';
 import { getTaggingCoverage } from '../skills/skills.service';
 import type { AssignStudentsInput, CreateAccessCodeInput, UpdateUserInput } from './admin.schemas';
 

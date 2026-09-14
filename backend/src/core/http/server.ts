@@ -1,9 +1,9 @@
 import fs from 'fs';
 import type { Server } from 'http';
+import type { Router } from 'express';
 import { env } from '../config/env';
 import { pool } from '../db';
 import { runMigrations } from '../db/migrate';
-import { backfillScores } from '../modules/admin/scoring-backfill.service';
 import { createApp } from './app';
 
 /**
@@ -12,22 +12,23 @@ import { createApp } from './app';
  * half-migrated database, and a failure exits non-zero so the orchestrator
  * restarts (or halts) rather than serving a broken app.
  */
-export async function startServer(): Promise<Server> {
+export async function startServer({ apiRouter, startupJobs }: {
+  apiRouter: Router;
+  /** Run once the port is open. Must not throw: a repair job must not keep the app down. */
+  startupJobs?: () => Promise<void>;
+}): Promise<Server> {
   fs.mkdirSync(env.uploads.dir, { recursive: true });
 
   console.log('[boot] Running database migrations…');
   await runMigrations();
 
-  const app = createApp();
+  const app = createApp(apiRouter);
   const server = app.listen(env.port, () => {
     console.log(`[boot] SAT Prep backend listening on http://localhost:${env.port} (${env.nodeEnv})`);
   });
 
-  // Exams and mocks finished before scaled scoring existed have no score, so the
-  // dashboard estimate and the History trends stay blank for them. The backfill
-  // only fills NULL scores and never overwrites, so it is safe on every boot. It
-  // runs after listen and never throws: a repair job must not keep the app down.
-  backfillScores().catch((err) => console.error('[boot] Score backfill failed:', err));
+  // After listen, detached: startup repair work never delays or blocks serving.
+  startupJobs?.().catch((err) => console.error('[boot] Startup jobs failed:', err));
 
   installShutdownHandlers(server);
   return server;

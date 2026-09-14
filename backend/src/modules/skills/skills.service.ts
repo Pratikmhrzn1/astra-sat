@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { db } from '../../db';
-import { questionSets, questions, skills } from '../../db/schema';
+import { db } from '../../core/db';
+import { questionSets, questions, skills } from '../../core/db/schema';
 
 /**
  * The SAT domain/skill tree, and how many questions sit under each node.
