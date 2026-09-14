@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/store/auth';
 import { getExams, getFeedback, getAvailableSkillPassages, getAnalytics, getMistakeSummary, getProfile, startExam, startTopicExam } from '@/api/student';
 import { weakestDomain } from '@/components/student/ProgressPanels';
+import { cardClass, pageClass } from '@/components/common';
 import { cn } from '@/lib/utils';
 import {
   NO_SCORE, SECTION_MAX,
@@ -81,15 +82,14 @@ export default function Dashboard() {
     </button>
   );
 
-  const cardClass = 'lift bg-white border border-border rounded-[13px] cursor-pointer shadow-card hover:shadow-card-hover hover:border-border-strong';
   const eyebrowClass = 'text-[10px] font-bold tracking-[0.1em] uppercase mb-1';
   const sectionTitleClass = 'text-[17px] m-0 font-sans';
 
   return (
-    <div className="screen-fade px-4 pt-5 pb-20 sm:px-12 sm:pt-9 sm:pb-16">
+    <div className={pageClass}>
       {/* Header */}
       <div className="mb-5 sm:mb-7">
-        <div className="hidden sm:block text-xs font-bold tracking-[0.1em] uppercase text-ink/[.58] mb-1">{todayStr}</div>
+        <div className="hidden sm:block text-xs font-bold tracking-[0.1em] uppercase text-muted mb-1">{todayStr}</div>
         <div className="flex items-start sm:items-end justify-between gap-3 flex-wrap sm:flex-nowrap">
           <h1 className="font-display font-semibold text-[32px] sm:text-[44px] m-0 tracking-[-0.02em] leading-[1.1]">
             Welcome back, {firstName}
@@ -185,7 +185,7 @@ export default function Dashboard() {
         ].map(({ value, suffix, label, color }) => (
           <div key={label} className="bg-white border border-border rounded-[14px] px-3.5 py-4 sm:px-6 sm:py-[22px] shadow-stat">
             <div className={cn('font-display font-semibold text-[34px] sm:text-[46px] leading-none', color)}>{value}{suffix}</div>
-            <div className="text-[10px] sm:text-[11px] font-bold tracking-[0.08em] uppercase text-ink/[.58] mt-1.5">{label}</div>
+            <div className="text-[10px] sm:text-[11px] font-bold tracking-[0.08em] uppercase text-muted mt-1.5">{label}</div>
           </div>
         ))}
       </div>
@@ -199,7 +199,7 @@ export default function Dashboard() {
             <span onClick={() => navigate('/student/results')} className="text-[13px] text-accent-text font-semibold cursor-pointer">View all →</span>
           </div>
           {recentTests.length === 0 ? (
-            <div className="bg-white border border-border rounded-[14px] px-6 py-8 text-center text-ink/[.58] text-sm">
+            <div className="bg-white border border-border rounded-[14px] px-6 py-8 text-center text-muted text-sm">
               No completed tests yet. Start practicing!
             </div>
           ) : (
@@ -218,11 +218,11 @@ export default function Dashboard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold truncate">{e.setTitle ?? e.label ?? 'Practice'}</div>
-                    <div className="text-xs text-ink/[.58]">{e.subject === 'math' ? 'Math' : 'R&W'}</div>
+                    <div className="text-xs text-muted">{e.subject === 'math' ? 'Math' : 'R&W'}</div>
                   </div>
                   <div className="text-right shrink-0">
                     <div className="font-display font-semibold text-[26px] leading-none" style={{ color }}>{score}</div>
-                    <div className="text-[11px] text-ink/[.58]">/ 800</div>
+                    <div className="text-[11px] text-muted">/ 800</div>
                   </div>
                 </div>
               ))}
@@ -274,7 +274,7 @@ export default function Dashboard() {
               >
                 <div className={cn(eyebrowClass, color)}>{label}</div>
                 <div className="text-[14.5px] font-semibold">{title}</div>
-                <div className="text-xs text-ink/[.58] mt-0.5">{sub}</div>
+                <div className="text-xs text-muted mt-0.5">{sub}</div>
               </div>
             ))}
           </div>
@@ -307,7 +307,7 @@ export default function Dashboard() {
               >
                 <div className={cn(eyebrowClass, 'text-accent-text')}>Targeted</div>
                 <div className="text-sm font-semibold capitalize">{p.subSkill.replace(/_/g, ' ')}</div>
-                <div className="text-[11.5px] text-ink/[.58] mt-0.5">AI-generated · module 2</div>
+                <div className="text-[11.5px] text-muted mt-0.5">AI-generated · module 2</div>
               </div>
             ))}
           </div>

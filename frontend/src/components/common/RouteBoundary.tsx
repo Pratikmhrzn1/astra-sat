@@ -21,7 +21,7 @@ export function RouteBoundary({ children }: { children: ReactNode }) {
 
 function PageLoading() {
   return (
-    <div role="status" aria-live="polite" style={{ minHeight: '40vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(11,11,14,0.5)', fontSize: 14 }}>
+    <div role="status" aria-live="polite" className="min-h-[40vh] flex items-center justify-center text-ink/50 text-sm">
       Loading…
     </div>
   );
@@ -53,24 +53,24 @@ class PageErrorBoundary extends Component<{ children: ReactNode; pathname: strin
 
     const stale = isStaleChunkError(error);
     return (
-      <div role="alert" style={{ minHeight: '50vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24, textAlign: 'center' }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, color: '#0B0B0E' }}>
+      <div role="alert" className="min-h-[50vh] flex flex-col items-center justify-center gap-3 p-6 text-center">
+        <div className="font-display font-semibold text-[26px] text-ink">
           {stale ? 'A new version is available' : 'Something went wrong on this page'}
         </div>
-        <p style={{ margin: 0, maxWidth: 440, fontSize: 14.5, lineHeight: 1.6, color: 'rgba(11,11,14,0.64)' }}>
+        <p className="m-0 max-w-[440px] text-[14.5px] leading-[1.6] text-subtle">
           {stale
             ? 'The platform was updated while this tab was open. Reload to continue.'
             : 'Your saved work is safe. Reload the page, or head back to your dashboard.'}
         </p>
-        <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+        <div className="flex gap-2.5 mt-1.5">
           <button
             onClick={() => window.location.reload()}
-            style={{ height: 40, padding: '0 20px', borderRadius: 9999, border: 'none', background: '#C4471F', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+            className="h-10 px-5 rounded-full bg-accent-text text-white text-sm font-semibold cursor-pointer"
           >Reload</button>
           {!stale && (
             <button
               onClick={() => window.location.assign(`${import.meta.env.BASE_URL}`)}
-              style={{ height: 40, padding: '0 20px', borderRadius: 9999, border: '1px solid #D8D4CC', background: '#fff', color: '#0B0B0E', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+              className="h-10 px-5 rounded-full border border-border-strong bg-white text-ink text-sm font-semibold cursor-pointer"
             >Go to dashboard</button>
           )}
         </div>

@@ -1297,7 +1297,7 @@ function QuestionRow({ q, index, isLast, passages, subject, isEditing, onDelete,
               subject={subject}
               value={null}
               onChange={(code) => { if (code) onOverride(code); }}
-              style={{ height: 28, fontSize: 11.5, borderRadius: 6, padding: '0 8px' }}
+              className="h-7 text-[11.5px] rounded-md px-2"
             />
           </div>
         </div>

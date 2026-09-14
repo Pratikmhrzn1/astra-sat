@@ -42,7 +42,7 @@ export function TrendChart({
 
   if (plotted.length === 0 || length < 2) {
     return (
-      <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 13 }}>
+      <div className="flex items-center justify-center text-muted text-[13px]" style={{ height }}>
         {length === 1 ? 'One result so far — a trend needs two.' : 'No scored results yet.'}
       </div>
     );
@@ -64,10 +64,11 @@ export function TrendChart({
   const dates = plotted[0].points.map((p) => p.at);
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="relative">
       <svg
         viewBox={`0 0 ${W} ${height}`}
-        style={{ width: '100%', height, display: 'block', overflow: 'visible' }}
+        className="w-full block overflow-visible"
+        style={{ height }}
         role="img"
         aria-label={`Score trend: ${plotted.map((s) => `${s.label} from ${s.points.find((p) => p.value !== null)?.value} to ${[...s.points].reverse().find((p) => p.value !== null)?.value}`).join('; ')}`}
         onMouseLeave={() => setHover(null)}
@@ -133,21 +134,19 @@ export function TrendChart({
       </svg>
 
       {hover && (
-        <div style={{
-          position: 'absolute', top: 0,
-          left: `${(hover.x / W) * 100}%`, transform: 'translateX(-50%)',
-          background: '#0B0B0E', color: '#fff', borderRadius: 8, padding: '7px 10px',
-          fontSize: 11.5, lineHeight: 1.5, pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: 2,
-        }}>
-          <div style={{ opacity: 0.6, marginBottom: 2 }}>
+        <div
+          className="absolute top-0 -translate-x-1/2 bg-ink text-white rounded-lg px-2.5 py-[7px] text-[11.5px] leading-normal pointer-events-none whitespace-nowrap z-[2]"
+          style={{ left: `${(hover.x / W) * 100}%` }}
+        >
+          <div className="opacity-60 mb-0.5">
             {new Date(dates[hover.index]).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
           </div>
           {plotted.map((s) => {
             const v = s.points[hover.index]?.value;
             if (v === null || v === undefined) return null;
             return (
-              <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 7, height: 7, borderRadius: 9999, background: s.color }} />
+              <div key={s.label} className="flex items-center gap-1.5">
+                <span className="w-[7px] h-[7px] rounded-full" style={{ background: s.color }} />
                 {s.label} <strong>{v}{valueSuffix}</strong>
               </div>
             );
@@ -156,10 +155,10 @@ export function TrendChart({
       )}
 
       {plotted.length > 1 && (
-        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 6 }}>
+        <div className="flex gap-4 justify-center mt-1.5">
           {plotted.map((s) => (
-            <span key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(11,11,14,0.64)' }}>
-              <span style={{ width: 9, height: 9, borderRadius: 9999, background: s.color }} />
+            <span key={s.label} className="flex items-center gap-1.5 text-xs text-subtle">
+              <span className="w-[9px] h-[9px] rounded-full" style={{ background: s.color }} />
               {s.label}
             </span>
           ))}

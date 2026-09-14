@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { cn } from '@/lib/utils';
 import { getSkills, skillsQueryKey, type SkillNode } from '@/api/skills';
 
 /**
@@ -16,13 +17,13 @@ export function SkillSelect({
   value,
   onChange,
   disabled,
-  style,
+  className,
 }: {
   subject: 'english' | 'math';
   value: string | null;
   onChange: (skillCode: string | null) => void;
   disabled?: boolean;
-  style?: React.CSSProperties;
+  className?: string;
 }) {
   const { data: tree = [], isLoading } = useQuery({
     queryKey: skillsQueryKey(),
@@ -38,11 +39,7 @@ export function SkillSelect({
       value={value ?? ''}
       disabled={disabled || isLoading}
       onChange={(e) => onChange(e.target.value || null)}
-      style={{
-        width: '100%', height: 40, padding: '0 12px', border: '1px solid #E7E4DE',
-        borderRadius: 10, background: '#fff', color: '#0B0B0E', fontSize: 14,
-        fontFamily: 'inherit', outline: 'none', ...style,
-      }}
+      className={cn('w-full h-10 px-3 border border-border rounded-[10px] bg-white text-ink text-sm outline-none', className)}
     >
       <option value="">{isLoading ? 'Loading topics…' : '— Untagged'}</option>
       {domains.map((domain) => (

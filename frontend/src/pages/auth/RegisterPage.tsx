@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { register as apiRegister } from '@/api/auth';
 import { useAuthStore } from '@/store/auth';
 import { getApiError } from '@/api/http';
+import { fieldClass, labelClass, errorTextClass, alertClass, hintTextClass } from '@/components/common';
 import { cn } from '@/lib/utils';
 
 const schema = z
@@ -24,11 +25,6 @@ type FormData = z.infer<typeof schema>;
 const ROLE_ROUTES = { student: '/student/dashboard', teacher: '/teacher/dashboard', admin: '/admin/dashboard' } as const;
 
 const toggleBtn = 'px-[26px] py-2 rounded-full text-[13px] font-bold tracking-[0.05em] uppercase';
-const fieldClass = (hasError: boolean) => cn(
-  'w-full h-[46px] px-[15px] border rounded-xl text-[15px] bg-white outline-none',
-  hasError ? 'border-error-field' : 'border-field',
-);
-const hintClass = 'mt-1 text-xs text-ink/[.58]';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -49,9 +45,9 @@ export default function Register() {
   };
 
   const label = (text: string) => (
-    <label className="block text-[13px] font-semibold text-ink/70 mb-[7px]">{text}</label>
+    <label className={labelClass}>{text}</label>
   );
-  const err = (msg?: string) => msg ? <p className="mt-1 text-xs text-error-field">{msg}</p> : null;
+  const err = (msg?: string) => msg ? <p className={errorTextClass}>{msg}</p> : null;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-[1.05fr_1fr] min-h-screen relative">
@@ -95,13 +91,13 @@ export default function Register() {
               </div>
               <span className="font-display font-semibold text-xl text-ink">Score Studio</span>
             </div>
-            <div className="text-xs font-bold tracking-[0.12em] uppercase text-ink/[.58]">
+            <div className="text-xs font-bold tracking-[0.12em] uppercase text-muted">
               Digital SAT · Practice Platform
             </div>
           </div>
 
           <h2 className="font-display font-semibold text-[34px] sm:text-[40px] mb-1.5 mt-0 tracking-[-0.02em]">Create your account</h2>
-          <p className="mb-7 mt-0 text-ink/[.64] text-[15px]">It takes less than a minute.</p>
+          <p className="mb-7 mt-0 text-subtle text-[15px]">It takes less than a minute.</p>
 
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="mb-4">
@@ -120,7 +116,7 @@ export default function Register() {
               {label('Phone number')}
               <input type="tel" autoComplete="tel" placeholder="+977 98XXXXXXXX" {...register('phone')} className={fieldClass(!!errors.phone)} />
               {err(errors.phone?.message)}
-              {!errors.phone && <p className={hintClass}>Required for student accounts.</p>}
+              {!errors.phone && <p className={hintTextClass}>Required for student accounts.</p>}
             </div>
 
             {/* Password fields — side by side on desktop, stacked on mobile */}
@@ -141,11 +137,11 @@ export default function Register() {
               {label('Access code')}
               <input type="text" placeholder="Enter your access code" {...register('accessCode')} className={fieldClass(!!errors.accessCode)} />
               {err(errors.accessCode?.message)}
-              {!errors.accessCode && <p className={hintClass}>Determines your role — student, teacher, or admin.</p>}
+              {!errors.accessCode && <p className={hintTextClass}>Determines your role — student, teacher, or admin.</p>}
             </div>
 
             {apiError && (
-              <div className="bg-danger/[.08] text-danger text-[13px] px-3.5 py-2.5 rounded-[10px] mt-2">
+              <div className={cn(alertClass, 'mt-2')}>
                 {apiError}
               </div>
             )}
@@ -162,7 +158,7 @@ export default function Register() {
             </button>
           </form>
 
-          <div className="text-center mt-6 text-sm text-ink/[.64]">
+          <div className="text-center mt-6 text-sm text-subtle">
             Already registered?{' '}
             <Link to="/login" className="text-accent-text font-semibold no-underline">Sign in</Link>
           </div>

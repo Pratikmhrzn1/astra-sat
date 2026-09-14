@@ -36,7 +36,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer }:
 
   return (
     <div className="modal-wrap fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="modal-scrim absolute inset-0 bg-[rgba(11,11,14,0.36)] backdrop-blur-[2px]" onClick={onClose} />
+      <div className="modal-scrim absolute inset-0 bg-ink/[.36] backdrop-blur-[2px]" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
@@ -51,18 +51,18 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer }:
         )}
       >
         <div className="flex items-center justify-between gap-4 pl-6 pr-4 pt-5 pb-3 shrink-0">
-          <h2 className="text-[19px] leading-tight font-semibold tracking-[-0.02em] text-[#0B0B0E]">{title}</h2>
+          <h2 className="text-[19px] leading-tight font-semibold tracking-[-0.02em] text-ink">{title}</h2>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="flex items-center justify-center w-8 h-8 rounded-full text-[rgba(11,11,14,0.62)] bg-[rgba(11,11,14,0.05)] hover:bg-[rgba(11,11,14,0.09)] hover:text-[#0B0B0E] transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-full text-ink/[.62] bg-ink/5 hover:bg-ink/[.09] hover:text-ink transition-colors"
           >
             <X className="w-4 h-4" strokeWidth={2.25} />
           </button>
         </div>
         <div className="px-6 pt-1 pb-5 overflow-y-auto flex-1 text-[15px] leading-relaxed">{children}</div>
         {footer && (
-          <div className="px-6 py-4 border-t border-[#EEEBE5] shrink-0 flex justify-end gap-2.5">
+          <div className="px-6 py-4 border-t border-border-soft shrink-0 flex justify-end gap-2.5">
             {footer}
           </div>
         )}
@@ -109,7 +109,7 @@ export function ConfirmModal({
         </>
       }
     >
-      <p className="text-[rgba(11,11,14,0.7)]">{message}</p>
+      <p className="text-body">{message}</p>
     </Modal>
   );
 }

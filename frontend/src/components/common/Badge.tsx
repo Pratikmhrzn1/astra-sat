@@ -17,7 +17,7 @@ export function Badge({ children, variant = 'neutral', className }: BadgeProps) 
           'bg-amber-50 text-amber-700 border border-amber-200': variant === 'math' || variant === 'warning',
           'bg-green-50 text-green-700 border border-green-200': variant === 'success',
           'bg-red-50 text-red-700 border border-red-200': variant === 'error',
-          'bg-[#F2F0EC] text-[rgba(11,11,14,0.6)] border border-[#E7E4DE]': variant === 'neutral',
+          'bg-sunken text-ink/60 border border-border': variant === 'neutral',
           'bg-purple-50 text-purple-700 border border-purple-200': variant === 'admin',
           'bg-teal-50 text-teal-700 border border-teal-200': variant === 'teacher',
         },

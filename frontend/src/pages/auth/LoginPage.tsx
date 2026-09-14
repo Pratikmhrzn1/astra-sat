@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { login } from '@/api/auth';
 import { useAuthStore } from '@/store/auth';
 import { getApiError } from '@/api/http';
+import { fieldClass, labelClass, errorTextClass, alertClass } from '@/components/common';
 import { cn } from '@/lib/utils';
 
 const schema = z.object({
@@ -18,12 +19,6 @@ type FormData = z.infer<typeof schema>;
 const ROLE_ROUTES = { student: '/student/dashboard', teacher: '/teacher/dashboard', admin: '/admin/dashboard' } as const;
 
 const toggleBtn = 'px-[26px] py-2 rounded-full text-[13px] font-bold tracking-[0.05em] uppercase';
-const fieldClass = (hasError: boolean) => cn(
-  'w-full h-[46px] px-[15px] border rounded-xl text-[15px] bg-white outline-none',
-  hasError ? 'border-error-field' : 'border-field',
-);
-const labelClass = 'block text-[13px] font-semibold text-ink/70 mb-[7px]';
-const errorClass = 'mt-1 text-xs text-error-field';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -92,13 +87,13 @@ export default function Login() {
               </div>
               <span className="font-display font-semibold text-xl text-ink">Score Studio</span>
             </div>
-            <div className="text-xs font-bold tracking-[0.12em] uppercase text-ink/[.58]">
+            <div className="text-xs font-bold tracking-[0.12em] uppercase text-muted">
               Digital SAT · Practice Platform
             </div>
           </div>
 
           <h2 className="font-display font-semibold text-[34px] sm:text-[40px] mb-1.5 mt-0 tracking-[-0.02em]">Welcome back</h2>
-          <p className="mb-8 mt-0 text-ink/[.64] text-[15px]">Sign in to continue your prep.</p>
+          <p className="mb-8 mt-0 text-subtle text-[15px]">Sign in to continue your prep.</p>
 
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="mb-[18px]">
@@ -110,7 +105,7 @@ export default function Login() {
                 {...register('email')}
                 className={fieldClass(!!errors.email)}
               />
-              {errors.email && <p className={errorClass}>{errors.email.message}</p>}
+              {errors.email && <p className={errorTextClass}>{errors.email.message}</p>}
             </div>
 
             <div className="mb-2.5">
@@ -122,11 +117,11 @@ export default function Login() {
                 {...register('password')}
                 className={fieldClass(!!errors.password)}
               />
-              {errors.password && <p className={errorClass}>{errors.password.message}</p>}
+              {errors.password && <p className={errorTextClass}>{errors.password.message}</p>}
             </div>
 
             {apiError && (
-              <div className="bg-danger/[.08] text-danger text-[13px] px-3.5 py-2.5 rounded-[10px] mb-4">
+              <div className={cn(alertClass, 'mb-4')}>
                 {apiError}
               </div>
             )}
@@ -143,12 +138,12 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="text-center mt-6 text-sm text-ink/[.64]">
+          <div className="text-center mt-6 text-sm text-subtle">
             New here?{' '}
             <Link to="/register" className="text-accent-text font-semibold no-underline">Create an account</Link>
           </div>
-          <div className="text-center mt-2.5 text-[13px] text-ink/[.58]">
-            <Link to="/forgot-password" className="text-ink/[.58] no-underline hover:text-accent-text">
+          <div className="text-center mt-2.5 text-[13px] text-muted">
+            <Link to="/forgot-password" className="text-muted no-underline hover:text-accent-text">
               Forgot your password?
             </Link>
           </div>

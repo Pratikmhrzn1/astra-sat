@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * Accuracy per domain, weakest first.
  *
@@ -34,50 +32,48 @@ export function AccuracyBars({
 }) {
   if (rows.length === 0) {
     return (
-      <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.58)', margin: '8px 0 0', lineHeight: 1.6 }}>
+      <p className="text-[13.5px] text-muted mt-2 mb-0 leading-[1.6]">
         Nothing tagged here yet. Domains appear once you've answered questions in them.
       </p>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div className="flex flex-col gap-3">
       {rows.map((row) => {
         const thin = row.attempted < minAttempts;
 
         return (
           <div key={row.code}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 5 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: '#0B0B0E', flex: 1, minWidth: 0 }}>
+            <div className="flex items-baseline gap-2.5 mb-[5px]">
+              <span className="text-[13.5px] font-semibold text-ink flex-1 min-w-0">
                 {row.label}
               </span>
               {thin ? (
-                <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>
+                <span className="text-xs text-muted">
                   {row.attempted} {row.attempted === 1 ? 'question' : 'questions'} — not enough yet
                 </span>
               ) : (
-                <span style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.64)', fontFamily: 'var(--font-mono)' }}>
+                <span className="text-[12.5px] text-subtle font-mono">
                   {row.correct}/{row.attempted}
-                  <strong style={{ color: '#0B0B0E', marginLeft: 8 }}>{row.accuracy}%</strong>
+                  <strong className="text-ink ml-2">{row.accuracy}%</strong>
                 </span>
               )}
               {onPractise && (
                 <button
                   onClick={() => onPractise(row.code)}
-                  style={{ border: 'none', background: 'none', padding: 0, font: 'inherit', fontSize: 12.5, fontWeight: 600, color: '#C4471F', cursor: 'pointer' }}
+                  className="bg-transparent p-0 text-[12.5px] font-semibold text-accent-text cursor-pointer"
                 >Practise</button>
               )}
             </div>
 
             {/* A thin domain shows its track and no fill: the shape says "no
                 reading yet" without a number that would look like one. */}
-            <div style={{ height: 8, borderRadius: 9999, background: '#F2F0EC', overflow: 'hidden' }}>
+            <div className="h-2 rounded-full bg-sunken overflow-hidden">
               {!thin && (
                 <div
-                  style={{
-                    height: 8, width: `${Math.max(row.accuracy, 1.5)}%`,
-                    background: color, borderRadius: 9999,
-                  }}
+                  className="h-2 rounded-full"
+                  style={{ width: `${Math.max(row.accuracy, 1.5)}%`, background: color }}
                   role="img"
                   aria-label={`${row.label}: ${row.accuracy} percent, ${row.correct} of ${row.attempted} correct`}
                 />
