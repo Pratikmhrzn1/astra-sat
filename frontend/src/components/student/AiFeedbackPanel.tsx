@@ -1,5 +1,8 @@
-import React from 'react';
 import { reviewVocab } from '@/api/student';
+import { cn } from '@/lib/utils';
+import {
+  quizLetterClass, quizOptionClass, quizOptionState, quizResultClass, quizResultLabelClass,
+} from '@/components/student/quizOption';
 import type {
   ConfirmFeedbacks,
   ReasoningClassification,
@@ -18,13 +21,17 @@ import type {
 
 export const CLASSIFICATION_META: Record<
   ReasoningClassification,
-  { label: string; color: string; bg: string; border: string }
+  { label: string; tone: string; labelTone: string }
 > = {
-  correct_logic_correct_answer: { label: 'Strong reasoning',              color: '#1A6B3C', bg: 'rgba(46,125,90,0.07)',  border: 'rgba(46,125,90,0.25)' },
-  correct_logic_wrong_answer:   { label: 'Sound logic — likely a misread', color: '#B8893E', bg: 'rgba(184,137,62,0.07)', border: 'rgba(184,137,62,0.3)' },
-  wrong_logic_correct_answer:   { label: 'Right answer — review your reasoning', color: '#B8893E', bg: 'rgba(184,137,62,0.07)', border: 'rgba(184,137,62,0.3)' },
-  wrong_logic_wrong_answer:     { label: 'Comprehension gap identified',   color: '#C0392B', bg: 'rgba(192,57,43,0.07)', border: 'rgba(192,57,43,0.2)' },
+  correct_logic_correct_answer: { label: 'Strong reasoning',                     tone: 'bg-green-sat/[.07] border-green-sat/25', labelTone: 'text-green-dark' },
+  correct_logic_wrong_answer:   { label: 'Sound logic — likely a misread',        tone: 'bg-gold/[.07] border-gold/30',           labelTone: 'text-gold' },
+  wrong_logic_correct_answer:   { label: 'Right answer — review your reasoning',  tone: 'bg-gold/[.07] border-gold/30',           labelTone: 'text-gold' },
+  wrong_logic_wrong_answer:     { label: 'Comprehension gap identified',          tone: 'bg-danger/[.07] border-danger/20',       labelTone: 'text-danger' },
 };
+
+const kicker = 'text-[10.5px] font-bold tracking-[0.08em] uppercase';
+const body = 'text-[13.5px] leading-[1.55] text-ink m-0';
+const note = 'px-4 py-3 rounded-[10px] border';
 
 export function AiFeedbackPanel({
   feedbacks,
@@ -44,46 +51,46 @@ export function AiFeedbackPanel({
   setVocabSubmitted: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+    <div className="flex flex-col gap-2.5 mt-3.5">
       {feedbacks.reasoning_checkpoint && (() => {
         const rc = feedbacks.reasoning_checkpoint!;
         const meta = CLASSIFICATION_META[rc.classification as ReasoningClassification] ?? CLASSIFICATION_META.correct_logic_correct_answer;
         return (
-          <div style={{ padding: '16px 18px', borderRadius: 12, background: meta.bg, border: `1px solid ${meta.border}` }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: meta.color, marginBottom: 8 }}>{meta.label}</div>
-            <p style={{ fontSize: 14, lineHeight: 1.6, color: '#0B0B0E', margin: 0 }}>{rc.explanation}</p>
+          <div className={cn('px-[18px] py-4 rounded-xl border', meta.tone)}>
+            <div className={cn('text-[11px] font-bold tracking-[0.08em] uppercase mb-2', meta.labelTone)}>{meta.label}</div>
+            <p className="text-sm leading-[1.6] text-ink m-0">{rc.explanation}</p>
           </div>
         );
       })()}
 
       {feedbacks.grammar_diagnosis && (
-        <div style={{ padding: '12px 16px', borderRadius: 10, background: '#F0ECE4', border: '1px solid rgba(184,137,62,0.25)' }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#8A6020', marginBottom: 5 }}>
+        <div className={cn(note, 'bg-[#F0ECE4] border-gold/25')}>
+          <div className={cn(kicker, 'text-gold-dark mb-[5px]')}>
             Grammar rule: {feedbacks.grammar_diagnosis.grammarRule}
           </div>
-          <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: 0 }}>{feedbacks.grammar_diagnosis.grammarFix}</p>
+          <p className={body}>{feedbacks.grammar_diagnosis.grammarFix}</p>
         </div>
       )}
 
       {feedbacks.trap_explainer && (
-        <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(11,11,14,0.03)', border: '1px solid #E7E4DE' }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 5 }}>
+        <div className={cn(note, 'bg-ink/[.03] border-border')}>
+          <div className={cn(kicker, 'text-muted mb-[5px]')}>
             Trap: {feedbacks.trap_explainer.trap}
           </div>
-          <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: 0 }}>{feedbacks.trap_explainer.explanation}</p>
+          <p className={body}>{feedbacks.trap_explainer.explanation}</p>
         </div>
       )}
 
       {feedbacks.command_of_evidence && (() => {
         const coe = feedbacks.command_of_evidence as CommandOfEvidenceContent;
         return (
-          <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.2)' }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#1D4ED8', marginBottom: 8 }}>Supporting evidence</div>
-            <blockquote style={{ fontFamily: 'var(--font-reading)', fontSize: 15, lineHeight: 1.6, color: '#0B0B0E', margin: '0 0 10px', paddingLeft: 12, borderLeft: '2px solid rgba(37,99,235,0.35)', fontStyle: 'italic' }}>
+          <div className={cn(note, 'bg-[rgba(37,99,235,0.04)] border-[rgba(37,99,235,0.2)]')}>
+            <div className={cn(kicker, 'text-[#1D4ED8] mb-2')}>Supporting evidence</div>
+            <blockquote className="font-serif text-[15px] leading-[1.6] text-ink mt-0 mx-0 mb-2.5 pl-3 border-l-2 border-[rgba(37,99,235,0.35)] italic">
               "{coe.supportingLine}"
             </blockquote>
-            <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: '0 0 4px' }}>{coe.whyCorrect}</p>
-            <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'rgba(11,11,14,0.6)', margin: 0 }}>{coe.whyStudentWrong}</p>
+            <p className={cn(body, 'mb-1')}>{coe.whyCorrect}</p>
+            <p className={cn(body, 'text-ink/60')}>{coe.whyStudentWrong}</p>
           </div>
         );
       })()}
@@ -91,11 +98,11 @@ export function AiFeedbackPanel({
       {feedbacks.transitions_coach && (() => {
         const tc = feedbacks.transitions_coach as TransitionsCoachContent;
         return (
-          <div style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(124,58,237,0.04)', border: '1px solid rgba(124,58,237,0.2)' }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6D28D9', marginBottom: 8 }}>Transition logic</div>
-            <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: '0 0 6px' }}>{tc.logicalRelationship}</p>
-            <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: '0 0 4px' }}>{tc.whyCorrect}</p>
-            <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'rgba(11,11,14,0.6)', margin: 0 }}>{tc.whyStudentWrong}</p>
+          <div className={cn(note, 'bg-[rgba(124,58,237,0.04)] border-[rgba(124,58,237,0.2)]')}>
+            <div className={cn(kicker, 'text-[#6D28D9] mb-2')}>Transition logic</div>
+            <p className={cn(body, 'mb-1.5')}>{tc.logicalRelationship}</p>
+            <p className={cn(body, 'mb-1')}>{tc.whyCorrect}</p>
+            <p className={cn(body, 'text-ink/60')}>{tc.whyStudentWrong}</p>
           </div>
         );
       })()}
@@ -114,41 +121,42 @@ export function AiFeedbackPanel({
         };
 
         return (
-          <div style={{ padding: '14px 16px', borderRadius: 12, background: 'rgba(0,128,128,0.04)', border: '2px solid rgba(0,128,128,0.18)' }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#0D7377', marginBottom: 6 }}>
+          <div className="px-4 py-3.5 rounded-xl bg-[rgba(0,128,128,0.04)] border-2 border-[rgba(0,128,128,0.18)]">
+            <div className={cn(kicker, 'text-teal-sat mb-1.5')}>
               Vocab drill — "{vd.word}"
             </div>
-            <p style={{ fontSize: 13, lineHeight: 1.55, color: 'rgba(11,11,14,0.6)', margin: '0 0 10px', fontStyle: 'italic' }}>"{vd.sentenceContext}"</p>
-            <p style={{ fontSize: 13.5, fontWeight: 600, color: '#0B0B0E', margin: '0 0 10px' }}>{vd.followUpQuestion}</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+            <p className="text-[13px] leading-[1.55] text-ink/60 mt-0 mb-2.5 italic">"{vd.sentenceContext}"</p>
+            <p className="text-[13.5px] font-semibold text-ink mt-0 mb-2.5">{vd.followUpQuestion}</p>
+            <div className="flex flex-col gap-1.5 mb-2.5">
               {vd.options.map((opt, oi) => {
                 const letter = optLetters[oi];
-                const isPicked = picked === letter;
-                const isCorrectOpt = letter === vd.correctOption;
-                let bg = '#fff', border = '1px solid #C8C4BC', color = '#0B0B0E';
-                if (isSubmitted) {
-                  if (isCorrectOpt) { bg = 'rgba(46,125,90,0.1)'; border = '1.5px solid #2E7D5A'; color = '#1A5C38'; }
-                  else if (isPicked) { bg = 'rgba(192,57,43,0.08)'; border = '1.5px solid #C0392B'; color = '#8B1A10'; }
-                } else if (isPicked) { bg = 'rgba(0,128,128,0.07)'; border = '1.5px solid #0D7377'; }
+                const state = quizOptionState({ submitted: isSubmitted, picked: picked === letter, correct: letter === vd.correctOption });
                 return (
-                  <button key={letter} onClick={() => { if (!isSubmitted) setVocabPick((p) => ({ ...p, [questionId]: letter })); }} disabled={isSubmitted}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: 9, border, background: bg, color, fontSize: 13, textAlign: 'left', cursor: isSubmitted ? 'default' : 'pointer', fontFamily: 'inherit', transition: 'all 0.12s' }}>
-                    <span style={{ width: 22, height: 22, borderRadius: 9999, border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{letter}</span>
+                  <button
+                    key={letter}
+                    onClick={() => { if (!isSubmitted) setVocabPick((p) => ({ ...p, [questionId]: letter })); }}
+                    disabled={isSubmitted}
+                    className={quizOptionClass(state, isSubmitted, 'sm')}
+                  >
+                    <span className={quizLetterClass(state, 'sm')}>{letter}</span>
                     {opt}
                   </button>
                 );
               })}
             </div>
             {isSubmitted ? (
-              <div style={{ padding: '10px 12px', borderRadius: 8, background: isPickCorrect ? 'rgba(46,125,90,0.08)' : 'rgba(192,57,43,0.07)', marginTop: 4 }}>
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: isPickCorrect ? '#1A5C38' : '#8B1A10', marginBottom: 4 }}>
+              <div className={cn('px-3 py-2.5 rounded-lg mt-1', quizResultClass(isPickCorrect))}>
+                <div className={cn('text-[11.5px] font-bold mb-1', quizResultLabelClass(isPickCorrect))}>
                   {isPickCorrect ? '✓ Correct' : '✗ Incorrect — correct answer: ' + vd.correctOption}
                 </div>
-                <p style={{ fontSize: 13, lineHeight: 1.5, color: '#0B0B0E', margin: 0 }}>{vd.explanation}</p>
+                <p className="text-[13px] leading-normal text-ink m-0">{vd.explanation}</p>
               </div>
             ) : (
-              <button onClick={handleVocabSubmit} disabled={!picked}
-                style={{ height: 36, padding: '0 18px', borderRadius: 9999, border: 'none', background: picked ? '#0D7377' : '#C8C4BC', color: '#fff', fontSize: 13, fontWeight: 700, cursor: picked ? 'pointer' : 'default', fontFamily: 'inherit' }}>
+              <button
+                onClick={handleVocabSubmit}
+                disabled={!picked}
+                className={cn('h-9 px-[18px] rounded-full text-white text-[13px] font-bold', picked ? 'bg-teal-sat cursor-pointer' : 'bg-field cursor-default')}
+              >
                 Check answer
               </button>
             )}

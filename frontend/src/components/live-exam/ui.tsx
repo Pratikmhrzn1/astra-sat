@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
-import { useMobile } from '@/hooks/useMobile';
+import { cn } from '@/lib/utils';
+import { surfaceClass } from '@/components/common';
 
 /**
  * Shared surface for the live-exam screens.
@@ -9,45 +10,20 @@ import { useMobile } from '@/hooks/useMobile';
  * greys — `bg-gray-50`, `text-blue-600`, `bg-green-600` — while every other page
  * uses the platform's paper-and-vermilion system. Teachers move between them
  * mid-lesson, so the seam was visible exactly when there was least time to
- * absorb it. The tokens below are the platform's, not new ones.
+ * absorb it. Every class below uses the platform's tokens, not new ones.
  */
 
-export const T = {
-  ink: '#0B0B0E',
-  accent: '#E2562B',
-  accentText: '#C4471F', // accent as text or behind white text (AA)
-  paper: '#FAF9F6',
-  card: '#FFFFFF',
-  line: '#E7E4DE',
-  lineSoft: '#F2F0EC',
-  wash: '#FBFAF8',
-  muted: 'rgba(11,11,14,0.64)',
-  faint: 'rgba(11,11,14,0.58)',
-  english: '#2E7D5A',
-  math: '#2563A8',
-  amber: '#B8893E',
-  green: '#1A6B3C',
-  danger: '#C0392B',
-} as const;
+/** Card surface. */
+export const liveCardClass = surfaceClass;
 
-export const CARD: React.CSSProperties = {
-  background: T.card,
-  border: `1px solid ${T.line}`,
-  borderRadius: 16,
-  boxShadow: '0 1px 3px rgba(11,11,14,0.05)',
-};
-
-export const H1: React.CSSProperties = {
-  fontFamily: 'var(--font-display)',
-  fontWeight: 600,
-  letterSpacing: '-0.02em',
-  margin: 0,
-};
+/** Display-face heading, sized by the caller. */
+export const liveTitleClass = 'font-display font-semibold tracking-[-0.02em] m-0';
 
 /** Small uppercase label above a figure or a group. */
-export const KICKER: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.faint,
-};
+export const liveKickerClass = 'text-[11px] font-bold tracking-[0.08em] uppercase text-muted';
+
+/** Clickable row: lifts under a pointer. */
+export const liveRowClass = 'transition-[box-shadow,border-color,transform] duration-150 ease-[cubic-bezier(0.2,0,0,1)] hover:border-border-strong hover:shadow-md';
 
 /**
  * Page frame shared by every live-exam screen: the same gutters as the rest of
@@ -55,9 +31,12 @@ export const KICKER: React.CSSProperties = {
  * between the list, the room and a marking sheet never shifts the left edge.
  */
 export function LivePage({ children, width = 880 }: { children: React.ReactNode; width?: number }) {
-  const isMobile = useMobile();
   return (
-    <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 96px' : '36px 48px 64px', maxWidth: width + (isMobile ? 32 : 96), boxSizing: 'border-box' }}>
+    <div
+      className="screen-fade px-4 pt-5 pb-24 sm:px-12 sm:pt-9 sm:pb-16 max-w-[var(--live-w-sm)] sm:max-w-[var(--live-w)]"
+      // The content width is a prop, so it is passed as variables the classes read.
+      style={{ '--live-w': `${width + 96}px`, '--live-w-sm': `${width + 32}px` } as React.CSSProperties}
+    >
       {children}
     </div>
   );
@@ -68,47 +47,43 @@ export function BackLink({ onClick, children }: { onClick: () => void; children:
   return (
     <button
       onClick={onClick}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 2, border: 'none', background: 'none',
-        // Pulled left by the chevron's own side bearing so its stem sits on the text edge.
-        padding: '6px 8px 6px 2px', margin: '-6px 0 12px -6px',
-        fontSize: 13, fontWeight: 600, color: T.muted, cursor: 'pointer', fontFamily: 'inherit', borderRadius: 8,
-      }}
+      // Pulled left by the chevron's own side bearing so its stem sits on the text edge.
+      className="inline-flex items-center gap-0.5 bg-transparent pt-1.5 pr-2 pb-1.5 pl-0.5 -mt-1.5 mb-3 -ml-1.5 text-[13px] font-semibold text-subtle cursor-pointer rounded-lg"
     ><ChevronLeft size={16} strokeWidth={2} aria-hidden />{children}</button>
   );
 }
 
+const PILL_VARIANTS = {
+  primary: 'bg-accent-text text-white border border-transparent',
+  secondary: 'bg-white text-ink border border-border',
+  quiet: 'bg-transparent text-subtle border border-border',
+} as const;
+
 /** The platform's pill button, in its three weights. */
 export function PillButton({
-  children, onClick, variant = 'primary', disabled, type = 'button', style, ariaLabel,
+  children, onClick, variant = 'primary', disabled, type = 'button', className, ariaLabel,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
-  variant?: 'primary' | 'secondary' | 'quiet';
+  variant?: keyof typeof PILL_VARIANTS;
   disabled?: boolean;
   type?: 'button' | 'submit';
-  style?: React.CSSProperties;
+  className?: string;
   ariaLabel?: string;
 }) {
-  const palette = {
-    primary: { background: T.accentText, color: '#fff', border: '1px solid transparent' },
-    secondary: { background: '#fff', color: T.ink, border: `1px solid ${T.line}` },
-    quiet: { background: 'transparent', color: T.muted, border: `1px solid ${T.line}` },
-  }[variant];
-
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      style={{
+      className={cn(
         // Flex-centred so an icon and its label share one optical centre line.
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-        height: 40, padding: '0 20px', borderRadius: 9999, fontSize: 14, fontWeight: 600,
-        fontFamily: 'inherit', cursor: disabled ? 'default' : 'pointer', boxSizing: 'border-box',
-        opacity: disabled ? 0.45 : 1, whiteSpace: 'nowrap', flexShrink: 0, ...palette, ...style,
-      }}
+        'inline-flex items-center justify-center gap-[7px] h-10 px-5 rounded-full text-sm font-semibold whitespace-nowrap shrink-0',
+        disabled ? 'cursor-default opacity-45' : 'cursor-pointer',
+        PILL_VARIANTS[variant],
+        className,
+      )}
     >{children}</button>
   );
 }
@@ -120,19 +95,16 @@ export function PillButton({
  * a session is not "active", the class is sitting it.
  */
 export function StatusPill({ status }: { status: string }) {
-  const spec: Record<string, { label: string; color: string; bg: string }> = {
-    waiting: { label: 'Lobby open', color: '#8A6020', bg: 'rgba(184,137,62,0.12)' },
-    active: { label: 'In progress', color: T.green, bg: 'rgba(26,107,60,0.10)' },
-    completed: { label: 'Finished', color: 'rgba(11,11,14,0.64)', bg: T.lineSoft },
+  const spec: Record<string, { label: string; tone: string; dot: string }> = {
+    waiting: { label: 'Lobby open', tone: 'text-gold-dark bg-gold/[.12]', dot: 'bg-gold-dark' },
+    active: { label: 'In progress', tone: 'text-green-dark bg-green-dark/10', dot: 'bg-green-dark' },
+    completed: { label: 'Finished', tone: 'text-subtle bg-sunken', dot: 'bg-subtle' },
   };
-  const { label, color, bg } = spec[status] ?? spec.completed;
+  const { label, tone, dot } = spec[status] ?? spec.completed;
 
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6, height: 24, padding: '0 10px',
-      borderRadius: 9999, background: bg, color, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-    }}>
-      <span aria-hidden style={{ width: 6, height: 6, borderRadius: 9999, background: color }} />
+    <span className={cn('inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-semibold whitespace-nowrap', tone)}>
+      <span aria-hidden className={cn('w-1.5 h-1.5 rounded-full', dot)} />
       {label}
     </span>
   );
@@ -156,22 +128,19 @@ export function JoinCodePlate({ code, size = 'large' }: { code: string; size?: '
   return (
     <div
       role="img"
-      style={{ display: 'flex', gap: large ? 'clamp(5px, 1.6vw, 8px)' : 4 }}
+      className={cn('flex', large ? 'gap-[clamp(5px,1.6vw,8px)]' : 'gap-1')}
       aria-label={`Join code ${code.split('').join(' ')}`}
     >
       {code.split('').map((char, i) => (
         <span
           key={i}
           aria-hidden
-          style={{
-            width: large ? 'clamp(36px, 11vw, 48px)' : 26,
-            height: large ? 'clamp(46px, 14vw, 60px)' : 32,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            borderRadius: large ? 10 : 6,
-            background: T.wash, border: `1px solid ${T.line}`,
-            fontFamily: 'var(--font-mono)', fontSize: large ? 'clamp(22px, 7vw, 30px)' : 16,
-            fontWeight: 600, color: T.ink, lineHeight: 1,
-          }}
+          className={cn(
+            'flex items-center justify-center bg-[#FBFAF8] border border-border font-mono font-semibold text-ink leading-none',
+            large
+              ? 'w-[clamp(36px,11vw,48px)] h-[clamp(46px,14vw,60px)] rounded-[10px] text-[clamp(22px,7vw,30px)]'
+              : 'w-[26px] h-8 rounded-md text-base',
+          )}
         >{char}</span>
       ))}
     </div>
@@ -194,7 +163,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
           // Clipboard access can be refused; the code is on screen either way.
         }
       }}
-      style={{ height: 36, padding: '0 14px', fontSize: 13, color: copied ? T.green : T.ink, minWidth: 96 }}
+      className={cn('h-9 px-3.5 text-[13px] min-w-[96px]', copied ? 'text-green-dark' : 'text-ink')}
     >
       <span aria-live="polite">{copied ? 'Copied ✓' : label}</span>
     </PillButton>
@@ -202,12 +171,12 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
 }
 
 /** A figure with its label, for the at-a-glance rows. */
-export function StatTile({ label, value, sub, color }: { label: string; value: React.ReactNode; sub?: React.ReactNode; color?: string }) {
+export function StatTile({ label, value, sub, valueClassName }: { label: string; value: React.ReactNode; sub?: React.ReactNode; valueClassName?: string }) {
   return (
-    <div style={{ ...CARD, padding: '14px 18px', minWidth: 0 }}>
-      <div style={{ ...KICKER, marginBottom: 6 }}>{label}</div>
-      <div style={{ ...H1, fontSize: 30, lineHeight: 1, color: color ?? T.ink, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-      {sub && <div style={{ fontSize: 12.5, color: T.muted, marginTop: 6 }}>{sub}</div>}
+    <div className={cn(liveCardClass, 'px-[18px] py-3.5 min-w-0')}>
+      <div className={cn(liveKickerClass, 'mb-1.5')}>{label}</div>
+      <div className={cn(liveTitleClass, 'text-[30px] leading-none tnum text-ink', valueClassName)}>{value}</div>
+      {sub && <div className="text-[12.5px] text-subtle mt-1.5">{sub}</div>}
     </div>
   );
 }
@@ -215,14 +184,14 @@ export function StatTile({ label, value, sub, color }: { label: string; value: R
 /** Consistent empty states: say what is missing and what to do about it. */
 export function EmptyState({ title, children, action }: { title: string; children?: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div style={{ ...CARD, padding: '44px 24px', textAlign: 'center' }}>
-      <div style={{ ...H1, fontSize: 24, color: 'rgba(11,11,14,0.72)', marginBottom: 6 }}>{title}</div>
+    <div className={cn(liveCardClass, 'px-6 py-11 text-center')}>
+      <div className={cn(liveTitleClass, 'text-2xl text-ink/[.72] mb-1.5')}>{title}</div>
       {children && (
-        <p style={{ fontSize: 14, color: T.muted, margin: '0 auto', maxWidth: 400, lineHeight: 1.6 }}>
+        <p className="text-sm text-subtle mx-auto my-0 max-w-[400px] leading-[1.6]">
           {children}
         </p>
       )}
-      {action && <div style={{ marginTop: 18, display: 'flex', justifyContent: 'center' }}>{action}</div>}
+      {action && <div className="mt-[18px] flex justify-center">{action}</div>}
     </div>
   );
 }
@@ -230,27 +199,22 @@ export function EmptyState({ title, children, action }: { title: string; childre
 /** Skeleton rows while a list loads, so the page keeps its shape instead of jumping. */
 export function LoadingRows({ rows = 3, height = 68 }: { rows?: number; height?: number }) {
   return (
-    <div role="status" aria-label="Loading" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div role="status" aria-label="Loading" className="flex flex-col gap-2.5">
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="live-skeleton" style={{ height, borderRadius: 16, background: T.lineSoft }} />
+        <div
+          key={i}
+          className="rounded-2xl bg-sunken animate-pulse motion-reduce:animate-none"
+          style={{ height }}
+        />
       ))}
-      <style>{`
-        .live-skeleton { animation: live-skeleton 1.4s ease-in-out infinite; }
-        @keyframes live-skeleton { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
-        @media (prefers-reduced-motion: reduce) { .live-skeleton { animation: none; } }
-      `}</style>
     </div>
   );
 }
 
 export function ErrorNote({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div role="alert" style={{
-      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-      background: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.2)',
-      borderRadius: 12, padding: '10px 16px', fontSize: 13.5, color: T.danger, lineHeight: 1.5,
-    }}>
-      <span style={{ flex: 1, minWidth: 180 }}>{children}</span>
+    <div role="alert" className="flex items-center gap-3 flex-wrap bg-danger/[.06] border border-danger/20 rounded-xl px-4 py-2.5 text-[13.5px] text-danger leading-normal">
+      <span className="flex-1 min-w-[180px]">{children}</span>
       {action}
     </div>
   );
@@ -264,9 +228,3 @@ export function plainText(html: string): string {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   return (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim();
 }
-
-/** Hover lift for clickable cards. Colour and shadow only, so it stays instant-feeling. */
-export const HOVER_CSS = `
-  .live-row { transition-property: box-shadow, border-color, transform; transition-duration: 150ms; transition-timing-function: cubic-bezier(0.2, 0, 0, 1); }
-  @media (hover: hover) { .live-row:hover { border-color: #D8D4CC !important; box-shadow: var(--shadow-md) !important; } }
-`;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
@@ -6,8 +6,8 @@ import {
 } from '@/api/student';
 import { getSkills, skillLabel, skillsQueryKey } from '@/api/skills';
 import { getApiError } from '@/api/http';
-import { useMobile } from '@/hooks/useMobile';
-import { formatDate } from '@/lib/utils';
+import { PageHeader, ErrorBanner, NoteCard, EmptyState, chipClass, surfaceClass, kickerClass, pageClass } from '@/components/common';
+import { cn, formatDate } from '@/lib/utils';
 
 /**
  * The mistake bank: a worklist of every question this student has got wrong.
@@ -18,17 +18,11 @@ import { formatDate } from '@/lib/utils';
  * the list drain rather than just accumulate.
  */
 
-const CARD: React.CSSProperties = {
-  background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16,
-  boxShadow: '0 1px 3px rgba(11,11,14,0.05)',
-};
-
 type SubjectFilter = 'all' | 'english' | 'math';
 type StatusFilter = 'open' | 'resolved';
 
 export default function Mistakes() {
   const navigate = useNavigate();
-  const isMobile = useMobile();
   const [subject, setSubject] = useState<SubjectFilter>('all');
   const [status, setStatus] = useState<StatusFilter>('open');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -76,43 +70,29 @@ export default function Mistakes() {
   const totalOpen = summary.reduce((sum, row) => sum + row.openCount, 0);
 
   const chip = (label: string, active: boolean, onClick: () => void) => (
-    <button
-      key={label}
-      onClick={onClick}
-      style={{
-        padding: '5px 14px', fontSize: 12.5, fontWeight: 600, borderRadius: 9999,
-        border: active ? 'none' : '1px solid #E7E4DE', background: active ? '#0B0B0E' : '#F2F0EC',
-        color: active ? '#fff' : '#6F6B64', cursor: 'pointer', fontFamily: 'inherit',
-      }}
-    >{label}</button>
+    <button key={label} onClick={onClick} className={chipClass(active)}>{label}</button>
   );
 
   return (
-    <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 80px' : '36px 48px 64px' }}>
-      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-        Mistake Bank
-      </h1>
-      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.64)', margin: '0 0 20px' }}>
-        Every question you've missed, worst first. Answer one correctly and it clears itself.
-      </p>
+    <div className={pageClass}>
+      <PageHeader
+        title="Mistake Bank"
+        subtitle="Every question you've missed, worst first. Answer one correctly and it clears itself."
+      />
 
-      {error && (
-        <div style={{ background: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 10, padding: '10px 16px', marginBottom: 16, fontSize: 13.5, color: '#C0392B' }}>
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner className="rounded-[10px]">{error}</ErrorBanner>}
 
       {/* Headline + practise-everything */}
-      <div style={{ ...CARD, padding: isMobile ? '18px 20px' : '22px 24px', marginBottom: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+      <div className={cn(surfaceClass, 'px-5 py-[18px] sm:px-6 sm:py-[22px] mb-[18px] flex items-center justify-between gap-4 flex-wrap')}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)' }}>Still open</div>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 40 : 50, lineHeight: 1, color: totalOpen > 0 ? '#C47A1B' : '#1A6B3C' }}>{totalOpen}</div>
+          <div className={cn(kickerClass, 'tracking-[0.1em]')}>Still open</div>
+          <div className={cn('font-display font-semibold text-[40px] sm:text-[50px] leading-none', totalOpen > 0 ? 'text-amber-sat' : 'text-green-dark')}>{totalOpen}</div>
         </div>
         {totalOpen > 0 && (
           <button
             onClick={() => { setError(''); practiceMutation.mutate(subject === 'all' ? {} : { subject }); }}
             disabled={practiceMutation.isPending}
-            style={{ height: 42, padding: '0 22px', border: 'none', borderRadius: 9999, background: '#C4471F', color: '#fff', fontSize: 14, fontWeight: 600, cursor: practiceMutation.isPending ? 'default' : 'pointer', opacity: practiceMutation.isPending ? 0.6 : 1, fontFamily: 'inherit' }}
+            className="h-[42px] px-[22px] rounded-full bg-accent-text text-white text-sm font-semibold cursor-pointer disabled:cursor-default disabled:opacity-60"
           >
             {practiceMutation.isPending ? 'Building…' : `Practise these (${Math.min(totalOpen, 20)})`}
           </button>
@@ -120,93 +100,88 @@ export default function Mistakes() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+      <div className="flex gap-2 mb-[18px] flex-wrap">
         {chip('All subjects', subject === 'all', () => setSubject('all'))}
         {chip('Reading & Writing', subject === 'english', () => setSubject('english'))}
         {chip('Math', subject === 'math', () => setSubject('math'))}
-        <span style={{ width: 1, background: '#E7E4DE', margin: '0 4px' }} />
+        <span className="w-px bg-border mx-1" />
         {chip('Open', status === 'open', () => setStatus('open'))}
         {chip('Resolved', status === 'resolved', () => setStatus('resolved'))}
       </div>
 
       {isLoading ? (
-        <div style={{ ...CARD, padding: '40px 22px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>Loading…</div>
+        <NoteCard>Loading…</NoteCard>
       ) : ordered.length === 0 ? (
-        <div style={{ ...CARD, padding: '48px 22px', textAlign: 'center' }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, color: 'rgba(11,11,14,0.64)', marginBottom: 6 }}>
-            {status === 'open' ? 'Nothing to review' : 'Nothing resolved yet'}
-          </div>
-          <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.58)', margin: 0 }}>
-            {status === 'open'
-              ? 'Questions you miss on an exam land here automatically.'
-              : 'Clear an open mistake by answering it correctly in a review.'}
-          </p>
-        </div>
+        <EmptyState title={status === 'open' ? 'Nothing to review' : 'Nothing resolved yet'}>
+          {status === 'open'
+            ? 'Questions you miss on an exam land here automatically.'
+            : 'Clear an open mistake by answering it correctly in a review.'}
+        </EmptyState>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="flex flex-col gap-3.5">
           {ordered.map(([domainCode, rows]) => (
-            <div key={domainCode} style={{ ...CARD, overflow: 'hidden' }}>
-              <div style={{ padding: '14px 20px', borderBottom: '1px solid #EEEBE5', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 15, fontWeight: 600 }}>
+            <div key={domainCode} className={cn(surfaceClass, 'overflow-hidden')}>
+              <div className="px-5 py-3.5 border-b border-border-soft flex items-center gap-3 flex-wrap">
+                <span className="text-[15px] font-semibold">
                   {domainCode === 'untagged' ? 'Untagged' : skillLabel(skillTree, domainCode)}
                 </span>
-                <span style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', fontFamily: 'var(--font-mono)' }}>
+                <span className="text-[12.5px] text-muted font-mono">
                   {rows.length} question{rows.length === 1 ? '' : 's'}
                 </span>
                 {status === 'open' && domainCode !== 'untagged' && (
                   <button
                     onClick={() => { setError(''); practiceMutation.mutate({ skillCode: rows[0].skillCode ?? undefined }); }}
                     disabled={practiceMutation.isPending}
-                    style={{ marginLeft: 'auto', height: 32, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 9999, background: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: '#0B0B0E' }}
+                    className="ml-auto h-8 px-3.5 border border-border rounded-full bg-white text-[12.5px] font-semibold cursor-pointer text-ink"
                   >Practise these</button>
                 )}
               </div>
 
-              {rows.map((mistake, i) => {
+              {rows.map((mistake) => {
                 const open = !!expanded[mistake.questionId];
                 return (
-                  <div key={mistake.questionId} style={{ borderBottom: i < rows.length - 1 ? '1px solid #F2F0EC' : 'none' }}>
+                  <div key={mistake.questionId} className="border-b border-sunken last:border-b-0">
                     <button
                       onClick={() => setExpanded((prev) => ({ ...prev, [mistake.questionId]: !prev[mistake.questionId] }))}
-                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 20px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+                      className="w-full flex items-center gap-3 px-5 py-[13px] bg-transparent cursor-pointer text-left"
                     >
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 9999, background: mistake.missCount > 1 ? 'rgba(192,57,43,0.1)' : '#F2F0EC', color: mistake.missCount > 1 ? '#C0392B' : '#6F6B64', flexShrink: 0 }}>
+                      <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0', mistake.missCount > 1 ? 'bg-danger/10 text-danger' : 'bg-sunken text-stone')}>
                         ×{mistake.missCount}
                       </span>
-                      <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span className="flex-1 min-w-0 text-[13.5px] truncate">
                         {mistake.questionText}
                       </span>
-                      {mistake.skillLabel && !isMobile && (
-                        <span style={{ fontSize: 11, color: 'rgba(11,11,14,0.58)', flexShrink: 0 }}>{mistake.skillLabel}</span>
+                      {mistake.skillLabel && (
+                        <span className="hidden sm:inline text-[11px] text-muted shrink-0">{mistake.skillLabel}</span>
                       )}
                       {mistake.resolvedAt && (
-                        <span style={{ fontSize: 11, fontWeight: 600, color: '#2E7D5A', flexShrink: 0 }}>✓ resolved</span>
+                        <span className="text-[11px] font-semibold text-green-sat shrink-0">✓ resolved</span>
                       )}
                     </button>
 
                     {open && (
-                      <div style={{ padding: '0 20px 16px', fontSize: 13.5, lineHeight: 1.6 }}>
-                        <p style={{ margin: '0 0 10px', color: '#0B0B0E' }}>{mistake.questionText}</p>
+                      <div className="px-5 pb-4 text-[13.5px] leading-[1.6]">
+                        <p className="mt-0 mb-2.5 text-ink">{mistake.questionText}</p>
                         {mistake.questionType === 'multiple_choice' ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
+                          <div className="flex flex-col gap-1 mb-2.5">
                             {(['a', 'b', 'c', 'd'] as const).map((key) => {
                               const text = mistake[`option${key.toUpperCase()}` as 'optionA'];
                               if (!text) return null;
                               const isAnswer = mistake.correctAnswer === key;
                               return (
-                                <div key={key} style={{ padding: '5px 10px', borderRadius: 8, background: isAnswer ? 'rgba(46,125,90,0.08)' : 'transparent', color: isAnswer ? '#1A6B3C' : 'rgba(11,11,14,0.6)', fontWeight: isAnswer ? 600 : 400 }}>
+                                <div key={key} className={cn('px-2.5 py-[5px] rounded-lg', isAnswer ? 'bg-green-sat/[.08] text-green-dark font-semibold' : 'bg-transparent text-ink/60')}>
                                   {key.toUpperCase()}. {text}{isAnswer && ' ✓'}
                                 </div>
                               );
                             })}
                           </div>
                         ) : (
-                          <p style={{ margin: '0 0 10px', color: '#1A6B3C', fontWeight: 600 }}>Answer: {mistake.correctAnswerText}</p>
+                          <p className="mt-0 mb-2.5 text-green-dark font-semibold">Answer: {mistake.correctAnswerText}</p>
                         )}
                         {mistake.explanation && (
-                          <p style={{ margin: '0 0 8px', color: 'rgba(11,11,14,0.65)' }}>{mistake.explanation}</p>
+                          <p className="mt-0 mb-2 text-subtle">{mistake.explanation}</p>
                         )}
-                        <p style={{ margin: 0, fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>
+                        <p className="m-0 text-xs text-muted">
                           First missed {formatDate(mistake.firstMissedAt)} · last {formatDate(mistake.lastMissedAt)}
                           {mistake.resolvedAt && ` · resolved ${formatDate(mistake.resolvedAt)}`}
                         </p>

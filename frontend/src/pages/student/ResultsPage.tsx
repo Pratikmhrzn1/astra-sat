@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getAnalytics, getExams } from '@/api/student';
-import { TREND_COLORS } from '@/components/common';
+import {
+  TREND_COLORS, PageHeader, NoteCard, EmptyState, pillClass, surfaceClass, kickerClass, pageClass,
+} from '@/components/common';
+import { cn } from '@/lib/utils';
 import { getLiveExamResults, type LiveExamResult } from '@/api/liveExam';
 import { LiveResultCard } from '@/components/live-exam/LiveResultCard';
 import { useMobile } from '@/hooks/useMobile';
@@ -54,17 +57,23 @@ export default function Results() {
     null,
   );
 
-  const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)' };
+  const kindOf = (e: (typeof shown)[number]) => {
+    const isMath = e.subject === 'math';
+    return {
+      dot: e.type === 'individual' ? (isMath ? 'bg-blue-sat' : 'bg-green-sat') : 'bg-ember',
+      label: e.type === 'individual' ? (isMath ? 'Math practice' : 'R&W practice') : (isMath ? 'Mock · Math' : 'Mock · R&W'),
+    };
+  };
+  const dateOf = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
-    <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 80px' : '36px 48px 64px' }}>
-      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>History</h1>
-      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.64)', margin: '0 0 16px' }}>Every test you've taken, scored and timestamped.</p>
+    <div className={pageClass}>
+      <PageHeader title="History" subtitle="Every test you've taken, scored and timestamped." />
 
       {/* Main tab switcher */}
-      <div role="tablist" aria-label="History type" style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+      <div role="tablist" aria-label="History type" className="flex gap-2 mb-5 flex-wrap">
         {(['practice', 'live'] as const).map((t) => (
-          <button key={t} role="tab" aria-selected={mainTab === t} onClick={() => setMainTab(t)} style={{ padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', border: mainTab === t ? '1px solid #0B0B0E' : '1px solid #C8C4BC', background: mainTab === t ? '#0B0B0E' : '#fff', color: mainTab === t ? '#fff' : '#0B0B0E' }}>
+          <button key={t} role="tab" aria-selected={mainTab === t} onClick={() => setMainTab(t)} className={pillClass(mainTab === t)}>
             {t === 'practice' ? 'Practice History' : 'Live Exams'}
           </button>
         ))}
@@ -74,26 +83,27 @@ export default function Results() {
       {mainTab === 'live' && (
         <div>
           {liveLoading ? (
-            <div role="status" aria-label="Loading" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[0, 1].map((i) => <div key={i} style={{ height: 76, borderRadius: 16, background: '#F2F0EC' }} />)}
+            <div role="status" aria-label="Loading" className="flex flex-col gap-2.5">
+              {[0, 1].map((i) => <div key={i} className="h-[76px] rounded-2xl bg-sunken" />)}
             </div>
           ) : liveError ? (
-            <div role="alert" style={{ ...CARD, padding: '28px 24px', textAlign: 'center' }}>
-              <p style={{ fontSize: 14, color: '#C0392B', margin: '0 0 14px' }}>Couldn't load your live exam results.</p>
-              <button onClick={() => refetchLive()} style={{ height: 36, padding: '0 16px', borderRadius: 9999, border: '1px solid #D8D4CC', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Try again</button>
+            <div role="alert" className={cn(surfaceClass, 'px-6 py-7 text-center')}>
+              <p className="text-sm text-danger mt-0 mb-3.5">Couldn't load your live exam results.</p>
+              <button onClick={() => refetchLive()} className="h-9 px-4 rounded-full border border-border-strong bg-white text-[13px] font-semibold cursor-pointer">Try again</button>
             </div>
           ) : liveResults.length === 0 ? (
-            <div style={{ ...CARD, padding: '44px 24px', textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: 'rgba(11,11,14,0.72)', marginBottom: 6 }}>No live exam results yet</div>
-              <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.64)', margin: '0 auto 16px', maxWidth: 380, lineHeight: 1.6 }}>
-                Results appear here once your teacher releases them.
-              </p>
-              <button onClick={() => navigate('/student/live-exam')} style={{ height: 38, padding: '0 18px', borderRadius: 9999, border: 'none', background: '#C4471F', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Join a live exam</button>
-            </div>
+            <EmptyState
+              title="No live exam results yet"
+              className="py-11"
+              titleClassName="text-[22px] text-ink/[.72]"
+              action={<button onClick={() => navigate('/student/live-exam')} className="h-[38px] px-[18px] rounded-full bg-accent-text text-white text-[13.5px] font-semibold cursor-pointer">Join a live exam</button>}
+            >
+              Results appear here once your teacher releases them.
+            </EmptyState>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="flex flex-col gap-2.5">
               {liveResults.map((r: LiveExamResult) => (
-                <LiveResultCard key={r.participantId} result={r} isMobile={isMobile} onOpen={(examId) => navigate(`/student/results/${examId}`)} />
+                <LiveResultCard key={r.participantId} result={r} onOpen={(examId) => navigate(`/student/results/${examId}`)} />
               ))}
             </div>
           )}
@@ -102,51 +112,30 @@ export default function Results() {
 
       {mainTab !== 'practice' ? null : <>
 
-      {/* Trend cards */}
-      {isMobile ? (
-        /* Mobile: best score full width, sparklines side-by-side below */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-          <div style={{ ...CARD, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 2 }}>Best score</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 38, lineHeight: 1, color: '#1A6B3C' }}>{bestScore ?? NO_SCORE}</div>
-              <div style={{ fontSize: 11, color: 'rgba(11,11,14,0.58)', marginTop: 4 }}>out of 800</div>
-            </div>
-          </div>
-          {/* Stacked, not side by side: a chart at half a phone's width shrinks its labels past legibility. */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
-            <div style={{ ...CARD, padding: '14px 16px' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 6 }}>R&W trend</div>
-              <SectionTrend points={rwPoints} label="Reading & Writing" color={TREND_COLORS.english} isMobile={isMobile} />
-            </div>
-            <div style={{ ...CARD, padding: '14px 16px' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 6 }}>Math trend</div>
-              <SectionTrend points={mathPoints} label="Math" color={TREND_COLORS.math} isMobile={isMobile} />
-            </div>
-          </div>
+      {/* Trend cards: best score full width on phones, then the two trends
+          stacked — a chart at half a phone's width shrinks its labels past legibility. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4 mb-5 sm:mb-7">
+        <div className={cn(surfaceClass, 'px-[18px] py-4 sm:px-[22px] sm:py-5')}>
+          <div className={cn(kickerClass, 'text-[10px] sm:text-[11px] mb-0.5 sm:mb-1')}>Best score</div>
+          <div className="font-display font-semibold text-[38px] sm:text-[46px] leading-none text-green-dark">{bestScore ?? NO_SCORE}</div>
+          <div className="text-[11px] sm:text-xs text-muted mt-1 sm:mt-1.5">out of 800</div>
         </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 28 }}>
-          <div style={{ ...CARD, padding: '20px 22px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 4 }}>Best score</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 46, lineHeight: 1, color: '#1A6B3C' }}>{bestScore ?? NO_SCORE}</div>
-            <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)', marginTop: 6 }}>out of 800</div>
+        <div className={cn(surfaceClass, 'px-4 py-3.5 sm:px-[22px] sm:py-5')}>
+          <div className={cn(kickerClass, 'text-[10px] sm:text-[11px] mb-1.5 sm:mb-2')}>
+            <span className="sm:hidden">R&W trend</span><span className="hidden sm:inline">Reading & Writing trend</span>
           </div>
-          <div style={{ ...CARD, padding: '20px 22px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 8 }}>Reading & Writing trend</div>
-            <SectionTrend points={rwPoints} label="Reading & Writing" color={TREND_COLORS.english} isMobile={isMobile} />
-          </div>
-          <div style={{ ...CARD, padding: '20px 22px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 8 }}>Math trend</div>
-            <SectionTrend points={mathPoints} label="Math" color={TREND_COLORS.math} isMobile={isMobile} />
-          </div>
+          <SectionTrend points={rwPoints} label="Reading & Writing" color={TREND_COLORS.english} isMobile={isMobile} />
         </div>
-      )}
+        <div className={cn(surfaceClass, 'px-4 py-3.5 sm:px-[22px] sm:py-5')}>
+          <div className={cn(kickerClass, 'text-[10px] sm:text-[11px] mb-1.5 sm:mb-2')}>Math trend</div>
+          <SectionTrend points={mathPoints} label="Math" color={TREND_COLORS.math} isMobile={isMobile} />
+        </div>
+      </div>
 
       {/* Filter chips */}
-      <div style={{ display: 'flex', gap: 9, marginBottom: 14 }}>
+      <div className="flex gap-[9px] mb-3.5">
         {chips.map((c) => (
-          <button key={c.value} onClick={() => setFilter(c.value)} style={{ padding: '7px 14px', borderRadius: 9999, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', border: filter === c.value ? '1px solid #0B0B0E' : '1px solid #C8C4BC', background: filter === c.value ? '#0B0B0E' : '#fff', color: filter === c.value ? '#fff' : '#0B0B0E' }}>
+          <button key={c.value} onClick={() => setFilter(c.value)} className={pillClass(filter === c.value, 'px-3.5 py-[7px] text-[13px]')}>
             {c.label}
           </button>
         ))}
@@ -154,38 +143,32 @@ export default function Results() {
 
       {/* List */}
       {isLoading ? (
-        <div style={{ color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>Loading…</div>
+        <div className="text-muted text-sm">Loading…</div>
       ) : shown.length === 0 ? (
-        <div style={{ ...CARD, padding: '48px 24px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>No completed tests yet.</div>
+        <NoteCard className="py-12">No completed tests yet.</NoteCard>
       ) : isMobile ? (
         /* Mobile: card list */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="flex flex-col gap-2.5">
           {shown.map((e) => {
             const score = formatExamScore(e.scaledScore, e.score, e.totalQuestions);
             const accuracy = e.score !== null ? Math.round((e.score / e.totalQuestions) * 100) : null;
-            const isMath = e.subject === 'math';
-            const dotColor = e.type === 'individual' ? (isMath ? '#2563A8' : '#2E7D5A') : '#E2562B';
-            const kindLabel = e.type === 'individual' ? (isMath ? 'Math practice' : 'R&W practice') : (isMath ? 'Mock · Math' : 'Mock · R&W');
+            const kind = kindOf(e);
             return (
               <div
                 key={e.id}
                 onClick={() => navigate(`/student/results/${e.id}`)}
-                style={{ ...CARD, padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12 }}
-                onPointerEnter={(el) => { if (el.pointerType !== 'mouse') return; el.currentTarget.style.background = '#FBFAF8'; }}
-                onPointerLeave={(el) => (el.currentTarget.style.background = '#fff')}
+                className={cn(surfaceClass, 'px-4 py-3.5 cursor-pointer flex items-center gap-3 hover:bg-[#FBFAF8]')}
               >
-                <span style={{ width: 8, height: 8, borderRadius: 9999, background: dotColor, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.setTitle ?? e.label ?? 'Practice'}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.64)', marginTop: 2 }}>
-                    {kindLabel} · {new Date(e.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </div>
+                <span className={cn('w-2 h-2 rounded-full shrink-0', kind.dot)} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold truncate">{e.setTitle ?? e.label ?? 'Practice'}</div>
+                  <div className="text-xs text-subtle mt-0.5">{kind.label} · {dateOf(e.startedAt)}</div>
                 </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, lineHeight: 1, color: scoreColor(e.scaledScore, SECTION_MAX) }}>{score}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.64)', marginTop: 2 }}>{accuracy !== null ? accuracy + '%' : '—'}</div>
+                <div className="text-right shrink-0">
+                  <div className="font-display font-semibold text-[22px] leading-none" style={{ color: scoreColor(e.scaledScore, SECTION_MAX) }}>{score}</div>
+                  <div className="text-xs text-subtle mt-0.5">{accuracy !== null ? accuracy + '%' : '—'}</div>
                 </div>
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(11,11,14,0.25)', flexShrink: 0 }}>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink/25 shrink-0">
                   <polyline points="9 18 15 12 9 6"/>
                 </svg>
               </div>
@@ -194,34 +177,30 @@ export default function Results() {
         </div>
       ) : (
         /* Desktop: table */
-        <div style={{ ...CARD, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr 1fr', gap: 12, padding: '14px 22px', borderBottom: '1px solid #EEEBE5' }}>
+        <div className={cn(surfaceClass, 'overflow-hidden')}>
+          <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr] gap-3 px-[22px] py-3.5 border-b border-border-soft">
             {['Test', 'Date', 'Subject', 'Score', 'Accuracy'].map((c, i) => (
-              <span key={i} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', textAlign: i >= 3 ? 'right' : 'left' }}>{c}</span>
+              <span key={c} className={cn('text-[11px] font-bold tracking-[0.07em] uppercase text-muted', i >= 3 ? 'text-right' : 'text-left')}>{c}</span>
             ))}
           </div>
-          {shown.map((e, i) => {
+          {shown.map((e) => {
             const score = formatExamScore(e.scaledScore, e.score, e.totalQuestions);
             const accuracy = e.score !== null ? Math.round((e.score / e.totalQuestions) * 100) : null;
-            const isMath = e.subject === 'math';
-            const dotColor = e.type === 'individual' ? (isMath ? '#2563A8' : '#2E7D5A') : '#E2562B';
-            const kindLabel = e.type === 'individual' ? (isMath ? 'Math practice' : 'R&W practice') : (isMath ? 'Mock · Math' : 'Mock · R&W');
+            const kind = kindOf(e);
             return (
               <div
                 key={e.id}
                 onClick={() => navigate(`/student/results/${e.id}`)}
-                style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr 1fr', gap: 12, padding: '16px 22px', borderBottom: i < shown.length - 1 ? '1px solid #F2F0EC' : 'none', alignItems: 'center', cursor: 'pointer' }}
-                onPointerEnter={(el) => { if (el.pointerType !== 'mouse') return; el.currentTarget.style.background = '#FBFAF8'; }}
-                onPointerLeave={(el) => (el.currentTarget.style.background = 'transparent')}
+                className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr] gap-3 px-[22px] py-4 border-b border-sunken last:border-b-0 items-center cursor-pointer hover:bg-[#FBFAF8]"
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 9999, background: dotColor, flexShrink: 0 }} />
-                  <span style={{ fontSize: 14.5, fontWeight: 600 }}>{e.setTitle ?? e.label ?? 'Practice'}</span>
+                <div className="flex items-center gap-[11px]">
+                  <span className={cn('w-2 h-2 rounded-full shrink-0', kind.dot)} />
+                  <span className="text-[14.5px] font-semibold">{e.setTitle ?? e.label ?? 'Practice'}</span>
                 </div>
-                <span style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.6)' }}>{new Date(e.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                <span style={{ fontSize: 13, color: 'rgba(11,11,14,0.6)' }}>{kindLabel}</span>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, textAlign: 'right', color: scoreColor(e.scaledScore, SECTION_MAX) }}>{score}</span>
-                <span style={{ fontSize: 14, fontWeight: 600, textAlign: 'right', color: 'rgba(11,11,14,0.7)' }}>{accuracy !== null ? accuracy + '%' : '—'}</span>
+                <span className="text-[13.5px] text-ink/60">{dateOf(e.startedAt)}</span>
+                <span className="text-[13px] text-ink/60">{kind.label}</span>
+                <span className="font-display font-semibold text-[22px] text-right" style={{ color: scoreColor(e.scaledScore, SECTION_MAX) }}>{score}</span>
+                <span className="text-sm font-semibold text-right text-body">{accuracy !== null ? accuracy + '%' : '—'}</span>
               </div>
             );
           })}
@@ -256,11 +235,11 @@ function SectionTrend({
   // when the student had in fact been scored once.
   if (values.length < 2) {
     return (
-      <div style={{ height: isMobile ? 70 : 84, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
+      <div className="h-[70px] sm:h-[84px] flex flex-col justify-center gap-1">
         {values.length === 1 && (
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 24 : 30, lineHeight: 1, color }}>{latest}</div>
+          <div className="font-display font-semibold text-2xl sm:text-[30px] leading-none" style={{ color }}>{latest}</div>
         )}
-        <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)', lineHeight: 1.35 }}>
+        <div className="text-xs text-muted leading-[1.35]">
           {values.length === 1 ? 'One scored test · take another to see a trend' : 'No scored tests yet'}
         </div>
       </div>
@@ -278,14 +257,14 @@ function SectionTrend({
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 24 : 28, lineHeight: 1, color }}>{latest}</span>
-        <span style={{ fontSize: 12, fontWeight: 600, color: change > 0 ? '#1A6B3C' : change < 0 ? '#C0392B' : 'rgba(11,11,14,0.58)' }}>
+      <div className="flex items-baseline gap-2 mb-1.5">
+        <span className="font-display font-semibold text-2xl sm:text-[28px] leading-none" style={{ color }}>{latest}</span>
+        <span className={cn('text-xs font-semibold', change > 0 ? 'text-green-dark' : change < 0 ? 'text-danger' : 'text-muted')}>
           {change > 0 ? `+${change}` : change < 0 ? `−${Math.abs(change)}` : '±0'}
         </span>
-        <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>over {values.length} tests</span>
+        <span className="text-xs text-muted">over {values.length} tests</span>
       </div>
-      <svg viewBox={`0 0 ${w} ${ht}`} preserveAspectRatio="none" style={{ width: '100%', height: ht, display: 'block' }} role="img"
+      <svg viewBox={`0 0 ${w} ${ht}`} preserveAspectRatio="none" className="w-full block" style={{ height: ht }} role="img"
         aria-label={`From ${values[0]} to ${latest} over ${values.length} tests`}>
         <path d={area} fill={color} opacity={0.08} />
         <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />

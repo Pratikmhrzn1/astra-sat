@@ -1,7 +1,7 @@
-import React from 'react';
 import {
-  AccuracyBars, TrendChart, TREND_COLORS, type TrendSeries,
+  AccuracyBars, TrendChart, TREND_COLORS, surfaceClass, type TrendSeries,
 } from '@/components/common';
+import { cn } from '@/lib/utils';
 import { formatScore, TOTAL_MAX, scoreColor } from '@/lib/score';
 import type { AnalyticsOverview } from '@/api/student';
 
@@ -14,27 +14,25 @@ import type { AnalyticsOverview } from '@/api/student';
  * cannot end up quoting different percentages at each other.
  */
 
-const CARD: React.CSSProperties = {
-  background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16,
-  boxShadow: '0 1px 3px rgba(11,11,14,0.05)',
-};
+const panelTitle = 'text-[15px] font-semibold mt-0 mb-0.5';
+const panelNote = 'text-[12.5px] text-muted mt-0';
 
 /** Latest score against the student's own target. Arithmetic, not a prediction. */
-export function ReadinessCard({ readiness, isMobile }: { readiness: AnalyticsOverview['readiness']; isMobile?: boolean }) {
+export function ReadinessCard({ readiness }: { readiness: AnalyticsOverview['readiness']; isMobile?: boolean }) {
   const { rollingAverage, mocksTaken, targetScore, gap, daysToTest, confidence, estimate } = readiness;
   // Same estimate as the Dashboard hero, with its source named.
   const estimateLabel = estimate.source === 'practice' ? 'Estimated, from practice tests' : 'Latest mock';
 
   return (
-    <div style={{ ...CARD, padding: isMobile ? '20px 18px' : '24px 26px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 28, flexWrap: 'wrap' }}>
+    <div className={cn(surfaceClass, 'px-[18px] py-5 sm:px-[26px] sm:py-6')}>
+      <div className="flex items-end gap-7 flex-wrap">
         <div>
-          <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.64)', marginBottom: 4 }}>{estimateLabel}</div>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 46, lineHeight: 1, color: scoreColor(estimate.total, TOTAL_MAX) }}>
+          <div className="text-[12.5px] text-subtle mb-1">{estimateLabel}</div>
+          <div className="font-display font-semibold text-[46px] leading-none" style={{ color: scoreColor(estimate.total, TOTAL_MAX) }}>
             {formatScore(estimate.total)}
           </div>
           {estimate.total === null && (estimate.rw !== null || estimate.math !== null) && (
-            <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.64)', marginTop: 6 }}>
+            <div className="text-[12.5px] text-subtle mt-1.5">
               {estimate.rw !== null ? `R&W ${estimate.rw} · score a Math test to complete it` : `Math ${estimate.math} · score an R&W test to complete it`}
             </div>
           )}
@@ -42,26 +40,26 @@ export function ReadinessCard({ readiness, isMobile }: { readiness: AnalyticsOve
 
         {mocksTaken > 1 && (
           <div>
-            <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.64)', marginBottom: 4 }}>
+            <div className="text-[12.5px] text-subtle mb-1">
               Average of last {Math.min(mocksTaken, 3)}
             </div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 28, lineHeight: 1.4, color: '#0B0B0E' }}>
+            <div className="font-display font-semibold text-[28px] leading-[1.4] text-ink">
               {formatScore(rollingAverage)}
             </div>
           </div>
         )}
 
-        <div style={{ flex: 1, minWidth: 180 }}>
+        <div className="flex-1 min-w-[180px]">
           {targetScore === null ? (
-            <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)', margin: 0, lineHeight: 1.6 }}>
+            <p className="text-[13.5px] text-subtle m-0 leading-[1.6]">
               No target set. Add one in Settings and this shows the gap.
             </p>
           ) : (
-            <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.6)', margin: 0, lineHeight: 1.7 }}>
-              Target <strong style={{ color: '#0B0B0E' }}>{targetScore}</strong>
+            <p className="text-[13.5px] text-ink/60 m-0 leading-[1.7]">
+              Target <strong className="text-ink">{targetScore}</strong>
               {gap !== null && (gap > 0
-                ? <> · <strong style={{ color: '#B8893E' }}>{gap}</strong> to go</>
-                : <> · <strong style={{ color: '#1A6B3C' }}>reached</strong></>)}
+                ? <> · <strong className="text-gold">{gap}</strong> to go</>
+                : <> · <strong className="text-green-dark">reached</strong></>)}
               {daysToTest !== null && (daysToTest >= 0
                 ? <> · {daysToTest} {daysToTest === 1 ? 'day' : 'days'} to test day</>
                 : <> · test date has passed</>)}
@@ -72,7 +70,7 @@ export function ReadinessCard({ readiness, isMobile }: { readiness: AnalyticsOve
 
       {/* Says how much to trust the number above, rather than implying certainty. */}
       {confidence !== 'fair' && (
-        <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', margin: '14px 0 0', lineHeight: 1.6 }}>
+        <p className="text-[12.5px] text-muted mt-3.5 mb-0 leading-[1.6]">
           {confidence === 'none'
             ? estimate.source === 'practice'
               ? 'No full mock yet — practice sections give a rough estimate; a mock gives a test-day one.'
@@ -94,9 +92,9 @@ export function TrendPanel({ trend, isMobile }: { trend: AnalyticsOverview['tren
   ];
 
   return (
-    <div style={{ ...CARD, padding: isMobile ? '18px 14px' : '22px 24px' }}>
-      <h2 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 2px' }}>Section scores over time</h2>
-      <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', margin: '0 0 14px' }}>
+    <div className={cn(surfaceClass, 'px-3.5 py-[18px] sm:px-6 sm:py-[22px]')}>
+      <h2 className={panelTitle}>Section scores over time</h2>
+      <p className={cn(panelNote, 'mb-3.5')}>
         Estimated, on the 200–800 scale. Mocks and single sections both count.
       </p>
       <TrendChart series={series} min={200} max={800} height={isMobile ? 170 : 200} />
@@ -105,7 +103,7 @@ export function TrendPanel({ trend, isMobile }: { trend: AnalyticsOverview['tren
 }
 
 export function DomainPanel({
-  overview, onPractise, isMobile,
+  overview, onPractise,
 }: {
   overview: AnalyticsOverview;
   onPractise?: (domainCode: string, subject: 'english' | 'math') => void;
@@ -117,18 +115,18 @@ export function DomainPanel({
   ];
 
   return (
-    <div style={{ ...CARD, padding: isMobile ? '18px 16px' : '22px 24px' }}>
-      <h2 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 2px' }}>Accuracy by topic</h2>
-      <p style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.58)', margin: '0 0 18px' }}>
+    <div className={cn(surfaceClass, 'px-4 py-[18px] sm:px-6 sm:py-[22px]')}>
+      <h2 className={panelTitle}>Accuracy by topic</h2>
+      <p className={cn(panelNote, 'mb-[18px]')}>
         Weakest first. A topic needs {overview.minAttempts} answered questions before it shows a percentage.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 22 : 30 }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-[22px] sm:gap-[30px]">
         {groups.map((group) => (
           <div key={group.subject}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-              <span style={{ width: 9, height: 9, borderRadius: 9999, background: group.color }} />
-              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{group.label}</span>
+            <div className="flex items-center gap-2 mb-3.5">
+              <span className="w-[9px] h-[9px] rounded-full" style={{ background: group.color }} />
+              <span className="text-[13.5px] font-semibold">{group.label}</span>
             </div>
             <AccuracyBars
               rows={overview.domains

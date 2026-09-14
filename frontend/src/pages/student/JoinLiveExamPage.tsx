@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { checkSessionStatus } from '@/api/liveExam';
-import { useMobile } from '@/hooks/useMobile';
-import { CARD, H1, PillButton, T } from '@/components/live-exam/ui';
+import { PillButton, liveCardClass, liveTitleClass } from '@/components/live-exam/ui';
+import { cn } from '@/lib/utils';
 
 /**
  * Where a student enters the code their teacher reads out.
@@ -32,7 +32,6 @@ function normalise(raw: string): string {
 
 export default function JoinLiveExam() {
   const navigate = useNavigate();
-  const isMobile = useMobile();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
@@ -74,27 +73,28 @@ export default function JoinLiveExam() {
   const slots = Array.from({ length: CODE_LENGTH }, (_, i) => code[i] ?? '');
   const activeIndex = focused && !checking && !ready ? code.length : -1;
 
-  // Centred in the part of the screen the student can actually see: the shell's
-  // scroll area, minus the tab bar on phones.
-  const stageMinHeight = isMobile
-    ? 'calc(100dvh - var(--tabbar-h) - var(--safe-bottom) - 8px)'
-    : '100dvh';
-
   return (
-    <div className="screen-fade" style={{ ...STAGE, minHeight: stageMinHeight, padding: isMobile ? '28px 16px 32px' : '48px 32px' }}>
-      <div style={{ width: '100%', maxWidth: 468 }}>
-        <header style={{ textAlign: 'center', marginBottom: isMobile ? 22 : 28 }}>
-          <h1 style={{ ...H1, fontSize: isMobile ? 30 : 40, lineHeight: 1.1, marginBottom: 10, textWrap: 'balance' }}>
+    // Centred in the part of the screen the student can actually see: the shell's
+    // scroll area, minus the tab bar on phones.
+    <div className="screen-fade flex items-center justify-center min-h-[calc(100dvh-var(--tabbar-h)-var(--safe-bottom)-8px)] sm:min-h-[100dvh] px-4 pt-7 pb-8 sm:px-8 sm:py-12">
+      <div className="w-full max-w-[468px]">
+        <header className="text-center mb-[22px] sm:mb-7">
+          <h1 className={cn(liveTitleClass, 'text-[30px] sm:text-[40px] leading-[1.1] mb-2.5 [text-wrap:balance]')}>
             Join your class's live exam
           </h1>
-          <p style={{ fontSize: isMobile ? 14.5 : 15.5, color: T.muted, margin: '0 auto', maxWidth: 440, lineHeight: 1.55, textWrap: 'balance' }}>
+          <p className="text-[14.5px] sm:text-[15.5px] text-subtle mx-auto my-0 max-w-[440px] leading-[1.55] [text-wrap:balance]">
             Type the six-character code your teacher reads out. You'll wait in the lobby until the exam starts.
           </p>
         </header>
 
-        <form onSubmit={handleJoin} style={SLIP} aria-describedby="join-steps">
-          <div style={{ padding: isMobile ? '22px 18px 20px' : '28px 32px 24px' }}>
-            <label htmlFor="join-code" style={{ display: 'block', fontSize: 14, fontWeight: 600, color: T.ink, textAlign: 'center', marginBottom: 14 }}>
+        {/* Notches are cut from the page colour, so the slip must not clip them. */}
+        <form
+          onSubmit={handleJoin}
+          className={cn(liveCardClass, 'rounded-[22px] overflow-visible shadow-[0_1px_2px_rgba(11,11,14,0.04),0_12px_32px_rgba(11,11,14,0.06)]')}
+          aria-describedby="join-steps"
+        >
+          <div className="px-[18px] pt-[22px] pb-5 sm:px-8 sm:pt-7 sm:pb-6">
+            <label htmlFor="join-code" className="block text-sm font-semibold text-ink text-center mb-3.5">
               Join code
             </label>
 
@@ -104,28 +104,24 @@ export default function JoinLiveExam() {
                 cells shrink together on a narrow phone. */}
             <div
               key={shakeKey}
-              className={shakeKey ? 'join-shake' : undefined}
-              style={{
-                position: 'relative', display: 'grid', gridTemplateColumns: `repeat(${CODE_LENGTH}, minmax(0, 1fr))`,
-                gap: isMobile ? 8 : 10, width: '100%', maxWidth: 384, margin: '0 auto',
-              }}
+              className={cn('relative grid grid-cols-6 gap-2 sm:gap-2.5 w-full max-w-[384px] mx-auto', shakeKey && 'animate-join-shake motion-reduce:animate-none')}
             >
               {slots.map((char, i) => {
                 const active = i === activeIndex;
-                const border = error ? 'rgba(192,57,43,0.6)' : ready ? T.green : active ? T.accent : char ? '#BDB8AE' : T.line;
                 return (
                   <span
                     key={i}
                     aria-hidden
-                    style={{
-                      ...CELL,
-                      background: error ? 'rgba(192,57,43,0.03)' : ready ? 'rgba(26,107,60,0.04)' : char ? '#fff' : T.wash,
-                      border: `1.5px solid ${border}`,
-                      boxShadow: active ? '0 0 0 4px rgba(226,86,43,0.14)' : char ? '0 1px 2px rgba(11,11,14,0.05)' : 'none',
-                    }}
+                    className={cn(
+                      'relative w-full aspect-[5/6] flex items-center justify-center rounded-xl font-mono font-semibold text-[clamp(20px,6.5vw,30px)] leading-none text-ink',
+                      'border-[1.5px] transition-[border-color,box-shadow,background-color] duration-150 ease-[cubic-bezier(0.2,0,0,1)]',
+                      error ? 'border-danger/60' : ready ? 'border-green-dark' : active ? 'border-ember' : char ? 'border-[#BDB8AE]' : 'border-border',
+                      error ? 'bg-danger/[.03]' : ready ? 'bg-green-dark/[.04]' : char ? 'bg-white' : 'bg-[#FBFAF8]',
+                      active ? 'shadow-[0_0_0_4px_rgba(226,86,43,0.14)]' : char ? 'shadow-[0_1px_2px_rgba(11,11,14,0.05)]' : 'shadow-none',
+                    )}
                   >
                     {char}
-                    {active && <span className="join-caret" style={CARET} />}
+                    {active && <span className="absolute w-0.5 h-[44%] rounded-[1px] bg-ember animate-caret-blink motion-reduce:animate-none" />}
                   </span>
                 );
               })}
@@ -143,17 +139,17 @@ export default function JoinLiveExam() {
                 maxLength={CODE_LENGTH + 4}
                 aria-describedby="join-code-hint"
                 aria-invalid={!!error}
-                style={HIDDEN_INPUT}
+                className="absolute inset-0 w-full h-full opacity-0 p-0 m-0 text-base cursor-text [caret-color:transparent]"
               />
             </div>
 
             <p
               id="join-code-hint"
               role={error ? 'alert' : undefined}
-              style={{
-                minHeight: 20, margin: '12px auto 18px', maxWidth: 340, textAlign: 'center', fontSize: 13, lineHeight: 1.5,
-                color: error ? T.danger : ready ? T.green : T.faint, fontVariantNumeric: 'tabular-nums',
-              }}
+              className={cn(
+                'min-h-5 mx-auto mt-3 mb-[18px] max-w-[340px] text-center text-[13px] leading-normal tnum',
+                error ? 'text-danger' : ready ? 'text-green-dark' : 'text-muted',
+              )}
             >
               {error || (ready ? 'Code complete' : code.length === 0 ? 'Letters and numbers, no spaces needed' : `${code.length} of ${CODE_LENGTH} characters`)}
             </p>
@@ -161,53 +157,50 @@ export default function JoinLiveExam() {
             <PillButton
               type="submit"
               disabled={!ready || checking}
-              style={{
-                width: '100%', height: 50, fontSize: 15.5,
+              className={cn(
+                'w-full h-[50px] text-[15.5px]',
                 // Until the code is complete the button is a quiet placeholder,
                 // not a faded version of the action — it lights up when usable.
-                ...(!ready ? { background: T.lineSoft, color: 'rgba(11,11,14,0.42)', border: `1px solid ${T.line}`, opacity: 1 } : {}),
-                ...(checking ? { opacity: 1 } : {}),
-              }}
+                !ready && 'bg-sunken text-ink/[.42] border-border opacity-100',
+                checking && 'opacity-100',
+              )}
             >
-              {checking && <span className="join-spinner" aria-hidden />}
+              {checking && (
+                <span aria-hidden className="w-[15px] h-[15px] rounded-full border-2 border-white/40 border-t-white animate-spin-fast motion-reduce:animate-spin-slow" />
+              )}
               {checking ? 'Checking the code' : 'Join exam'}
             </PillButton>
           </div>
 
           {/* Perforation: the slip tears into what you do now and what happens next. */}
-          <div aria-hidden style={{ height: 0, borderTop: `1.5px dashed #DCD8D0` }} />
+          <div aria-hidden className="h-0 border-t-[1.5px] border-dashed border-[#DCD8D0]" />
 
           {/* Three columns at every width, each number centred over its label.
               The connector runs from one number to the next: it starts past this
               column's number (50% + half a dot + breathing room) and ends short of
               the next column's, which sits one column-width plus the gap away. */}
-          <ol id="join-steps" style={{
-            listStyle: 'none', margin: 0, padding: isMobile ? '16px 12px 18px' : '18px 24px 22px',
-            display: 'grid', gridTemplateColumns: `repeat(${STEPS.length}, minmax(0, 1fr))`, columnGap: STEP_GAP,
-            background: T.wash, borderRadius: '0 0 21px 21px',
-          }}>
+          <ol id="join-steps" className="list-none m-0 px-3 pt-4 pb-[18px] sm:px-6 sm:pt-[18px] sm:pb-[22px] grid grid-cols-3 gap-x-3 bg-[#FBFAF8] rounded-b-[21px]">
             {STEPS.map((step, i) => {
               const done = i === 0 && ready && !error;
               return (
-                <li key={step} style={{
-                  position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
-                  textAlign: 'center', fontSize: isMobile ? 12.5 : 13, lineHeight: 1.35, color: i === 0 ? T.ink : T.muted,
-                }}>
-                  {i < STEPS.length - 1 && (
-                    <span aria-hidden style={{
-                      position: 'absolute', top: 11, height: 1, background: T.line,
-                      left: `calc(50% + ${DOT / 2 + 8}px)`,
-                      right: `calc(-50% - ${STEP_GAP}px + ${DOT / 2 + 8}px)`,
-                    }} />
+                <li
+                  key={step}
+                  className={cn(
+                    'relative flex flex-col items-center gap-[7px] text-center text-[12.5px] sm:text-[13px] leading-[1.35]',
+                    i === 0 ? 'text-ink' : 'text-subtle',
                   )}
-                  <span style={{
-                    position: 'relative', width: DOT, height: DOT, borderRadius: 9999, flexShrink: 0,
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 11.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-                    background: done ? T.green : i === 0 ? T.ink : '#fff',
-                    color: i === 0 ? '#fff' : T.muted,
-                    border: i === 0 ? 'none' : `1px solid ${T.line}`, boxSizing: 'border-box',
-                  }}>{done ? '✓' : i + 1}</span>
+                >
+                  {i < STEPS.length - 1 && (
+                    // left: 50% + half the 22px dot + 8px; right: past the 12px gap, same inset.
+                    <span aria-hidden className="absolute top-[11px] h-px bg-border left-[calc(50%+19px)] right-[calc(-50%-12px+19px)]" />
+                  )}
+                  <span
+                    className={cn(
+                      'relative w-[22px] h-[22px] rounded-full shrink-0 inline-flex items-center justify-center text-[11.5px] font-bold tnum',
+                      done ? 'bg-green-dark' : i === 0 ? 'bg-ink' : 'bg-white',
+                      i === 0 ? 'text-white' : 'text-subtle border border-border',
+                    )}
+                  >{done ? '✓' : i + 1}</span>
                   {step}
                 </li>
               );
@@ -215,69 +208,17 @@ export default function JoinLiveExam() {
           </ol>
         </form>
 
-        <p style={{ fontSize: 13.5, color: T.muted, margin: '18px 0 0', lineHeight: 1.6, textAlign: 'center' }}>
+        <p className="text-[13.5px] text-subtle mt-[18px] mb-0 leading-[1.6] text-center">
           Looking for a released result?{' '}
           <button
             type="button"
             onClick={() => navigate('/student/results?tab=live')}
-            style={{ background: 'none', border: 'none', padding: '2px 0', font: 'inherit', color: T.accentText, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
+            className="bg-transparent py-0.5 px-0 text-accent-text font-semibold cursor-pointer underline underline-offset-[3px]"
           >Open History</button>
         </p>
       </div>
-
-      <style>{`
-        .join-spinner {
-          width: 15px; height: 15px; border-radius: 9999px; box-sizing: border-box;
-          border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
-          animation: join-spin 0.8s linear infinite;
-        }
-        @keyframes join-spin { to { transform: rotate(360deg); } }
-        .join-caret { animation: join-blink 1.1s steps(1) infinite; }
-        @keyframes join-blink { 50% { opacity: 0; } }
-        .join-shake { animation: join-shake 320ms cubic-bezier(0.36, 0.07, 0.19, 0.97); }
-        @keyframes join-shake {
-          20% { transform: translateX(-6px); } 40% { transform: translateX(5px); }
-          60% { transform: translateX(-3px); } 80% { transform: translateX(2px); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .join-caret, .join-shake { animation: none; }
-          .join-spinner { animation-duration: 2.4s; }
-        }
-      `}</style>
     </div>
   );
 }
 
 const STEPS = ['Enter the code', 'Wait in the lobby', 'Your paper opens'];
-const DOT = 22;
-const STEP_GAP = 12;
-
-const STAGE: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box',
-};
-
-const SLIP: React.CSSProperties = {
-  ...CARD,
-  borderRadius: 22,
-  // Notches are cut from the page colour, so the slip must not clip them.
-  overflow: 'visible',
-  boxShadow: '0 1px 2px rgba(11,11,14,0.04), 0 12px 32px rgba(11,11,14,0.06)',
-};
-
-const CELL: React.CSSProperties = {
-  position: 'relative', width: '100%', aspectRatio: '5 / 6', boxSizing: 'border-box',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  borderRadius: 12, fontFamily: 'var(--font-mono)', fontWeight: 600,
-  fontSize: 'clamp(20px, 6.5vw, 30px)', lineHeight: 1, color: T.ink,
-  transitionProperty: 'border-color, box-shadow, background-color',
-  transitionDuration: '150ms', transitionTimingFunction: 'cubic-bezier(0.2, 0, 0, 1)',
-};
-
-const CARET: React.CSSProperties = {
-  position: 'absolute', width: 2, height: '44%', borderRadius: 1, background: T.accent,
-};
-
-const HIDDEN_INPUT: React.CSSProperties = {
-  position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0,
-  border: 'none', padding: 0, margin: 0, fontSize: 16, cursor: 'text', caretColor: 'transparent',
-};

@@ -2,12 +2,20 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getDueVocab, reviewVocab, reviewTeacherVocab, type VocabDueItem } from '@/api/student';
-import { useMobile } from '@/hooks/useMobile';
+import { cn } from '@/lib/utils';
+import {
+  quizLetterClass, quizOptionClass, quizOptionState, quizResultClass, quizResultLabelClass,
+} from '@/components/student/quizOption';
+
+const darkBtn = 'h-[42px] px-[22px] rounded-full bg-ink text-white text-sm font-semibold cursor-pointer';
+const flipBtn = 'h-11 px-7 rounded-full border-2 border-teal-sat bg-white text-teal-sat text-sm font-bold cursor-pointer';
+const deckCard = 'bg-white border border-border rounded-3xl shadow-panel';
+const doneWrap = 'px-5 pt-10 pb-20 sm:px-12 sm:py-[60px] mx-auto text-center';
+const doneTitle = 'font-display font-semibold text-[28px] sm:text-[34px] mt-0 mb-2.5';
 
 export default function VocabReview() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const isMobile = useMobile();
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ['student', 'vocab', 'due'],
@@ -33,22 +41,19 @@ export default function VocabReview() {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: 'rgba(11,11,14,0.58)' }}>Loading your vocab queue…</div>
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="font-display font-semibold text-[22px] text-muted">Loading your vocab queue…</div>
       </div>
     );
   }
 
   if (items.length === 0) {
     return (
-      <div style={{ padding: isMobile ? '40px 20px 80px' : '60px 48px', maxWidth: 580, margin: '0 auto', textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 28 : 34, margin: '0 0 10px' }}>All caught up!</h2>
-        <p style={{ color: 'rgba(11,11,14,0.64)', fontSize: 15, margin: '0 0 28px' }}>No words are due for review right now. Come back tomorrow.</p>
-        <button
-          onClick={() => navigate('/student/dashboard')}
-          style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#0B0B0E', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-        >Back to dashboard</button>
+      <div className={cn(doneWrap, 'max-w-[580px]')}>
+        <div className="text-5xl mb-4">🎉</div>
+        <h2 className={doneTitle}>All caught up!</h2>
+        <p className="text-subtle text-[15px] mt-0 mb-7">No words are due for review right now. Come back tomorrow.</p>
+        <button onClick={() => navigate('/student/dashboard')} className={darkBtn}>Back to dashboard</button>
       </div>
     );
   }
@@ -57,24 +62,21 @@ export default function VocabReview() {
   if (idx >= items.length) {
     const correctCount = sessionResults.filter((r) => r.correct).length;
     return (
-      <div style={{ padding: isMobile ? '40px 20px 80px' : '60px 48px', maxWidth: 560, margin: '0 auto', textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>{correctCount === sessionResults.length ? '🌟' : '📚'}</div>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 28 : 34, margin: '0 0 10px' }}>Session complete</h2>
-        <p style={{ color: 'rgba(11,11,14,0.64)', fontSize: 15, margin: '0 0 28px' }}>
+      <div className={cn(doneWrap, 'max-w-[560px]')}>
+        <div className="text-5xl mb-4">{correctCount === sessionResults.length ? '🌟' : '📚'}</div>
+        <h2 className={doneTitle}>Session complete</h2>
+        <p className="text-subtle text-[15px] mt-0 mb-7">
           {correctCount} / {sessionResults.length} correct
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 32, textAlign: 'left', background: '#fff', borderRadius: 14, border: '1px solid #E7E4DE', padding: '16px 20px' }}>
+        <div className="flex flex-col gap-2 mb-8 text-left bg-white rounded-[14px] border border-border px-5 py-4">
           {sessionResults.map((r, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
-              <span style={{ color: r.correct ? '#2E7D5A' : '#C0392B', fontWeight: 700, fontSize: 16 }}>{r.correct ? '✓' : '✗'}</span>
-              <span style={{ fontWeight: 600 }}>{r.word}</span>
+            <div key={i} className="flex items-center gap-2.5 text-sm">
+              <span className={cn('font-bold text-base', r.correct ? 'text-green-sat' : 'text-danger')}>{r.correct ? '✓' : '✗'}</span>
+              <span className="font-semibold">{r.word}</span>
             </div>
           ))}
         </div>
-        <button
-          onClick={() => navigate('/student/dashboard')}
-          style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#0B0B0E', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-        >Back to dashboard</button>
+        <button onClick={() => navigate('/student/dashboard')} className={darkBtn}>Back to dashboard</button>
       </div>
     );
   }
@@ -102,41 +104,39 @@ export default function VocabReview() {
   };
 
   const nextBtn = (
-    <button onClick={handleNext} style={{ height: 42, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#C4471F', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+    <button onClick={handleNext} className="h-[42px] px-[22px] rounded-full bg-accent-text text-white text-sm font-semibold cursor-pointer">
       {idx + 1 >= items.length ? 'Finish session' : 'Next word →'}
     </button>
   );
 
-  const cardPad = isMobile ? '22px 20px' : '32px 36px';
-
   return (
-    <div style={{ padding: isMobile ? '20px 16px 80px' : '36px 48px 64px', maxWidth: 680, margin: '0 auto' }}>
+    <div className="px-4 pt-5 pb-20 sm:px-12 sm:pt-9 sm:pb-16 max-w-[680px] mx-auto">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+      <div className="flex items-center justify-between mb-[22px]">
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 4 }}>Vocab Review</div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 24 : 32, margin: 0 }}>Daily flashcards</h1>
+          <div className="text-[11px] font-bold tracking-[0.1em] uppercase text-muted mb-1">Vocab Review</div>
+          <h1 className="font-display font-semibold text-2xl sm:text-[32px] m-0">Daily flashcards</h1>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 16 }}>
-          <span style={{ fontSize: 13, color: 'rgba(11,11,14,0.58)', fontWeight: 600 }}>{idx + 1} / {items.length}</span>
-          <button onClick={() => navigate('/student/dashboard')} style={{ height: 36, padding: '0 14px', borderRadius: 9999, border: '1px solid #C8C4BC', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Exit</button>
+        <div className="flex items-center gap-2.5 sm:gap-4">
+          <span className="text-[13px] text-muted font-semibold">{idx + 1} / {items.length}</span>
+          <button onClick={() => navigate('/student/dashboard')} className="h-9 px-3.5 rounded-full border border-field bg-white text-[13px] font-semibold cursor-pointer">Exit</button>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div style={{ height: 4, background: '#EEEBE5', borderRadius: 9999, marginBottom: 22 }}>
-        <div style={{ height: 4, width: `${(idx / items.length) * 100}%`, background: '#0D7377', borderRadius: 9999, transition: 'width 0.3s' }} />
+      <div className="h-1 bg-border-soft rounded-full mb-[22px]">
+        <div className="h-1 bg-teal-sat rounded-full transition-[width] duration-300" style={{ width: `${(idx / items.length) * 100}%` }} />
       </div>
 
       {/* Card front */}
-      <div style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 18, padding: cardPad, boxShadow: '0 2px 12px rgba(11,11,14,0.06)', marginBottom: 14 }}>
-        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#0D7377', marginBottom: 10 }}>
+      <div className={cn(deckCard, 'px-5 py-[22px] sm:px-9 sm:py-8 mb-3.5')}>
+        <div className="text-[10.5px] font-bold tracking-[0.1em] uppercase text-teal-sat mb-2.5">
           {item.source === 'teacher' ? 'Example sentence' : 'Word in context'}
         </div>
-        <p style={{ fontFamily: 'var(--font-reading)', fontSize: isMobile ? 17 : 20, lineHeight: 1.6, color: '#0B0B0E', margin: '0 0 14px', fontStyle: 'italic' }}>
+        <p className="font-serif text-[17px] sm:text-xl leading-[1.6] text-ink mt-0 mb-3.5 italic">
           "{item.passageExcerpt || (vd?.sentenceContext ?? '')}"
         </p>
-        <div style={{ display: 'inline-block', background: 'rgba(0,128,128,0.08)', border: '1px solid rgba(0,128,128,0.2)', borderRadius: 8, padding: '5px 12px', fontSize: 15, fontWeight: 700, color: '#0D7377' }}>
+        <div className="inline-block bg-[rgba(0,128,128,0.08)] border border-[rgba(0,128,128,0.2)] rounded-lg px-3 py-[5px] text-[15px] font-bold text-teal-sat">
           {item.word}
         </div>
       </div>
@@ -144,28 +144,38 @@ export default function VocabReview() {
       {/* Teacher vocab card — self-assess with definition reveal */}
       {item.source === 'teacher' && (
         !flipped ? (
-          <div style={{ textAlign: 'center' }}>
-            <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)', marginBottom: 16 }}>Try to recall the definition of "{item.word}", then reveal.</p>
-            <button onClick={handleFlip} style={{ height: 44, padding: '0 28px', borderRadius: 9999, border: '2px solid #0D7377', background: '#fff', color: '#0D7377', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+          <div className="text-center">
+            <p className="text-[13.5px] text-subtle mb-4">Try to recall the definition of "{item.word}", then reveal.</p>
+            <button onClick={handleFlip} className={flipBtn}>
               Reveal definition
             </button>
           </div>
         ) : (
-          <div style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 18, padding: isMobile ? '20px 20px' : '28px 32px', boxShadow: '0 2px 12px rgba(11,11,14,0.06)' }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginBottom: 8 }}>Definition</div>
-            <p style={{ fontSize: 16, lineHeight: 1.6, color: '#0B0B0E', margin: '0 0 20px' }}>{item.definition}</p>
+          <div className={cn(deckCard, 'p-5 sm:px-8 sm:py-7')}>
+            <div className="text-[10.5px] font-bold tracking-[0.1em] uppercase text-muted mb-2">Definition</div>
+            <p className="text-base leading-[1.6] text-ink mt-0 mb-5">{item.definition}</p>
             {!submitted ? (
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => { setPicked('knew'); }} disabled={!!picked} style={{ flex: 1, height: 42, borderRadius: 10, border: picked === 'knew' ? '2px solid #2E7D5A' : '1px solid #C8C4BC', background: picked === 'knew' ? 'rgba(46,125,90,0.1)' : '#fff', color: picked === 'knew' ? '#1A5C38' : '#0B0B0E', fontSize: 14, fontWeight: 600, cursor: picked ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+              <div className="flex gap-2.5">
+                <button
+                  onClick={() => { setPicked('knew'); }}
+                  disabled={!!picked}
+                  className={cn('flex-1 h-[42px] rounded-[10px] text-sm font-semibold', picked ? 'cursor-default' : 'cursor-pointer',
+                    picked === 'knew' ? 'border-2 border-green-sat bg-green-sat/10 text-green-deep' : 'border border-field bg-white text-ink')}
+                >
                   I knew it ✓
                 </button>
-                <button onClick={() => { setPicked('forgot'); }} disabled={!!picked} style={{ flex: 1, height: 42, borderRadius: 10, border: picked === 'forgot' ? '2px solid #C0392B' : '1px solid #C8C4BC', background: picked === 'forgot' ? 'rgba(192,57,43,0.08)' : '#fff', color: picked === 'forgot' ? '#8B1A10' : '#0B0B0E', fontSize: 14, fontWeight: 600, cursor: picked ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+                <button
+                  onClick={() => { setPicked('forgot'); }}
+                  disabled={!!picked}
+                  className={cn('flex-1 h-[42px] rounded-[10px] text-sm font-semibold', picked ? 'cursor-default' : 'cursor-pointer',
+                    picked === 'forgot' ? 'border-2 border-danger bg-danger/[.08] text-danger-dark' : 'border border-field bg-white text-ink')}
+                >
                   I forgot it ✗
                 </button>
               </div>
             ) : null}
             {picked && !submitted && (
-              <button onClick={handleSubmit} style={{ marginTop: 14, height: 40, padding: '0 22px', borderRadius: 9999, border: 'none', background: '#0D7377', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button onClick={handleSubmit} className="mt-3.5 h-10 px-[22px] rounded-full bg-teal-sat text-white text-[13.5px] font-bold cursor-pointer">
                 Confirm
               </button>
             )}
@@ -177,29 +187,27 @@ export default function VocabReview() {
       {/* Question-derived card — multiple choice quiz */}
       {item.source === 'question' && vd && (
         !flipped ? (
-          <div style={{ textAlign: 'center' }}>
-            <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)', marginBottom: 16 }}>Try to recall what "{item.word}" means in this sentence, then flip.</p>
-            <button onClick={handleFlip} style={{ height: 44, padding: '0 28px', borderRadius: 9999, border: '2px solid #0D7377', background: '#fff', color: '#0D7377', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', letterSpacing: '0.02em' }}>
+          <div className="text-center">
+            <p className="text-[13.5px] text-subtle mb-4">Try to recall what "{item.word}" means in this sentence, then flip.</p>
+            <button onClick={handleFlip} className={cn(flipBtn, 'tracking-[0.02em]')}>
               Flip — show question
             </button>
           </div>
         ) : (
-          <div style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 18, padding: isMobile ? '20px 20px' : '28px 32px', boxShadow: '0 2px 12px rgba(11,11,14,0.06)' }}>
-            <p style={{ fontSize: 15, fontWeight: 600, color: '#0B0B0E', margin: '0 0 14px' }}>{vd.followUpQuestion}</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+          <div className={cn(deckCard, 'p-5 sm:px-8 sm:py-7')}>
+            <p className="text-[15px] font-semibold text-ink mt-0 mb-3.5">{vd.followUpQuestion}</p>
+            <div className="flex flex-col gap-2 mb-[18px]">
               {vd.options.map((opt, oi) => {
                 const letter = optLetters[oi];
-                const isPicked = picked === letter;
-                const isCorrectOpt = letter === vd.correctOption;
-                let bg = '#fff', border = '1px solid #C8C4BC', color = '#0B0B0E';
-                if (submitted) {
-                  if (isCorrectOpt) { bg = 'rgba(46,125,90,0.1)'; border = '1.5px solid #2E7D5A'; color = '#1A5C38'; }
-                  else if (isPicked) { bg = 'rgba(192,57,43,0.08)'; border = '1.5px solid #C0392B'; color = '#8B1A10'; }
-                } else if (isPicked) { bg = 'rgba(0,128,128,0.07)'; border = '1.5px solid #0D7377'; }
+                const state = quizOptionState({ submitted, picked: picked === letter, correct: letter === vd.correctOption });
                 return (
-                  <button key={letter} onClick={() => { if (!submitted) setPicked(letter); }} disabled={submitted}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 10, border, background: bg, color, fontSize: 14, textAlign: 'left', cursor: submitted ? 'default' : 'pointer', fontFamily: 'inherit', transition: 'all 0.12s' }}>
-                    <span style={{ width: 24, height: 24, borderRadius: 9999, border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{letter}</span>
+                  <button
+                    key={letter}
+                    onClick={() => { if (!submitted) setPicked(letter); }}
+                    disabled={submitted}
+                    className={quizOptionClass(state, submitted)}
+                  >
+                    <span className={quizLetterClass(state)}>{letter}</span>
                     {opt}
                   </button>
                 );
@@ -207,16 +215,20 @@ export default function VocabReview() {
             </div>
             {submitted ? (
               <>
-                <div style={{ padding: '12px 14px', borderRadius: 10, background: isPickCorrect ? 'rgba(46,125,90,0.08)' : 'rgba(192,57,43,0.07)', marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: isPickCorrect ? '#1A5C38' : '#8B1A10', marginBottom: 4 }}>
+                <div className={cn('px-3.5 py-3 rounded-[10px] mb-4', quizResultClass(isPickCorrect))}>
+                  <div className={cn('text-xs font-bold mb-1', quizResultLabelClass(isPickCorrect))}>
                     {isPickCorrect ? '✓ Correct' : `✗ Incorrect — correct: ${vd.correctOption}`}
                   </div>
-                  <p style={{ fontSize: 13.5, lineHeight: 1.55, color: '#0B0B0E', margin: 0 }}>{vd.explanation}</p>
+                  <p className="text-[13.5px] leading-[1.55] text-ink m-0">{vd.explanation}</p>
                 </div>
                 {nextBtn}
               </>
             ) : (
-              <button onClick={handleSubmit} disabled={!picked} style={{ height: 40, padding: '0 20px', borderRadius: 9999, border: 'none', background: picked ? '#0D7377' : '#C8C4BC', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: picked ? 'pointer' : 'default', fontFamily: 'inherit' }}>
+              <button
+                onClick={handleSubmit}
+                disabled={!picked}
+                className={cn('h-10 px-5 rounded-full text-white text-[13.5px] font-bold', picked ? 'bg-teal-sat cursor-pointer' : 'bg-field cursor-default')}
+              >
                 Check answer
               </button>
             )}

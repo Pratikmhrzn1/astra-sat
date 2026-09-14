@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { getAnalytics, startTopicExam } from '@/api/student';
 import { getApiError } from '@/api/http';
 import { useMobile } from '@/hooks/useMobile';
 import { DomainPanel, ReadinessCard, TrendPanel } from '@/components/student/ProgressPanels';
+import { pageClass } from '@/components/common';
+import { cn } from '@/lib/utils';
 
 /**
  * Progress: where a student stands, what is going up, and what to work on.
@@ -30,41 +32,41 @@ export default function Progress() {
   });
 
   if (isLoading) {
-    return <div style={{ padding: '64px 48px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>Loading…</div>;
+    return <div className="px-12 py-16 text-center text-muted text-sm">Loading…</div>;
   }
 
   const hasAnything = !!data && (data.trend.length > 0 || data.domains.length > 0);
 
   return (
-    <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 80px' : '36px 48px 64px', maxWidth: 900 }}>
-      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>
+    <div className={cn(pageClass, 'max-w-[900px]')}>
+      <h1 className="font-display font-semibold text-[32px] sm:text-[44px] mt-0 mb-1.5 tracking-[-0.02em]">
         Progress
       </h1>
-      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.64)', margin: '0 0 24px', maxWidth: 620, lineHeight: 1.6 }}>
+      <p className="text-sm sm:text-[15px] text-subtle mt-0 mb-6 max-w-[620px] leading-[1.6]">
         Where you stand, what's moving, and which topics are costing you the most.
       </p>
 
       {error && (
-        <div style={{ background: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 12, padding: '10px 16px', marginBottom: 18, fontSize: 13.5, color: '#C0392B' }}>
+        <div className="bg-danger/[.06] border border-danger/20 rounded-xl px-4 py-2.5 mb-[18px] text-[13.5px] text-danger">
           {error}
         </div>
       )}
 
       {!hasAnything ? (
-        <div style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, padding: '48px 24px', textAlign: 'center' }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, color: 'rgba(11,11,14,0.64)', marginBottom: 6 }}>
+        <div className="bg-white border border-border rounded-2xl px-6 py-12 text-center">
+          <div className="font-display font-semibold text-[26px] text-subtle mb-1.5">
             Nothing to show yet
           </div>
-          <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.58)', margin: '0 auto 18px', maxWidth: 400, lineHeight: 1.6 }}>
+          <p className="text-sm text-muted mx-auto mt-0 mb-[18px] max-w-[400px] leading-[1.6]">
             Sit a practice set or a full mock and this fills in — a score trend, and accuracy for every topic you've answered.
           </p>
           <button
             onClick={() => navigate('/student/exams')}
-            style={{ height: 40, padding: '0 20px', border: 'none', borderRadius: 9999, background: '#C4471F', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+            className="h-10 px-5 rounded-full bg-accent-text text-white text-sm font-semibold cursor-pointer"
           >Start practising</button>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="flex flex-col gap-4">
           <ReadinessCard readiness={data!.readiness} isMobile={isMobile} />
           <TrendPanel trend={data!.trend} isMobile={isMobile} />
           <DomainPanel

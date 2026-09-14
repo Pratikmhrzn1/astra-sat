@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Plus } from 'lucide-react';
 import {
@@ -7,15 +7,15 @@ import {
 } from '@/api/liveExam';
 import { getApiError } from '@/api/http';
 import { Modal } from '@/components/common';
-import { useMobile } from '@/hooks/useMobile';
 import {
-  CARD, EmptyState, ErrorNote, H1, HOVER_CSS, JoinCodePlate, LivePage, LoadingRows, PillButton, StatusPill, T,
+  EmptyState, ErrorNote, JoinCodePlate, LivePage, LoadingRows, PillButton, StatusPill,
+  liveCardClass, liveRowClass, liveTitleClass,
 } from '@/components/live-exam/ui';
+import { cn } from '@/lib/utils';
 
 /** Every live exam this teacher has run, newest first, and the form to start another. */
 export default function LiveExams() {
   const navigate = useNavigate();
-  const isMobile = useMobile();
   const [loadError, setLoadError] = useState('');
   const [sessions, setSessions] = useState<LiveExamSession[]>([]);
   const [sets, setSets] = useState<LiveExamSet[]>([]);
@@ -70,32 +70,25 @@ export default function LiveExams() {
     }
   }
 
-  const fieldStyle: React.CSSProperties = {
-    width: '100%', height: 42, padding: '0 12px', border: '1px solid #D8D4CC',
-    borderRadius: 10, background: '#fff', color: T.ink, fontSize: 14,
-    fontFamily: 'inherit', boxSizing: 'border-box',
-  };
-  const labelStyle: React.CSSProperties = {
-    display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 6,
-  };
+  const fieldClass = 'w-full h-[42px] px-3 border border-border-strong rounded-[10px] bg-white text-ink text-sm';
+  const labelClass = 'block text-[13px] font-semibold text-subtle mb-1.5';
 
   return (
     <LivePage>
-      <style>{HOVER_CSS}</style>
-      <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
-        <h1 style={{ ...H1, fontSize: isMobile ? 32 : 44, lineHeight: 1.1 }}>Live Exams</h1>
-        <PillButton onClick={openCreate} style={{ height: 42, paddingLeft: 16 }}>
+      <div className="flex items-start sm:items-center justify-between gap-4 flex-wrap mb-2">
+        <h1 className={cn(liveTitleClass, 'text-[32px] sm:text-[44px] leading-[1.1]')}>Live Exams</h1>
+        <PillButton onClick={openCreate} className="h-[42px] pl-4">
           <Plus size={16} strokeWidth={2.25} aria-hidden />New session
         </PillButton>
       </div>
-      <p style={{ fontSize: isMobile ? 14 : 15, color: T.muted, margin: '0 0 24px', maxWidth: 620, lineHeight: 1.6 }}>
+      <p className="text-sm sm:text-[15px] text-subtle mt-0 mb-6 max-w-[620px] leading-[1.6]">
         Sit a whole class at once. You control when it starts and when each student sees their result.
       </p>
 
       {loading ? (
         <LoadingRows />
       ) : loadError ? (
-        <ErrorNote action={<PillButton variant="secondary" onClick={loadAll} style={{ height: 32, fontSize: 13 }}>Try again</PillButton>}>
+        <ErrorNote action={<PillButton variant="secondary" onClick={loadAll} className="h-8 text-[13px]">Try again</PillButton>}>
           Couldn't load your sessions: {loadError}
         </ErrorNote>
       ) : sessions.length === 0 ? (
@@ -103,38 +96,36 @@ export default function LiveExams() {
           Create one, read the join code out to your class, and start when everyone is in the lobby.
         </EmptyState>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="flex flex-col gap-2.5">
           {sessions.map((s) => {
             const when = s.startedAt ?? s.createdAt;
             return (
               <button
                 key={s.id}
-                className="live-row"
                 onClick={() => navigate(`/teacher/live-exams/${s.id}`)}
                 data-press="soft"
-                style={{
-                  ...CARD, padding: isMobile ? '14px 14px 14px 16px' : '16px 18px 16px 20px',
-                  display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 16,
-                  cursor: 'pointer', textAlign: 'left', font: 'inherit', color: 'inherit', width: '100%', boxSizing: 'border-box',
-                }}
+                className={cn(
+                  liveCardClass, liveRowClass,
+                  'py-3.5 pl-4 pr-3.5 sm:py-4 sm:pl-5 sm:pr-[18px] flex items-center gap-2.5 sm:gap-4 cursor-pointer text-left text-inherit w-full',
+                )}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 15.5, fontWeight: 600, color: T.ink, marginBottom: 7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[15.5px] font-semibold text-ink mb-[7px] truncate">{s.title}</div>
+                  <div className="flex items-center gap-2.5 flex-wrap">
                     <StatusPill status={s.status} />
                     {when && (
-                      <span style={{ fontSize: 12.5, color: T.muted }}>
+                      <span className="text-[12.5px] text-subtle">
                         {s.startedAt ? 'Started' : 'Created'} {new Date(when).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
                       </span>
                     )}
-                    {isMobile && s.status === 'waiting' && (
-                      <span style={{ fontSize: 12.5, color: T.ink, fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.08em' }}>{s.joinCode}</span>
+                    {s.status === 'waiting' && (
+                      <span className="sm:hidden text-[12.5px] text-ink font-mono font-semibold tracking-[0.08em]">{s.joinCode}</span>
                     )}
                   </div>
                 </div>
                 {/* Reference size here; it is the hero only inside the session. */}
-                {!isMobile && s.status === 'waiting' && <JoinCodePlate code={s.joinCode} size="small" />}
-                <ChevronRight size={18} color={T.faint} style={{ flexShrink: 0 }} aria-hidden />
+                {s.status === 'waiting' && <div className="hidden sm:block"><JoinCodePlate code={s.joinCode} size="small" /></div>}
+                <ChevronRight size={18} className="text-muted shrink-0" aria-hidden />
               </button>
             );
           })}
@@ -154,9 +145,9 @@ export default function LiveExams() {
           </>
         }
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="flex flex-col gap-4">
           {noSets && (
-            <div style={{ background: 'rgba(184,137,62,0.08)', border: '1px solid rgba(184,137,62,0.25)', borderRadius: 12, padding: '12px 15px', fontSize: 13, color: '#8A6020', lineHeight: 1.6 }}>
+            <div className="bg-gold/[.08] border border-gold/25 rounded-xl px-[15px] py-3 text-[13px] text-gold-dark leading-[1.6]">
               <strong>No papers are marked for live exams yet.</strong> A session needs one Reading &amp;
               Writing set and one Math set, and only sets flagged as live-exam material can be used —
               so a class never sits a paper they have already practised.
@@ -168,7 +159,7 @@ export default function LiveExams() {
           )}
 
           <div>
-            <label htmlFor="session-title" style={labelStyle}>Session name <span style={{ fontWeight: 400, color: T.faint }}>· shown to the class</span></label>
+            <label htmlFor="session-title" className={labelClass}>Session name <span className="font-normal text-muted">· shown to the class</span></label>
             <input
               id="session-title"
               value={form.title}
@@ -177,7 +168,7 @@ export default function LiveExams() {
               autoFocus
               maxLength={120}
               onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-              style={fieldStyle}
+              className={fieldClass}
             />
           </div>
 
@@ -186,15 +177,15 @@ export default function LiveExams() {
             ['Math paper', 'mathSetId', mathSets],
           ] as const).map(([label, field, options]) => (
             <div key={field}>
-              <label htmlFor={field} style={labelStyle}>{label}</label>
+              <label htmlFor={field} className={labelClass}>{label}</label>
               {options.length === 0 ? (
-                <p style={{ fontSize: 13, color: T.faint, margin: 0 }}>None marked yet.</p>
+                <p className="text-[13px] text-muted m-0">None marked yet.</p>
               ) : (
                 <select
                   id={field}
                   value={form[field]}
                   onChange={(e) => { setForm((f) => ({ ...f, [field]: e.target.value })); setError(''); }}
-                  style={{ ...fieldStyle, cursor: 'pointer' }}
+                  className={cn(fieldClass, 'cursor-pointer')}
                 >
                   <option value="">Choose a paper…</option>
                   {options.map((s) => (

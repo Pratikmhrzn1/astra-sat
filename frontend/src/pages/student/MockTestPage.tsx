@@ -1,12 +1,11 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { startMockTest } from '@/api/student';
 import { getApiError } from '@/api/http';
-import { useMobile } from '@/hooks/useMobile';
+import { surfaceClass, pageClass } from '@/components/common';
+import { ExamBlurb, ExamKicker, ExamTitle, MetaStats, RulesCard } from '@/components/student/ExamIntro';
+import { cn } from '@/lib/utils';
 import { getSkills, skillsQueryKey } from '@/api/skills';
-
-const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)' };
 
 /**
  * The two sections of the test. The domain list under each is filled in from
@@ -14,8 +13,8 @@ const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4
  * the same names ExamCatalogue carried, and the two drifted independently.
  */
 const SECTIONS = [
-  { subject: 'english' as const, color: '#2E7D5A', name: 'Reading & Writing', desc: 'Craft, structure, and the conventions of standard English.' },
-  { subject: 'math' as const, color: '#2563A8', name: 'Math', desc: 'Equations, functions, problem-solving, and real-world math.' },
+  { subject: 'english' as const, dot: 'bg-green-sat', name: 'Reading & Writing', desc: 'Craft, structure, and the conventions of standard English.' },
+  { subject: 'math' as const, dot: 'bg-blue-sat', name: 'Math', desc: 'Equations, functions, problem-solving, and real-world math.' },
 ];
 
 const RULES = [
@@ -29,7 +28,6 @@ const RULES = [
 
 export default function MockTest() {
   const navigate = useNavigate();
-  const isMobile = useMobile();
   const { data: skillTree = [] } = useQuery({
     queryKey: skillsQueryKey(),
     queryFn: () => getSkills(),
@@ -61,62 +59,47 @@ export default function MockTest() {
   });
 
   return (
-    <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 80px' : '40px 48px 64px' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#C4471F' }}>Full length · scored out of 1600</div>
-      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 36 : 56, margin: '8px 0 0', letterSpacing: '-0.02em' }}>Mock SAT</h1>
-      <p style={{ maxWidth: 640, fontSize: isMobile ? 14 : 16, lineHeight: 1.65, color: 'rgba(11,11,14,0.6)', margin: '12px 0 24px' }}>
+    <div className={cn(pageClass, 'sm:pt-10')}>
+      <ExamKicker>Full length · scored out of 1600</ExamKicker>
+      <ExamTitle className="mt-2">Mock SAT</ExamTitle>
+      <ExamBlurb className="mt-3 mb-6">
         A complete, timed simulation of the Digital SAT. Reading & Writing comes first, then a short break, then Math. Your scaled section scores combine into a total out of 1600.
-      </p>
+      </ExamBlurb>
 
-      {/* Meta stat cards */}
-      <div style={{ display: 'flex', gap: isMobile ? 10 : 14, marginBottom: isMobile ? 20 : 28, flexWrap: 'wrap' }}>
-        {/* 4 modules: Reading & Writing 2 × 32 min, Math 2 × 35 min — the limits the server enforces. */}
-        {[['2', 'Sections'], ['2h 14m', 'Total time'], ['1600', 'Score scale']].map(([v, l], i) => (
-          <div key={i} style={{ ...CARD, padding: isMobile ? '14px 18px' : '18px 26px', minWidth: isMobile ? 90 : 130, flex: isMobile ? '1' : undefined, borderRadius: 14 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 28 : 38, lineHeight: 1, color: '#0B0B0E' }}>{v}</div>
-            <div style={{ fontSize: isMobile ? 10 : 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', marginTop: 5 }}>{l}</div>
-          </div>
-        ))}
-      </div>
+      {/* 4 modules: Reading & Writing 2 × 32 min, Math 2 × 35 min — the limits the server enforces. */}
+      <MetaStats stats={[['2', 'Sections'], ['2h 14m', 'Total time'], ['1600', 'Score scale']]} />
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.5fr 1fr', gap: isMobile ? 14 : 20, marginBottom: isMobile ? 20 : 28 }}>
+      <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_1fr] gap-3.5 sm:gap-5 mb-5 sm:mb-7">
         <div>
-          <h3 style={{ fontSize: 15, margin: '0 0 12px' }}>What's inside</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {sections.map((m, i) => (
-              <div key={i} style={{ ...CARD, padding: isMobile ? '14px 16px' : '18px 20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 9999, background: m.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: isMobile ? 14 : 15.5, fontWeight: 600 }}>{m.name}</span>
-                  {!isMobile && <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'rgba(11,11,14,0.58)', fontFamily: 'var(--font-mono)' }}>{m.detail}</span>}
+          <h3 className="text-[15px] mt-0 mb-3">What's inside</h3>
+          <div className="flex flex-col gap-2.5">
+            {sections.map((m) => (
+              <div key={m.subject} className={cn(surfaceClass, 'px-4 py-3.5 sm:px-5 sm:py-[18px]')}>
+                <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                  <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', m.dot)} />
+                  <span className="text-sm sm:text-[15.5px] font-semibold">{m.name}</span>
+                  <span className="hidden sm:inline ml-auto text-[12.5px] text-muted font-mono">{m.detail}</span>
                 </div>
-                <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)', lineHeight: 1.55 }}>{m.desc}</div>
+                <div className="text-[13.5px] text-subtle leading-[1.55]">{m.desc}</div>
               </div>
             ))}
           </div>
         </div>
 
-        <div style={{ ...CARD, padding: isMobile ? '16px 18px' : '22px 24px', alignSelf: 'start' }}>
-          <h3 style={{ fontSize: 15, margin: '0 0 12px' }}>Before you begin</h3>
-          {RULES.map((r, i) => (
-            <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 0', borderBottom: i < RULES.length - 1 ? '1px solid #F0EDE7' : 'none' }}>
-              <span style={{ color: '#C4471F', fontSize: 14, lineHeight: '20px', flexShrink: 0 }}>✓</span>
-              <span style={{ fontSize: 13, color: 'rgba(11,11,14,0.7)', lineHeight: 1.5 }}>{r}</span>
-            </div>
-          ))}
-        </div>
+        <RulesCard rules={RULES} />
       </div>
 
       {startMutation.isError && (
-        <p style={{ color: '#C0392B', fontSize: 13, marginBottom: 16 }}>{getApiError(startMutation.error)}</p>
+        <p className="text-danger text-[13px] mb-4">{getApiError(startMutation.error)}</p>
       )}
 
       <button
         onClick={() => startMutation.mutate()}
         disabled={startMutation.isPending}
-        style={{ height: isMobile ? 48 : 52, padding: '0 32px', width: isMobile ? '100%' : undefined, background: startMutation.isPending ? '#e89070' : '#C4471F', color: '#fff', border: 'none', borderRadius: 9999, fontSize: isMobile ? 15 : 15.5, fontWeight: 600, cursor: startMutation.isPending ? 'default' : 'pointer', boxShadow: '0 4px 14px rgba(226,86,43,0.3)', fontFamily: 'inherit', transition: 'background 0.15s, transform 0.15s' }}
-        onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; if (!startMutation.isPending) { e.currentTarget.style.background = '#C94A22'; e.currentTarget.style.transform = 'translateY(-1px)'; } }}
-        onPointerLeave={(e) => { e.currentTarget.style.background = startMutation.isPending ? '#e89070' : '#E2562B'; e.currentTarget.style.transform = 'none'; }}
+        className={cn(
+          'h-12 sm:h-[52px] px-8 w-full sm:w-auto text-white rounded-full text-[15px] sm:text-[15.5px] font-semibold shadow-[0_4px_14px_rgba(226,86,43,0.3)] transition-[background-color,transform] duration-150',
+          startMutation.isPending ? 'bg-accent-disabled cursor-default' : 'bg-accent-text cursor-pointer hover:bg-ember-dark hover:-translate-y-px',
+        )}
       >
         {startMutation.isPending ? 'Starting…' : 'Begin Mock SAT →'}
       </button>

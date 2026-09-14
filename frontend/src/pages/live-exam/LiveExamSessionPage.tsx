@@ -7,11 +7,11 @@ import {
 } from '@/api/liveExam';
 import { getApiError } from '@/api/http';
 import { Modal } from '@/components/common';
-import { useMobile } from '@/hooks/useMobile';
 import {
-  BackLink, CARD, CopyButton, EmptyState, ErrorNote, H1, HOVER_CSS, JoinCodePlate, KICKER, LivePage,
-  LoadingRows, PillButton, StatTile, StatusPill, T,
+  BackLink, CopyButton, EmptyState, ErrorNote, JoinCodePlate, LivePage,
+  LoadingRows, PillButton, StatTile, StatusPill, liveCardClass, liveKickerClass, liveTitleClass,
 } from '@/components/live-exam/ui';
+import { cn } from '@/lib/utils';
 
 /**
  * What a teacher runs the lesson from: read out the code, watch the room fill,
@@ -35,7 +35,6 @@ function joinedAgo(iso: string): string {
 export default function LiveExamSession() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const isMobile = useMobile();
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -97,7 +96,7 @@ export default function LiveExamSession() {
   if (loading) {
     return (
       <LivePage>
-        <div style={{ height: 40, width: 260, borderRadius: 10, background: T.lineSoft, marginBottom: 24 }} />
+        <div className="h-10 w-[260px] rounded-[10px] bg-sunken mb-6" />
         <LoadingRows rows={3} height={72} />
       </LivePage>
     );
@@ -106,7 +105,7 @@ export default function LiveExamSession() {
     return (
       <LivePage>
         <BackLink onClick={() => navigate('/teacher/live-exams')}>Live exams</BackLink>
-        <ErrorNote action={loadError ? <PillButton variant="secondary" onClick={() => { setLoading(true); load(); }} style={{ height: 32, fontSize: 13 }}>Try again</PillButton> : undefined}>
+        <ErrorNote action={loadError ? <PillButton variant="secondary" onClick={() => { setLoading(true); load(); }} className="h-8 text-[13px]">Try again</PillButton> : undefined}>
           {loadError ? `Couldn't load this session: ${loadError}` : 'This session no longer exists. It may have been deleted.'}
         </ErrorNote>
       </LivePage>
@@ -120,93 +119,96 @@ export default function LiveExamSession() {
   const notStarted = status === 'waiting';
   const live = status !== 'completed';
 
+  const primaryClass = 'h-11 text-[15px] px-6 w-full sm:w-auto';
   const primaryAction = notStarted ? (
     <PillButton
       onClick={() => setConfirm('start')}
       disabled={starting || participants.length === 0}
-      style={{ height: 44, fontSize: 15, padding: '0 24px', width: isMobile ? '100%' : undefined }}
+      className={primaryClass}
     >{starting ? 'Starting…' : 'Start exam'}</PillButton>
   ) : pending > 0 && participants.length > 0 ? (
     <PillButton
       onClick={() => setConfirm('releaseAll')}
       disabled={releasing}
-      style={{ height: 44, fontSize: 15, padding: '0 24px', width: isMobile ? '100%' : undefined }}
+      className={primaryClass}
     >{releasing ? 'Releasing…' : `Release all results (${pending})`}</PillButton>
   ) : null;
 
   return (
     <LivePage>
-      <style>{HOVER_CSS}</style>
       <BackLink onClick={() => navigate('/teacher/live-exams')}>Live exams</BackLink>
 
-      <div style={{ display: 'flex', alignItems: isMobile ? 'stretch' : 'flex-start', justifyContent: 'space-between', gap: 16, flexDirection: isMobile ? 'column' : 'row', marginBottom: 22 }}>
-        <div style={{ minWidth: 0 }}>
-          <h1 style={{ ...H1, fontSize: isMobile ? 30 : 40, lineHeight: 1.12, marginBottom: 10, overflowWrap: 'anywhere' }}>{session.title}</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-start justify-between gap-4 mb-[22px]">
+        <div className="min-w-0">
+          <h1 className={cn(liveTitleClass, 'text-[30px] sm:text-[40px] leading-[1.12] mb-2.5 [overflow-wrap:anywhere]')}>{session.title}</h1>
+          <div className="flex items-center gap-3 flex-wrap">
             <StatusPill status={status} />
             {live && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: T.faint }}>
-                <span className="live-beat" aria-hidden />Updates live
+              <span className="inline-flex items-center gap-1.5 text-[12.5px] text-muted">
+                <span aria-hidden className="w-[7px] h-[7px] rounded-full bg-green-dark animate-live-beat motion-reduce:animate-none" />Updates live
               </span>
             )}
             {!notStarted && (
-              <span style={{ fontSize: 12.5, color: T.faint }}>
-                Code <span style={{ fontFamily: 'var(--font-mono)', color: T.muted, fontWeight: 600 }}>{session.joinCode}</span>
+              <span className="text-[12.5px] text-muted">
+                Code <span className="font-mono text-subtle font-semibold">{session.joinCode}</span>
               </span>
             )}
           </div>
         </div>
         {primaryAction && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'stretch' : 'flex-end', gap: 6, flexShrink: 0 }}>
+          <div className="flex flex-col items-stretch sm:items-end gap-1.5 shrink-0">
             {primaryAction}
             {notStarted && participants.length === 0 && (
-              <span style={{ fontSize: 12.5, color: T.faint, textAlign: isMobile ? 'center' : 'right' }}>Available once a student joins</span>
+              <span className="text-[12.5px] text-muted text-center sm:text-right">Available once a student joins</span>
             )}
           </div>
         )}
       </div>
 
-      {actionError && <div style={{ marginBottom: 18 }}><ErrorNote>{actionError}</ErrorNote></div>}
+      {actionError && <div className="mb-[18px]"><ErrorNote>{actionError}</ErrorNote></div>}
 
       {/* The code, sized to be read across a room. Only shown while it can still
           be used — once everyone is sitting the paper it is just noise. */}
       {notStarted ? (
-        <div style={{ ...CARD, padding: isMobile ? '20px 16px' : '24px 28px', marginBottom: 22 }}>
-          <div style={{ ...KICKER, marginBottom: 6 }}>Join code</div>
-          <p style={{ fontSize: 14, color: T.muted, margin: '0 0 16px', lineHeight: 1.55 }}>
-            Read this out. Students enter it under <strong style={{ color: T.ink, fontWeight: 600 }}>Live Exam</strong>, or open the link.
+        <div className={cn(liveCardClass, 'px-4 py-5 sm:px-7 sm:py-6 mb-[22px]')}>
+          <div className={cn(liveKickerClass, 'mb-1.5')}>Join code</div>
+          <p className="text-sm text-subtle mt-0 mb-4 leading-[1.55]">
+            Read this out. Students enter it under <strong className="text-ink font-semibold">Live Exam</strong>, or open the link.
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             <JoinCodePlate code={session.joinCode} />
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className="flex gap-2">
               <CopyButton value={session.joinCode} label="Copy code" />
               <CopyButton value={joinUrl} label="Copy link" />
             </div>
           </div>
         </div>
       ) : participants.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10, marginBottom: 22 }}>
+        <div className="grid grid-cols-2 gap-2.5 mb-[22px]">
           <StatTile label="Students" value={participants.length} sub={status === 'completed' ? 'sat this exam' : 'sitting the exam'} />
           <StatTile
             label="Results released"
-            value={<>{released}<span style={{ fontSize: 18, color: T.faint }}> / {participants.length}</span></>}
-            color={pending === 0 ? T.green : T.ink}
+            value={<>{released}<span className="text-lg text-muted"> / {participants.length}</span></>}
+            valueClassName={pending === 0 ? 'text-green-dark' : 'text-ink'}
             sub={
-              <span style={{ display: 'block', height: 4, borderRadius: 9999, background: T.lineSoft, overflow: 'hidden', marginTop: 4 }}>
-                <span style={{ display: 'block', height: '100%', width: `${(released / participants.length) * 100}%`, background: T.green, borderRadius: 9999, transition: 'width 300ms cubic-bezier(0.2, 0, 0, 1)' }} />
+              <span className="block h-1 rounded-full bg-sunken overflow-hidden mt-1">
+                <span
+                  className="block h-full bg-green-dark rounded-full transition-[width] duration-300 ease-[cubic-bezier(0.2,0,0,1)]"
+                  style={{ width: `${(released / participants.length) * 100}%` }}
+                />
               </span>
             }
           />
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+      <div className="flex items-baseline justify-between gap-3 mb-2.5">
+        <h2 className="text-base font-semibold m-0">
           {notStarted ? 'In the lobby' : 'Students'}
-          <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 500, color: T.faint, fontVariantNumeric: 'tabular-nums' }}>{participants.length}</span>
+          <span className="ml-2 text-[13px] font-medium text-muted tnum">{participants.length}</span>
         </h2>
-        {!notStarted && pending > 0 && !isMobile && (
-          <span style={{ fontSize: 12.5, color: T.faint }}>Open a paper to mark it and add notes</span>
+        {!notStarted && pending > 0 && (
+          <span className="hidden sm:inline text-[12.5px] text-muted">Open a paper to mark it and add notes</span>
         )}
       </div>
 
@@ -217,14 +219,12 @@ export default function LiveExamSession() {
             : 'No students joined this session before it started.'}
         </EmptyState>
       ) : (
-        <div style={{ ...CARD, overflow: 'hidden' }}>
-          {participants.map((p, i) => (
+        <div className={cn(liveCardClass, 'overflow-hidden')}>
+          {participants.map((p) => (
             <ParticipantRow
               key={p.id}
               participant={p}
-              isLast={i === participants.length - 1}
               sessionStatus={status}
-              isMobile={isMobile}
               releasing={releasingIds.has(p.id)}
               onRelease={() => releaseParticipant(p.id)}
               onView={() => navigate(`/teacher/live-exams/${session.id}/participants/${p.id}`)}
@@ -252,29 +252,21 @@ export default function LiveExamSession() {
           </>
         }
       >
-        <p style={{ margin: 0, color: T.muted, fontSize: 14.5, lineHeight: 1.6 }}>
+        <p className="m-0 text-subtle text-[14.5px] leading-[1.6]">
           {confirm === 'start'
             ? `The paper opens for the ${participants.length} student${participants.length === 1 ? '' : 's'} in the lobby and the clock starts. Students who join later start late.`
             : `${pending} student${pending === 1 ? '' : 's'} will see their scores, answers and any notes you have saved. This can't be undone.`}
         </p>
       </Modal>
-
-      <style>{`
-        .live-beat { width: 7px; height: 7px; border-radius: 9999px; background: ${T.green}; animation: live-beat 2s ease-in-out infinite; }
-        @keyframes live-beat { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-        @media (prefers-reduced-motion: reduce) { .live-beat { animation: none; } }
-      `}</style>
     </LivePage>
   );
 }
 
 function ParticipantRow({
-  participant, isLast, sessionStatus, isMobile, releasing, onRelease, onView,
+  participant, sessionStatus, releasing, onRelease, onView,
 }: {
   participant: LiveExamParticipant;
-  isLast: boolean;
   sessionStatus: string;
-  isMobile: boolean;
   releasing: boolean;
   onRelease: () => void;
   onView: () => void;
@@ -283,50 +275,47 @@ function ParticipantRow({
   const initials = participant.name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('');
 
   const identity = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
-      <span aria-hidden style={{
-        width: 36, height: 36, borderRadius: 9999, flexShrink: 0, background: T.lineSoft,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 13, fontWeight: 600, color: T.muted,
-      }}>{initials || '?'}</span>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 14.5, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{participant.name}</div>
-        <div style={{ fontSize: 12.5, color: T.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {participant.email}
-        </div>
+    <div className="flex items-center gap-3 flex-1 min-w-0">
+      <span aria-hidden className="w-9 h-9 rounded-full shrink-0 bg-sunken flex items-center justify-center text-[13px] font-semibold text-subtle">
+        {initials || '?'}
+      </span>
+      <div className="min-w-0">
+        <div className="text-[14.5px] font-semibold text-ink truncate">{participant.name}</div>
+        <div className="text-[12.5px] text-subtle truncate">{participant.email}</div>
       </div>
     </div>
   );
 
-  const smallBtn = { height: 34, padding: '0 14px', fontSize: 13 } as const;
+  const smallBtn = 'h-[34px] px-3.5 text-[13px]';
 
   return (
-    <div style={{
-      display: 'flex', alignItems: isMobile && started ? 'stretch' : 'center', flexDirection: isMobile && started ? 'column' : 'row',
-      gap: isMobile && started ? 10 : 14, padding: isMobile ? '12px 14px' : '12px 16px 12px 20px',
-      borderBottom: isLast ? 'none' : `1px solid ${T.lineSoft}`,
-    }}>
+    <div
+      className={cn(
+        'flex px-3.5 py-3 sm:pl-5 sm:pr-4 border-b border-sunken last:border-b-0',
+        started ? 'flex-col items-stretch gap-2.5 sm:flex-row sm:items-center sm:gap-3.5' : 'flex-row items-center gap-3.5',
+      )}
+    >
       {identity}
 
       {!started && (
-        <span style={{ fontSize: 12.5, color: T.faint, flexShrink: 0 }}>
+        <span className="text-[12.5px] text-muted shrink-0">
           Joined {joinedAgo(participant.joinedAt)}
         </span>
       )}
 
       {started && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: isMobile ? 'space-between' : 'flex-end', gap: 8, flexShrink: 0, paddingLeft: isMobile ? 48 : 0 }}>
+        <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pl-12 sm:pl-0">
           {participant.resultReleased ? (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 34, padding: isMobile ? 0 : '0 6px', fontSize: 13, fontWeight: 600, color: T.green }}>
+            <span className="inline-flex items-center gap-[5px] h-[34px] px-0 sm:px-1.5 text-[13px] font-semibold text-green-dark">
               <span aria-hidden>✓</span>Released
             </span>
           ) : (
-            <PillButton variant="secondary" onClick={onRelease} disabled={releasing} style={smallBtn}>
+            <PillButton variant="secondary" onClick={onRelease} disabled={releasing} className={smallBtn}>
               {releasing ? 'Releasing…' : 'Release'}
             </PillButton>
           )}
-          <PillButton variant="quiet" onClick={onView} style={{ ...smallBtn, color: T.ink, paddingRight: 10 }} ariaLabel={`Open ${participant.name}'s paper`}>
-            Open paper<ChevronRight size={15} aria-hidden style={{ marginLeft: -3 }} />
+          <PillButton variant="quiet" onClick={onView} className={cn(smallBtn, 'text-ink pr-2.5')} ariaLabel={`Open ${participant.name}'s paper`}>
+            Open paper<ChevronRight size={15} aria-hidden className="-ml-[3px]" />
           </PillButton>
         </div>
       )}

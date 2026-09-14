@@ -119,6 +119,13 @@ export default {
         toastIn: { from: { transform: 'translateY(-12px) scale(0.98)', opacity: '0' }, to: { transform: 'none', opacity: '1' } },
         navPopIn: { from: { transform: 'translate(-50%, 6px)', opacity: '0' }, to: { transform: 'translate(-50%, 0)', opacity: '1' } },
         chatSlideUp: { from: { transform: 'translateY(100%)' }, to: { transform: 'translateY(0)' } },
+        joinShake: {
+          '20%': { transform: 'translateX(-6px)' }, '40%': { transform: 'translateX(5px)' },
+          '60%': { transform: 'translateX(-3px)' }, '80%': { transform: 'translateX(2px)' },
+        },
+        caretBlink: { '50%': { opacity: '0' } },
+        liveBeat: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.35' } },
+        lobbyPulse: { '0%, 100%': { opacity: '0.25', transform: 'scale(1)' }, '50%': { opacity: '1', transform: 'scale(1.3)' } },
         chatDotBounce: {
           '0%, 80%, 100%': { transform: 'translateY(0)', opacity: '0.35' },
           '40%': { transform: 'translateY(-5px)', opacity: '1' },
@@ -134,6 +141,14 @@ export default {
         'nav-pop': 'navPopIn 150ms cubic-bezier(0.22, 1, 0.36, 1) backwards',
         'chat-slide-up': 'chatSlideUp 380ms cubic-bezier(0.32, 0.72, 0, 1) both',
         'chat-dot': 'chatDotBounce 1.2s ease-in-out infinite',
+        /* Rejected join code: a short damped shake. */
+        'join-shake': 'joinShake 320ms cubic-bezier(0.36, 0.07, 0.19, 0.97)',
+        'caret-blink': 'caretBlink 1.1s steps(1) infinite',
+        'live-beat': 'liveBeat 2s ease-in-out infinite',
+        /* "Still listening" dots in the live-exam lobby. */
+        'lobby-pulse': 'lobbyPulse 1.4s ease-in-out infinite',
+        'spin-fast': 'spin 0.8s linear infinite',
+        'spin-slow': 'spin 2.4s linear infinite',
       },
     },
   },

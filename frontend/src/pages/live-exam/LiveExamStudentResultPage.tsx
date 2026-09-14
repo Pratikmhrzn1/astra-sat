@@ -6,10 +6,11 @@ import {
 } from '@/api/liveExam';
 import { getApiError } from '@/api/http';
 import { formatExamScore, scoreColor, SECTION_MAX } from '@/lib/score';
-import { useMobile } from '@/hooks/useMobile';
 import {
-  BackLink, CARD, EmptyState, ErrorNote, H1, KICKER, LivePage, LoadingRows, PillButton, T, plainText,
+  BackLink, EmptyState, ErrorNote, LivePage, LoadingRows, PillButton, plainText,
+  liveCardClass, liveKickerClass, liveTitleClass,
 } from '@/components/live-exam/ui';
+import { cn } from '@/lib/utils';
 
 /**
  * Marking one student's live-exam paper: both sections, a note per question, a
@@ -25,7 +26,6 @@ type Filter = 'all' | 'wrong';
 export default function LiveExamStudentResult() {
   const { sessionId, participantId } = useParams<{ sessionId: string; participantId: string }>();
   const navigate = useNavigate();
-  const isMobile = useMobile();
   const [participant, setParticipant] = useState<ParticipantDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [globalFeedback, setGlobalFeedback] = useState('');
@@ -111,8 +111,8 @@ export default function LiveExamStudentResult() {
 
   type Section = { label: string; accent: string; data: MarkableSection };
   const sections: Section[] = useMemo(() => participant ? [
-    { label: 'Reading & Writing', accent: T.english as string, data: participant.english },
-    { label: 'Math', accent: T.math as string, data: participant.math },
+    { label: 'Reading & Writing', accent: 'bg-green-sat', data: participant.english },
+    { label: 'Math', accent: 'bg-blue-sat', data: participant.math },
   ].flatMap((s) => (s.data ? [{ ...s, data: s.data }] : [])) : [], [participant]);
 
   const back = () => {
@@ -123,7 +123,7 @@ export default function LiveExamStudentResult() {
   if (loading) {
     return (
       <LivePage>
-        <div style={{ height: 40, width: 240, borderRadius: 10, background: T.lineSoft, marginBottom: 24 }} />
+        <div className="h-10 w-60 rounded-[10px] bg-sunken mb-6" />
         <LoadingRows rows={4} height={84} />
       </LivePage>
     );
@@ -144,51 +144,52 @@ export default function LiveExamStudentResult() {
     <LivePage>
       <BackLink onClick={back}>Back to session</BackLink>
 
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 22 }}>
-        <div style={{ minWidth: 0 }}>
-          <h1 style={{ ...H1, fontSize: isMobile ? 30 : 38, lineHeight: 1.12, marginBottom: 4, overflowWrap: 'anywhere' }}>{participant.name}</h1>
-          <p style={{ fontSize: 13.5, color: T.muted, margin: 0, overflowWrap: 'anywhere' }}>{participant.email}</p>
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-[22px]">
+        <div className="min-w-0">
+          <h1 className={cn(liveTitleClass, 'text-[30px] sm:text-[38px] leading-[1.12] mb-1 [overflow-wrap:anywhere]')}>{participant.name}</h1>
+          <p className="text-[13.5px] text-subtle m-0 [overflow-wrap:anywhere]">{participant.email}</p>
         </div>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6, height: 26, padding: '0 12px', borderRadius: 9999, fontSize: 12.5, fontWeight: 600,
-          background: participant.resultReleased ? 'rgba(26,107,60,0.10)' : 'rgba(184,137,62,0.12)',
-          color: participant.resultReleased ? T.green : '#8A6020',
-        }}>
-          <span aria-hidden style={{ width: 6, height: 6, borderRadius: 9999, background: 'currentColor' }} />
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 h-[26px] px-3 rounded-full text-[12.5px] font-semibold',
+            participant.resultReleased ? 'bg-green-dark/10 text-green-dark' : 'bg-gold/[.12] text-gold-dark',
+          )}
+        >
+          <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-current" />
           {participant.resultReleased ? 'Released' : 'Not released yet'}
         </span>
       </div>
 
-      {error && <div style={{ marginBottom: 18 }}><ErrorNote>{error}</ErrorNote></div>}
+      {error && <div className="mb-[18px]"><ErrorNote>{error}</ErrorNote></div>}
 
       {sections.length === 0 ? (
-        <div style={{ marginBottom: 22 }}>
+        <div className="mb-[22px]">
           <EmptyState title="Nothing to mark yet">
             This student hasn't submitted either paper. You can still leave a note below.
           </EmptyState>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: sections.length > 1 && !isMobile ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: 12, marginBottom: 26 }}>
+        <div className={cn('grid grid-cols-1 gap-3 mb-[26px]', sections.length > 1 && 'sm:grid-cols-2')}>
           {sections.map(({ label, accent, data }) => {
             const { exam } = data;
             const correct = data.results.filter((r) => r.isCorrect).length;
             const pct = data.results.length ? (correct / data.results.length) * 100 : 0;
             return (
-              <div key={label} style={{ ...CARD, padding: '16px 20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <span aria-hidden style={{ width: 8, height: 8, borderRadius: 9999, background: accent }} />
-                  <span style={{ ...KICKER, color: T.muted }}>{label}</span>
+              <div key={label} className={cn(liveCardClass, 'px-5 py-4')}>
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span aria-hidden className={cn('w-2 h-2 rounded-full', accent)} />
+                  <span className={cn(liveKickerClass, 'text-subtle')}>{label}</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{ ...H1, fontSize: 36, lineHeight: 1, color: scoreColor(exam.scaledScore, SECTION_MAX), fontVariantNumeric: 'tabular-nums' }}>
+                <div className="flex items-baseline justify-between gap-2.5 flex-wrap">
+                  <span className={cn(liveTitleClass, 'text-4xl leading-none tnum')} style={{ color: scoreColor(exam.scaledScore, SECTION_MAX) }}>
                     {formatExamScore(exam.scaledScore, exam.score, exam.totalQuestions)}
                   </span>
-                  <span style={{ fontSize: 13, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>
+                  <span className="text-[13px] text-subtle tnum">
                     {correct} of {data.results.length} correct
                   </span>
                 </div>
-                <div style={{ height: 4, borderRadius: 9999, background: T.lineSoft, overflow: 'hidden', marginTop: 12 }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: accent, borderRadius: 9999 }} />
+                <div className="h-1 rounded-full bg-sunken overflow-hidden mt-3">
+                  <div className={cn('h-full rounded-full', accent)} style={{ width: `${pct}%` }} />
                 </div>
               </div>
             );
@@ -197,18 +198,17 @@ export default function LiveExamStudentResult() {
       )}
 
       {sections.length > 0 && (
-        <div role="tablist" aria-label="Filter questions" style={{ display: 'inline-flex', gap: 4, padding: 4, background: '#F0EDE7', borderRadius: 12, marginBottom: 16 }}>
+        <div role="tablist" aria-label="Filter questions" className="inline-flex gap-1 p-1 bg-sunken-2 rounded-xl mb-4">
           {([['all', 'All questions'], ['wrong', `Missed (${wrongTotal})`]] as const).map(([value, text]) => (
             <button
               key={value}
               role="tab"
               aria-selected={filter === value}
               onClick={() => setFilter(value)}
-              style={{
-                height: 32, padding: '0 14px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer',
-                background: filter === value ? '#fff' : 'transparent', color: filter === value ? T.ink : T.muted,
-                boxShadow: filter === value ? '0 1px 2px rgba(11,11,14,0.08)' : 'none',
-              }}
+              className={cn(
+                'h-8 px-3.5 rounded-lg text-[13px] font-semibold cursor-pointer',
+                filter === value ? 'bg-white text-ink shadow-[0_1px_2px_rgba(11,11,14,0.08)]' : 'bg-transparent text-subtle',
+              )}
             >{text}</button>
           ))}
         </div>
@@ -219,24 +219,23 @@ export default function LiveExamStudentResult() {
           .map((row, i) => ({ row, number: i + 1 }))
           .filter(({ row }) => filter === 'all' || row.isCorrect !== true);
         return (
-          <section key={label} style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
-              <span aria-hidden style={{ width: 8, height: 8, borderRadius: 9999, background: accent, alignSelf: 'center' }} />
-              <h2 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>{label}</h2>
-              <span style={{ fontSize: 12.5, color: T.faint }}>Add a note to any question</span>
+          <section key={label} className="mb-6">
+            <div className="flex items-baseline gap-2.5 mb-2.5 flex-wrap">
+              <span aria-hidden className={cn('w-2 h-2 rounded-full self-center', accent)} />
+              <h2 className="text-[15px] font-semibold m-0">{label}</h2>
+              <span className="text-[12.5px] text-muted">Add a note to any question</span>
             </div>
 
             {rows.length === 0 ? (
-              <div style={{ ...CARD, padding: '18px 20px', fontSize: 13.5, color: T.muted }}>No missed questions in this section.</div>
+              <div className={cn(liveCardClass, 'px-5 py-[18px] text-[13.5px] text-subtle')}>No missed questions in this section.</div>
             ) : (
-              <div style={{ ...CARD, overflow: 'hidden' }}>
-                {rows.map(({ row, number }, i) => (
+              <div className={cn(liveCardClass, 'overflow-hidden')}>
+                {rows.map(({ row, number }) => (
                   <QuestionRow
                     key={row.questionId}
                     row={row}
                     number={number}
                     section={label}
-                    isLast={i === rows.length - 1}
                     note={notes[row.questionId] ?? ''}
                     onNote={(value) => { setNotes((prev) => ({ ...prev, [row.questionId]: value })); setSaveMsg(''); }}
                   />
@@ -247,11 +246,11 @@ export default function LiveExamStudentResult() {
         );
       })}
 
-      <div style={{ ...CARD, padding: isMobile ? '16px' : '20px 22px' }}>
-        <label htmlFor="global-feedback" style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
+      <div className={cn(liveCardClass, 'p-4 sm:px-[22px] sm:py-5')}>
+        <label htmlFor="global-feedback" className="block text-sm font-semibold mb-1">
           Note on the whole paper
         </label>
-        <p style={{ fontSize: 12.5, color: T.muted, margin: '0 0 10px' }}>
+        <p className="text-[12.5px] text-subtle mt-0 mb-2.5">
           Shown at the top of the student's report.
         </p>
         <textarea
@@ -260,28 +259,26 @@ export default function LiveExamStudentResult() {
           onChange={(e) => { setGlobalFeedback(e.target.value); setSaveMsg(''); }}
           rows={4}
           placeholder="Strong on algebra. Slow down on the evidence questions — you changed three correct answers."
-          style={{
-            width: '100%', padding: '10px 12px', border: '1px solid #D8D4CC', borderRadius: 10,
-            fontSize: 14, lineHeight: 1.6, fontFamily: 'inherit', color: T.ink,
-            background: '#fff', resize: 'vertical', boxSizing: 'border-box', display: 'block',
-          }}
+          className="block w-full px-3 py-2.5 border border-border-strong rounded-[10px] text-sm leading-[1.6] text-ink bg-white resize-y"
         />
       </div>
 
       {/* Sticky, so Save and Release are reachable from question 40 without scrolling back down. */}
-      <div style={{
-        position: 'sticky', bottom: isMobile ? 'calc(var(--tabbar-h, 64px) + var(--safe-bottom, 0px) + 10px)' : 16, zIndex: 5, marginTop: 16,
-        ...CARD, boxShadow: 'var(--shadow-md)', padding: isMobile ? '10px 12px' : '10px 12px 10px 20px',
-        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-      }}>
-        <span aria-live="polite" style={{ flex: 1, minWidth: 160, fontSize: 13, color: saveMsg ? T.green : dirty ? '#8A6020' : T.muted }}>
+      <div
+        className={cn(
+          liveCardClass,
+          'sticky z-[5] mt-4 shadow-md flex items-center gap-2.5 flex-wrap px-3 py-2.5 sm:pl-5',
+          'bottom-[calc(var(--tabbar-h,64px)+var(--safe-bottom,0px)+10px)] sm:bottom-4',
+        )}
+      >
+        <span aria-live="polite" className={cn('flex-1 min-w-[160px] text-[13px]', saveMsg ? 'text-green-dark' : dirty ? 'text-gold-dark' : 'text-subtle')}>
           {saveMsg || (dirty ? 'Unsaved changes' : `${noteCount} question note${noteCount === 1 ? '' : 's'}${globalFeedback.trim() ? ' · paper note added' : ''}`)}
         </span>
-        <div style={{ display: 'flex', gap: 8, flex: isMobile ? '1 1 100%' : undefined }}>
-          <PillButton variant="secondary" onClick={handleSave} disabled={saving || releasing || !dirty} style={{ flex: isMobile ? 1 : undefined }}>
+        <div className="flex gap-2 basis-full sm:basis-auto">
+          <PillButton variant="secondary" onClick={handleSave} disabled={saving || releasing || !dirty} className="flex-1 sm:flex-none">
             {saving ? 'Saving…' : 'Save notes'}
           </PillButton>
-          <PillButton onClick={handleRelease} disabled={releasing || saving} style={{ flex: isMobile ? 1 : undefined }}>
+          <PillButton onClick={handleRelease} disabled={releasing || saving} className="flex-1 sm:flex-none">
             {releasing ? 'Releasing…' : participant.resultReleased ? 'Save & re-release' : 'Release to student'}
           </PillButton>
         </div>
@@ -295,11 +292,10 @@ function snapshot(global: string, notes: Record<string, string>): string {
   return JSON.stringify([global.trim(), cleaned]);
 }
 
-function QuestionRow({ row, number, section, isLast, note, onNote }: {
+function QuestionRow({ row, number, section, note, onNote }: {
   row: MarkableAnswer;
   number: number;
   section: string;
-  isLast: boolean;
   note: string;
   onNote: (value: string) => void;
 }) {
@@ -309,33 +305,29 @@ function QuestionRow({ row, number, section, isLast, note, onNote }: {
   const show = (v: string | null) => (v === null ? '—' : isSPR ? v : v.toUpperCase());
   const outcome = picked === null ? 'skipped' : row.isCorrect ? 'right' : 'wrong';
   const tone = {
-    right: { bg: 'rgba(46,125,90,0.12)', fg: T.english, mark: '✓', label: 'Correct' },
-    wrong: { bg: 'rgba(192,57,43,0.10)', fg: T.danger, mark: '✕', label: 'Incorrect' },
-    skipped: { bg: T.lineSoft, fg: '#6F6B64', mark: '–', label: 'Not answered' },
+    right: { badge: 'bg-green-sat/[.12] text-green-sat', fg: 'text-green-sat', mark: '✓', label: 'Correct' },
+    wrong: { badge: 'bg-danger/10 text-danger', fg: 'text-danger', mark: '✕', label: 'Incorrect' },
+    skipped: { badge: 'bg-sunken text-stone', fg: 'text-stone', mark: '–', label: 'Not answered' },
   }[outcome];
   const text = plainText(row.questionText);
 
   return (
-    <div style={{ padding: '14px 18px', borderBottom: isLast ? 'none' : `1px solid ${T.lineSoft}` }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+    <div className="px-[18px] py-3.5 border-b border-sunken last:border-b-0">
+      <div className="flex items-start gap-3">
         <span
           role="img"
           aria-label={tone.label}
-          style={{
-            width: 26, height: 26, borderRadius: 9999, flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 13, fontWeight: 700, background: tone.bg, color: tone.fg,
-          }}
+          className={cn('w-[26px] h-[26px] rounded-full shrink-0 flex items-center justify-center text-[13px] font-bold', tone.badge)}
         >{tone.mark}</span>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', gap: 8, fontSize: 13.5, color: T.ink, lineHeight: 1.5, marginBottom: 8 }}>
-            <span style={{ color: T.faint, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{String(number).padStart(2, '0')}</span>
-            <span style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} title={text}>{text}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex gap-2 text-[13.5px] text-ink leading-normal mb-2">
+            <span className="text-muted tnum shrink-0">{String(number).padStart(2, '0')}</span>
+            <span className="line-clamp-3" title={text}>{text}</span>
           </div>
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 12.5, marginBottom: 8 }}>
-            <span style={{ color: T.muted }}>Picked <strong style={{ color: tone.fg }}>{picked === null ? 'nothing' : show(picked)}</strong></span>
-            {outcome !== 'right' && <span style={{ color: T.muted }}>Correct <strong style={{ color: T.green }}>{show(correct)}</strong></span>}
+          <div className="flex gap-3.5 flex-wrap text-[12.5px] mb-2">
+            <span className="text-subtle">Picked <strong className={tone.fg}>{picked === null ? 'nothing' : show(picked)}</strong></span>
+            {outcome !== 'right' && <span className="text-subtle">Correct <strong className="text-green-dark">{show(correct)}</strong></span>}
           </div>
           <input
             value={note}
@@ -343,12 +335,10 @@ function QuestionRow({ row, number, section, isLast, note, onNote }: {
             placeholder="Note for this question…"
             aria-label={`${section} question ${number} note`}
             maxLength={1000}
-            style={{
-              width: '100%', height: 36, padding: '0 12px', fontSize: 13.5, boxSizing: 'border-box',
-              border: `1px solid ${note ? '#D8D4CC' : T.line}`,
-              borderRadius: 8, background: note ? '#fff' : T.wash,
-              color: T.ink, fontFamily: 'inherit',
-            }}
+            className={cn(
+              'w-full h-9 px-3 text-[13.5px] border rounded-lg text-ink',
+              note ? 'border-border-strong bg-white' : 'border-border bg-[#FBFAF8]',
+            )}
           />
         </div>
       </div>
