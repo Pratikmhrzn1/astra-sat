@@ -1,30 +1,5 @@
 import { z } from 'zod';
 
-export const updateUserSchema = z.object({
-  name: z.string().min(2).max(255).optional(),
-  password: z.string().min(8).max(128).optional(),
-  teacherId: z.string().uuid().nullable().optional(),
-});
-export type UpdateUserInput = z.infer<typeof updateUserSchema>;
-
-export const createAccessCodeSchema = z.object({
-  code: z.string().min(4).max(50),
-  role: z.enum(['student', 'teacher', 'admin']),
-  description: z.string().max(500).optional().default(''),
-  maxUses: z.number().int().positive().nullable().optional(),
-});
-export type CreateAccessCodeInput = z.infer<typeof createAccessCodeSchema>;
-
-/**
- * A bulk teacher assignment. `teacherId: null` clears it, which is how a student
- * is moved out of a class without deleting anything.
- */
-export const assignStudentsSchema = z.object({
-  studentIds: z.array(z.string().uuid()).min(1).max(500),
-  teacherId: z.string().uuid().nullable(),
-});
-export type AssignStudentsInput = z.infer<typeof assignStudentsSchema>;
-
 /**
  * A backup payload. Rows are `z.any()` on purpose: this validates the envelope
  * shape, and the database itself enforces the columns on insert.
@@ -67,15 +42,3 @@ export type RestoreInput = z.infer<typeof restoreSchema>;
 
 export const runSqlSchema = z.object({ sql: z.string().min(1).max(50000) });
 export type RunSqlInput = z.infer<typeof runSqlSchema>;
-
-export const flagContentSchema = z.object({
-  qualityFlag: z.enum(['approved', 'rejected']),
-  rejectionReason: z.string().optional(),
-});
-export type FlagContentInput = z.infer<typeof flagContentSchema>;
-
-export const listContentQuerySchema = z.object({
-  type: z.enum(['vocab_quiz', 'skill_passage']).optional(),
-  flag: z.enum(['pending', 'approved', 'rejected']).optional(),
-});
-export type ListContentQuery = z.infer<typeof listContentQuerySchema>;

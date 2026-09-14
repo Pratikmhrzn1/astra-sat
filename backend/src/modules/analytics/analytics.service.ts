@@ -1,7 +1,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { db } from '../../core/db';
 import { parseDbTimestamp } from '../../core/lib/db-time';
-import { getProfile } from '../student/profile.service';
+import { getProfile } from './profile.service';
 
 /**
  * The numbers behind "why am I losing points?" and "am I improving?".

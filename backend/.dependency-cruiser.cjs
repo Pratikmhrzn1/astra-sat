@@ -22,6 +22,20 @@ module.exports = {
       to: { path: '^src/(modules|jobs|api\\.router)' },
     },
     {
+      name: 'module-public-api',
+      severity: 'error',
+      comment: 'A module reaches another only through its index.ts, so each module decides what it exposes.',
+      from: { path: '^src/modules/([^/]+)/' },
+      to: { path: '^src/modules/[^/]+/', pathNot: ['^src/modules/$1/', '^src/modules/[^/]+/index\\.ts$'] },
+    },
+    {
+      name: 'composition-uses-public-api',
+      severity: 'error',
+      comment: 'The entry point, router and jobs wire modules through their index.ts.',
+      from: { path: '^src/(index|api\\.router)\\.ts$|^src/jobs/' },
+      to: { path: '^src/modules/[^/]+/', pathNot: ['^src/modules/[^/]+/index\\.ts$'] },
+    },
+    {
       name: 'no-orphans',
       severity: 'warn',
       comment: 'A module nothing imports is dead code or a missing route.',

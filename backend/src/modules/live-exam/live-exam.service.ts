@@ -13,8 +13,8 @@ import {
   users,
 } from '../../core/db/schema';
 import { badRequest, notFound } from '../../core/errors';
-import { createExamForSet } from '../exams/exam-provisioning';
-import { recordMistakesOnRelease } from '../student/mistakes.service';
+import { createExamForSet } from '../exams';
+import { recordMistakesOnRelease } from '../mistakes';
 
 /**
  * Teacher-proctored exams taken together in a classroom.

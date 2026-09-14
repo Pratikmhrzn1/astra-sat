@@ -1,4 +1,4 @@
-import { backfillScores } from '../modules/admin/scoring-backfill.service';
+import { backfillScores } from '../modules/attempts';
 
 /**
  * Work that runs once on every boot, after the server is listening.

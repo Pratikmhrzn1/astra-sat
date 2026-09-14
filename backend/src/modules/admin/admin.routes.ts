@@ -1,29 +1,18 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../core/http/async-handler';
 import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
-import { body, query, validateBody, validateQuery } from '../../core/http/middleware/validate';
-import { listAudit, logAudit } from '../audit/audit.service';
-import * as classification from './classification.service';
-import * as contentReview from './content-review.service';
+import { body, validateBody } from '../../core/http/middleware/validate';
+import { listAudit, logAudit } from '../audit';
 import * as database from './database.service';
-import * as scoringBackfill from './scoring-backfill.service';
 import * as service from './admin.service';
 import {
-  assignStudentsSchema,
-  createAccessCodeSchema,
-  flagContentSchema,
-  listContentQuerySchema,
   restoreSchema,
   runSqlSchema,
-  updateUserSchema,
-  type AssignStudentsInput,
-  type CreateAccessCodeInput,
-  type FlagContentInput,
-  type ListContentQuery,
   type RestoreInput,
   type RunSqlInput,
-  type UpdateUserInput,
 } from './admin.schemas';
+
+/** Platform operations: overview stats, the database console, AI spend and the audit log. */
 
 export const adminRouter = Router();
 
@@ -35,91 +24,6 @@ adminRouter.get(
   '/stats',
   asyncHandler(async (_req, res) => {
     res.json(await service.getStats());
-  }),
-);
-
-// ── Users ────────────────────────────────────────────────────────────────────
-
-adminRouter.get(
-  '/users',
-  asyncHandler(async (_req, res) => {
-    res.json(await service.listUsers());
-  }),
-);
-
-/** Bulk roster assignment. Registered before /users/:userId so it is not eaten by it. */
-adminRouter.put(
-  '/users/assign-teacher',
-  validateBody(assignStudentsSchema),
-  asyncHandler(async (req, res) => {
-    const input = body<AssignStudentsInput>(req);
-    const result = await service.assignStudentsToTeacher(input);
-    await logAudit({
-      actorId: currentUserId(req), action: 'users.assigned_teacher',
-      targetType: 'user', targetId: input.teacherId ?? undefined,
-      payload: { teacherId: input.teacherId, studentIds: input.studentIds, assigned: result.assigned },
-    });
-    res.json(result);
-  }),
-);
-
-adminRouter.put(
-  '/users/:userId',
-  validateBody(updateUserSchema),
-  asyncHandler(async (req, res) => {
-    const input = body<UpdateUserInput>(req);
-    const updated = await service.updateUser(req.params.userId, input);
-    await logAudit({
-      actorId: currentUserId(req), action: 'user.updated', targetType: 'user', targetId: req.params.userId,
-      // Which fields changed, never their values: a password must not reach the log.
-      payload: {
-        fields: Object.keys(input).filter((k) => input[k as keyof UpdateUserInput] !== undefined),
-        ...(input.teacherId !== undefined && { teacherId: input.teacherId }),
-      },
-    });
-    res.json(updated);
-  }),
-);
-
-adminRouter.delete(
-  '/users/:userId',
-  asyncHandler(async (req, res) => {
-    await service.deleteUser(req.params.userId, currentUserId(req));
-    await logAudit({ actorId: currentUserId(req), action: 'user.deleted', targetType: 'user', targetId: req.params.userId });
-    res.json({ ok: true });
-  }),
-);
-
-// ── Access codes ─────────────────────────────────────────────────────────────
-
-adminRouter.get(
-  '/access-codes',
-  asyncHandler(async (_req, res) => {
-    res.json(await service.listAccessCodes());
-  }),
-);
-
-adminRouter.post(
-  '/access-codes',
-  validateBody(createAccessCodeSchema),
-  asyncHandler(async (req, res) => {
-    const input = body<CreateAccessCodeInput>(req);
-    const created = await service.createAccessCode(currentUserId(req), input);
-    await logAudit({
-      actorId: currentUserId(req), action: 'access_code.created', targetType: 'access_code', targetId: created?.id,
-      // Not the code itself: it is a signup credential, and an admin code grants admin.
-      payload: { role: input.role, maxUses: input.maxUses ?? null },
-    });
-    res.status(201).json(created);
-  }),
-);
-
-adminRouter.delete(
-  '/access-codes/:codeId',
-  asyncHandler(async (req, res) => {
-    await service.deleteAccessCode(req.params.codeId);
-    await logAudit({ actorId: currentUserId(req), action: 'access_code.deleted', targetType: 'access_code', targetId: req.params.codeId });
-    res.json({ ok: true });
   }),
 );
 
@@ -192,30 +96,6 @@ adminRouter.get(
   }),
 );
 
-/** Long-running: it walks every untagged English question in batches. */
-adminRouter.post(
-  '/questions/auto-tag-subskill',
-  asyncHandler(async (_req, res) => {
-    res.json(await classification.autoTagSubSkills());
-  }),
-);
-
-/**
- * Scores exams and mocks that finished before scaled scoring existed.
- *
- * Blocks the request thread while it walks the corpus, like the auto-tag job
- * above — fine at the current size, and it returns real counts rather than a job
- * id. Safe to run more than once: it only fills columns that are still NULL.
- */
-adminRouter.post(
-  '/scoring/backfill',
-  asyncHandler(async (req, res) => {
-    const result = await scoringBackfill.backfillScores();
-    await logAudit({ actorId: currentUserId(req), action: 'scoring.backfill_run', payload: { ...result } });
-    res.json(result);
-  }),
-);
-
 // ── Audit log ────────────────────────────────────────────────────────────────
 
 /** Read-only. Nothing in the application edits or deletes audit rows. */
@@ -224,23 +104,5 @@ adminRouter.get(
   asyncHandler(async (req, res) => {
     const limit = Number(req.query.limit ?? 100);
     res.json(await listAudit(Number.isFinite(limit) ? limit : 100));
-  }),
-);
-
-// ── Generated content review ─────────────────────────────────────────────────
-
-adminRouter.get(
-  '/generated-content',
-  validateQuery(listContentQuerySchema),
-  asyncHandler(async (req, res) => {
-    res.json(await contentReview.listGeneratedContent(query<ListContentQuery>(req)));
-  }),
-);
-
-adminRouter.patch(
-  '/generated-content/:id/flag',
-  validateBody(flagContentSchema),
-  asyncHandler(async (req, res) => {
-    res.json(await contentReview.flagContent(req.params.id, body<FlagContentInput>(req)));
   }),
 );
