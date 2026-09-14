@@ -15,7 +15,7 @@ no background worker, and no shared type package.
 React SPA (Vite, served under /sat)          Express 4 (single process)          Postgres
    one axios instance ──────── /api ───────────► one router tree ────────────────► one Pool
    one Zustand store (auth)                        │
-   TanStack Query = all server state               ├──► OpenRouter (via aiClient.ts only)
+   TanStack Query = all server state               ├──► OpenRouter (via modules/ai only)
    IndexedDB = exam progress + drafts               └──► Resend (email)
 ```
 
@@ -27,29 +27,29 @@ the design decisions further down:
    If the process restarts mid-flight, that work is simply lost (a `mock_narratives` row stuck
    at `pending` is the visible symptom).
 2. **Rate limiting and the refresh grace window are in-memory `Map`s.** `aiRateMap` in
-   `modules/student/student.routes.ts`, the login-lockout map in `modules/auth/auth.service.ts`, and `recentlyRotated`
+   `core/lib/rate-limit.ts`, the login-lockout map in `modules/identity/auth.service.ts`, and `recentlyRotated`
    in the refresh path all live in process memory. They reset on restart and they are
    **wrong under horizontal scaling** — two instances would each grant a full AI budget.
    This is a deliberate single-instance tradeoff, not an oversight to "fix" by adding a
    second replica.
 3. **Schema changes are applied at boot.** `start()` in `src/index.ts` awaits `runMigrations()`
    *before* `listen()`, and exits the process on failure. A broken statement in
-   `db/migrate.ts` does not degrade the app — it prevents it from starting at all.
+   `core/db/migrate.ts` does not degrade the app — it prevents it from starting at all.
 
 ---
 
 ## 2. Two sources of schema truth (and which one matters)
 
-`db/schema.ts` is Drizzle table definitions: it produces TypeScript types and the query
+`core/db/schema/<domain>.ts` is Drizzle table definitions: it produces TypeScript types and the query
 builder. It never touches the database.
 
-`db/migrate.ts` is ~400 lines of hand-written idempotent SQL — `DO $$ … EXCEPTION WHEN
+`core/db/migrate.ts` is ~400 lines of hand-written idempotent SQL — `DO $$ … EXCEPTION WHEN
 duplicate_object` for enums, `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE … ADD COLUMN IF NOT
 EXISTS`. This is what actually shapes production, and it runs on **every** boot and again
 whenever an admin clicks "Run migrations".
 
 So a new column needs **two edits**, and they can silently diverge: add it only to
-`schema.ts` and every query referencing it fails at runtime against a column that does not
+the schema file and every query referencing it fails at runtime against a column that does not
 exist; add it only to `migrate.ts` and Drizzle cannot see it. `npm run migrate`
 (`drizzle-kit push`) exists in package.json but is not the production mechanism — it has no
 history and is not what boot runs.
@@ -67,7 +67,7 @@ Refresh is *rotating*: each use deletes the old hash and inserts a new one. Rota
 makes stolen-token reuse detectable, and it is also what makes concurrency hard, because a
 browser with four tabs will fire four refreshes with the same cookie. Both sides defend:
 
-**Server** (`modules/auth/auth.routes.ts` `POST /refresh`) verifies the JWT signature first (cheap
+**Server** (`modules/identity/auth.routes.ts` `POST /refresh`) verifies the JWT signature first (cheap
 rejection), then runs the swap inside `db.transaction`: `DELETE … RETURNING`, and if zero
 rows came back, another request already rotated this token, so this one lost the race and
 returns `null` from the transaction. The winner writes its result into a 30-second in-memory
@@ -75,11 +75,11 @@ returns `null` from the transaction. The winner writes its result into a 30-seco
 serves the winner's token instead of failing. Without this map, opening a second tab would
 log you out.
 
-***Client** (`api/http.ts`) keeps a module-level `isRefreshing` flag and a `failedQueue`. The
+***Client** (`shared/api/http.ts`) keeps a module-level `isRefreshing` flag and a `failedQueue`. The
 first 401 triggers the refresh; every concurrent 401 parks a promise in the queue and is
 replayed with the new token. Two further details matter:
 
-- `proactiveRefresh()` runs on `visibilitychange` (wired in `App.tsx`) and refreshes when the
+- `proactiveRefresh()` runs on `visibilitychange` (`features/auth` `useProactiveTokenRefresh`, wired in `app/App.tsx`) and refreshes when the
   token is expired or within 60s of expiring. This exists specifically because TanStack
   Query's `refetchOnWindowFocus` fires a *burst* of queries the instant a tab regains focus;
   without the pre-emptive refresh that burst becomes a 401 cascade.
@@ -89,7 +89,7 @@ replayed with the new token. Two further details matter:
 
 Authorization itself is two middlewares: `requireAuth` (Bearer → `req.user`) and
 `requireRole([...])`. Student/teacher/admin routers apply both at the router root, so every
-route inherits the gate. **`liveExam.ts` is the exception** — it is mounted at `/` (not under
+route inherits the gate. **`modules/live-exam` is the exception** — it is mounted at `/` (not under
 a prefix) and applies `requireAuth` per-route with hand-written `if (req.user!.role !==
 'teacher')` checks inside each handler. New live-exam routes must repeat that check by hand;
 forgetting it leaves the route open to any authenticated user.
@@ -200,7 +200,7 @@ query, so the prompt and the progress view cannot disagree.
 ### Scaled scoring
 
 The raw count above is not what a student is shown. Submit also writes `exams.scaled_score`,
-the 200-800 section score, using `modules/scoring` — the one place the 200-800 and 400-1600
+the 200-800 section score, using `modules/exams/scaled-score.ts` — the one place the 200-800 and 400-1600
 scales are defined. Three cases produce no scaled score, and each renders as an em dash or a
 raw `x / y` rather than a number: an exam shorter than `MIN_QUESTIONS_TO_SCALE` (10), an exam
 graded before this existed, and **any module of a mock**.
@@ -219,9 +219,9 @@ created with the same `mock_english` / `mock_math` types and have no `mock_tests
 `POST /admin/scoring/backfill` fills these columns for history, reusing the same functions so
 the formula cannot drift between backfilled rows and live ones. It only touches NULLs.
 
-### Client state: why `TakeExam` is full of refs
+### Client state: why `TakeExamPage` is full of refs
 
-`TakeExam.tsx` is a single component serving practice, both mock modules, and live exams. It
+`features/exam-player/pages/TakeExamPage.tsx` is a single component serving practice, both mock modules, and live exams. It
 does not branch on a mode prop; it branches on `location.state` (`mockSection`, `mockTestId`,
 `liveExam`, `sectionStartedAt`, …). Router state *is* the exam mode.
 
@@ -265,7 +265,7 @@ records which exam it is — the mock is completed and scored by `finalizeMockIf
 submit path, because a mock is finished when the student finishes it, not when the last module
 is handed out.
 
-The client-side chain lives in `TakeExam` and is deliberately ordered
+The client-side chain lives in `TakeExamPage` and is deliberately ordered
 **English M1 → English M2 → Math M1 → Math M2**: `handleAdaptiveNextSection` submits the
 current module, calls `next-module`, and navigates to the returned M2; the `english_m2`
 completion branch inside `submitMutation.onSuccess` then jumps to the `mathM1ExamId` carried
@@ -279,7 +279,7 @@ router state has no `mockSection`. Don't extend it.
 
 ### Timing: the server holds the clock
 
-`modules/student/exam-timing.ts` owns it. A mock module is created with `time_limit_seconds`
+`modules/exams/exam-timing.ts` owns it. A mock module is created with `time_limit_seconds`
 (Reading & Writing 32 min, Math 35 min) and **no** deadline; `deadline_at` is stamped the first
 time the player opens it — `GET /exams/:id?open=1`. The flag matters: the player pre-fetches the
 next section with a plain `GET`, and that must not start its clock. A live section's deadline is
@@ -390,7 +390,7 @@ Everything AI-generated is human-gated before a student sees it. That is the poi
 | AI budget, login lockouts, refresh grace | in-memory Maps in the Express process | until restart |
 | Everything else | Postgres | — |
 
-Frontend and backend types are hand-mirrored per endpoint in `src/api/*.ts`. Nothing enforces
+Frontend and backend types are hand-mirrored per endpoint in each feature's `api.ts` (and `entities/*/api.ts`). Nothing enforces
 that they agree — changing a response shape means editing both sides.
 
 ---

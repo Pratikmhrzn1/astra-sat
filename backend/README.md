@@ -18,34 +18,52 @@ server (5173) proxies `/api` here.
 
 ## Layout
 
+Domain modules on top of shared infrastructure. Dependencies point one way:
+`api.router.ts` / `jobs/` → `modules/` → `core/`.
+
 ```
 src/
-  config/env.ts      every environment variable, validated once at boot
-  db/                pool + drizzle client, schema, migrations
-  http/              app factory, server boot, error handling, middleware
-  lib/               jwt, password, email, url, rate limiting
-  modules/
-    router.ts        mounts every feature router under /api
-    auth/            registration, login, token rotation, password reset
-    student/         exams, practice confirm, mocks, vocab, chat, narratives
-    teacher/         roster, results, content authoring, vocabulary bank
-    admin/           users, access codes, database console, AI tooling
-    live-exam/       proctored classroom sessions
-    skills/          the SAT domain/skill taxonomy, readable by every role
-    analytics/       accuracy, trends and readiness — shared by student and teacher
-    library/         shared files and notes
-    platform-feedback/  in-app bug reports
-    ai/              the only module that calls OpenRouter
-    exams/           exam provisioning shared by practice, mock and live
+  index.ts           boot: startServer({ apiRouter, startupJobs })
+  api.router.ts      mounts every module router under /api (the only file that sees them all)
+  jobs/              work run after the port opens (scoring backfill)
+  core/              infrastructure — never imports a module
+    config/env.ts      every environment variable, validated once at boot
+    db/                pool + drizzle client, migrate.ts, schema/<domain>.ts (re-exported by schema/index.ts)
+    http/              app factory, server boot, asyncHandler, middleware (auth, validate, error)
+    errors.ts          AppError + factories (notFound, conflict, …) — HTTP status mapping lives in middleware/error
+    lib/               jwt, password, email, url, rate limiting, db-time
+  modules/           one folder per domain; other code imports it only through its index.ts
+    identity/          registration, login, token rotation, password reset, user admin
+    taxonomy/          the SAT domain/skill tree, readable by every role
+    exams/             foundation: provisioning, timing, grading, scaled scores, exam repository
+    attempts/          exam lifecycle and the adaptive mock chain (+ scoring backfill)
+    practice/          confirm + AI feedback, narratives, skill passages, tutor chat, topic practice
+    mistakes/          the mistake bank
+    vocab/             student deck + teacher word bank
+    analytics/         accuracy, trends, readiness, student profile
+    roster/            teacher ↔ student ownership and results
+    messages/          teacher feedback + student inbox
+    content/           question sets, passages, classification, AI content review
+    live-exam/         proctored classroom sessions
+    library/           shared files and notes
+    platform-feedback/ in-app bug reports
+    admin/             platform stats, AI model stats, database console
+    audit/             audit log
+    ai/                the only module that calls OpenRouter
 ```
 
 A module is `routes -> service -> repository`: routes handle HTTP and nothing
-else, services hold the rules and throw typed errors, repositories hold the
+else, services hold the rules and throw `AppError`s, repositories hold the
 queries. Smaller modules collapse the repository into the service.
+
+**Boundaries are checked.** `npm run depcruise` enforces that `core` imports no
+module, modules reach each other only through `index.ts`, the composition root
+uses public APIs only, and routes never query the database directly. Run it
+alongside `npx tsc --noEmit` before committing.
 
 ## The parts worth knowing before you change them
 
-**`config/env.ts` owns `process.env`.** Nothing else reads it. A missing or
+**`core/config/env.ts` owns `process.env`.** Nothing else reads it. A missing or
 malformed variable stops the server at boot with a message naming every problem,
 rather than failing later inside whichever request first needed the value. The
 AI and email settings double as feature switches — unset `AI_MODEL_NARRATIVE`
@@ -53,16 +71,16 @@ and narratives are simply never generated, with no other effect.
 
 **Handlers throw; one place answers.** `asyncHandler` wraps every route so a
 rejected promise reaches the error middleware instead of hanging the request —
-Express 4 does not await handlers. Routes throw `HttpError`s from
-`http/errors.ts` (`notFound('Exam not found')`); `http/middleware/error.ts` turns
-those into responses and everything else into a logged 500 with no internals
+Express 4 does not await handlers. Services and routes throw `AppError`s from
+`core/errors.ts` (`notFound('Exam not found')`); `core/http/middleware/error.ts` maps
+each error kind to a status and everything else into a logged 500 with no internals
 disclosed. Do not reintroduce per-handler try/catch.
 
-**`db/migrate.ts` is the schema's source of truth**, not `schema.ts`. It is
+**`core/db/migrate.ts` is the schema's source of truth**, not `core/db/schema/`. It is
 hand-written idempotent SQL that runs on every boot and again from the admin
 "Run migrations" button; a broken statement there stops the server from
-starting. `schema.ts` only produces types and the query builder, so **a new
-column must be added to both files**. `npm run migrate` (`drizzle-kit push`) is
+starting. The schema files only produce types and the query builder, so **a new
+column must be added to both** (the table's `schema/<domain>.ts` and `migrate.ts`). `npm run migrate` (`drizzle-kit push`) is
 a dev shortcut and is not what production uses.
 
 **Exams are provisioned in one place.** `modules/exams/exam-provisioning.ts`
@@ -71,7 +89,7 @@ a single transaction. Everything downstream assumes all three exist: saving an
 answer only UPDATEs an existing row and grading joins over them, so an exam
 created any other way silently accepts no answers and scores zero.
 
-**Questions are tagged with `skill_code`, not `sub_skill`.** `modules/skills`
+**Questions are tagged with `skill_code`, not `sub_skill`.** `modules/taxonomy`
 serves the domain/skill tree from the `skills` table and is the only source of
 valid codes — `assertKnownSkillCode` checks a tag against the table rather than a
 zod enum, because the taxonomy is data. The `sub_skill` enum it replaced had five
@@ -85,14 +103,14 @@ reads `sub_skill` any more; do not add a reader.
 
 **There are two difficulty scales, on purpose.** `question_sets.difficulty` is
 `low | medium | hard` (TEXT + CHECK) and describes a whole module; it is what the
-adaptive mock routes on, so `pathFromModuleDifficulty` in `modules/scoring` reads
+adaptive mock routes on, so `pathFromModuleDifficulty` in `modules/exams/scaled-score.ts` reads
 it to decide which score band a student can reach. `questions.difficulty` is
 `easy | medium | hard` (a pgEnum) and describes one question; it is what topic
 practice filters on. They differ in both their values (`low` vs `easy`) and their
 type, which looks like a bug and is not. Never convert one into the other, and
 never widen one to match the other — a set is not hard because its questions are.
 
-**Scores are computed once, on the server.** `modules/scoring` owns the 200-800 and 400-1600
+**Scores are computed once, on the server.** `modules/exams/scaled-score.ts` owns the 200-800 and 400-1600
 scales; nothing else may reimplement them, and the browser must never derive a score from a
 raw count. A mock module never carries its own `scaled_score` — it is half a section, and the
 mock row holds the two section scores. **Test mock membership with
@@ -123,13 +141,13 @@ the release mechanism exists to control. Readiness is arithmetic, never a
 projection. `readiness().estimate` is the single estimated score every screen
 shows — compute a headline score there, never in a page.
 
-**Scores for old history are filled on boot.** `backfillScores()` runs after the
+**Scores for old history are filled on boot.** `backfillScores()` runs from `jobs/` after the
 port opens on every start: it only writes NULL scores, never overwrites, keeps a
 re-finalised mock's original `completed_at`, and logs rather than throws. Exams
 and mocks finished before scaled scoring existed therefore gain scores on the
 next deploy without anyone pressing the admin button.
 
-**The server holds the exam clock.** See `modules/student/exam-timing.ts` and
+**The server holds the exam clock.** See `modules/exams/exam-timing.ts` and
 `flow.md` §5. Any read that is not the student sitting down to an exam must call
 `getExam` without `open`, or it starts a mock module's clock early.
 
@@ -148,10 +166,10 @@ counts — must filter `questions.retired_at IS NULL` and
 (`modules/audit`) after the action succeeds; the SQL console and restore also log
 failed attempts. Never put secrets in the payload — no passwords, no access-code
 values, no query results. Raw `timestamp` columns from `db.execute` must be read
-with `parseDbTimestamp()` (`lib/db-time.ts`): they arrive as zone-less strings in
+with `parseDbTimestamp()` (`core/lib/db-time.ts`): they arrive as zone-less strings in
 UTC, and `new Date()` would parse them as local time.
 
-**Students never receive answers.** `modules/student/student.repository.ts`
+**Students never receive answers.** `modules/exams/exam.repository.ts`
 selects question columns explicitly, so `correctAnswer`, `correctAnswerText` and
 `explanation` are absent by construction rather than deleted afterwards. Add
 answer-bearing columns to that projection only if you mean to.
@@ -163,8 +181,8 @@ makes. All model access goes through `modules/ai` — never call OpenRouter
 directly, or the cost, retry and cache accounting stops being true.
 
 **In-memory state is single-instance.** The AI budget, login lockouts and the
-refresh-token grace window live in process memory (`lib/rate-limit.ts`,
-`modules/auth/auth.tokens.ts`). They reset on restart, and running two instances
+refresh-token grace window live in process memory (`core/lib/rate-limit.ts`,
+`modules/identity/auth.tokens.ts`). They reset on restart, and running two instances
 would give each its own budget. Moving to more than one process means moving
 these to Postgres or Redis first.
 

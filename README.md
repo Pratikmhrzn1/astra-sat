@@ -25,20 +25,21 @@ A student registers with an access code, practices question sets, and gets AI fe
 
 ## Key conventions (brief)
 
-- **Every async Express handler wraps its body in try/catch** — Express 4 does not catch rejected promises.
+- **Handlers throw; one middleware answers.** Routes are wrapped in `asyncHandler` and throw `AppError`s (`backend/src/core/errors.ts`) — no per-handler try/catch.
+- **Domain modules, public entry points.** Backend `modules/<domain>` and frontend `features/<domain>` / `entities/<x>` are imported only through their `index.ts`; `npm run depcruise` in each package enforces the dependency direction.
 - **All AI calls go through `backend/src/modules/ai/ai.client.ts`** — never call OpenRouter directly; rate-limit, cache, and cost-track there.
-- ***All HTTP goes through `frontend/src/api/http.ts`** — bearer injection + silent refresh + 401 queueing.
-- **All server state on the frontend goes through TanStack Query** (`src/api/*` wrappers + hooks).
-- New DB columns are added to **both** `backend/src/db/schema.ts` (types) and `backend/src/db/migrate.ts` (idempotent SQL).
+- ***All HTTP goes through `frontend/src/shared/api/http.ts`** — bearer injection + silent refresh + 401 queueing.
+- **All server state on the frontend goes through TanStack Query** (per-feature `api.ts` wrappers).
+- New DB columns are added to **both** `backend/src/core/db/schema/<domain>.ts` (types) and `backend/src/core/db/migrate.ts` (idempotent SQL).
 
 ## Risk radar (read these before touching them)
 
 | File | Why it's risky |
 |---|---|
-| `backend/src/db/migrate.ts` | Hand-rolled idempotent schema **runs on every server boot** and via the admin migrations button. A bad ALTER can corrupt prod or brick startup. |
-| `backend/src/modules/student/` | The heart of the product, split by concern: `exams.service.ts` (lifecycle, grading), `mock.service.ts` (adaptive chain), `practice.service.ts` (confirm + AI), `narrative.service.ts`, `scoring.ts`. Bugs here grade real students wrong or burn AI spend. |
-| `frontend/src/pages/student/TakeExamPage.tsx` | The exam player — timer, offline IDB sync, adaptive section transitions driven by refs. A bug silently corrupts student attempts. |
-| `frontend/src/api/http.ts` | Refresh logic failure = everyone locked out. Net-effect of every 401 in the app. |
+| `backend/src/core/db/migrate.ts` | Hand-rolled idempotent schema **runs on every server boot** and via the admin migrations button. A bad ALTER can corrupt prod or brick startup. |
+| `backend/src/modules/{exams,attempts,practice}/` | The heart of the product: `exams/grading.ts` + `exams/scaled-score.ts`, `attempts/attempts.service.ts` (lifecycle), `attempts/mock.service.ts` (adaptive chain), `practice/practice.service.ts` (confirm + AI), `practice/narrative.service.ts`. Bugs here grade real students wrong or burn AI spend. |
+| `frontend/src/features/exam-player/pages/TakeExamPage.tsx` | The exam player — timer, offline IDB sync, adaptive section transitions driven by refs. A bug silently corrupts student attempts. |
+| `frontend/src/shared/api/http.ts` | Refresh logic failure = everyone locked out. Net-effect of every 401 in the app. |
 
 ## Running locally
 
