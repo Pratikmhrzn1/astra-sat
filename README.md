@@ -27,7 +27,7 @@ A student registers with an access code, practices question sets, and gets AI fe
 
 - **Every async Express handler wraps its body in try/catch** — Express 4 does not catch rejected promises.
 - **All AI calls go through `backend/src/modules/ai/ai.client.ts`** — never call OpenRouter directly; rate-limit, cache, and cost-track there.
-- **All HTTP goes through `frontend/src/api/client.ts`** — bearer injection + silent refresh + 401 queueing.
+- ***All HTTP goes through `frontend/src/api/http.ts`** — bearer injection + silent refresh + 401 queueing.
 - **All server state on the frontend goes through TanStack Query** (`src/api/*` wrappers + hooks).
 - New DB columns are added to **both** `backend/src/db/schema.ts` (types) and `backend/src/db/migrate.ts` (idempotent SQL).
 
@@ -37,8 +37,8 @@ A student registers with an access code, practices question sets, and gets AI fe
 |---|---|
 | `backend/src/db/migrate.ts` | Hand-rolled idempotent schema **runs on every server boot** and via the admin migrations button. A bad ALTER can corrupt prod or brick startup. |
 | `backend/src/modules/student/` | The heart of the product, split by concern: `exams.service.ts` (lifecycle, grading), `mock.service.ts` (adaptive chain), `practice.service.ts` (confirm + AI), `narrative.service.ts`, `scoring.ts`. Bugs here grade real students wrong or burn AI spend. |
-| `frontend/src/features/student/pages/TakeExam.tsx` | The exam player — timer, offline IDB sync, adaptive section transitions driven by refs. A bug silently corrupts student attempts. |
-| `frontend/src/api/client.ts` | Refresh logic failure = everyone locked out. Net-effect of every 401 in the app. |
+| `frontend/src/pages/student/TakeExamPage.tsx` | The exam player — timer, offline IDB sync, adaptive section transitions driven by refs. A bug silently corrupts student attempts. |
+| `frontend/src/api/http.ts` | Refresh logic failure = everyone locked out. Net-effect of every 401 in the app. |
 
 ## Running locally
 

@@ -11,7 +11,7 @@ export const toastClass = 'toast material bg-[rgba(22,22,26,0.86)] text-white fl
 /**
  * App-wide error toasts.
  *
- * Fed by the MutationCache fallback in `app/providers.tsx`: a mutation that has
+ * Fed by the MutationCache fallback in `providers.tsx`: a mutation that has
  * no `onError` of its own (deletes, mark-as-read, confirms…) used to fail with
  * no sign at all, so the student or teacher assumed it had worked.
  */

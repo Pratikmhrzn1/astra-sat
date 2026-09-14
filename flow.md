@@ -75,7 +75,7 @@ returns `null` from the transaction. The winner writes its result into a 30-seco
 serves the winner's token instead of failing. Without this map, opening a second tab would
 log you out.
 
-**Client** (`api/client.ts`) keeps a module-level `isRefreshing` flag and a `failedQueue`. The
+***Client** (`api/http.ts`) keeps a module-level `isRefreshing` flag and a `failedQueue`. The
 first 401 triggers the refresh; every concurrent 401 parks a promise in the queue and is
 replayed with the new token. Two further details matter:
 
