@@ -8,7 +8,7 @@ Digital SAT practice and mock-test platform with three user roles (student / tea
 backend/   Express 4 + TypeScript + Drizzle ORM + Postgres  →  see backend/README.md
 frontend/  React 18 + Vite + TS + TanStack Query + Zustand  →  see frontend/README.md
 flow.md    the end-to-end request flow (entry point zoom out)
-plan.md    build plan for Phase 2 (make the data real) + Phase 3 preview
+docs/      working notes: plan.md (Phase 2/3 build plan), Brainstorm.md, client-report.html
 sat-platform-prompt.md   original feature spec — historical, code is the source of truth
 docker-compose.yml / render.yaml / deploy.sh   deployment
 ```
