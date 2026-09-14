@@ -139,11 +139,8 @@ studentRouter.post(
   '/exams/:examId/submit',
   validateBody(submitExamSchema),
   asyncHandler(async (req, res) => {
-    const result = await exams.submitExam(
-      req.params.examId,
-      currentUserId(req),
-      body<SubmitExamInput>(req).timeSpentSeconds,
-    );
+    const input = body<SubmitExamInput>(req);
+    const result = await exams.submitExam(req.params.examId, currentUserId(req), input.timeSpentSeconds, input.answers);
 
     res.json({
       score: result.score,

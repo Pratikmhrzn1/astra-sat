@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Plus } from 'lucide-react';
 import {
@@ -7,13 +7,16 @@ import {
 } from '@/features/live-exam/api/live-exam.api';
 import { getApiError } from '@/shared/api/client';
 import { Modal } from '@/shared/ui';
+import { useMobile } from '@/shared/hooks/useMobile';
 import {
-  CARD, EmptyState, ErrorNote, H1, JoinCodePlate, PillButton, StatusPill, T,
+  CARD, EmptyState, ErrorNote, H1, HOVER_CSS, JoinCodePlate, LivePage, LoadingRows, PillButton, StatusPill, T,
 } from '@/features/live-exam/ui';
 
 /** Every live exam this teacher has run, newest first, and the form to start another. */
 export default function LiveExams() {
   const navigate = useNavigate();
+  const isMobile = useMobile();
+  const [loadError, setLoadError] = useState('');
   const [sessions, setSessions] = useState<LiveExamSession[]>([]);
   const [sets, setSets] = useState<LiveExamSet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,11 +25,19 @@ export default function LiveExams() {
   const [error, setError] = useState('');
   const [form, setForm] = useState({ title: '', englishSetId: '', mathSetId: '' });
 
-  useEffect(() => {
+  // A failed load used to fall through to "No sessions yet", telling a teacher
+  // their history was gone when the network had only dropped.
+  const loadAll = useCallback(() => {
+    setLoading(true);
+    setLoadError('');
     Promise.all([getLiveSessions(), getLiveExamSets()])
       .then(([s, availableSets]) => { setSessions(s); setSets(availableSets); })
+      .catch((err) => setLoadError(getApiError(err)))
       .finally(() => setLoading(false));
   }, []);
+  useEffect(loadAll, [loadAll]);
+
+  const openCreate = () => { setError(''); setShowCreate(true); };
 
   const englishSets = sets.filter((s) => s.subject === 'english');
   const mathSets = sets.filter((s) => s.subject === 'math');
@@ -60,59 +71,73 @@ export default function LiveExams() {
   }
 
   const fieldStyle: React.CSSProperties = {
-    width: '100%', height: 42, padding: '0 12px', border: `1px solid ${T.line}`,
+    width: '100%', height: 42, padding: '0 12px', border: '1px solid #D8D4CC',
     borderRadius: 10, background: '#fff', color: T.ink, fontSize: 14,
-    fontFamily: 'inherit', outline: 'none',
+    fontFamily: 'inherit', boxSizing: 'border-box',
   };
   const labelStyle: React.CSSProperties = {
     display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 6,
   };
 
   return (
-    <div className="screen-fade" style={{ padding: '36px 48px 64px', maxWidth: 880 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 8 }}>
-        <h1 style={{ ...H1, fontSize: 44 }}>Live Exams</h1>
-        <PillButton onClick={() => { setError(''); setShowCreate(true); }} style={{ height: 42 }}>
-          <Plus size={15} style={{ marginRight: 7, verticalAlign: '-2px' }} />New session
+    <LivePage>
+      <style>{HOVER_CSS}</style>
+      <div style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
+        <h1 style={{ ...H1, fontSize: isMobile ? 32 : 44, lineHeight: 1.1 }}>Live Exams</h1>
+        <PillButton onClick={openCreate} style={{ height: 42, paddingLeft: 16 }}>
+          <Plus size={16} strokeWidth={2.25} aria-hidden />New session
         </PillButton>
       </div>
-      <p style={{ fontSize: 15, color: 'rgba(11,11,14,0.64)', margin: '0 0 28px', maxWidth: 620, lineHeight: 1.6 }}>
+      <p style={{ fontSize: isMobile ? 14 : 15, color: T.muted, margin: '0 0 24px', maxWidth: 620, lineHeight: 1.6 }}>
         Sit a whole class at once. You control when it starts and when each student sees their result.
       </p>
 
       {loading ? (
-        <div style={{ padding: '64px 0', textAlign: 'center', color: T.faint, fontSize: 14 }}>Loading…</div>
+        <LoadingRows />
+      ) : loadError ? (
+        <ErrorNote action={<PillButton variant="secondary" onClick={loadAll} style={{ height: 32, fontSize: 13 }}>Try again</PillButton>}>
+          Couldn't load your sessions: {loadError}
+        </ErrorNote>
       ) : sessions.length === 0 ? (
-        <EmptyState title="No sessions yet">
+        <EmptyState title="No sessions yet" action={<PillButton onClick={openCreate}><Plus size={16} strokeWidth={2.25} aria-hidden />Create your first session</PillButton>}>
           Create one, read the join code out to your class, and start when everyone is in the lobby.
         </EmptyState>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {sessions.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => navigate(`/teacher/live-exams/${s.id}`)}
-              style={{
-                ...CARD, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16,
-                cursor: 'pointer', textAlign: 'left', font: 'inherit', width: '100%',
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 15.5, fontWeight: 600, color: T.ink, marginBottom: 6 }}>{s.title}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <StatusPill status={s.status} />
-                  {s.startedAt && (
-                    <span style={{ fontSize: 12.5, color: T.muted }}>
-                      Started {new Date(s.startedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
-                    </span>
-                  )}
+          {sessions.map((s) => {
+            const when = s.startedAt ?? s.createdAt;
+            return (
+              <button
+                key={s.id}
+                className="live-row"
+                onClick={() => navigate(`/teacher/live-exams/${s.id}`)}
+                data-press="soft"
+                style={{
+                  ...CARD, padding: isMobile ? '14px 14px 14px 16px' : '16px 18px 16px 20px',
+                  display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 16,
+                  cursor: 'pointer', textAlign: 'left', font: 'inherit', color: 'inherit', width: '100%', boxSizing: 'border-box',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15.5, fontWeight: 600, color: T.ink, marginBottom: 7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <StatusPill status={s.status} />
+                    {when && (
+                      <span style={{ fontSize: 12.5, color: T.muted }}>
+                        {s.startedAt ? 'Started' : 'Created'} {new Date(when).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                    )}
+                    {isMobile && s.status === 'waiting' && (
+                      <span style={{ fontSize: 12.5, color: T.ink, fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: '0.08em' }}>{s.joinCode}</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-              {/* Reference size here; it is the hero only inside the session. */}
-              {s.status === 'waiting' && <JoinCodePlate code={s.joinCode} size="small" />}
-              <ChevronRight size={17} color={T.faint} style={{ flexShrink: 0 }} />
-            </button>
-          ))}
+                {/* Reference size here; it is the hero only inside the session. */}
+                {!isMobile && s.status === 'waiting' && <JoinCodePlate code={s.joinCode} size="small" />}
+                <ChevronRight size={18} color={T.faint} style={{ flexShrink: 0 }} aria-hidden />
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -143,12 +168,15 @@ export default function LiveExams() {
           )}
 
           <div>
-            <label htmlFor="session-title" style={labelStyle}>What the class will see</label>
+            <label htmlFor="session-title" style={labelStyle}>Session name <span style={{ fontWeight: 400, color: T.faint }}>· shown to the class</span></label>
             <input
               id="session-title"
               value={form.title}
               onChange={(e) => { setForm((f) => ({ ...f, title: e.target.value })); setError(''); }}
               placeholder="Friday mock — Grade 11"
+              autoFocus
+              maxLength={120}
+              onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
               style={fieldStyle}
             />
           </div>
@@ -180,6 +208,6 @@ export default function LiveExams() {
           {error && <ErrorNote>{error}</ErrorNote>}
         </div>
       </Modal>
-    </div>
+    </LivePage>
   );
 }

@@ -1,0 +1,551 @@
+{
+  "title": "Reading and Writing Practice Set 1 — Low",
+  "subject": "english",
+  "description": "The easier adaptive tier: 27 original questions across all four Digital SAT domains, for students routed to the easier Module 2. Clearer passages and more distinct answer choices.",
+  "difficulty": "low",
+  "isDraft": true,
+  "passages": [
+    {
+      "title": "",
+      "passageText": "Maya practiced the piano every evening for months before her first recital. When she finally played on stage, her performance was so ______ that the audience stood and cheered and asked her to play one more song.",
+      "orderIndex": 0
+    },
+    {
+      "title": "",
+      "passageText": "The hiking trail was closed after heavy rains washed away part of the path. Park officials said the trail would remain ______ until workers could repair the damaged section and make it safe for visitors again.",
+      "orderIndex": 1
+    },
+    {
+      "title": "",
+      "passageText": "Although the new phone app had many useful features, users found its menus difficult to navigate. After receiving hundreds of complaints, the developers decided to ______ the design, removing unnecessary buttons and grouping related tools together.",
+      "orderIndex": 2
+    },
+    {
+      "title": "",
+      "passageText": "Some frogs can survive being frozen during winter. As temperatures drop, the frogs' bodies produce large amounts of glucose, a type of sugar that helps protect their cells from damage. Their hearts stop beating, and they appear lifeless. When spring arrives and the ice melts, the frogs thaw and return to normal activity.",
+      "orderIndex": 3
+    },
+    {
+      "title": "",
+      "passageText": "The following text is from a short story. Leo is waiting to learn the results of a science competition.\n\nLeo checked the website again. Still nothing. He walked to the kitchen, poured a glass of water, and forgot to drink it. When his phone finally buzzed, he nearly dropped it. The message was from his grandmother, asking whether he had eaten lunch.",
+      "orderIndex": 4
+    },
+    {
+      "title": "",
+      "passageText": "Many people believe that goldfish have memories lasting only a few seconds. However, researchers have found otherwise. In one study, goldfish were trained to push a lever to receive food at a certain time of day. The fish continued to push the lever at that time even months later.",
+      "orderIndex": 5
+    },
+    {
+      "title": "",
+      "passageText": "Text 1\nSome teachers believe that students learn best when they study in complete silence. Background noise, these teachers argue, distracts students and makes it harder for them to remember what they have read.\n\nText 2\nResearcher Dana Holt found that some students performed better on memory tasks when soft background noise, such as the gentle hum of a café, was present. Holt suggests that a small amount of noise can help certain students stay focused.",
+      "orderIndex": 6
+    },
+    {
+      "title": "",
+      "passageText": "Text 1\nHistorians have long described the invention of the printing press in the fifteenth century as the main reason books became widely available and affordable in Europe.\n\nText 2\nHistorian Rafael Ortiz agrees that the printing press was important, but he notes that another change mattered too: the spread of cheaper paper made from cotton and linen rags. Without inexpensive paper, Ortiz argues, printed books would have remained too costly for most readers.",
+      "orderIndex": 7
+    },
+    {
+      "title": "",
+      "passageText": "Many cities are planting trees along busy streets. Trees provide shade that lowers temperatures on hot days, and their leaves can trap some of the dust in the air. Tree-lined streets are also more pleasant for walking, which may encourage people to leave their cars at home.",
+      "orderIndex": 8
+    },
+    {
+      "title": "",
+      "passageText": "The following text is from a novel. Rosa is helping her father at his bakery before dawn.\n\nRosa had complained about waking up so early, but as she shaped the dough beside her father, she began to enjoy the quiet. The streets outside were dark and empty. Inside, the ovens glowed, and her father hummed an old song while he worked. By the time the first customer arrived, Rosa realized she had stopped noticing how tired she was.",
+      "orderIndex": 9
+    },
+    {
+      "title": "",
+      "passageText": "\"Waking Garden\" is a poem about a family's home in the countryside after a long winter. In the poem, the speaker expresses excitement about the arrival of spring.",
+      "orderIndex": 10
+    },
+    {
+      "title": "",
+      "passageText": "A student is writing about a school recycling program. In September, students recycled 120 kilograms of paper. In October, they recycled 150 kilograms, and in November, they recycled 210 kilograms. The student claims that the amount of paper recycled increased each month.",
+      "orderIndex": 11
+    },
+    {
+      "title": "",
+      "passageText": "A scientist is studying how light affects tomato plants. She hypothesizes that tomato plants grow taller when they receive more hours of light each day, as long as they are given the same amount of water and nutrients.",
+      "orderIndex": 12
+    },
+    {
+      "title": "",
+      "passageText": "A town library noticed that many children stopped borrowing books during the summer. To address this, the library started a summer reading challenge that gives small prizes to children who read ten books. In the first summer of the challenge, children borrowed nearly twice as many books as they had the summer before. This result suggests that ______",
+      "orderIndex": 13
+    },
+    {
+      "title": "",
+      "passageText": "Emperor penguins huddle together in large groups during the harsh Antarctic winter. Penguins on the outside of a huddle slowly move toward its warm center, while those in the center gradually move to the outside. Because of this constant movement, ______",
+      "orderIndex": 14
+    },
+    {
+      "title": "",
+      "passageText": "Every morning before sunrise, the owner of the two popular coffee shops on Main Street ______ fresh bread from a small family bakery located just down the street.",
+      "orderIndex": 15
+    },
+    {
+      "title": "",
+      "passageText": "Last summer, my cousin ______ a small vegetable garden in her backyard and shared the tomatoes, peppers, and beans she grew with neighbors up and down her street.",
+      "orderIndex": 16
+    },
+    {
+      "title": "",
+      "passageText": "The powerful spring storm knocked out power across the city for six ______ many residents used flashlights and candles until electricity was finally restored late that night.",
+      "orderIndex": 17
+    },
+    {
+      "title": "",
+      "passageText": "The members of the science club built a small robot for the regional contest, and ______ were thrilled when it finished the obstacle course faster than any other team's robot.",
+      "orderIndex": 18
+    },
+    {
+      "title": "",
+      "passageText": "The ______ on the museum wall were painted by students from three local schools as part of a community art project celebrating the town's hundredth anniversary.",
+      "orderIndex": 19
+    },
+    {
+      "title": "",
+      "passageText": "Grandpa Luis's favorite cake recipe has been passed down in our family for three generations. To make the cake, you will need ______ sugar, eggs, butter, and a pinch of cinnamon.",
+      "orderIndex": 20
+    },
+    {
+      "title": "",
+      "passageText": "Stretching thousands of kilometers across the continent, the Amazon ______ flows through several countries in South America, carries more water to the ocean than any other river in the world.",
+      "orderIndex": 21
+    },
+    {
+      "title": "",
+      "passageText": "Octopuses have three hearts. Two of these hearts pump blood through the gills, where the blood picks up oxygen. ______ the third heart pumps that oxygen-rich blood to the rest of the body.",
+      "orderIndex": 22
+    },
+    {
+      "title": "",
+      "passageText": "Marcus wanted to join the school basketball team, but he had never played on a team before. ______ he practiced shooting baskets at the park every afternoon for two months before tryouts.",
+      "orderIndex": 23
+    },
+    {
+      "title": "",
+      "passageText": "Camels are well suited to life in the desert. They can go several days without drinking any water. ______ their wide, flat feet help them walk across soft sand without sinking.",
+      "orderIndex": 24
+    },
+    {
+      "title": "",
+      "passageText": "While researching a topic, a student has taken the following notes:\n\n• The Arctic tern is a seabird.\n• It migrates between the Arctic and the Antarctic every year.\n• Its yearly round trip can cover about 70,000 kilometers.\n• An adult Arctic tern weighs about 100 grams.",
+      "orderIndex": 25
+    },
+    {
+      "title": "",
+      "passageText": "While researching a topic, a student has taken the following notes:\n\n• A haiku is a type of short poem that began in Japan.\n• A traditional haiku has three lines.\n• The lines have five, seven, and five syllables.\n• Many haiku describe nature or the seasons.",
+      "orderIndex": 26
+    }
+  ],
+  "questions": [
+    {
+      "passageIndex": 0,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical and precise word or phrase?",
+      "skillCode": "vocab_in_context",
+      "difficulty": "easy",
+      "optionA": "impressive",
+      "optionB": "brief",
+      "optionC": "careless",
+      "optionD": "quiet",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "The audience stood, cheered, and asked for another song, so the performance must have been impressive. A brief, careless, or quiet performance would not explain that reaction.",
+      "orderIndex": 0
+    },
+    {
+      "passageIndex": 1,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical and precise word or phrase?",
+      "skillCode": "vocab_in_context",
+      "difficulty": "easy",
+      "optionA": "popular",
+      "optionB": "inaccessible",
+      "optionC": "crowded",
+      "optionD": "scenic",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "A closed trail that cannot be used until it is repaired is inaccessible. Nothing in the text is about the trail being popular, crowded, or scenic.",
+      "orderIndex": 1
+    },
+    {
+      "passageIndex": 2,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical and precise word or phrase?",
+      "skillCode": "vocab_in_context",
+      "difficulty": "medium",
+      "optionA": "praise",
+      "optionB": "memorize",
+      "optionC": "simplify",
+      "optionD": "advertise",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "Removing buttons and grouping tools makes a confusing design easier to use, so the developers simplified it. Praising, memorizing, or advertising the design would not address the complaints.",
+      "orderIndex": 2
+    },
+    {
+      "passageIndex": 3,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best states the main purpose of the text?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "easy",
+      "optionA": "To argue that frogs should be protected from cold weather",
+      "optionB": "To compare frogs with other animals that hibernate",
+      "optionC": "To describe the different foods frogs eat in spring",
+      "optionD": "To explain how certain frogs are able to survive freezing temperatures",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "The text walks through how these frogs survive being frozen and then thaw in spring. It makes no argument about protection, mentions no other animals, and says nothing about food.",
+      "orderIndex": 3
+    },
+    {
+      "passageIndex": 4,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best describes the overall structure of the text?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "easy",
+      "optionA": "It shows a character growing more nervous and then presents an interruption that is not the news he was waiting for.",
+      "optionB": "It describes a character's victory and then his family's reaction to it.",
+      "optionC": "It explains the rules of a competition and then a character's strategy for winning.",
+      "optionD": "It compares two characters who react differently to the same news.",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "Leo keeps checking and forgets his water, showing nerves, and the long-awaited buzz turns out to be his grandmother asking about lunch. He has not won yet, no rules are explained, and only one character reacts.",
+      "orderIndex": 4
+    },
+    {
+      "passageIndex": 5,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best describes the function of the second sentence in the overall structure of the text?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "medium",
+      "optionA": "It presents a common belief that the study goes on to confirm.",
+      "optionB": "It signals that the common belief described in the first sentence is mistaken.",
+      "optionC": "It describes the procedure researchers used in their study.",
+      "optionD": "It explains why goldfish need to be fed at regular times.",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "\"However, researchers have found otherwise\" tells the reader that the belief in the first sentence is wrong; the study that follows supports this. The belief is challenged, not confirmed, and the procedure appears only in the third sentence.",
+      "orderIndex": 5
+    },
+    {
+      "passageIndex": 6,
+      "questionType": "multiple_choice",
+      "questionText": "Based on the texts, how would Holt (Text 2) most likely respond to the teachers in Text 1?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "medium",
+      "optionA": "By agreeing that all background noise harms learning",
+      "optionB": "By arguing that students should study in cafés instead of classrooms",
+      "optionC": "By pointing out that some students may actually benefit from a little background noise",
+      "optionD": "By claiming that silence has no effect on memory",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "Holt's finding that soft noise helped some students challenges the teachers' belief that noise always distracts. She does not agree that all noise is harmful, recommend cafés, or claim that silence has no effect.",
+      "orderIndex": 6
+    },
+    {
+      "passageIndex": 7,
+      "questionType": "multiple_choice",
+      "questionText": "Based on the texts, how would Ortiz (Text 2) most likely respond to the explanation in Text 1?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "medium",
+      "optionA": "By denying that the printing press affected the availability of books",
+      "optionB": "By arguing that books were widely available before the fifteenth century",
+      "optionC": "By claiming that rag paper was invented after the printing press",
+      "optionD": "By suggesting that the explanation leaves out the important role of inexpensive paper",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "Ortiz accepts that the printing press mattered but adds cheaper paper as a second cause, so he would call Text 1's explanation incomplete. He does not deny the press's importance or discuss when rag paper was invented.",
+      "orderIndex": 7
+    },
+    {
+      "passageIndex": 8,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best states the main idea of the text?",
+      "skillCode": "information_and_ideas",
+      "difficulty": "easy",
+      "optionA": "Cities plant trees mainly to attract more birds.",
+      "optionB": "Planting trees along streets can offer cities several benefits.",
+      "optionC": "Trees make busy streets more dangerous for drivers.",
+      "optionD": "Most people prefer walking to driving.",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "The text lists several benefits of street trees: shade, cleaner air, and more pleasant walking. It does not mention birds, danger to drivers, or what most people prefer.",
+      "orderIndex": 8
+    },
+    {
+      "passageIndex": 9,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best states the main idea of the text?",
+      "skillCode": "information_and_ideas",
+      "difficulty": "medium",
+      "optionA": "Rosa comes to enjoy working in the bakery with her father despite the early hour.",
+      "optionB": "Rosa hopes to open a bakery of her own someday.",
+      "optionC": "Rosa's father is upset that she complained about waking up early.",
+      "optionD": "Rosa worries that the bakery will not have any customers.",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "Rosa starts out complaining but begins to enjoy the quiet work beside her father and forgets she is tired. Nothing mentions her own bakery, her father's being upset, or worry about customers.",
+      "orderIndex": 9
+    },
+    {
+      "passageIndex": 10,
+      "questionType": "multiple_choice",
+      "questionText": "Which quotation from the poem most effectively illustrates this claim?",
+      "skillCode": "command_of_evidence",
+      "difficulty": "medium",
+      "optionA": "\"The winter coat still hangs beside the door,\"",
+      "optionB": "\"The clouds move slowly over empty fields.\"",
+      "optionC": "\"I run outside to greet the first green shoots!\"",
+      "optionD": "\"My brother reads beside the fire each night.\"",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "Running outside to greet the first green shoots, with an exclamation point, shows excitement about spring. The other lines describe winter or calm scenes without any excitement about spring.",
+      "orderIndex": 10
+    },
+    {
+      "passageIndex": 11,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice most effectively uses data from the text to support the student's claim?",
+      "skillCode": "command_of_evidence",
+      "difficulty": "medium",
+      "optionA": "Students recycled 120 kilograms of paper in September.",
+      "optionB": "Students recycled 210 kilograms of paper in November, the most of any month.",
+      "optionC": "Students recycled a total of 480 kilograms of paper over the three months.",
+      "optionD": "The amount rose from 120 kilograms in September to 150 kilograms in October and then to 210 kilograms in November.",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "To show an increase each month, the student needs all three months in order, and only this choice gives them. A single month or a three-month total does not show a month-by-month increase.",
+      "orderIndex": 11
+    },
+    {
+      "passageIndex": 12,
+      "questionType": "multiple_choice",
+      "questionText": "Which finding, if true, would most directly support the scientist's hypothesis?",
+      "skillCode": "command_of_evidence",
+      "difficulty": "medium",
+      "optionA": "Plants that received 14 hours of light each day grew taller than plants that received 8 hours, with water and nutrients kept the same.",
+      "optionB": "Plants given more water grew taller than plants given less water.",
+      "optionC": "Tomato plants produced more fruit in summer than in spring.",
+      "optionD": "Plants that received 8 hours of light had darker leaves than plants that received 14 hours.",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "The hypothesis links more light to taller plants when water and nutrients are equal, which is exactly what this finding shows. The other findings concern water, fruit, or leaf color rather than light and height.",
+      "orderIndex": 12
+    },
+    {
+      "passageIndex": 13,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice most logically completes the text?",
+      "skillCode": "inference",
+      "difficulty": "medium",
+      "optionA": "children in the town prefer prizes to books.",
+      "optionB": "the challenge may have encouraged children to borrow more books.",
+      "optionC": "the library bought many new children's books that summer.",
+      "optionD": "most children in the town read exactly ten books.",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "Borrowing nearly doubled in the challenge's first summer, which suggests the challenge encouraged more reading. The text says nothing about preferences, new purchases, or how many books each child read.",
+      "orderIndex": 13
+    },
+    {
+      "passageIndex": 14,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice most logically completes the text?",
+      "skillCode": "inference",
+      "difficulty": "medium",
+      "optionA": "the penguins in the center never feel warm.",
+      "optionB": "the huddle becomes smaller as winter continues.",
+      "optionC": "no single penguin has to stay on the cold outer edge for very long.",
+      "optionD": "penguins avoid huddling on the coldest nights.",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "Because penguins keep rotating between the edge and the center, each one spends only part of the time on the cold outside. The center is described as warm, and nothing suggests the huddle shrinks or breaks up.",
+      "orderIndex": 14
+    },
+    {
+      "passageIndex": 15,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "easy",
+      "optionA": "buy",
+      "optionB": "are buying",
+      "optionC": "have bought",
+      "optionD": "buys",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "The subject is \"the owner,\" which is singular, so the verb must be \"buys.\" \"Shops\" is part of a phrase that describes the owner and does not control the verb.",
+      "orderIndex": 15
+    },
+    {
+      "passageIndex": 16,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "easy",
+      "optionA": "plants",
+      "optionB": "will plant",
+      "optionC": "planted",
+      "optionD": "is planting",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "\"Last summer\" and \"shared\" show that the action is in the past, so \"planted\" is correct. The present and future forms do not match.",
+      "orderIndex": 16
+    },
+    {
+      "passageIndex": 17,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "easy",
+      "optionA": "hours;",
+      "optionB": "hours,",
+      "optionC": "hours",
+      "optionD": "hours, which",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "Both parts of the sentence are complete sentences, so a semicolon correctly joins them. A comma alone is a comma splice, no punctuation is a run-on, and \"which\" makes the sentence ungrammatical.",
+      "orderIndex": 17
+    },
+    {
+      "passageIndex": 18,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "medium",
+      "optionA": "it",
+      "optionB": "they",
+      "optionC": "she",
+      "optionD": "he",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "The pronoun refers to \"the members,\" a plural noun, so \"they\" is correct. \"It\" would refer to the robot, and \"he\" and \"she\" are singular.",
+      "orderIndex": 18
+    },
+    {
+      "passageIndex": 19,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "medium",
+      "optionA": "painting's",
+      "optionB": "paintings'",
+      "optionC": "paintings",
+      "optionD": "painting",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "The sentence needs a simple plural subject for \"were painted,\" and nothing belongs to the paintings, so \"paintings\" is correct. The possessive forms are wrong, and the singular \"painting\" does not agree with \"were.\"",
+      "orderIndex": 19
+    },
+    {
+      "passageIndex": 20,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "medium",
+      "optionA": "flour,",
+      "optionB": "flour;",
+      "optionC": "flour",
+      "optionD": "flour:",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "Flour is the first item in a list, and items in a list are separated by commas. A semicolon or colon would wrongly break the list, and leaving out the comma runs \"flour\" and \"sugar\" together.",
+      "orderIndex": 20
+    },
+    {
+      "passageIndex": 21,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "medium",
+      "optionA": "River which",
+      "optionB": "River; which",
+      "optionC": "River: which",
+      "optionD": "River, which",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "\"Which flows through several countries in South America\" is extra information that already ends with a comma, so it must also begin with one. A semicolon or colon cannot introduce this clause, and leaving out the comma is also incorrect.",
+      "orderIndex": 21
+    },
+    {
+      "passageIndex": 22,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical transition?",
+      "skillCode": "transitions",
+      "difficulty": "easy",
+      "optionA": "For example,",
+      "optionB": "Then,",
+      "optionC": "Instead,",
+      "optionD": "Nevertheless,",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "The sentences describe steps in order: blood gets oxygen in the gills and then goes to the rest of the body, so \"Then\" fits. The last sentence is not an example, a replacement, or a contrast.",
+      "orderIndex": 22
+    },
+    {
+      "passageIndex": 23,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical transition?",
+      "skillCode": "transitions",
+      "difficulty": "easy",
+      "optionA": "Therefore,",
+      "optionB": "In contrast,",
+      "optionC": "For instance,",
+      "optionD": "Otherwise,",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "Marcus practiced because he had no experience, so \"Therefore\" shows the cause-and-effect relationship. There is no contrast, no example, and no alternative.",
+      "orderIndex": 23
+    },
+    {
+      "passageIndex": 24,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical transition?",
+      "skillCode": "transitions",
+      "difficulty": "medium",
+      "optionA": "However,",
+      "optionB": "As a result,",
+      "optionC": "In addition,",
+      "optionD": "Instead,",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "The feet are a second, separate way camels are suited to deserts, so \"In addition\" fits. Wide feet are not a contrast with going without water, a result of it, or a replacement for it.",
+      "orderIndex": 24
+    },
+    {
+      "passageIndex": 25,
+      "questionType": "multiple_choice",
+      "questionText": "The student wants to emphasize how far the Arctic tern travels. Which choice most effectively uses relevant information from the notes to accomplish this goal?",
+      "skillCode": "expression_of_ideas",
+      "difficulty": "medium",
+      "optionA": "The Arctic tern is a seabird that migrates every year.",
+      "optionB": "An adult Arctic tern, a type of seabird, weighs about 100 grams.",
+      "optionC": "Many seabirds, including the Arctic tern, migrate each year.",
+      "optionD": "The Arctic tern's yearly round trip between the Arctic and the Antarctic can cover about 70,000 kilometers.",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "Only this choice gives the distance (about 70,000 kilometers) and the far-apart endpoints, which emphasizes how far the bird travels. The others mention migration or weight without showing distance.",
+      "orderIndex": 25
+    },
+    {
+      "passageIndex": 26,
+      "questionType": "multiple_choice",
+      "questionText": "The student wants to explain the structure of a traditional haiku. Which choice most effectively uses relevant information from the notes to accomplish this goal?",
+      "skillCode": "expression_of_ideas",
+      "difficulty": "medium",
+      "optionA": "Haiku, a type of short poem, began in Japan.",
+      "optionB": "A traditional haiku has three lines with five, seven, and five syllables.",
+      "optionC": "Many haiku describe nature or the seasons.",
+      "optionD": "Haiku are short poems that many people enjoy writing.",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "Structure means how the poem is built: three lines of five, seven, and five syllables. The other choices give its origin, its common subjects, or a general statement.",
+      "orderIndex": 26
+    }
+  ]
+}

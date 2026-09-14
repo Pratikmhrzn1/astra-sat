@@ -1,4 +1,6 @@
+import { lazy, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { RouteBoundary } from '@/app/RouteBoundary';
 import { useAuthStore } from '@/shared/store/auth';
 import { ProtectedRoute } from '@/app/guards/ProtectedRoute';
 
@@ -7,45 +9,55 @@ import TeacherLayout from '@/layouts/TeacherLayout';
 import AdminLayout from '@/layouts/AdminLayout';
 
 import Login from '@/features/auth/pages/Login';
-import Register from '@/features/auth/pages/Register';
-import ForgotPassword from '@/features/auth/pages/ForgotPassword';
-import ResetPassword from '@/features/auth/pages/ResetPassword';
+const Register = lazy(() => import('@/features/auth/pages/Register'));
+const ForgotPassword = lazy(() => import('@/features/auth/pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('@/features/auth/pages/ResetPassword'));
 
-import StudentDashboard from '@/features/student/pages/Dashboard';
-import ExamCatalogue from '@/features/student/pages/ExamCatalogue';
-import TakeExam from '@/features/student/pages/TakeExam';
-import MockTest from '@/features/student/pages/MockTest';
-import Results from '@/features/student/pages/Results';
-import Mistakes from '@/features/student/pages/Mistakes';
-import Progress from '@/features/student/pages/Progress';
-import JoinLiveExam from '@/features/student/pages/JoinLiveExam';
-import ExamDetail from '@/features/student/pages/ExamDetail';
-import VocabReview from '@/features/student/pages/VocabReview';
-import StudentSettings from '@/features/student/pages/Settings';
+const StudentDashboard = lazy(() => import('@/features/student/pages/Dashboard'));
+const ExamCatalogue = lazy(() => import('@/features/student/pages/ExamCatalogue'));
+const TakeExam = lazy(() => import('@/features/student/pages/TakeExam'));
+const MockTest = lazy(() => import('@/features/student/pages/MockTest'));
+const Results = lazy(() => import('@/features/student/pages/Results'));
+const Mistakes = lazy(() => import('@/features/student/pages/Mistakes'));
+const Progress = lazy(() => import('@/features/student/pages/Progress'));
+const JoinLiveExam = lazy(() => import('@/features/student/pages/JoinLiveExam'));
+const ExamDetail = lazy(() => import('@/features/student/pages/ExamDetail'));
+const VocabReview = lazy(() => import('@/features/student/pages/VocabReview'));
+const StudentSettings = lazy(() => import('@/features/student/pages/Settings'));
 
-import TeacherDashboard from '@/features/teacher/pages/Dashboard';
-import Students from '@/features/teacher/pages/Students';
-import StudentDetail from '@/features/teacher/pages/StudentDetail';
-import StudentExamDetail from '@/features/teacher/pages/StudentExamDetail';
-import AddContent from '@/features/teacher/pages/AddContent';
+const TeacherDashboard = lazy(() => import('@/features/teacher/pages/Dashboard'));
+const Students = lazy(() => import('@/features/teacher/pages/Students'));
+const StudentDetail = lazy(() => import('@/features/teacher/pages/StudentDetail'));
+const StudentExamDetail = lazy(() => import('@/features/teacher/pages/StudentExamDetail'));
+const AddContent = lazy(() => import('@/features/teacher/pages/AddContent'));
 
-import AdminDashboard from '@/features/admin/pages/Dashboard';
-import Users from '@/features/admin/pages/Users';
-import AccessCodes from '@/features/admin/pages/AccessCodes';
-import Database from '@/features/admin/pages/Database';
+const AdminDashboard = lazy(() => import('@/features/admin/pages/Dashboard'));
+const Users = lazy(() => import('@/features/admin/pages/Users'));
+const AccessCodes = lazy(() => import('@/features/admin/pages/AccessCodes'));
+const Database = lazy(() => import('@/features/admin/pages/Database'));
 
-import LiveExamLobby from '@/features/live-exam/pages/LiveExamLobby';
-import LiveExams from '@/features/live-exam/pages/LiveExams';
-import LiveExamSessionPage from '@/features/live-exam/pages/LiveExamSession';
-import LiveExamStudentResult from '@/features/live-exam/pages/LiveExamStudentResult';
+const LiveExamLobby = lazy(() => import('@/features/live-exam/pages/LiveExamLobby'));
+const LiveExams = lazy(() => import('@/features/live-exam/pages/LiveExams'));
+const LiveExamSessionPage = lazy(() => import('@/features/live-exam/pages/LiveExamSession'));
+const LiveExamStudentResult = lazy(() => import('@/features/live-exam/pages/LiveExamStudentResult'));
 
-import StudentLibrary from '@/features/library/pages/StudentLibrary';
-import TeacherLibrary from '@/features/library/pages/TeacherLibrary';
-import AdminLibrary from '@/features/library/pages/AdminLibrary';
+const StudentLibrary = lazy(() => import('@/features/library/pages/StudentLibrary'));
+const TeacherLibrary = lazy(() => import('@/features/library/pages/TeacherLibrary'));
+const AdminLibrary = lazy(() => import('@/features/library/pages/AdminLibrary'));
 
-import StudentFeedback from '@/features/feedback/pages/StudentFeedback';
-import TeacherFeedback from '@/features/feedback/pages/TeacherFeedback';
-import AdminFeedback from '@/features/feedback/pages/AdminFeedback';
+const StudentFeedback = lazy(() => import('@/features/feedback/pages/StudentFeedback'));
+const TeacherFeedback = lazy(() => import('@/features/feedback/pages/TeacherFeedback'));
+const AdminFeedback = lazy(() => import('@/features/feedback/pages/AdminFeedback'));
+
+
+/**
+ * Every routed page gets its own chunk (so a student never downloads the teacher
+ * content editor or the admin database tools), plus a boundary that shows a
+ * loading state and catches render crashes instead of blanking the app.
+ */
+function page(node: ReactNode) {
+  return <RouteBoundary>{node}</RouteBoundary>;
+}
 
 /** Sends a signed-in user to their own dashboard, and everyone else to login. */
 function RootRedirect() {
@@ -74,9 +86,9 @@ export function AppRouter() {
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/register" element={page(<Register />)} />
+        <Route path="/forgot-password" element={page(<ForgotPassword />)} />
+        <Route path="/reset-password" element={page(<ResetPassword />)} />
 
         <Route
           path="/student"
@@ -87,18 +99,18 @@ export function AppRouter() {
           }
         >
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<StudentDashboard />} />
-          <Route path="exams" element={<ExamCatalogue />} />
-          <Route path="mock-test" element={<MockTest />} />
-          <Route path="results" element={<Results />} />
-          <Route path="results/:examId" element={<ExamDetail />} />
-          <Route path="feedback" element={<StudentFeedback />} />
-          <Route path="library" element={<StudentLibrary />} />
-          <Route path="progress" element={<Progress />} />
-          <Route path="mistakes" element={<Mistakes />} />
-          <Route path="live-exam" element={<JoinLiveExam />} />
-          <Route path="vocab-review" element={<VocabReview />} />
-          <Route path="settings" element={<StudentSettings />} />
+          <Route path="dashboard" element={page(<StudentDashboard />)} />
+          <Route path="exams" element={page(<ExamCatalogue />)} />
+          <Route path="mock-test" element={page(<MockTest />)} />
+          <Route path="results" element={page(<Results />)} />
+          <Route path="results/:examId" element={page(<ExamDetail />)} />
+          <Route path="feedback" element={page(<StudentFeedback />)} />
+          <Route path="library" element={page(<StudentLibrary />)} />
+          <Route path="progress" element={page(<Progress />)} />
+          <Route path="mistakes" element={page(<Mistakes />)} />
+          <Route path="live-exam" element={page(<JoinLiveExam />)} />
+          <Route path="vocab-review" element={page(<VocabReview />)} />
+          <Route path="settings" element={page(<StudentSettings />)} />
         </Route>
 
         <Route
@@ -110,16 +122,16 @@ export function AppRouter() {
           }
         >
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<TeacherDashboard />} />
-          <Route path="students" element={<Students />} />
-          <Route path="students/:studentId" element={<StudentDetail />} />
-          <Route path="students/:studentId/exams/:examId" element={<StudentExamDetail />} />
-          <Route path="content" element={<AddContent />} />
-          <Route path="feedback" element={<TeacherFeedback />} />
-          <Route path="library" element={<TeacherLibrary />} />
-          <Route path="live-exams" element={<LiveExams />} />
-          <Route path="live-exams/:sessionId" element={<LiveExamSessionPage />} />
-          <Route path="live-exams/:sessionId/participants/:participantId" element={<LiveExamStudentResult />} />
+          <Route path="dashboard" element={page(<TeacherDashboard />)} />
+          <Route path="students" element={page(<Students />)} />
+          <Route path="students/:studentId" element={page(<StudentDetail />)} />
+          <Route path="students/:studentId/exams/:examId" element={page(<StudentExamDetail />)} />
+          <Route path="content" element={page(<AddContent />)} />
+          <Route path="feedback" element={page(<TeacherFeedback />)} />
+          <Route path="library" element={page(<TeacherLibrary />)} />
+          <Route path="live-exams" element={page(<LiveExams />)} />
+          <Route path="live-exams/:sessionId" element={page(<LiveExamSessionPage />)} />
+          <Route path="live-exams/:sessionId/participants/:participantId" element={page(<LiveExamStudentResult />)} />
         </Route>
 
         <Route
@@ -131,23 +143,23 @@ export function AppRouter() {
           }
         >
           <Route index element={<Navigate to="dashboard" replace />} />
-          <Route path="dashboard" element={<AdminDashboard />} />
-          <Route path="users" element={<Users />} />
-          <Route path="access-codes" element={<AccessCodes />} />
-          <Route path="database" element={<Database />} />
-          <Route path="feedback" element={<AdminFeedback />} />
-          <Route path="library" element={<AdminLibrary />} />
+          <Route path="dashboard" element={page(<AdminDashboard />)} />
+          <Route path="users" element={page(<Users />)} />
+          <Route path="access-codes" element={page(<AccessCodes />)} />
+          <Route path="database" element={page(<Database />)} />
+          <Route path="feedback" element={page(<AdminFeedback />)} />
+          <Route path="library" element={page(<AdminLibrary />)} />
         </Route>
 
         <Route
           path="/student/exams/:examId"
           element={
             <ProtectedRoute role="student">
-              <TakeExam />
+              {page(<TakeExam />)}
             </ProtectedRoute>
           }
         />
-        <Route path="/live/:joinCode" element={<LiveExamLobby />} />
+        <Route path="/live/:joinCode" element={page(<LiveExamLobby />)} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

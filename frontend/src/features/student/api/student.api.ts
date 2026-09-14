@@ -145,6 +145,8 @@ export async function startExam(setId: string): Promise<{ exam: Exam; questions:
   return data;
 }
 
+export type MockSection = 'english_m1' | 'english_m2' | 'math_m1' | 'math_m2';
+
 export async function getExam(examId: string, { open = false }: { open?: boolean } = {}): Promise<{
   exam: Exam;
   questions: Question[];
@@ -153,6 +155,8 @@ export async function getExam(examId: string, { open = false }: { open?: boolean
   mockTestId: string | null;
   /** Where the Math section starts, so the player can chain English -> Math. */
   mathExamId: string | null;
+  /** Which module of its mock this exam is; null outside a mock. */
+  mockSection: MockSection | null;
   /** Server deadline for this attempt; null when untimed or not yet opened. */
   deadlineAt: string | null;
   /** The server's clock at response time, to correct a wrong device clock. */
@@ -172,11 +176,15 @@ export async function saveAnswers(
   await apiClient.put(`/student/exams/${examId}/answers`, { answers, timeSpentSeconds });
 }
 
+export type AnswerPayload = { questionId: string; selectedAnswer?: string | null; selectedAnswerText?: string | null };
+
+/** `answers` are the player's final picks; the server saves them before it grades. */
 export async function submitExam(
   examId: string,
-  timeSpentSeconds?: number
+  timeSpentSeconds?: number,
+  answers?: AnswerPayload[],
 ): Promise<{ score: number; total: number; percentage: number }> {
-  const { data } = await apiClient.post(`/student/exams/${examId}/submit`, { timeSpentSeconds });
+  const { data } = await apiClient.post(`/student/exams/${examId}/submit`, { timeSpentSeconds, answers });
   return data;
 }
 
@@ -187,9 +195,9 @@ export async function submitExam(
  * the player's own countdown fires the exam may already be graded. That is the
  * outcome the student wanted, not an error to stall the section transition on.
  */
-export async function submitExamIfOpen(examId: string, timeSpentSeconds?: number): Promise<void> {
+export async function submitExamIfOpen(examId: string, timeSpentSeconds?: number, answers?: AnswerPayload[]): Promise<void> {
   try {
-    await submitExam(examId, timeSpentSeconds);
+    await submitExam(examId, timeSpentSeconds, answers);
   } catch (err) {
     if (/already completed/i.test(getApiError(err))) return;
     throw err;

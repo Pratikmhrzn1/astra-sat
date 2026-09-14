@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getAnalytics, getExams } from '@/features/student/api/student.api';
 import { TREND_COLORS } from '@/shared/ui';
 import { getLiveExamResults, type LiveExamResult } from '@/features/live-exam/api/live-exam.api';
+import { LiveResultCard } from '@/features/live-exam/components/LiveResultCard';
 import { useMobile } from '@/shared/hooks/useMobile';
 import { NO_SCORE, SECTION_MAX, formatExamScore, scoreColor } from '@/shared/lib/score';
 
@@ -19,16 +20,14 @@ export default function Results() {
   const defaultTab = searchParams.get('tab') === 'live' ? 'live' : 'practice';
   const [mainTab, setMainTab] = useState<'practice' | 'live'>(defaultTab);
 
-  const [liveResults, setLiveResults] = useState<LiveExamResult[]>([]);
-  const [liveLoading, setLiveLoading] = useState(false);
-  useEffect(() => {
-    if (mainTab === 'live') {
-      setLiveLoading(true);
-      getLiveExamResults()
-        .then(setLiveResults)
-        .finally(() => setLiveLoading(false));
-    }
-  }, [mainTab]);
+  // Through React Query like the rest of the page: a failed load used to leave
+  // the tab reading "No live exam results yet".
+  const { data: liveResults = [], isLoading: liveLoading, isError: liveError, refetch: refetchLive } = useQuery({
+    queryKey: ['student', 'live-exam-results'],
+    queryFn: getLiveExamResults,
+    enabled: mainTab === 'live',
+    meta: { handlesError: true },
+  });
 
   const { data: exams = [], isLoading } = useQuery({ queryKey: ['student', 'exams'], queryFn: getExams });
 
@@ -63,9 +62,9 @@ export default function Results() {
       <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.64)', margin: '0 0 16px' }}>Every test you've taken, scored and timestamped.</p>
 
       {/* Main tab switcher */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      <div role="tablist" aria-label="History type" style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {(['practice', 'live'] as const).map((t) => (
-          <button key={t} onClick={() => setMainTab(t)} style={{ padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', border: mainTab === t ? '1px solid #0B0B0E' : '1px solid #C8C4BC', background: mainTab === t ? '#0B0B0E' : '#fff', color: mainTab === t ? '#fff' : '#0B0B0E' }}>
+          <button key={t} role="tab" aria-selected={mainTab === t} onClick={() => setMainTab(t)} style={{ padding: '8px 18px', borderRadius: 9999, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', border: mainTab === t ? '1px solid #0B0B0E' : '1px solid #C8C4BC', background: mainTab === t ? '#0B0B0E' : '#fff', color: mainTab === t ? '#fff' : '#0B0B0E' }}>
             {t === 'practice' ? 'Practice History' : 'Live Exams'}
           </button>
         ))}
@@ -75,42 +74,26 @@ export default function Results() {
       {mainTab === 'live' && (
         <div>
           {liveLoading ? (
-            <div style={{ color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>Loading…</div>
+            <div role="status" aria-label="Loading" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[0, 1].map((i) => <div key={i} style={{ height: 76, borderRadius: 16, background: '#F2F0EC' }} />)}
+            </div>
+          ) : liveError ? (
+            <div role="alert" style={{ ...CARD, padding: '28px 24px', textAlign: 'center' }}>
+              <p style={{ fontSize: 14, color: '#C0392B', margin: '0 0 14px' }}>Couldn't load your live exam results.</p>
+              <button onClick={() => refetchLive()} style={{ height: 36, padding: '0 16px', borderRadius: 9999, border: '1px solid #D8D4CC', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Try again</button>
+            </div>
           ) : liveResults.length === 0 ? (
-            <div style={{ ...CARD, padding: '48px 24px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>
-              No live exam results yet. Results appear here once your teacher releases them.
+            <div style={{ ...CARD, padding: '44px 24px', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, color: 'rgba(11,11,14,0.72)', marginBottom: 6 }}>No live exam results yet</div>
+              <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.64)', margin: '0 auto 16px', maxWidth: 380, lineHeight: 1.6 }}>
+                Results appear here once your teacher releases them.
+              </p>
+              <button onClick={() => navigate('/student/live-exam')} style={{ height: 38, padding: '0 18px', borderRadius: 9999, border: 'none', background: '#C4471F', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Join a live exam</button>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {liveResults.map((r) => (
-                <div key={r.participantId} style={{ ...CARD, padding: '16px 20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                    <div>
-                      <p style={{ fontWeight: 700, fontSize: 15, margin: 0 }}>{r.sessionTitle}</p>
-                      <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.64)', margin: '2px 0 0' }}>
-                        {r.startedAt ? new Date(r.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date unknown'}
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {r.englishExamId && (
-                        <button onClick={() => navigate(`/student/results/${r.englishExamId}`)} style={{ fontSize: 13, fontWeight: 600, padding: '7px 14px', borderRadius: 9999, border: '1px solid #C8C4BC', background: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-                          R&W Results
-                        </button>
-                      )}
-                      {r.mathExamId && (
-                        <button onClick={() => navigate(`/student/results/${r.mathExamId}`)} style={{ fontSize: 13, fontWeight: 600, padding: '7px 14px', borderRadius: 9999, border: '1px solid #C8C4BC', background: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-                          Math Results
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {r.globalFeedback && (
-                    <div style={{ marginTop: 12, borderTop: '1px solid #F0ECE4', paddingTop: 12 }}>
-                      <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', margin: '0 0 4px' }}>Teacher Feedback</p>
-                      <p style={{ fontSize: 14, color: '#0B0B0E', margin: 0, whiteSpace: 'pre-line' }}>{r.globalFeedback}</p>
-                    </div>
-                  )}
-                </div>
+              {liveResults.map((r: LiveExamResult) => (
+                <LiveResultCard key={r.participantId} result={r} isMobile={isMobile} onOpen={(examId) => navigate(`/student/results/${examId}`)} />
               ))}
             </div>
           )}

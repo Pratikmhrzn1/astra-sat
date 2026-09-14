@@ -1,9 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getExam, saveAnswers, submitExamIfOpen, nextModule } from '@/features/student/api/student.api';
+import { isAxiosError } from 'axios';
+import { getExam, saveAnswers, submitExamIfOpen, nextModule, type MockSection } from '@/features/student/api/student.api';
+import { getApiError } from '@/shared/api/client';
 import { saveExamProgress, loadExamProgress, clearExamProgress } from '@/shared/lib/offline';
 import { useMobile } from '@/shared/hooks/useMobile';
+import { Modal } from '@/shared/ui/Modal';
+import { Button } from '@/shared/ui/Button';
 
 export default function TakeExam() {
   const { examId } = useParams<{ examId: string }>();
@@ -37,7 +41,12 @@ export default function TakeExam() {
   const [timerEnabled, setTimerEnabled] = useState<boolean>(locationState?.timerEnabled ?? false);
   const [sectionBanner, setSectionBanner] = useState<boolean>(locationState?.fromMockSection1 ?? false);
   const [transitioning, setTransitioning] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Shown when a submit or section transition fails, so the student is never
+  // left on a spinner with no way forward.
+  const [actionError, setActionError] = useState<string | null>(null);
   const examTitle = locationState?.examTitle;
+  const isLiveExam = !!(locationState?.liveExam);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -47,7 +56,13 @@ export default function TakeExam() {
   const timeLeftRef = useRef<number>(20 * 60);
   const mathExamIdRef = useRef<string | null>(null);
   const transitioningRef = useRef(false);
-  const mockSectionRef = useRef(locationState?.mockSection);
+  // Where this exam sits in an adaptive mock. Router state supplies these on a
+  // normal start; the server fills them in when the module was reopened without
+  // it (resume banner, reload in a new tab).
+  const mockSectionRef = useRef<MockSection | undefined>(locationState?.mockSection);
+  const mockTestIdRef = useRef<string | undefined>(locationState?.mockTestId);
+  const mathM1ExamIdRef = useRef<string | undefined>(locationState?.mathM1ExamId);
+  const [mockSection, setMockSection] = useState<MockSection | undefined>(locationState?.mockSection);
   // Server deadline (epoch ms) and device-clock correction. When a deadline is
   // known the countdown is recomputed from it every tick, so a reload, a
   // throttled background tab or a changed device clock cannot stretch it.
@@ -81,16 +96,22 @@ export default function TakeExam() {
     mathExamIdRef.current = null;
     // B10: the section changes with the exam, so the ref must follow it too.
     mockSectionRef.current = locationState?.mockSection;
+    mockTestIdRef.current = locationState?.mockTestId;
+    mathM1ExamIdRef.current = locationState?.mathM1ExamId;
+    setMockSection(locationState?.mockSection);
     deadlineRef.current = null;
     answersInitForRef.current = null;
+    setConfirmOpen(false);
+    setActionError(null);
     setSectionBanner(!!(locationState?.fromMockSection1));
   }, [examId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error: loadError, refetch } = useQuery({
     queryKey: ['student', 'exam', examId],
     // The player opening the exam is what starts a timed module's clock.
     queryFn: () => getExam(examId!, { open: true }),
     enabled: !!examId,
+    meta: { handlesError: true },
   });
 
   // Capture where the Math section starts; pre-fetch it so the English→Math
@@ -98,13 +119,30 @@ export default function TakeExam() {
   // (for the regular submit path).
   useEffect(() => {
     if (!data) return;
+    // A cached read of the previous exam can land before the new one's; ignore it.
+    if (data.exam.id !== examId) return;
     dataRef.current = data;
-    // For live exams, math/english exam IDs come from location state (set by lobby)
-    mathExamIdRef.current = data.mathExamId ?? locationState?.mathExamId ?? null;
-    if (data.mathExamId) {
+
+    if (data.mockSection) {
+      mockSectionRef.current ??= data.mockSection;
+      mockTestIdRef.current ??= data.mockTestId ?? undefined;
+      mathM1ExamIdRef.current ??= data.mathExamId ?? undefined;
+      setMockSection(mockSectionRef.current);
+    }
+
+    // The English → Math chain of a live exam or a legacy non-adaptive mock. Only
+    // an English section chains: the lobby's `mathExamId` stays in router state
+    // on the Math section too, and used to make its last button and its timeout
+    // reopen the same Math exam instead of submitting it.
+    const chainTarget = data.mathExamId ?? locationState?.mathExamId ?? null;
+    mathExamIdRef.current =
+      !mockSectionRef.current && data.exam.type === 'mock_english' && chainTarget !== examId ? chainTarget : null;
+    if (data.mathExamId && data.mathExamId !== examId) {
       queryClient.prefetchQuery({
         queryKey: ['student', 'exam', data.mathExamId],
         queryFn: () => getExam(data.mathExamId!),
+        // A failed warm-up is harmless: the section loads normally when opened.
+        meta: { handlesError: true },
       });
     }
     if (transitioningRef.current) {
@@ -187,22 +225,47 @@ export default function TakeExam() {
     return savedTimeSpentRef.current + elapsedRef.current;
   }, []);
 
-  const saveMutation = useMutation({
-    mutationFn: ({ ans, time }: { ans: typeof answers; time: number }) =>
-      saveAnswers(examId!, Object.entries(ans).map(([questionId, value]) => {
-        const q = data?.questions.find((qq) => qq.id === questionId);
-        const isSPR = q?.questionType === 'student_produced_response';
-        return { questionId, selectedAnswer: isSPR ? null : (value as 'a' | 'b' | 'c' | 'd' | null), selectedAnswerText: isSPR ? value : null };
-      }), time),
-  });
+  // The current picks in the shape the server stores. Reads refs, so it is safe
+  // inside the timer and transition callbacks.
+  const formatAnswers = useCallback(() => {
+    const currentData = dataRef.current;
+    return Object.entries(answersRef.current).map(([questionId, value]) => {
+      const q = currentData?.questions.find((qq) => qq.id === questionId);
+      const isSPR = q?.questionType === 'student_produced_response';
+      return {
+        questionId,
+        selectedAnswer: isSPR ? null : (value as 'a' | 'b' | 'c' | 'd' | null),
+        selectedAnswerText: isSPR ? value : null,
+      };
+    });
+  }, []);
 
-  const isLiveExam = !!(locationState?.liveExam);
+  const saveMutation = useMutation({
+    mutationFn: ({ time }: { time: number }) => saveAnswers(examId!, formatAnswers(), time),
+    onError: (err) => {
+      // 409: the server closed this section because its time ran out (e.g. the
+      // tab slept through the deadline). Refetch so the closed-exam handler below
+      // moves the student on, rather than letting them keep answering into a void.
+      if (isAxiosError(err) && err.response?.status === 409) {
+        queryClient.invalidateQueries({ queryKey: ['student', 'exam', examId] });
+      }
+    },
+  });
 
   // Final submit (Math section or individual exam) — shows overlay while waiting for server
   const submitMutation = useMutation({
-    mutationFn: () => submitExamIfOpen(examId!, getTimeSpent()),
+    // Final picks travel with the submit. Without them the server graded only what
+    // the last 30-second autosave had stored, so recent picks were lost.
+    mutationFn: () => submitExamIfOpen(examId!, getTimeSpent(), formatAnswers()),
+    onError: (err) => {
+      transitioningRef.current = false;
+      setTransitioning(false);
+      setActionError(`Couldn't submit: ${getApiError(err)}. Your answers are saved on this device — try again.`);
+    },
     onSuccess: async () => {
-      if (examId) await clearExamProgress(examId);
+      if (examId) await clearExamProgress(examId).catch(() => {});
+      // Stale lists would otherwise still show this exam as in progress.
+      queryClient.invalidateQueries({ queryKey: ['student'] });
       transitioningRef.current = false;
       setTransitioning(false);
       if (isLiveExam) {
@@ -210,11 +273,11 @@ export default function TakeExam() {
         return;
       }
       // Adaptive: English M2 done → start Math M1
-      if (locationState?.mockSection === 'english_m2' && locationState.mathM1ExamId) {
-        navigate(`/student/exams/${locationState.mathM1ExamId}`, {
+      if (mockSectionRef.current === 'english_m2' && mathM1ExamIdRef.current) {
+        navigate(`/student/exams/${mathM1ExamIdRef.current}`, {
           replace: true,
           state: {
-            mockTestId: locationState.mockTestId,
+            mockTestId: mockTestIdRef.current,
             mockSection: 'math_m1',
             fromMockSection1: false,
             timerEnabled: true,
@@ -231,67 +294,48 @@ export default function TakeExam() {
   });
 
   const handleSubmit = () => {
+    if (transitioningRef.current) return;
     transitioningRef.current = true;
     setTransitioning(true);
+    setActionError(null);
     submitMutation.mutate();
   };
 
   // Mock English → Math: navigate instantly (Math data is pre-fetched), submit Section 1 in background.
   // Uses refs so this is safe to call from inside timer callbacks.
   const handleNextSection = useCallback(() => {
-    const mathId = mathExamIdRef.current!;
+    const mathId = mathExamIdRef.current;
+    if (!mathId) return;
     const currentExamId = examId!;
     const timeSpent = getTimeSpent();
-    const currentData = dataRef.current!;
-    const formattedAnswers = Object.entries(answersRef.current).map(([questionId, value]) => {
-      const q = currentData.questions.find((qq) => qq.id === questionId);
-      const isSPR = q?.questionType === 'student_produced_response';
-      return {
-        questionId,
-        selectedAnswer: isSPR ? null : (value as 'a' | 'b' | 'c' | 'd' | null),
-        selectedAnswerText: isSPR ? value : null,
-      };
-    });
+    const formattedAnswers = formatAnswers();
     const nextState = isLiveExam
       ? { ...locationState, fromMockSection1: true }
       : { fromMockSection1: true };
     navigate(`/student/exams/${mathId}`, { replace: true, state: nextState });
-    // Save latest answers → submit → clear IDB, all in background
-    // A refused late save (time already up) must not stop the submit behind it.
-    saveAnswers(currentExamId, formattedAnswers, timeSpent)
-      .catch(() => {})
-      .then(() => submitExamIfOpen(currentExamId, timeSpent))
+    // Submit (carrying the final answers) → clear IDB, in the background.
+    submitExamIfOpen(currentExamId, timeSpent, formattedAnswers)
       .then(() => clearExamProgress(currentExamId))
       .catch(() => {});
-  }, [examId, navigate, getTimeSpent]);
+  }, [examId, navigate, getTimeSpent, formatAnswers, isLiveExam, locationState]);
 
   // Adaptive M1→M2 transition: submit M1, call next-module API, navigate to M2
   const handleAdaptiveNextSection = useCallback(async () => {
-    const mt = locationState?.mockTestId;
+    const mt = mockTestIdRef.current;
     const ms = mockSectionRef.current;
     if (!mt || !ms) return;
 
     transitioningRef.current = true;
     setTransitioning(true);
+    setActionError(null);
 
     const currentExamId = examId!;
-    const timeSpent = getTimeSpent();
-    const currentData = dataRef.current!;
-    const formattedAnswers = Object.entries(answersRef.current).map(([questionId, value]) => {
-      const q = currentData.questions.find((qq) => qq.id === questionId);
-      const isSPR = q?.questionType === 'student_produced_response';
-      return {
-        questionId,
-        selectedAnswer: isSPR ? null : (value as 'a' | 'b' | 'c' | 'd' | null),
-        selectedAnswerText: isSPR ? value : null,
-      };
-    });
 
     try {
-      // A save refused because time is up still leaves the server's copy to grade.
-      await saveAnswers(currentExamId, formattedAnswers, timeSpent).catch(() => {});
-      await submitExamIfOpen(currentExamId, timeSpent);
-      await clearExamProgress(currentExamId);
+      // The submit saves the final answers first; past the deadline the server
+      // grades its own copy and reports the exam as done.
+      await submitExamIfOpen(currentExamId, getTimeSpent(), formatAnswers());
+      await clearExamProgress(currentExamId).catch(() => {});
       const { m2ExamId } = await nextModule(mt, currentExamId);
 
       const isMathM1 = ms === 'math_m1';
@@ -300,17 +344,42 @@ export default function TakeExam() {
         state: {
           mockTestId: mt,
           mockSection: isMathM1 ? 'math_m2' : 'english_m2',
-          mathM1ExamId: locationState?.mathM1ExamId,
+          mathM1ExamId: mathM1ExamIdRef.current,
           fromMockSection1: true,
           timerEnabled: true,
           examTitle: isMathM1 ? 'Module 2 · Math' : 'Module 2 · Reading & Writing',
         },
       });
-    } catch {
+    } catch (err) {
       transitioningRef.current = false;
       setTransitioning(false);
+      setActionError(`Couldn't start the next module: ${getApiError(err)}. Try again.`);
     }
-  }, [examId, locationState, navigate, getTimeSpent]);
+  }, [examId, navigate, getTimeSpent, formatAnswers]);
+
+  /**
+   * Ends the current section the way its position demands: into Module 2, into
+   * the Math section, or a final submit. Every "finish" control and the timeout
+   * go through here — the top-bar "Submit test" used to always do a plain
+   * submit, which stranded an adaptive mock after Module 1.
+   */
+  const finishSection = () => {
+    if (transitioningRef.current) return;
+    setConfirmOpen(false);
+    const ms = mockSectionRef.current;
+    if (ms === 'english_m1' || ms === 'math_m1') {
+      handleAdaptiveNextSection().catch(() => {});
+    } else if (mathExamIdRef.current) {
+      handleNextSection();
+    } else {
+      handleSubmit();
+    }
+  };
+
+  // The interval below is created once per exam; it calls through this ref so it
+  // always reaches the current render's handlers rather than the first one's.
+  const finishSectionRef = useRef(finishSection);
+  finishSectionRef.current = finishSection;
 
   // Opened an exam the server has already closed — its time ran out while the
   // student was away. Carry on exactly as a timeout here would have: into the
@@ -330,10 +399,10 @@ export default function TakeExam() {
       handleAdaptiveNextSection().catch(() => {});
       return;
     }
-    if (ms === 'english_m2' && locationState?.mathM1ExamId) {
-      navigate(`/student/exams/${locationState.mathM1ExamId}`, {
+    if (ms === 'english_m2' && mathM1ExamIdRef.current) {
+      navigate(`/student/exams/${mathM1ExamIdRef.current}`, {
         replace: true,
-        state: { mockTestId: locationState.mockTestId, mockSection: 'math_m1', fromMockSection1: false, timerEnabled: true, examTitle: 'Module 1 · Math' },
+        state: { mockTestId: mockTestIdRef.current, mockSection: 'math_m1', fromMockSection1: false, timerEnabled: true, examTitle: 'Module 1 · Math' },
       });
       return;
     }
@@ -344,34 +413,29 @@ export default function TakeExam() {
     navigate(`/student/results/${examId}`, { replace: true });
   }, [data, examId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Countdown timer — only when timerEnabled
+  // Countdown timer — only when timerEnabled. Restarted per exam: after a
+  // timeout the interval is cleared, and a section transition keeps
+  // `timerEnabled` true, so keying on it alone left the next module's clock
+  // frozen with no auto-submit.
   useEffect(() => {
     if (!timerEnabled) return;
+    let fired = false;
     timerRef.current = setInterval(() => {
-      setTimeLeft((t) => {
-        const next = deadlineRef.current !== null
-          ? Math.max(0, Math.ceil((deadlineRef.current - (Date.now() + clockOffsetRef.current)) / 1000))
-          : Math.max(0, t - 1);
-        timeLeftRef.current = next;
-        if (next <= 0) {
-          clearInterval(timerRef.current!);
-          const ms = mockSectionRef.current;
-          if (ms === 'english_m1' || ms === 'math_m1') {
-            handleAdaptiveNextSection().catch(() => {});
-          } else if (mathExamIdRef.current && !ms) {
-            // Legacy non-adaptive mock: English → Math directly
-            handleNextSection();
-          } else {
-            transitioningRef.current = true;
-            setTransitioning(true);
-            submitMutation.mutate();
-          }
-        }
-        return next;
-      });
+      const next = deadlineRef.current !== null
+        ? Math.max(0, Math.ceil((deadlineRef.current - (Date.now() + clockOffsetRef.current)) / 1000))
+        : Math.max(0, timeLeftRef.current - 1);
+      timeLeftRef.current = next;
+      setTimeLeft(next);
+      // Wait for this exam's data: until then the countdown is a placeholder. An
+      // exam the server already closed is handled by the effect above instead.
+      const current = dataRef.current;
+      if (next > 0 || fired || !current || current.exam.id !== examId || current.exam.status === 'completed') return;
+      fired = true;
+      clearInterval(timerRef.current!);
+      finishSectionRef.current();
     }, 1000);
     return () => clearInterval(timerRef.current!);
-  }, [timerEnabled]);
+  }, [timerEnabled, examId]);
 
   // Always count elapsed seconds (used for untimed time-spent tracking)
   useEffect(() => {
@@ -387,9 +451,16 @@ export default function TakeExam() {
     return () => { window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline); };
   }, []);
 
+  // Reads refs only, so the autosave interval can stay stable. It used to depend
+  // on `answers`, which tore the 30-second interval down on every pick — a
+  // student answering faster than that never autosaved at all.
   const syncAnswers = useCallback(() => {
-    if (isOnline && examId) saveMutation.mutate({ ans: answers, time: getTimeSpent() });
-  }, [answers, isOnline, examId, getTimeSpent]);
+    const current = dataRef.current;
+    if (!navigator.onLine || !examId || transitioningRef.current) return;
+    if (!current || current.exam.id !== examId || current.exam.status !== 'in_progress') return;
+    if (answersInitForRef.current !== examId || Object.keys(answersRef.current).length === 0) return;
+    saveMutation.mutate({ time: getTimeSpent() });
+  }, [examId, getTimeSpent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save to IDB on every answer change
   useEffect(() => {
@@ -398,14 +469,53 @@ export default function TakeExam() {
 
   useEffect(() => {
     syncRef.current = setInterval(syncAnswers, 30000);
-    return () => clearInterval(syncRef.current!);
+    // Leaving the tab (or the page) is the moment a phone may kill it: flush then.
+    const onHide = () => { if (document.visibilityState === 'hidden') syncAnswers(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      clearInterval(syncRef.current!);
+      document.removeEventListener('visibilitychange', onHide);
+    };
   }, [syncAnswers]);
 
   useEffect(() => {
     if (isOnline) syncAnswers();
-  }, [isOnline]);
+  }, [isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (isLoading || !data) {
+  // ← / → move between questions, unless the student is typing a grid-in answer.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (confirmOpen || transitioningRef.current || e.altKey || e.ctrlKey || e.metaKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      const count = dataRef.current?.questions.length ?? 0;
+      if (e.key === 'ArrowRight') setIndex((i) => Math.min(Math.max(0, count - 1), i + 1));
+      else if (e.key === 'ArrowLeft') setIndex((i) => Math.max(0, i - 1));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [confirmOpen]);
+
+  const handleExit = () => {
+    // Best-effort flush so leaving never costs the last half-minute of picks.
+    syncAnswers();
+    navigate(-1);
+  };
+
+  if (isError && !data) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24, textAlign: 'center', background: '#FAF9F6' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, color: '#0B0B0E' }}>Couldn't open this exam</div>
+        <p style={{ fontSize: 14.5, color: 'rgba(11,11,14,0.64)', margin: 0, maxWidth: 420 }}>{getApiError(loadError)}</p>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Button variant="secondary" onClick={() => navigate('/student/dashboard', { replace: true })}>Back to dashboard</Button>
+          <Button onClick={() => refetch()}>Try again</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading || !data || data.exam.id !== examId) {
     return (
       <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAF9F6' }}>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24, color: 'rgba(11,11,14,0.58)' }}>Loading exam…</div>
@@ -414,10 +524,18 @@ export default function TakeExam() {
   }
 
   const { exam, questions } = data;
+  if (questions.length === 0) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 24, background: '#FAF9F6' }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24 }}>This exam has no questions</div>
+        <Button variant="secondary" onClick={() => navigate('/student/dashboard', { replace: true })}>Back to dashboard</Button>
+      </div>
+    );
+  }
   const isPractice = exam.type === 'individual';
   const isActuallyMath = exam.type === 'mock_math';
-  const q = questions[index];
   const total = questions.length;
+  const q = questions[Math.min(index, total - 1)];
   const mins = String(Math.floor(timeLeft / 60)).padStart(2, '0');
   const secs = String(timeLeft % 60).padStart(2, '0');
   const low = timeLeft < 300;
@@ -440,7 +558,13 @@ export default function TakeExam() {
     });
   };
 
-  const mockSection = locationState?.mockSection;
+  const answeredCount = questions.filter((qq) => { const v = answers[qq.id]; return v !== null && v !== undefined && v !== ''; }).length;
+  const unansweredCount = total - answeredCount;
+  const flaggedCount = Object.values(flags).filter(Boolean).length;
+  const isModuleOne = mockSection === 'english_m1' || mockSection === 'math_m1';
+  const isNextSection = !mockSection && !!mathExamIdRef.current;
+  const finishLabel = isModuleOne ? 'Finish module' : isNextSection ? 'Finish section' : 'Submit test';
+  const requestFinish = () => { if (!transitioningRef.current) setConfirmOpen(true); };
 
   const renderBottomAction = () => {
     const btnStyle: React.CSSProperties = {
@@ -458,20 +582,19 @@ export default function TakeExam() {
       if (mockSection === 'english_m1' || mockSection === 'math_m1') {
         return (
           <button
-            onClick={() => handleAdaptiveNextSection().catch(() => {})}
+            onClick={requestFinish}
             disabled={transitioning}
             style={{ ...btnStyle, border: 'none', background: '#2563A8', color: '#fff', cursor: transitioning ? 'default' : 'pointer' }}
           >{transitioning ? 'Loading…' : 'Next Module →'}</button>
         );
       }
-      // Legacy non-adaptive mock: English → Math directly
-      const isNextSection = !mockSection && !!mathExamIdRef.current;
+      // Live exam: English → Math directly
       return (
         <button
-          onClick={isNextSection ? handleNextSection : handleSubmit}
+          onClick={requestFinish}
           disabled={transitioning}
           style={{ ...btnStyle, border: 'none', background: isNextSection ? '#2563A8' : '#C4471F', color: '#fff', cursor: transitioning ? 'default' : 'pointer' }}
-        >{isNextSection ? 'Next Section →' : 'Submit test'}</button>
+        >{isNextSection ? 'Next Section →' : transitioning ? 'Submitting…' : 'Submit test'}</button>
       );
     }
     return (
@@ -488,7 +611,7 @@ export default function TakeExam() {
       {isMobile ? (
         <div style={{ height: 56, flexShrink: 0, background: '#fff', borderBottom: '1px solid #E7E4DE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px', gap: 8 }}>
           <button
-            onClick={() => navigate(-1)}
+            onClick={handleExit}
             aria-label="Exit test"
             style={{ border: '1px solid #C8C4BC', background: '#fff', borderRadius: 9999, padding: '7px 12px', fontSize: 14, fontWeight: 700, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit', flexShrink: 0, lineHeight: 1 }}
           >←</button>
@@ -523,7 +646,7 @@ export default function TakeExam() {
         <div style={{ height: 62, flexShrink: 0, background: '#fff', borderBottom: '1px solid #E7E4DE', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
             <button
-              onClick={() => navigate(-1)}
+              onClick={handleExit}
               style={{ display: 'flex', alignItems: 'center', gap: 7, border: '1px solid #C8C4BC', background: '#fff', borderRadius: 9999, padding: '7px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit' }}
             >← Exit</button>
             <div>
@@ -565,10 +688,10 @@ export default function TakeExam() {
               {flagged ? 'Flagged' : 'Flag'}
             </button>
             <button
-              onClick={handleSubmit}
+              onClick={requestFinish}
               disabled={transitioning}
               style={{ border: '1px solid #0B0B0E', background: '#0B0B0E', color: '#fff', borderRadius: 9999, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: transitioning ? 'default' : 'pointer', fontFamily: 'inherit' }}
-            >Submit test</button>
+            >{finishLabel}</button>
           </div>
         </div>
       )}
@@ -587,6 +710,17 @@ export default function TakeExam() {
             </span>
           </div>
           <button onClick={() => setSectionBanner(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#6B7280', fontSize: 18, lineHeight: 1, padding: '0 4px', fontFamily: 'inherit' }}>×</button>
+        </div>
+      )}
+
+      {/* Failed submit / transition */}
+      {actionError && (
+        <div role="alert" style={{ flexShrink: 0, background: 'rgba(192,57,43,0.07)', borderBottom: '1px solid rgba(192,57,43,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: isMobile ? '10px 14px' : '10px 24px' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#A93226' }}>{actionError}</span>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            <button onClick={finishSection} style={{ border: 'none', background: '#C0392B', color: '#fff', borderRadius: 9999, padding: '6px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Retry</button>
+            <button onClick={() => setActionError(null)} aria-label="Dismiss" style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#6B7280', fontSize: 18, lineHeight: 1, padding: '0 4px', fontFamily: 'inherit' }}>×</button>
+          </div>
         </div>
       )}
 
@@ -686,10 +820,10 @@ export default function TakeExam() {
           {isMobile && (
             <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #F0ECE4', flexShrink: 0 }}>
               <button
-                onClick={() => { setNavOpen(false); handleSubmit(); }}
+                onClick={() => { setNavOpen(false); requestFinish(); }}
                 disabled={transitioning}
                 style={{ width: '100%', height: 42, borderRadius: 9999, border: 'none', background: '#0B0B0E', color: '#fff', fontSize: 14, fontWeight: 600, cursor: transitioning ? 'default' : 'pointer', fontFamily: 'inherit' }}
-              >Submit test</button>
+              >{finishLabel}</button>
             </div>
           )}
         </div>
@@ -718,6 +852,41 @@ export default function TakeExam() {
           {renderBottomAction()}
         </div>
       </div>
+
+      {/* Finish confirmation — ending a section cannot be undone */}
+      <Modal
+        isOpen={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title={isModuleOne ? 'Finish this module?' : isNextSection ? 'Finish this section?' : 'Submit your test?'}
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmOpen(false)}>Keep working</Button>
+            <Button onClick={finishSection} loading={transitioning}>{finishLabel}</Button>
+          </>
+        }
+      >
+        <p style={{ margin: '0 0 12px', color: 'rgba(11,11,14,0.7)' }}>
+          {isModuleOne || isNextSection
+            ? "You won't be able to come back to these questions once the next part starts."
+            : "You won't be able to change your answers after submitting."}
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 13.5 }}>
+          <span style={{ padding: '5px 10px', borderRadius: 9999, background: '#F2F0EC' }}><strong>{answeredCount}</strong> of {total} answered</span>
+          {unansweredCount > 0 && <span style={{ padding: '5px 10px', borderRadius: 9999, background: 'rgba(192,57,43,0.08)', color: '#A93226' }}><strong>{unansweredCount}</strong> unanswered</span>}
+          {flaggedCount > 0 && <span style={{ padding: '5px 10px', borderRadius: 9999, background: 'rgba(226,86,43,0.08)', color: '#C4471F' }}><strong>{flaggedCount}</strong> flagged</span>}
+        </div>
+        {(unansweredCount > 0 || flaggedCount > 0) && (
+          <button
+            onClick={() => {
+              const target = questions.findIndex((qq, qi) => !answers[qq.id] || flags[qi]);
+              if (target >= 0) setIndex(target);
+              setConfirmOpen(false);
+            }}
+            style={{ marginTop: 12, border: 'none', background: 'none', padding: 0, color: '#2563A8', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+          >Review {unansweredCount > 0 ? 'unanswered' : 'flagged'} questions →</button>
+        )}
+      </Modal>
 
       {/* Full-screen overlay during section submit / transition */}
       {transitioning && (

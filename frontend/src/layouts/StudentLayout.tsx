@@ -104,6 +104,7 @@ export default function StudentLayout() {
   const feedbackMutation = useMutation({
     mutationFn: () => submitFeedback({ category: feedbackCategory, message: feedbackMessage }),
     onSuccess: () => setFeedbackSent(true),
+    onError: () => {}, // shown inline on the page, not as a toast
   });
 
   const closeFeedbackModal = () => {

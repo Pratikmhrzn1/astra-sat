@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/shared/store/auth';
 import { joinSession, pollSession, type JoinResponse } from '@/features/live-exam/api/live-exam.api';
 import { getApiError } from '@/shared/api/client';
-import { CARD, H1, JoinCodePlate, PillButton, T } from '@/features/live-exam/ui';
+import { CARD, H1, JoinCodePlate, KICKER, PillButton, T } from '@/features/live-exam/ui';
 
 /**
  * The waiting room a student sits in between entering the code and the teacher
@@ -88,29 +88,38 @@ export default function LiveExamLobby() {
 
   return (
     <div style={{
-      minHeight: '100dvh', background: T.paper, display: 'flex',
-      alignItems: 'center', justifyContent: 'center', padding: 24,
+      minHeight: '100dvh', background: T.paper, display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', padding: '24px 16px', boxSizing: 'border-box',
     }}>
-      <div style={{ ...CARD, padding: '40px 34px', maxWidth: 440, width: '100%', textAlign: 'center' }}>
+      <div className="screen-fade" style={{ ...CARD, padding: 'clamp(28px, 6vw, 40px) clamp(20px, 5vw, 36px)', maxWidth: 440, width: '100%', boxSizing: 'border-box', textAlign: 'center' }}>
         {error ? (
           <>
-            <h1 style={{ ...H1, fontSize: 30, marginBottom: 10 }}>Can't join</h1>
+            <StateIcon tone="danger">!</StateIcon>
+            <h1 style={{ ...H1, fontSize: 28, marginBottom: 8 }}>Can't join</h1>
             <p style={{ fontSize: 14.5, color: T.muted, lineHeight: 1.6, margin: '0 0 24px' }}>{error}</p>
-            <PillButton variant="secondary" onClick={() => navigate('/student/live-exam')}>
-              Try another code
-            </PillButton>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <PillButton variant="secondary" onClick={() => navigate('/student/dashboard')}>Dashboard</PillButton>
+              <PillButton onClick={() => navigate('/student/live-exam')}>Try another code</PillButton>
+            </div>
           </>
-        ) : joining ? (
-          <p style={{ fontSize: 15, color: T.muted, margin: 0 }}>Joining…</p>
+        ) : joining || !joined ? (
+          <div role="status" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '12px 0' }}>
+            <span className="lobby-spinner" aria-hidden />
+            <p style={{ fontSize: 15, color: T.muted, margin: 0 }}>Joining the exam…</p>
+          </div>
         ) : (
           <>
-            <h1 style={{ ...H1, fontSize: 32, marginBottom: 10 }}>You're in</h1>
-            <p style={{ fontSize: 14.5, color: T.muted, lineHeight: 1.6, margin: '0 0 26px' }}>
+            <StateIcon tone="success">✓</StateIcon>
+            <h1 style={{ ...H1, fontSize: 30, marginBottom: 8 }}>You're in</h1>
+            <p style={{ fontSize: 14.5, color: T.muted, lineHeight: 1.6, margin: '0 auto 24px', maxWidth: 320 }}>
               Keep this page open. Your paper opens by itself the moment your teacher starts.
             </p>
 
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 26 }}>
-              <JoinCodePlate code={(joinCode ?? '').toUpperCase()} size="small" />
+            <div style={{ background: T.wash, border: `1px solid ${T.lineSoft}`, borderRadius: 12, padding: '14px 12px', marginBottom: 22 }}>
+              <div style={{ ...KICKER, marginBottom: 8 }}>Session code</div>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <JoinCodePlate code={(joinCode ?? '').toUpperCase()} size="small" />
+              </div>
             </div>
 
             {/* The one piece of motion in this feature: proof the page is still
@@ -123,31 +132,58 @@ export default function LiveExamLobby() {
               {[0, 1, 2].map((i) => (
                 <span
                   key={i}
+                  aria-hidden
                   className="lobby-dot"
                   style={{ animationDelay: `${i * 0.22}s`, background: T.accent }}
                 />
               ))}
-              <span style={{ fontSize: 13, color: T.muted, marginLeft: 6 }}>Waiting for your teacher</span>
+              <span style={{ fontSize: 13, color: T.muted, marginLeft: 6 }}>Waiting for your teacher to start</span>
             </div>
 
-            <p style={{ fontSize: 12.5, color: T.faint, margin: '26px 0 0' }}>Signed in as {user.name}</p>
-
-            <style>{`
-              .lobby-dot {
-                width: 7px; height: 7px; border-radius: 9999px; display: inline-block;
-                animation: lobby-pulse 1.4s ease-in-out infinite;
-              }
-              @keyframes lobby-pulse {
-                0%, 100% { opacity: 0.25; transform: scale(1); }
-                50%      { opacity: 1;    transform: scale(1.3); }
-              }
-              @media (prefers-reduced-motion: reduce) {
-                .lobby-dot { animation: none; opacity: 0.6; }
-              }
-            `}</style>
+            <div style={{ borderTop: `1px solid ${T.lineSoft}`, marginTop: 24, paddingTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12.5, color: T.faint, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Signed in as <strong style={{ color: T.muted, fontWeight: 600 }}>{user.name}</strong></span>
+              <button
+                onClick={() => navigate('/student/dashboard')}
+                style={{ border: 'none', background: 'none', padding: '4px 0', fontSize: 12.5, fontWeight: 600, color: T.muted, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}
+              >Leave lobby</button>
+            </div>
           </>
         )}
       </div>
+
+      <style>{`
+        .lobby-dot {
+          width: 7px; height: 7px; border-radius: 9999px; display: inline-block;
+          animation: lobby-pulse 1.4s ease-in-out infinite;
+        }
+        @keyframes lobby-pulse {
+          0%, 100% { opacity: 0.25; transform: scale(1); }
+          50%      { opacity: 1;    transform: scale(1.3); }
+        }
+        .lobby-spinner {
+          width: 26px; height: 26px; border-radius: 9999px; display: block;
+          border: 3px solid ${T.lineSoft}; border-top-color: ${T.accent};
+          animation: lobby-spin 0.8s linear infinite;
+        }
+        @keyframes lobby-spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+          .lobby-dot { animation: none; opacity: 0.6; }
+          .lobby-spinner { animation-duration: 2.4s; }
+        }
+      `}</style>
     </div>
+  );
+}
+
+/** The round mark above the lobby heading: a tick once joined, "!" when joining failed. */
+function StateIcon({ tone, children }: { tone: 'success' | 'danger'; children: React.ReactNode }) {
+  const color = tone === 'success' ? T.green : T.danger;
+  return (
+    <div aria-hidden style={{
+      width: 48, height: 48, borderRadius: 9999, margin: '0 auto 16px',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: tone === 'success' ? 'rgba(26,107,60,0.10)' : 'rgba(192,57,43,0.08)',
+      color, fontSize: 22, fontWeight: 700, lineHeight: 1,
+    }}>{children}</div>
   );
 }

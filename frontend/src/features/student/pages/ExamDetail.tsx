@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueries, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -8,6 +9,7 @@ import {
   type NarrativeContent, type ConfirmFeedbacks,
   type ReasoningClassification, type CommandOfEvidenceContent,
   type TransitionsCoachContent, type VocabDrillContent,
+  type QuestionWithAnswer,
 } from '@/features/student/api/student.api';
 import { AiFeedbackPanel } from '@/features/student/components/AiFeedbackPanel';
 import {
@@ -106,6 +108,7 @@ export default function ExamDetail() {
 
   const { data: narrativeData, isError: narrativeError } = useQuery({
     queryKey: ['student', 'narrative', examId],
+    meta: { handlesError: true },
     queryFn: async () => { pollCountRef.current++; return getMockNarrative(examId!); },
     enabled: !!examId && (isMockExam || isPractice),
     refetchInterval: (query) => {
@@ -416,12 +419,6 @@ export default function ExamDetail() {
         {isMockCombined && englishReview.map((r, i) => {
           const open = reviewOpen[i];
           const ok = r.isCorrect === true;
-          const opts = [
-            { key: 'a', text: r.optionA },
-            { key: 'b', text: r.optionB },
-            { key: 'c', text: r.optionC },
-            { key: 'd', text: r.optionD },
-          ];
           const qId = r.id;
           const aiOpen = !!aiPanelOpen[qId];
           const aiResult = aiResults[qId];
@@ -445,22 +442,7 @@ export default function ExamDetail() {
               {open && (
                 <div style={{ padding: isMobile ? '0 14px 18px 14px' : '0 18px 20px 64px' }}>
                   <p style={{ fontSize: 14.5, fontWeight: 500, lineHeight: 1.5, margin: '0 0 14px' }} dangerouslySetInnerHTML={{ __html: r.questionText }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 14 }}>
-                    {opts.map(({ key, text }) => {
-                      const isCorrect = r.correctAnswer === key;
-                      const isYour = r.selectedAnswer === key;
-                      const bg = isCorrect ? 'rgba(46,125,90,0.08)' : isYour ? 'rgba(192,57,43,0.06)' : '#FAF9F6';
-                      const bd = isCorrect ? '1px solid rgba(46,125,90,0.4)' : isYour ? '1px solid rgba(192,57,43,0.3)' : '1px solid #EAE7E1';
-                      return (
-                        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: bg, border: bd }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#6F6B64', width: 16 }}>{key.toUpperCase()}</span>
-                          <span style={{ fontSize: 14, flex: 1 }}>{text}</span>
-                          {isCorrect && <span style={{ fontSize: 11, fontWeight: 700, color: '#2E7D5A' }}>CORRECT</span>}
-                          {isYour && !isCorrect && <span style={{ fontSize: 11, fontWeight: 700, color: '#C0392B' }}>YOUR ANSWER</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <AnswerReview r={r} />
                   {r.explanation && (
                     <div style={{ background: '#F2F0EC', borderRadius: 10, padding: '12px 14px', fontSize: 13.5, lineHeight: 1.55, color: 'rgba(11,11,14,0.7)', marginBottom: 14 }}>
                       <strong style={{ color: '#0B0B0E' }}>Why: </strong>{r.explanation}
@@ -560,12 +542,6 @@ export default function ExamDetail() {
           const listIdx = isMockCombined ? englishReview.length + i : i;
           const open = reviewOpen[listIdx];
           const ok = r.isCorrect === true;
-          const opts = [
-            { key: 'a', text: r.optionA },
-            { key: 'b', text: r.optionB },
-            { key: 'c', text: r.optionC },
-            { key: 'd', text: r.optionD },
-          ];
           const qId = r.id;
           const aiOpen = !!aiPanelOpen[qId];
           const aiResult = aiResults[qId];
@@ -589,22 +565,7 @@ export default function ExamDetail() {
               {open && (
                 <div style={{ padding: isMobile ? '0 14px 18px 14px' : '0 18px 20px 64px' }}>
                   <p style={{ fontSize: 14.5, fontWeight: 500, lineHeight: 1.5, margin: '0 0 14px' }} dangerouslySetInnerHTML={{ __html: r.questionText }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 14 }}>
-                    {opts.map(({ key, text }) => {
-                      const isCorrect = r.correctAnswer === key;
-                      const isYour = r.selectedAnswer === key;
-                      const bg = isCorrect ? 'rgba(46,125,90,0.08)' : isYour ? 'rgba(192,57,43,0.06)' : '#FAF9F6';
-                      const bd = isCorrect ? '1px solid rgba(46,125,90,0.4)' : isYour ? '1px solid rgba(192,57,43,0.3)' : '1px solid #EAE7E1';
-                      return (
-                        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: bg, border: bd }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#6F6B64', width: 16 }}>{key.toUpperCase()}</span>
-                          <span style={{ fontSize: 14, flex: 1 }}>{text}</span>
-                          {isCorrect && <span style={{ fontSize: 11, fontWeight: 700, color: '#2E7D5A' }}>CORRECT</span>}
-                          {isYour && !isCorrect && <span style={{ fontSize: 11, fontWeight: 700, color: '#C0392B' }}>YOUR ANSWER</span>}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <AnswerReview r={r} />
                   {r.explanation && (
                     <div style={{ background: '#F2F0EC', borderRadius: 10, padding: '12px 14px', fontSize: 13.5, lineHeight: 1.55, color: 'rgba(11,11,14,0.7)', marginBottom: 14 }}>
                       <strong style={{ color: '#0B0B0E' }}>Why: </strong>{r.explanation}
@@ -753,6 +714,70 @@ export default function ExamDetail() {
               style={{ height: 38, padding: '0 18px', borderRadius: 9999, border: 'none', background: chatInput.trim() && !chatLoading ? '#0B0B0E' : '#C8C4BC', color: '#fff', fontSize: 13, fontWeight: 600, cursor: chatInput.trim() && !chatLoading ? 'pointer' : 'default', fontFamily: 'inherit', flexShrink: 0 }}
             >Send</button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * What the student picked against what was right, for one reviewed question.
+ *
+ * The summary line always states both, because a colour on one row is easy to
+ * miss and says nothing on its own when the pick was correct or when nothing was
+ * answered. The options below repeat it in place: the correct row in green, a
+ * wrong pick in red, and the student's own choice labelled either way.
+ */
+function AnswerReview({ r }: { r: QuestionWithAnswer }) {
+  const isSPR = r.questionType === 'student_produced_response';
+  const picked = isSPR ? (r.selectedAnswerText?.trim() || null) : r.selectedAnswer;
+  const correct = isSPR ? r.correctAnswerText : r.correctAnswer;
+  const show = (v: string | null) => (v === null ? '—' : isSPR ? v : v.toUpperCase());
+  const outcome = picked === null ? 'skipped' : r.isCorrect ? 'right' : 'wrong';
+  const tone = { right: '#1A6B3C', wrong: '#C0392B', skipped: 'rgba(11,11,14,0.64)' }[outcome];
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '4px 14px', padding: '10px 14px', borderRadius: 10, background: outcome === 'right' ? 'rgba(46,125,90,0.07)' : outcome === 'wrong' ? 'rgba(192,57,43,0.06)' : '#F2F0EC', marginBottom: isSPR ? 0 : 8, fontSize: 14 }}>
+        <span>
+          <span style={{ color: 'rgba(11,11,14,0.64)' }}>Your answer </span>
+          <strong style={{ color: tone }}>{picked === null ? 'Not answered' : show(picked)}</strong>
+        </span>
+        {outcome !== 'right' && (
+          <span>
+            <span style={{ color: 'rgba(11,11,14,0.64)' }}>Correct answer </span>
+            <strong style={{ color: '#1A6B3C' }}>{show(correct)}</strong>
+          </span>
+        )}
+        {outcome === 'right' && <strong style={{ color: tone }}>Correct</strong>}
+      </div>
+
+      {!isSPR && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          {(['a', 'b', 'c', 'd'] as const).map((key) => {
+            const text = r[`option${key.toUpperCase()}` as 'optionA' | 'optionB' | 'optionC' | 'optionD'];
+            if (!text) return null;
+            const isCorrect = r.correctAnswer === key;
+            const isYour = r.selectedAnswer === key;
+            const bg = isCorrect ? 'rgba(46,125,90,0.08)' : isYour ? 'rgba(192,57,43,0.06)' : '#FAF9F6';
+            const bd = isCorrect ? '1px solid rgba(46,125,90,0.4)' : isYour ? '1.5px solid rgba(192,57,43,0.45)' : '1px solid #EAE7E1';
+            return (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: bg, border: bd }}>
+                <span style={{
+                  width: 22, height: 22, flexShrink: 0, borderRadius: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700,
+                  // The student's own pick gets a filled letter, whichever way it went.
+                  background: isYour ? (isCorrect ? '#1A6B3C' : '#C0392B') : 'transparent',
+                  color: isYour ? '#fff' : '#6F6B64',
+                  border: isYour ? 'none' : '1px solid #D8D4CC',
+                }}>{key.toUpperCase()}</span>
+                <span style={{ fontSize: 14, flex: 1 }}>{text}</span>
+                <span style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  {isYour && <span style={{ fontSize: 11.5, fontWeight: 700, color: isCorrect ? '#1A6B3C' : '#C0392B' }}>Your answer</span>}
+                  {isCorrect && <span style={{ fontSize: 11.5, fontWeight: 700, color: '#1A6B3C' }}>Correct</span>}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

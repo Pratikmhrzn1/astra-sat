@@ -85,8 +85,15 @@ apiClient.interceptors.response.use(
           .then((token) => {
             originalRequest.headers.Authorization = `Bearer ${token}`;
             return apiClient(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
+          }, (err) => {
+            // A failed *proactive* refresh says nothing final about the session:
+            // replay the request so it goes through the normal 401 → refresh path
+            // instead of failing a page load outright.
+            if (err instanceof Error && err.message === 'proactive-refresh-failed') {
+              return apiClient(originalRequest);
+            }
+            return Promise.reject(err);
+          });
       }
 
       originalRequest._retry = true;

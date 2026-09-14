@@ -1,0 +1,551 @@
+{
+  "title": "Reading and Writing Practice Set 1",
+  "subject": "english",
+  "description": "A full-length Reading and Writing module: 27 original questions across all four Digital SAT domains, grouped by skill and ordered from easier to harder, with a short passage for each question.",
+  "difficulty": "medium",
+  "isDraft": true,
+  "passages": [
+    {
+      "title": "",
+      "passageText": "When the town library announced it would stay open until midnight during exam week, students were skeptical. Within days, however, the reading rooms were so crowded that staff had to set up extra tables in the lobby. The late hours proved so ______ that the library made them permanent the following semester.",
+      "orderIndex": 0
+    },
+    {
+      "title": "",
+      "passageText": "Materials scientist Leena Varga found that a new adhesive, which performed well in the dry air of her laboratory, lost much of its grip in humid conditions. Because many of the adhesive's intended uses are outdoors, Varga cautioned that its early success in testing should not be ______ as proof that it is ready for commercial use.",
+      "orderIndex": 1
+    },
+    {
+      "title": "",
+      "passageText": "Early reviewers dismissed the novelist's spare, unadorned prose as a sign of limited ambition. Later critics, however, argued that the plainness was anything but ______: each omitted detail, they contended, was a deliberate choice that forced readers to supply the emotion the characters themselves could not express.",
+      "orderIndex": 2
+    },
+    {
+      "title": "",
+      "passageText": "Honeybees communicate the location of food through a movement called the waggle dance. A bee returning to the hive runs in a straight line while vibrating its body, then circles back and repeats the run. The angle of the run relative to vertical indicates the direction of the food relative to the sun, and the length of the run indicates the distance to the food.",
+      "orderIndex": 3
+    },
+    {
+      "title": "",
+      "passageText": "The following text is from a short story. Nadia has recently moved to a coastal town.\n\nEvery morning the fog arrived before Nadia was awake and left before she could decide whether she liked it. She began setting an alarm for dawn, determined to watch it roll in from the harbor. For three days she slept through the alarm. On the fourth, she woke to find the fog already pressed against her window, as if it had been waiting for her.",
+      "orderIndex": 4
+    },
+    {
+      "title": "",
+      "passageText": "Urban planners once assumed that widening busy roads would reduce traffic congestion. Studies conducted over several decades have complicated that assumption. When a road gains lanes, driving along it becomes temporarily faster, which encourages more people to drive and to make trips they previously avoided. Within a few years, traffic often returns to its earlier levels, a pattern researchers call induced demand.",
+      "orderIndex": 5
+    },
+    {
+      "title": "",
+      "passageText": "Text 1\nSome linguists argue that children learn grammar mainly by imitating the sentences they hear. According to this view, a child who repeatedly hears sentences such as \"The dog ran away\" will eventually produce similar sentences, gradually building a stock of memorized patterns.\n\nText 2\nPsycholinguist Tomás Ibarra points to a common error as evidence against pure imitation: young English speakers often say \"goed\" instead of \"went.\" Because adults almost never say \"goed,\" Ibarra argues, children must be applying a rule they have worked out for themselves — add \"-ed\" to form the past tense — rather than repeating what they hear.",
+      "orderIndex": 6
+    },
+    {
+      "title": "",
+      "passageText": "Text 1\nThe concrete used in ancient Roman harbor walls has survived for roughly two thousand years, while much modern concrete begins to crack within decades. Many engineers have credited this durability to the volcanic ash in the Roman mixture, which reacts with seawater to form strengthening minerals.\n\nText 2\nA team of materials researchers examined samples of ancient Roman concrete and found small white chunks of lime scattered throughout. Once dismissed as a sign of careless mixing, the chunks, the team argues, allowed cracks to heal: when water seeped into a crack, it dissolved some of the lime, which then recrystallized and sealed the gap. The team concludes that volcanic ash alone cannot account for the concrete's longevity.",
+      "orderIndex": 7
+    },
+    {
+      "title": "",
+      "passageText": "Community gardens are often valued for the fresh produce they provide, but their benefits extend well beyond food. Surveys of gardeners in several cities show that participants report stronger connections with their neighbors, and some neighborhoods with active gardens have seen residents organize around other local issues, from street safety to school programs. For many members, the garden becomes a meeting place as much as a source of vegetables.",
+      "orderIndex": 8
+    },
+    {
+      "title": "",
+      "passageText": "The following text is from a short story. Mr. Okafor has repaired watches in the same small shop for forty years.\n\nCustomers sometimes asked Mr. Okafor why he did not simply sell them new watches, which would have cost less than his repairs. He would hold a watch up to the light, turning it slowly, and answer that a new watch had not yet learned anyone's wrist. Then he would bend over his bench, and the shop would fill with the small, patient sounds of his work.",
+      "orderIndex": 9
+    },
+    {
+      "title": "",
+      "passageText": "\"Harbor at Evening\" is a poem about a small fishing port at the end of a working day. In the poem, the speaker suggests that the harbor feels calm even though it is full of activity.",
+      "orderIndex": 10
+    },
+    {
+      "title": "",
+      "passageText": "A student is researching how people in the town of Millbrook travel to work. A 2024 survey of 1,000 working residents found that 46% drove alone, 21% took the bus, 18% walked or biked, 9% carpooled, and 6% worked from home. The student claims that more than a third of the surveyed residents traveled to work without using a car.",
+      "orderIndex": 11
+    },
+    {
+      "title": "",
+      "passageText": "Ecologists studying a mountain lake noticed that a species of small fish, the silver dace, spends daylight hours in deep water and rises toward the surface only at night. One ecologist hypothesizes that the fish stay deep during the day mainly to avoid being seen by birds that hunt from above.",
+      "orderIndex": 12
+    },
+    {
+      "title": "",
+      "passageText": "Archaeologists excavating a settlement occupied about 3,000 years ago found bones from fish species that live only in the open ocean, even though the settlement lies roughly 60 kilometers inland and no river connects it to the sea. The bones show no signs that the fish had been preserved by salting or drying. These findings suggest that ______",
+      "orderIndex": 13
+    },
+    {
+      "title": "",
+      "passageText": "Some songbirds learn their songs by listening to adult birds during a limited period early in life. Researcher Ade Mensah raised young birds of one such species in isolation and played them recordings of adult songs only after that period had ended; as adults, these birds sang songs that were simpler and less structured than those of wild birds. Birds that were also raised in isolation but heard the recordings during the early period sang songs much like those of wild birds. These results suggest that ______",
+      "orderIndex": 14
+    },
+    {
+      "title": "",
+      "passageText": "The museum's newest exhibit features dozens of hand-drawn maps created by sailors and surveyors in the eighteenth ______ some of them show coastlines that had never been charted before.",
+      "orderIndex": 15
+    },
+    {
+      "title": "",
+      "passageText": "The collection of letters written by the explorer's crew members ______ details about daily life aboard the ship that historians had not found in any official record.",
+      "orderIndex": 16
+    },
+    {
+      "title": "",
+      "passageText": "In 1975, after years of petitioning the city council, residents of the Eastside neighborhood finally ______ approval to convert an abandoned rail yard into a public park, which opened three years later.",
+      "orderIndex": 17
+    },
+    {
+      "title": "",
+      "passageText": "Before the orchestra's first performance of the new symphony, the musicians spent weeks studying the composer's handwritten notes, hoping ______ would reveal how she wanted certain difficult passages to be played.",
+      "orderIndex": 18
+    },
+    {
+      "title": "",
+      "passageText": "Traditional Japanese joinery can produce sturdy wooden frames that rely on just two ______ precisely cut interlocking joints and the weight of the structure itself, with no nails or glue.",
+      "orderIndex": 19
+    },
+    {
+      "title": "",
+      "passageText": "After a months-long design competition, the committee reviewed the proposals submitted by each of the three ______ and selected the plan for the new library that best balanced construction cost with long-term energy efficiency.",
+      "orderIndex": 20
+    },
+    {
+      "title": "",
+      "passageText": "The violinist Marisol ______ began performing publicly at the age of twelve, is now known for commissioning new works from young composers and premiering them in small community venues.",
+      "orderIndex": 21
+    },
+    {
+      "title": "",
+      "passageText": "Sea otters are among the few mammals known to use tools. ______ they use rocks to crack open shellfish, placing a rock on their chests while floating and striking the shells against it.",
+      "orderIndex": 22
+    },
+    {
+      "title": "",
+      "passageText": "For decades, many historians assumed that people in medieval Europe believed the Earth was flat. A close reading of medieval texts, ______ shows that most educated people of the period understood the Earth to be round, a view inherited from ancient Greek scholars.",
+      "orderIndex": 23
+    },
+    {
+      "title": "",
+      "passageText": "Many desert plants survive droughts by storing water in thick, fleshy leaves. The resurrection plant takes a different approach: during a drought, it allows itself to dry out almost completely, curling into a tight brown ball that appears dead. ______ when rain returns, the plant can rehydrate and resume its normal functions within hours.",
+      "orderIndex": 24
+    },
+    {
+      "title": "",
+      "passageText": "While researching a topic, a student has taken the following notes:\n\n• The Tiny Library Project places small book-sharing boxes on residential streets.\n• Anyone may take a book from a box or leave one.\n• The project began in 2016 with 12 boxes in the city of Harlow.\n• By 2024, it had grown to 340 boxes across the region.\n• A volunteer checks each box once a month.",
+      "orderIndex": 25
+    },
+    {
+      "title": "",
+      "passageText": "While researching a topic, a student has taken the following notes:\n\n• Sound travels through air at about 343 meters per second.\n• Sound travels through water at about 1,480 meters per second.\n• Sound travels through steel at about 5,900 meters per second.\n• Sound needs a medium, such as air or water, in order to travel.",
+      "orderIndex": 26
+    }
+  ],
+  "questions": [
+    {
+      "passageIndex": 0,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical and precise word or phrase?",
+      "skillCode": "vocab_in_context",
+      "difficulty": "easy",
+      "optionA": "popular",
+      "optionB": "confusing",
+      "optionC": "temporary",
+      "optionD": "expensive",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "Crowded reading rooms and the decision to make the hours permanent show that the late hours were well used and liked, so \"popular\" fits. Nothing in the text suggests the hours were confusing or expensive, and \"temporary\" contradicts making them permanent.",
+      "orderIndex": 0
+    },
+    {
+      "passageIndex": 1,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical and precise word or phrase?",
+      "skillCode": "vocab_in_context",
+      "difficulty": "medium",
+      "optionA": "concealed",
+      "optionB": "construed",
+      "optionC": "diminished",
+      "optionD": "recalled",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "Varga warns against interpreting the lab results as proof of readiness; \"construed\" means interpreted. She is not warning against hiding, reducing, or remembering the results.",
+      "orderIndex": 1
+    },
+    {
+      "passageIndex": 2,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical and precise word or phrase?",
+      "skillCode": "vocab_in_context",
+      "difficulty": "hard",
+      "optionA": "intentional",
+      "optionB": "restrained",
+      "optionC": "inadvertent",
+      "optionD": "meaningful",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "The colon explains that every omission was deliberate, so the plainness was anything but accidental — \"inadvertent.\" Saying it was anything but intentional or meaningful would contradict the critics, and plain prose is by definition restrained.",
+      "orderIndex": 2
+    },
+    {
+      "passageIndex": 3,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best states the main purpose of the text?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "easy",
+      "optionA": "To argue that honeybees are more intelligent than other insects",
+      "optionB": "To describe how a specific behavior conveys information",
+      "optionC": "To explain why honeybees prefer certain types of flowers",
+      "optionD": "To compare the waggle dance with communication in other species",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "The text explains how the waggle dance's angle and length communicate direction and distance. It makes no argument about intelligence, says nothing about flower preferences, and mentions no other species.",
+      "orderIndex": 3
+    },
+    {
+      "passageIndex": 4,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best describes the overall structure of the text?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "medium",
+      "optionA": "It describes a character's dislike of her new town, then shows how a neighbor changes her mind.",
+      "optionB": "It presents a scientific explanation of fog, then describes a character's reaction to it.",
+      "optionC": "It recounts a character's memories of her former home, then contrasts them with her new surroundings.",
+      "optionD": "It describes a character's repeated attempts to observe something, then presents a moment in which that thing seems to come to her instead.",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "Nadia keeps trying and failing to watch the fog arrive, and in the final sentence the fog is already at her window \"as if it had been waiting for her.\" There is no neighbor, no scientific explanation, and no memory of a former home.",
+      "orderIndex": 4
+    },
+    {
+      "passageIndex": 5,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best describes the function of the third sentence in the overall structure of the text?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "medium",
+      "optionA": "It introduces the assumption that the rest of the text supports.",
+      "optionB": "It explains the process that challenges an earlier belief.",
+      "optionC": "It offers an example of a city that rejected road widening.",
+      "optionD": "It presents a counterargument that the final sentence refutes.",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "The third sentence explains why wider roads attract more driving — the mechanism behind the studies that complicate planners' original assumption. The assumption appears in the first sentence, no city is named, and the final sentence extends rather than refutes the third.",
+      "orderIndex": 5
+    },
+    {
+      "passageIndex": 6,
+      "questionType": "multiple_choice",
+      "questionText": "Based on the texts, how would Ibarra (Text 2) most likely respond to the view described in Text 1?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "medium",
+      "optionA": "By agreeing that children rarely make errors when learning grammar",
+      "optionB": "By claiming that adults deliberately teach children irregular verbs",
+      "optionC": "By arguing that errors such as \"goed\" show that children do more than imitate",
+      "optionD": "By suggesting that imitation explains how children learn the word \"goed\"",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "Ibarra uses \"goed,\" a form children rarely hear, as evidence that they apply rules rather than only imitating — a direct challenge to Text 1. He discusses a common error, says nothing about adults teaching verbs, and argues that imitation cannot explain \"goed.\"",
+      "orderIndex": 6
+    },
+    {
+      "passageIndex": 7,
+      "questionType": "multiple_choice",
+      "questionText": "Based on the texts, how would the researchers in Text 2 most likely respond to the explanation offered in Text 1?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "hard",
+      "optionA": "By arguing that the explanation is incomplete because it overlooks the role of the lime chunks",
+      "optionB": "By claiming that volcanic ash actually weakened ancient Roman concrete",
+      "optionC": "By agreeing that Roman builders mixed their concrete carelessly",
+      "optionD": "By questioning whether Roman concrete has truly lasted for two thousand years",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "The researchers say ash \"alone cannot account\" for the durability — they add the lime chunks to the explanation rather than rejecting ash. They reject the idea of careless mixing and never dispute the concrete's age.",
+      "orderIndex": 7
+    },
+    {
+      "passageIndex": 8,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best states the main idea of the text?",
+      "skillCode": "information_and_ideas",
+      "difficulty": "easy",
+      "optionA": "Community gardens produce more vegetables than private gardens do.",
+      "optionB": "Most city residents are unaware that community gardens exist.",
+      "optionC": "Neighborhoods with community gardens have fewer problems with street safety.",
+      "optionD": "Community gardens can strengthen social ties in addition to supplying food.",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "The text moves from food to the social benefits of gardens: connections with neighbors, organizing, and a meeting place. It compares no garden yields, says nothing about awareness, and mentions street safety only as something residents organized around.",
+      "orderIndex": 8
+    },
+    {
+      "passageIndex": 9,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best states the main idea of the text?",
+      "skillCode": "information_and_ideas",
+      "difficulty": "medium",
+      "optionA": "Mr. Okafor values repairing old watches because he sees meaning in the history they share with their owners.",
+      "optionB": "Mr. Okafor struggles to attract customers because his repairs are expensive.",
+      "optionC": "Mr. Okafor would prefer to sell new watches but repairs old ones to earn a living.",
+      "optionD": "Mr. Okafor is frustrated by customers who question his methods.",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "His answer that a new watch \"had not yet learned anyone's wrist\" and his \"patient\" work show that he values the connection an old watch has with its owner. Nothing suggests a lack of customers, a preference for new watches, or frustration.",
+      "orderIndex": 9
+    },
+    {
+      "passageIndex": 10,
+      "questionType": "multiple_choice",
+      "questionText": "Which quotation from the poem most effectively illustrates this claim?",
+      "skillCode": "command_of_evidence",
+      "difficulty": "medium",
+      "optionA": "\"The gulls wheel back to the rooftops, one by one,\"",
+      "optionB": "\"Cranes swing their loads and engines idle low, / yet the water holds the light as if asleep.\"",
+      "optionC": "\"I left this town the winter I turned nine.\"",
+      "optionD": "\"The fishermen count their coins beneath the lamps.\"",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "Only this quotation shows both parts of the claim: activity (cranes swinging loads, engines idling) and calm (water holding the light \"as if asleep\"), joined by \"yet.\" The gulls line suggests only calm, the fishermen line only activity, and the line about leaving town addresses neither.",
+      "orderIndex": 10
+    },
+    {
+      "passageIndex": 11,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice most effectively uses data from the survey to support the student's claim?",
+      "skillCode": "command_of_evidence",
+      "difficulty": "medium",
+      "optionA": "46% of residents drove alone, the largest share of any travel method.",
+      "optionB": "9% of residents carpooled, while 6% worked from home.",
+      "optionC": "18% of residents walked or biked, three times the share who worked from home.",
+      "optionD": "21% of residents took the bus and 18% walked or biked, a combined 39%.",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "Bus riders and walkers or bikers traveled to work without a car, and together they make up 39% — more than a third. Driving alone and carpooling involve cars, and residents working from home did not travel to work at all.",
+      "orderIndex": 11
+    },
+    {
+      "passageIndex": 12,
+      "questionType": "multiple_choice",
+      "questionText": "Which finding, if true, would most directly support the ecologist's hypothesis?",
+      "skillCode": "command_of_evidence",
+      "difficulty": "hard",
+      "optionA": "Water near the surface of the lake is warmer during the day than at night.",
+      "optionB": "Silver dace feed mostly on insects that are most plentiful near the surface at night.",
+      "optionC": "In a nearby lake with no fish-eating birds, silver dace stay near the surface during the day.",
+      "optionD": "Silver dace grow larger in lakes with more plants along the shore.",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "If the fish stay near the surface by day where birds are absent, the daytime descent is tied to birds, as the hypothesis predicts. Water temperature and nighttime insects point to other explanations, and fish size is unrelated.",
+      "orderIndex": 12
+    },
+    {
+      "passageIndex": 13,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice most logically completes the text?",
+      "skillCode": "inference",
+      "difficulty": "medium",
+      "optionA": "the settlement's residents traveled to the coast to fish but ate their catch before returning home.",
+      "optionB": "the ocean once extended far enough inland to reach the settlement.",
+      "optionC": "fresh fish may have been carried to the settlement from the coast fairly quickly, possibly through trade.",
+      "optionD": "the fish species found at the site once lived in rivers near the settlement.",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "Ocean fish reached an inland site without being salted or dried, so they were most likely transported fresh and quickly. Eating the catch on the coast would leave no bones at the settlement, nothing supports a moving coastline, and the species live only in the open ocean.",
+      "orderIndex": 13
+    },
+    {
+      "passageIndex": 14,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice most logically completes the text?",
+      "skillCode": "inference",
+      "difficulty": "hard",
+      "optionA": "hearing adult songs during the early period is important for developing the species' typical song.",
+      "optionB": "songbirds raised in isolation cannot produce any songs as adults.",
+      "optionC": "recordings of adult songs are less effective teaching tools than live adult birds.",
+      "optionD": "the simpler songs were caused by the stress of being raised in isolation.",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "Both groups were isolated; only the timing of the recordings differed, and only the early-exposure birds developed typical songs. Isolated birds did sing, no live tutors were tested, and isolation cannot explain a difference between two isolated groups.",
+      "orderIndex": 14
+    },
+    {
+      "passageIndex": 15,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "easy",
+      "optionA": "century,",
+      "optionB": "century",
+      "optionC": "century;",
+      "optionD": "century, with",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "Two independent clauses are joined here, and a semicolon correctly separates them. A comma alone creates a comma splice, no punctuation creates a run-on sentence, and \"with\" makes the second clause ungrammatical.",
+      "orderIndex": 15
+    },
+    {
+      "passageIndex": 16,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "easy",
+      "optionA": "include",
+      "optionB": "includes",
+      "optionC": "are including",
+      "optionD": "have included",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "The subject is the singular noun \"collection,\" not \"letters\" or \"members,\" so it takes the singular verb \"includes.\" The other choices are plural.",
+      "orderIndex": 16
+    },
+    {
+      "passageIndex": 17,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "medium",
+      "optionA": "receive",
+      "optionB": "will receive",
+      "optionC": "have received",
+      "optionD": "received",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "The action took place in 1975 and is complete, so the simple past \"received\" is correct. The present, future, and present perfect tenses do not fit a specific past date.",
+      "orderIndex": 17
+    },
+    {
+      "passageIndex": 18,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "medium",
+      "optionA": "they",
+      "optionB": "it",
+      "optionC": "this",
+      "optionD": "she",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "The pronoun refers to the plural noun \"notes,\" so \"they\" is correct. \"It\" and \"this\" are singular, and \"she\" would say the composer, not her notes, would reveal her wishes.",
+      "orderIndex": 18
+    },
+    {
+      "passageIndex": 19,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "medium",
+      "optionA": "things;",
+      "optionB": "things,",
+      "optionC": "things",
+      "optionD": "things:",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "The words after the blank identify the \"two things,\" and a colon correctly introduces that explanation after a complete clause. A semicolon must be followed by an independent clause, a comma blurs the sentence into a confusing list, and no punctuation creates a run-on.",
+      "orderIndex": 19
+    },
+    {
+      "passageIndex": 20,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "medium",
+      "optionA": "architects",
+      "optionB": "architect's",
+      "optionC": "architects'",
+      "optionD": "architect",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "The sentence needs the plain plural \"architects\" — there were three of them, and nothing follows that they possess. The possessive forms are incorrect, and the singular \"architect\" does not agree with \"three.\"",
+      "orderIndex": 20
+    },
+    {
+      "passageIndex": 21,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "hard",
+      "optionA": "Quintero who",
+      "optionB": "Quintero, who",
+      "optionC": "Quintero; who",
+      "optionD": "Quintero — who",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "\"Who began performing publicly at the age of twelve\" is a supplementary clause that already ends with a comma, so it must also begin with a comma. Leaving the comma out, using a semicolon, or pairing a dash with the closing comma all break the sentence.",
+      "orderIndex": 21
+    },
+    {
+      "passageIndex": 22,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical transition?",
+      "skillCode": "transitions",
+      "difficulty": "easy",
+      "optionA": "However,",
+      "optionB": "Similarly,",
+      "optionC": "For example,",
+      "optionD": "Nevertheless,",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "The second sentence gives a specific example of the tool use described in the first, so \"For example\" is correct. There is no contrast (\"However,\" \"Nevertheless\") and no separate but similar point (\"Similarly\").",
+      "orderIndex": 22
+    },
+    {
+      "passageIndex": 23,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical transition?",
+      "skillCode": "transitions",
+      "difficulty": "medium",
+      "optionA": "however,",
+      "optionB": "moreover,",
+      "optionC": "for example,",
+      "optionD": "therefore,",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "The evidence contradicts the historians' assumption, so a contrasting transition is needed. \"Moreover\" adds a supporting point, \"for example\" introduces an illustration, and \"therefore\" presents a consequence.",
+      "orderIndex": 23
+    },
+    {
+      "passageIndex": 24,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical transition?",
+      "skillCode": "transitions",
+      "difficulty": "hard",
+      "optionA": "Consequently,",
+      "optionB": "Likewise,",
+      "optionC": "In other words,",
+      "optionD": "Yet",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "The plant looks dead, yet it revives — a contrast between appearance and reality that \"Yet\" signals. Drying out does not cause the recovery (\"Consequently\"), the recovery is not similar to drying out (\"Likewise\"), and it is not a restatement (\"In other words\").",
+      "orderIndex": 24
+    },
+    {
+      "passageIndex": 25,
+      "questionType": "multiple_choice",
+      "questionText": "The student wants to emphasize how much the project has grown. Which choice most effectively uses relevant information from the notes to accomplish this goal?",
+      "skillCode": "expression_of_ideas",
+      "difficulty": "medium",
+      "optionA": "The Tiny Library Project places book-sharing boxes on residential streets, where anyone may take or leave a book.",
+      "optionB": "Starting with just 12 boxes in Harlow in 2016, the Tiny Library Project had expanded to 340 boxes across the region by 2024.",
+      "optionC": "A volunteer checks each of the Tiny Library Project's boxes once a month.",
+      "optionD": "The Tiny Library Project, which began in Harlow, depends on volunteers.",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "Only this choice sets the starting figure (12 boxes in 2016) against the later one (340 by 2024), which shows the growth. The other choices describe how the project works without showing any change over time.",
+      "orderIndex": 25
+    },
+    {
+      "passageIndex": 26,
+      "questionType": "multiple_choice",
+      "questionText": "The student wants to compare the speed of sound in two materials. Which choice most effectively uses relevant information from the notes to accomplish this goal?",
+      "skillCode": "expression_of_ideas",
+      "difficulty": "hard",
+      "optionA": "Sound needs a medium, such as air, water, or steel, in order to travel.",
+      "optionB": "Sound travels through water at about 1,480 meters per second.",
+      "optionC": "Sound travels through steel at about 5,900 meters per second, roughly four times as fast as it travels through water.",
+      "optionD": "Sound travels through air, water, and steel at different speeds.",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "This choice compares two materials using the notes' figures (5,900 is about four times 1,480). The others give one speed, no speeds at all, or a vague statement about three materials without any comparison.",
+      "orderIndex": 26
+    }
+  ]
+}

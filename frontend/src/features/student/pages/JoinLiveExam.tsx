@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { checkSessionStatus } from '@/features/live-exam/api/live-exam.api';
 import { useMobile } from '@/shared/hooks/useMobile';
+import { CARD, H1, PillButton, T } from '@/features/live-exam/ui';
 
 /**
  * Where a student enters the code their teacher reads out.
@@ -35,6 +36,9 @@ export default function JoinLiveExam() {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
+  const [focused, setFocused] = useState(false);
+  // Bumped on every rejected code; re-keys the cells so the shake replays.
+  const [shakeKey, setShakeKey] = useState(0);
 
   const ready = code.length === CODE_LENGTH;
 
@@ -44,7 +48,8 @@ export default function JoinLiveExam() {
 
     const bad = [...code].find((char) => !CODE_ALPHABET.includes(char));
     if (bad) {
-      setError(`"${bad}" isn't part of a join code. Codes never contain I, O, 0 or 1.`);
+      setError(`"${bad}" isn't used in join codes. Codes never contain I, O, 0 or 1.`);
+      setShakeKey((k) => k + 1);
       return;
     }
 
@@ -53,88 +58,226 @@ export default function JoinLiveExam() {
     try {
       const session = await checkSessionStatus(code);
       if (session.status === 'completed') {
-        setError(`"${session.title}" has already finished. Your results appear in History once your teacher releases them.`);
+        setError(`"${session.title}" has already finished. Your result appears in History once your teacher releases it.`);
+        setShakeKey((k) => k + 1);
         return;
       }
       navigate(`/live/${code}`);
     } catch {
-      setError('No exam found with that code. Check it with your teacher — it is six characters.');
+      setError('No exam uses that code. Check each character with your teacher.');
+      setShakeKey((k) => k + 1);
     } finally {
       setChecking(false);
     }
   }
 
+  const slots = Array.from({ length: CODE_LENGTH }, (_, i) => code[i] ?? '');
+  const activeIndex = focused && !checking && !ready ? code.length : -1;
+
+  // Centred in the part of the screen the student can actually see: the shell's
+  // scroll area, minus the tab bar on phones.
+  const stageMinHeight = isMobile
+    ? 'calc(100dvh - var(--tabbar-h) - var(--safe-bottom) - 8px)'
+    : '100dvh';
+
   return (
-    <div className="screen-fade" style={{ padding: isMobile ? '20px 16px 80px' : '36px 48px 64px', maxWidth: 620 }}>
-      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: isMobile ? 32 : 44, margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-        Join a Live Exam
-      </h1>
-      <p style={{ fontSize: isMobile ? 14 : 15, color: 'rgba(11,11,14,0.64)', margin: '0 0 24px', lineHeight: 1.6 }}>
-        Your teacher will give you a six-character code when the class is ready to start.
-        Enter it here and you'll wait in the lobby until they begin.
-      </p>
+    <div className="screen-fade" style={{ ...STAGE, minHeight: stageMinHeight, padding: isMobile ? '28px 16px 32px' : '48px 32px' }}>
+      <div style={{ width: '100%', maxWidth: 468 }}>
+        <header style={{ textAlign: 'center', marginBottom: isMobile ? 22 : 28 }}>
+          <h1 style={{ ...H1, fontSize: isMobile ? 30 : 40, lineHeight: 1.1, marginBottom: 10, textWrap: 'balance' }}>
+            Join your class's live exam
+          </h1>
+          <p style={{ fontSize: isMobile ? 14.5 : 15.5, color: T.muted, margin: '0 auto', maxWidth: 440, lineHeight: 1.55, textWrap: 'balance' }}>
+            Type the six-character code your teacher reads out. You'll wait in the lobby until the exam starts.
+          </p>
+        </header>
 
-      <form
-        onSubmit={handleJoin}
-        style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)', padding: isMobile ? '20px 18px' : '28px 26px' }}
-      >
-        <label
-          htmlFor="join-code"
-          style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 8 }}
-        >
-          Join code
-        </label>
-        <input
-          id="join-code"
-          value={code}
-          onChange={(e) => { setCode(normalise(e.target.value)); setError(''); }}
-          placeholder="ABC123"
-          autoFocus
-          autoComplete="off"
-          autoCapitalize="characters"
-          spellCheck={false}
-          inputMode="text"
-          style={{
-            width: '100%', height: 62, padding: '0 18px', border: '1px solid #C8C4BC',
-            borderRadius: 12, background: '#FBFAF8', color: '#0B0B0E',
-            fontSize: isMobile ? 26 : 30, fontWeight: 600, letterSpacing: '0.35em',
-            textAlign: 'center', fontFamily: 'var(--font-mono)', outline: 'none',
-            textTransform: 'uppercase',
-          }}
-        />
+        <form onSubmit={handleJoin} style={SLIP} aria-describedby="join-steps">
+          <div style={{ padding: isMobile ? '22px 18px 20px' : '28px 32px 24px' }}>
+            <label htmlFor="join-code" style={{ display: 'block', fontSize: 14, fontWeight: 600, color: T.ink, textAlign: 'center', marginBottom: 14 }}>
+              Join code
+            </label>
 
-        <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)', margin: '8px 0 0', textAlign: 'center' }}>
-          {code.length}/{CODE_LENGTH}
-        </div>
+            {/* Six evenly spaced cells, with the real input laid invisibly over
+                them, so typing, pasting, autofill and the phone keyboard all
+                behave natively. A grid keeps every gap identical and lets the
+                cells shrink together on a narrow phone. */}
+            <div
+              key={shakeKey}
+              className={shakeKey ? 'join-shake' : undefined}
+              style={{
+                position: 'relative', display: 'grid', gridTemplateColumns: `repeat(${CODE_LENGTH}, minmax(0, 1fr))`,
+                gap: isMobile ? 8 : 10, width: '100%', maxWidth: 384, margin: '0 auto',
+              }}
+            >
+              {slots.map((char, i) => {
+                const active = i === activeIndex;
+                const border = error ? 'rgba(192,57,43,0.6)' : ready ? T.green : active ? T.accent : char ? '#BDB8AE' : T.line;
+                return (
+                  <span
+                    key={i}
+                    aria-hidden
+                    style={{
+                      ...CELL,
+                      background: error ? 'rgba(192,57,43,0.03)' : ready ? 'rgba(26,107,60,0.04)' : char ? '#fff' : T.wash,
+                      border: `1.5px solid ${border}`,
+                      boxShadow: active ? '0 0 0 4px rgba(226,86,43,0.14)' : char ? '0 1px 2px rgba(11,11,14,0.05)' : 'none',
+                    }}
+                  >
+                    {char}
+                    {active && <span className="join-caret" style={CARET} />}
+                  </span>
+                );
+              })}
+              <input
+                id="join-code"
+                value={code}
+                onChange={(e) => { setCode(normalise(e.target.value)); setError(''); }}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                autoFocus
+                autoComplete="one-time-code"
+                autoCapitalize="characters"
+                spellCheck={false}
+                inputMode="text"
+                maxLength={CODE_LENGTH + 4}
+                aria-describedby="join-code-hint"
+                aria-invalid={!!error}
+                style={HIDDEN_INPUT}
+              />
+            </div>
 
-        {error && (
-          <div style={{ background: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 10, padding: '10px 14px', marginTop: 14, fontSize: 13.5, color: '#C0392B', lineHeight: 1.5 }}>
-            {error}
+            <p
+              id="join-code-hint"
+              role={error ? 'alert' : undefined}
+              style={{
+                minHeight: 20, margin: '12px auto 18px', maxWidth: 340, textAlign: 'center', fontSize: 13, lineHeight: 1.5,
+                color: error ? T.danger : ready ? T.green : T.faint, fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {error || (ready ? 'Code complete' : code.length === 0 ? 'Letters and numbers, no spaces needed' : `${code.length} of ${CODE_LENGTH} characters`)}
+            </p>
+
+            <PillButton
+              type="submit"
+              disabled={!ready || checking}
+              style={{
+                width: '100%', height: 50, fontSize: 15.5,
+                // Until the code is complete the button is a quiet placeholder,
+                // not a faded version of the action — it lights up when usable.
+                ...(!ready ? { background: T.lineSoft, color: 'rgba(11,11,14,0.42)', border: `1px solid ${T.line}`, opacity: 1 } : {}),
+                ...(checking ? { opacity: 1 } : {}),
+              }}
+            >
+              {checking && <span className="join-spinner" aria-hidden />}
+              {checking ? 'Checking the code' : 'Join exam'}
+            </PillButton>
           </div>
-        )}
 
-        <button
-          type="submit"
-          disabled={!ready || checking}
-          style={{
-            width: '100%', height: 46, marginTop: 16, border: 'none', borderRadius: 9999,
-            background: ready && !checking ? '#E2562B' : '#E7E4DE',
-            color: ready && !checking ? '#fff' : 'rgba(11,11,14,0.58)',
-            fontSize: 15, fontWeight: 600, fontFamily: 'inherit',
-            cursor: ready && !checking ? 'pointer' : 'default',
-          }}
-        >
-          {checking ? 'Checking…' : 'Join exam'}
-        </button>
-      </form>
+          {/* Perforation: the slip tears into what you do now and what happens next. */}
+          <div aria-hidden style={{ height: 0, borderTop: `1.5px dashed #DCD8D0` }} />
 
-      <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.58)', margin: '18px 0 0', lineHeight: 1.6 }}>
-        Already sat one? Released results appear under{' '}
-        <button
-          onClick={() => navigate('/student/results?tab=live')}
-          style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: '#C4471F', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
-        >History → Live exams</button>.
-      </p>
+          {/* Three columns at every width, each number centred over its label.
+              The connector runs from one number to the next: it starts past this
+              column's number (50% + half a dot + breathing room) and ends short of
+              the next column's, which sits one column-width plus the gap away. */}
+          <ol id="join-steps" style={{
+            listStyle: 'none', margin: 0, padding: isMobile ? '16px 12px 18px' : '18px 24px 22px',
+            display: 'grid', gridTemplateColumns: `repeat(${STEPS.length}, minmax(0, 1fr))`, columnGap: STEP_GAP,
+            background: T.wash, borderRadius: '0 0 21px 21px',
+          }}>
+            {STEPS.map((step, i) => {
+              const done = i === 0 && ready && !error;
+              return (
+                <li key={step} style={{
+                  position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
+                  textAlign: 'center', fontSize: isMobile ? 12.5 : 13, lineHeight: 1.35, color: i === 0 ? T.ink : T.muted,
+                }}>
+                  {i < STEPS.length - 1 && (
+                    <span aria-hidden style={{
+                      position: 'absolute', top: 11, height: 1, background: T.line,
+                      left: `calc(50% + ${DOT / 2 + 8}px)`,
+                      right: `calc(-50% - ${STEP_GAP}px + ${DOT / 2 + 8}px)`,
+                    }} />
+                  )}
+                  <span style={{
+                    position: 'relative', width: DOT, height: DOT, borderRadius: 9999, flexShrink: 0,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                    background: done ? T.green : i === 0 ? T.ink : '#fff',
+                    color: i === 0 ? '#fff' : T.muted,
+                    border: i === 0 ? 'none' : `1px solid ${T.line}`, boxSizing: 'border-box',
+                  }}>{done ? '✓' : i + 1}</span>
+                  {step}
+                </li>
+              );
+            })}
+          </ol>
+        </form>
+
+        <p style={{ fontSize: 13.5, color: T.muted, margin: '18px 0 0', lineHeight: 1.6, textAlign: 'center' }}>
+          Looking for a released result?{' '}
+          <button
+            type="button"
+            onClick={() => navigate('/student/results?tab=live')}
+            style={{ background: 'none', border: 'none', padding: '2px 0', font: 'inherit', color: T.accentText, fontWeight: 600, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}
+          >Open History</button>
+        </p>
+      </div>
+
+      <style>{`
+        .join-spinner {
+          width: 15px; height: 15px; border-radius: 9999px; box-sizing: border-box;
+          border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+          animation: join-spin 0.8s linear infinite;
+        }
+        @keyframes join-spin { to { transform: rotate(360deg); } }
+        .join-caret { animation: join-blink 1.1s steps(1) infinite; }
+        @keyframes join-blink { 50% { opacity: 0; } }
+        .join-shake { animation: join-shake 320ms cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+        @keyframes join-shake {
+          20% { transform: translateX(-6px); } 40% { transform: translateX(5px); }
+          60% { transform: translateX(-3px); } 80% { transform: translateX(2px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .join-caret, .join-shake { animation: none; }
+          .join-spinner { animation-duration: 2.4s; }
+        }
+      `}</style>
     </div>
   );
 }
+
+const STEPS = ['Enter the code', 'Wait in the lobby', 'Your paper opens'];
+const DOT = 22;
+const STEP_GAP = 12;
+
+const STAGE: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box',
+};
+
+const SLIP: React.CSSProperties = {
+  ...CARD,
+  borderRadius: 22,
+  // Notches are cut from the page colour, so the slip must not clip them.
+  overflow: 'visible',
+  boxShadow: '0 1px 2px rgba(11,11,14,0.04), 0 12px 32px rgba(11,11,14,0.06)',
+};
+
+const CELL: React.CSSProperties = {
+  position: 'relative', width: '100%', aspectRatio: '5 / 6', boxSizing: 'border-box',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  borderRadius: 12, fontFamily: 'var(--font-mono)', fontWeight: 600,
+  fontSize: 'clamp(20px, 6.5vw, 30px)', lineHeight: 1, color: T.ink,
+  transitionProperty: 'border-color, box-shadow, background-color',
+  transitionDuration: '150ms', transitionTimingFunction: 'cubic-bezier(0.2, 0, 0, 1)',
+};
+
+const CARET: React.CSSProperties = {
+  position: 'absolute', width: 2, height: '44%', borderRadius: 1, background: T.accent,
+};
+
+const HIDDEN_INPUT: React.CSSProperties = {
+  position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0,
+  border: 'none', padding: 0, margin: 0, fontSize: 16, cursor: 'text', caretColor: 'transparent',
+};

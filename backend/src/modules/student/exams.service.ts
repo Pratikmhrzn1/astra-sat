@@ -1,7 +1,7 @@
 import { and, eq, lt, sql } from 'drizzle-orm';
 import { db } from '../../db';
 import { examAnswers, exams, questionSets, questions } from '../../db/schema';
-import { badRequest, conflict, notFound } from '../../http/errors';
+import { HttpError, badRequest, conflict, notFound } from '../../http/errors';
 import { toSectionScore } from '../scoring';
 import { DEADLINE_GRACE_SECONDS, isPastGrace, resolveDeadline, serverTimeSpent } from './exam-timing';
 import * as mistakes from './mistakes.service';
@@ -65,6 +65,7 @@ export async function getExam(examId: string, studentId: string, { open = false 
   // sibling lookup keyed on this exam, so it resolves from either English
   // module rather than only from Module 1.
   const mockContext = await mock.findMockContextForExam(exam.id);
+  const slot = mockContext?.modules.find((m) => m.examId === exam.id);
 
   return {
     exam,
@@ -72,6 +73,12 @@ export async function getExam(examId: string, studentId: string, { open = false 
     answers,
     mockTestId: mockContext?.mockTest.id ?? null,
     mathExamId: mockContext?.mockTest.mathExamId ?? null,
+    /**
+     * Which module of its mock this exam is. The player used to learn this only
+     * from router state, so a module reopened from a resume link or a reload in
+     * a new tab lost its place in the adaptive chain.
+     */
+    mockSection: slot ? (`${slot.subject}_m${slot.module}` as const) : null,
     /** When this attempt ends, or null if untimed / not yet opened. The client counts down to this. */
     deadlineAt: deadline ? deadline.toISOString() : null,
     /** Lets the client correct for a wrong device clock. */
@@ -180,7 +187,20 @@ export async function submitExam(
   examId: string,
   studentId: string,
   timeSpentSeconds: number | undefined,
+  finalAnswers?: SaveAnswersInput['answers'],
 ): Promise<SubmitResult> {
+  // Final answers first, through the same path as autosave — including its
+  // deadline check. Past the deadline the save is refused and the exam closed
+  // on what was stored in time; the "already completed" below then tells the
+  // client, which treats it as done.
+  if (finalAnswers && finalAnswers.length > 0) {
+    try {
+      await saveAnswers(examId, studentId, { answers: finalAnswers });
+    } catch (err) {
+      if (!(err instanceof HttpError && err.status === 409)) throw err;
+    }
+  }
+
   const exam = await repo.findOwnedExam(examId, studentId);
   if (!exam) throw notFound('Exam not found');
   if (exam.status === 'completed') throw badRequest('Exam already completed');

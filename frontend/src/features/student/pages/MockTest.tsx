@@ -48,6 +48,7 @@ export default function MockTest() {
 
   const startMutation = useMutation({
     mutationFn: startMockTest,
+    onError: () => {}, // shown inline on the page, not as a toast
     onSuccess: (data) => navigate(`/student/exams/${data.englishExam.id}`, {
       state: {
         mockTestId: data.mockTest.id,

@@ -34,6 +34,7 @@ export default function Library() {
   const { data: items = [], isLoading, isError } = useQuery({
     queryKey: ['library'],
     queryFn: getLibraryItems,
+    meta: { handlesError: true },
   });
 
   const shown = items.filter((i) => filter === 'All' || i.fileType.toLowerCase() === filter.toLowerCase());

@@ -36,6 +36,15 @@ export type SaveAnswersInput = z.infer<typeof saveAnswersSchema>;
 
 export const submitExamSchema = z.object({
   timeSpentSeconds,
+  /**
+   * The player's final answers, saved before grading in the same request.
+   *
+   * Submit used to carry no answers at all, so it graded whatever the 30-second
+   * autosave had last stored: every pick made in the final half-minute was lost,
+   * the exam was graded as if those questions were skipped, and the review could
+   * not show the student what they had chosen.
+   */
+  answers: saveAnswersSchema.shape.answers.optional(),
 });
 export type SubmitExamInput = z.infer<typeof submitExamSchema>;
 

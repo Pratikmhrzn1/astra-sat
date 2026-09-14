@@ -62,6 +62,7 @@ export default function ExamCatalogue() {
 
   const startMutation = useMutation({
     mutationFn: startExam,
+    onError: () => {}, // shown inline on the page, not as a toast
     onSuccess: (data) => navigate(`/student/exams/${data.exam.id}`, { state: { timerEnabled, examTitle: pendingSetTitleRef.current } }),
   });
 
