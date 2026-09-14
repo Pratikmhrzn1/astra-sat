@@ -42,6 +42,16 @@ export const buttonClass = ({
 }: { variant?: ButtonVariant; size?: ButtonSize; className?: string } = {}): string =>
   cn(BASE, VARIANTS[variant], SIZES[size], className);
 
+/** Square icon-only row action (edit, delete) that tints on hover. */
+export const iconButtonClass = (tone: 'edit' | 'danger' = 'edit', className?: string): string => cn(
+  'p-[7px] rounded-lg bg-transparent cursor-pointer text-muted',
+  tone === 'danger' ? 'hover:bg-danger/[.08] hover:text-danger' : 'hover:bg-blue-sat/[.08] hover:text-blue-sat',
+  className,
+);
+
+/** Accent pill with an icon: the page-level "create" action. */
+export const accentActionClass = 'flex items-center gap-2 h-[42px] px-[18px] bg-accent-text text-white rounded-full text-sm font-semibold cursor-pointer shadow-[0_2px_10px_rgba(226,86,43,0.26)] shrink-0';
+
 /**
  * The platform's pill button. Pressing scales it on pointer-down (see the
  * global `button:active` rule), so feedback arrives before the click commits.

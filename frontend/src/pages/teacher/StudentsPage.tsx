@@ -2,50 +2,50 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Users } from 'lucide-react';
 import { getStudents } from '@/api/teacher';
-import { Spinner } from '@/components/common';
-import { formatDate } from '@/lib/utils';
+import { IconEmpty, InlineLoader, PageHeader, pageClass, surfaceClass, tableHeadClass, tableRowClass } from '@/components/common';
+import { cn, formatDate } from '@/lib/utils';
 
 export default function Students() {
   const navigate = useNavigate();
   const { data: students = [], isLoading } = useQuery({ queryKey: ['teacher', 'students'], queryFn: getStudents });
 
-  if (isLoading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#C4471F]" /></div>;
-  }
+  if (isLoading) return <InlineLoader />;
 
   return (
-    <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
-      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 44, margin: '0 0 4px', letterSpacing: '-0.02em', color: '#0B0B0E' }}>My Students</h1>
-      <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.64)', margin: '0 0 24px' }}>{students.length} student{students.length !== 1 ? 's' : ''} assigned</p>
+    <div className={pageClass}>
+      <PageHeader
+        title="My Students"
+        subtitle={`${students.length} student${students.length !== 1 ? 's' : ''} assigned`}
+        className="mb-6"
+      />
 
       {students.length === 0 ? (
-        <div style={{ textAlign: 'center', paddingTop: 64 }}>
-          <Users size={48} color="rgba(11,11,14,0.2)" style={{ margin: '0 auto 16px', display: 'block' }} />
-          <p style={{ color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>No students assigned to you yet.</p>
-          <p style={{ color: 'rgba(11,11,14,0.58)', fontSize: 13 }}>Contact your admin to assign students to your account.</p>
-        </div>
+        <IconEmpty icon={Users}>
+          <p>No students assigned to you yet.</p>
+          <p className="text-[13px]">Contact your admin to assign students to your account.</p>
+        </IconEmpty>
       ) : (
-        <div style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 60px', gap: 12, padding: '12px 22px', borderBottom: '1px solid #EEEBE5' }}>
+        <div className={cn(surfaceClass, 'overflow-hidden')}>
+          <div className="grid grid-cols-[2fr_1fr_60px] gap-3 px-[22px] py-3 border-b border-border-soft">
             {['Student', 'Joined', ''].map((c, i) => (
-              <span key={i} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)' }}>{c}</span>
+              <span key={i} className={tableHeadClass}>{c}</span>
             ))}
           </div>
-          {students.map((s, i) => (
-            <div key={s.id} onClick={() => navigate(`/teacher/students/${s.id}`)}
-              style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 60px', gap: 12, padding: '14px 22px', borderBottom: i < students.length - 1 ? '1px solid #F2F0EC' : 'none', alignItems: 'center', cursor: 'pointer' }}
-              onPointerEnter={(el) => { if (el.pointerType !== 'mouse') return; el.currentTarget.style.background = '#FBFAF8'; }}
-              onPointerLeave={(el) => (el.currentTarget.style.background = 'transparent')}
+          {students.map((s) => (
+            <div
+              key={s.id}
+              onClick={() => navigate(`/teacher/students/${s.id}`)}
+              className={cn(tableRowClass, 'grid grid-cols-[2fr_1fr_60px] gap-3 px-[22px] py-3.5 items-center')}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 9999, background: 'rgba(46,125,90,0.1)', color: '#2E7D5A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{s.name.charAt(0).toUpperCase()}</div>
-                <div>
-                  <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0B0B0E' }}>{s.name}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>{s.email}</div>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-[34px] h-[34px] rounded-full bg-green-sat/10 text-green-sat flex items-center justify-center text-sm font-bold shrink-0">{s.name.charAt(0).toUpperCase()}</div>
+                <div className="min-w-0">
+                  <div className="text-[14.5px] font-semibold text-ink truncate">{s.name}</div>
+                  <div className="text-xs text-muted truncate">{s.email}</div>
                 </div>
               </div>
-              <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)' }}>{formatDate(s.createdAt)}</div>
-              <div style={{ textAlign: 'right', color: 'rgba(11,11,14,0.58)', fontSize: 18 }}>›</div>
+              <div className="text-[13.5px] text-subtle">{formatDate(s.createdAt)}</div>
+              <div className="text-right text-muted text-lg">›</div>
             </div>
           ))}
         </div>

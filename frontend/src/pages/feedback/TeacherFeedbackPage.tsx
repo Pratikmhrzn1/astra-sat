@@ -1,41 +1,35 @@
 import { useQuery } from '@tanstack/react-query';
 import { MessageSquare } from 'lucide-react';
 import { getSentFeedback } from '@/api/teacher';
-import { Badge, Spinner } from '@/components/common';
-import { formatDateTime } from '@/lib/utils';
+import { Badge, IconEmpty, InlineLoader, PageHeader, pageClass, surfaceClass } from '@/components/common';
+import { cn, formatDateTime } from '@/lib/utils';
 
 export default function TeacherFeedback() {
   const { data: feedbacks = [], isLoading } = useQuery({ queryKey: ['teacher', 'feedback'], queryFn: getSentFeedback });
 
-  if (isLoading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#C4471F]" /></div>;
-  }
+  if (isLoading) return <InlineLoader />;
 
   return (
-    <div className="screen-fade" style={{ padding: '36px 48px 64px', maxWidth: 820, margin: '0 auto' }}>
-      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 44, margin: '0 0 4px', letterSpacing: '-0.02em', color: '#0B0B0E' }}>Sent Feedback</h1>
-      <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.64)', margin: '0 0 24px' }}>Feedback you've sent to your students</p>
+    <div className={cn(pageClass, 'max-w-[820px] mx-auto')}>
+      <PageHeader title="Sent Feedback" subtitle="Feedback you've sent to your students" className="mb-6" />
 
       {feedbacks.length === 0 ? (
-        <div style={{ textAlign: 'center', paddingTop: 64 }}>
-          <MessageSquare size={48} color="rgba(11,11,14,0.2)" style={{ margin: '0 auto 16px', display: 'block' }} />
-          <p style={{ color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>No feedback sent yet.</p>
-        </div>
+        <IconEmpty icon={MessageSquare}><p>No feedback sent yet.</p></IconEmpty>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="flex flex-col gap-3">
           {feedbacks.map((fb) => (
-            <div key={fb.id} style={{ background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)', padding: '18px 22px' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+            <div key={fb.id} className={cn(surfaceClass, 'px-[22px] py-[18px]')}>
+              <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
                 <div>
-                  <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0B0B0E' }}>{fb.studentName}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>{fb.studentEmail}</div>
+                  <div className="text-[14.5px] font-semibold text-ink">{fb.studentName}</div>
+                  <div className="text-xs text-muted">{fb.studentEmail}</div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                <div className="flex items-center gap-2.5 shrink-0">
                   <Badge variant={fb.isRead ? 'success' : 'neutral'}>{fb.isRead ? 'Read' : 'Unread'}</Badge>
-                  <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>{formatDateTime(fb.createdAt)}</span>
+                  <span className="text-xs text-muted">{formatDateTime(fb.createdAt)}</span>
                 </div>
               </div>
-              <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.7)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{fb.content}</p>
+              <p className="text-sm text-body leading-[1.6] m-0 whitespace-pre-wrap">{fb.content}</p>
             </div>
           ))}
         </div>

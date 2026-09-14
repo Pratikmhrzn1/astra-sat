@@ -3,14 +3,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, Pencil, Trash2 } from 'lucide-react';
 import { getUsers, updateUser, deleteUser, assignStudentsToTeacher } from '@/api/admin';
 import { useAuthStore } from '@/store/auth';
-import { Button, Input, Modal, ConfirmModal, RoleBadge, Spinner } from '@/components/common';
-import { formatDate } from '@/lib/utils';
+import {
+  Button, Input, Modal, ConfirmModal, RoleBadge, InlineLoader, ErrorBanner,
+  iconButtonClass, pageClass, pillClass, surfaceClass, tableHeadClass,
+} from '@/components/common';
+import { cn, formatDate } from '@/lib/utils';
 import { getApiError } from '@/api/http';
 import type { AdminUser } from '@/api/admin';
 
 type RoleFilter = 'all' | 'student' | 'teacher' | 'admin';
 
-const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)' };
+const COLS = 'grid grid-cols-[28px_1.8fr_1fr_1fr_1fr] gap-3 px-[22px] items-center';
 
 export default function Users() {
   const { user: me } = useAuthStore();
@@ -92,27 +95,23 @@ export default function Users() {
   const openEdit = (u: AdminUser) => { setEditUser(u); setEditForm({ name: u.name, password: '', teacherId: u.teacherId ?? '' }); setEditError(''); };
 
   return (
-    <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
-      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 44, margin: '0 0 24px', letterSpacing: '-0.02em', color: '#0B0B0E' }}>User Management</h1>
+    <div className={pageClass}>
+      <h1 className="font-display font-semibold text-[32px] sm:text-[44px] mt-0 mb-6 tracking-[-0.02em] text-ink">User Management</h1>
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
-          <Search style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16, color: 'rgba(11,11,14,0.58)', pointerEvents: 'none' }} />
+      <div className="flex gap-3 mb-5 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
           <input
             type="text"
             placeholder="Search users…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ width: '100%', paddingLeft: 36, paddingRight: 14, height: 38, border: '1px solid #E7E4DE', borderRadius: 10, background: '#fff', color: '#0B0B0E', fontSize: 14, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+            className="w-full pl-9 pr-3.5 h-[38px] border border-border rounded-[10px] bg-white text-ink text-sm outline-none"
           />
         </div>
-        <div style={{ display: 'flex', gap: 7 }}>
+        <div className="flex gap-[7px] flex-wrap">
           {(['all', 'student', 'teacher', 'admin'] as RoleFilter[]).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRoleFilter(r)}
-              style={{ padding: '7px 14px', borderRadius: 9999, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', border: roleFilter === r ? '1px solid #0B0B0E' : '1px solid #C8C4BC', background: roleFilter === r ? '#0B0B0E' : '#fff', color: roleFilter === r ? '#fff' : '#0B0B0E' }}
-            >
+            <button key={r} onClick={() => setRoleFilter(r)} className={pillClass(roleFilter === r, 'px-3.5 py-[7px] text-[13px]')}>
               {r === 'all' ? 'All' : r.charAt(0).toUpperCase() + r.slice(1)}
             </button>
           ))}
@@ -122,31 +121,31 @@ export default function Users() {
       {/* Unassigned-students nudge. A teacher's roster, results and feedback all
           filter on this, so an unassigned cohort means an empty teacher portal. */}
       {unassignedCount > 0 && selected.size === 0 && (
-        <div style={{ background: 'rgba(184,137,62,0.08)', border: '1px solid rgba(184,137,62,0.25)', borderRadius: 12, padding: '12px 18px', marginBottom: 16, fontSize: 13.5, color: '#8A6020', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div className="bg-gold/[.08] border border-gold/25 rounded-xl px-[18px] py-3 mb-4 text-[13.5px] text-gold-dark flex items-center gap-3 flex-wrap">
           <span>
             <strong>{unassignedCount}</strong> student{unassignedCount === 1 ? ' has' : 's have'} no teacher assigned, so {unassignedCount === 1 ? 'they are' : 'they are'} invisible on every teacher's dashboard.
           </span>
           <button
             onClick={() => setSelected(new Set(users.filter((u) => u.role === 'student' && !u.teacherId).map((u) => u.id)))}
-            style={{ marginLeft: 'auto', height: 30, padding: '0 14px', border: '1px solid rgba(184,137,62,0.4)', borderRadius: 9999, background: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: '#8A6020' }}
+            className="ml-auto h-[30px] px-3.5 border border-gold/40 rounded-full bg-white text-[12.5px] font-semibold cursor-pointer text-gold-dark"
           >Select them</button>
         </div>
       )}
 
       {bulkResult && (
-        <div style={{ background: 'rgba(46,125,90,0.07)', border: '1px solid rgba(46,125,90,0.22)', borderRadius: 12, padding: '10px 18px', marginBottom: 16, fontSize: 13.5, color: '#1A6B3C' }}>
+        <div className="bg-green-sat/[.07] border border-green-sat/[.22] rounded-xl px-[18px] py-2.5 mb-4 text-[13.5px] text-green-dark">
           {bulkResult}
         </div>
       )}
 
       {/* Bulk assign bar */}
       {selected.size > 0 && (
-        <div style={{ ...CARD, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13.5, fontWeight: 600 }}>{selected.size} student{selected.size === 1 ? '' : 's'} selected</span>
+        <div className={cn(surfaceClass, 'px-[18px] py-3.5 mb-4 flex items-center gap-3 flex-wrap')}>
+          <span className="text-[13.5px] font-semibold">{selected.size} student{selected.size === 1 ? '' : 's'} selected</span>
           <select
             value={bulkTeacherId}
             onChange={(e) => setBulkTeacherId(e.target.value)}
-            style={{ height: 38, padding: '0 12px', border: '1px solid #C8C4BC', borderRadius: 10, background: '#fff', fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer', minWidth: 220 }}
+            className="h-[38px] px-3 border border-field rounded-[10px] bg-white text-[13.5px] cursor-pointer min-w-[220px]"
           >
             <option value="">Remove teacher assignment</option>
             {teachers.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.email})</option>)}
@@ -156,103 +155,95 @@ export default function Users() {
           </Button>
           <button
             onClick={() => setSelected(new Set())}
-            style={{ height: 38, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 9999, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: 'rgba(11,11,14,0.64)' }}
+            className="h-[38px] px-3.5 border border-border rounded-full bg-white text-[13px] font-semibold cursor-pointer text-subtle"
           >Clear</button>
           {teachers.length === 0 && (
-            <span style={{ fontSize: 12.5, color: '#C0392B' }}>No teacher accounts exist yet — create one first.</span>
+            <span className="text-[12.5px] text-danger">No teacher accounts exist yet — create one first.</span>
           )}
         </div>
       )}
 
-      {editError && !editUser && (
-        <div style={{ background: 'rgba(192,57,43,0.06)', border: '1px solid rgba(192,57,43,0.2)', borderRadius: 12, padding: '10px 18px', marginBottom: 16, fontSize: 13.5, color: '#C0392B' }}>
-          {editError}
-        </div>
-      )}
+      {editError && !editUser && <ErrorBanner>{editError}</ErrorBanner>}
 
       {isLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#C4471F]" /></div>
+        <InlineLoader />
       ) : (
-        <div style={{ ...CARD, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '28px 1.8fr 1fr 1fr 1fr', gap: 12, padding: '12px 22px', borderBottom: '1px solid #EEEBE5', alignItems: 'center' }}>
-            <input
-              type="checkbox"
-              checked={allSelected}
-              disabled={selectableIds.length === 0}
-              onChange={toggleAll}
-              title="Select all students shown"
-              style={{ width: 15, height: 15, cursor: selectableIds.length ? 'pointer' : 'default' }}
-            />
-            {['User', 'Role', 'Joined', 'Actions'].map((c, i) => (
-              <span key={c} style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', textAlign: i === 3 ? 'right' : 'left' }}>{c}</span>
-            ))}
-          </div>
-          {filtered.length === 0 ? (
-            <div style={{ padding: '48px 22px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>No users found</div>
-          ) : (
-            filtered.map((u, i) => (
-              <div key={u.id} style={{ display: 'grid', gridTemplateColumns: '28px 1.8fr 1fr 1fr 1fr', gap: 12, padding: '14px 22px', borderBottom: i < filtered.length - 1 ? '1px solid #F2F0EC' : 'none', alignItems: 'center', background: selected.has(u.id) ? 'rgba(226,86,43,0.04)' : undefined }}>
-                {u.role === 'student' ? (
-                  <input
-                    type="checkbox"
-                    checked={selected.has(u.id)}
-                    onChange={() => toggleOne(u.id)}
-                    style={{ width: 15, height: 15, cursor: 'pointer' }}
-                  />
-                ) : <span />}
-                <div>
-                  <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0B0B0E' }}>{u.name}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>
-                    {u.email}
-                    {u.role === 'student' && (
-                      <span style={{ marginLeft: 8, color: u.teacherId ? 'rgba(11,11,14,0.58)' : '#C47A1B' }}>
-                        {u.teacherId
-                          ? `· ${teachers.find((t) => t.id === u.teacherId)?.name ?? 'teacher'}`
-                          : '· no teacher'}
-                      </span>
+        <div className={cn(surfaceClass, 'overflow-x-auto')}>
+          <div className="min-w-[680px]">
+            <div className={cn(COLS, 'py-3 border-b border-border-soft')}>
+              <input
+                type="checkbox"
+                checked={allSelected}
+                disabled={selectableIds.length === 0}
+                onChange={toggleAll}
+                title="Select all students shown"
+                className={cn('w-[15px] h-[15px]', selectableIds.length ? 'cursor-pointer' : 'cursor-default')}
+              />
+              {['User', 'Role', 'Joined', 'Actions'].map((c, i) => (
+                <span key={c} className={cn(tableHeadClass, i === 3 ? 'text-right' : 'text-left')}>{c}</span>
+              ))}
+            </div>
+            {filtered.length === 0 ? (
+              <div className="px-[22px] py-12 text-center text-muted text-sm">No users found</div>
+            ) : (
+              filtered.map((u) => (
+                <div key={u.id} className={cn(COLS, 'py-3.5 border-b border-sunken last:border-b-0', selected.has(u.id) && 'bg-ember/[.04]')}>
+                  {u.role === 'student' ? (
+                    <input
+                      type="checkbox"
+                      checked={selected.has(u.id)}
+                      onChange={() => toggleOne(u.id)}
+                      className="w-[15px] h-[15px] cursor-pointer"
+                    />
+                  ) : <span />}
+                  <div className="min-w-0">
+                    <div className="text-[14.5px] font-semibold text-ink">{u.name}</div>
+                    <div className="text-xs text-muted">
+                      {u.email}
+                      {u.role === 'student' && (
+                        <span className={cn('ml-2', u.teacherId ? 'text-muted' : 'text-amber-sat')}>
+                          {u.teacherId
+                            ? `· ${teachers.find((t) => t.id === u.teacherId)?.name ?? 'teacher'}`
+                            : '· no teacher'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div><RoleBadge role={u.role} /></div>
+                  <div className="text-[13.5px] text-subtle">{formatDate(u.createdAt)}</div>
+                  <div className="flex justify-end gap-1">
+                    <button onClick={() => openEdit(u)} className={iconButtonClass('edit')}><Pencil size={15} /></button>
+                    {u.id !== me?.id && (
+                      <button onClick={() => setDeleteTarget(u)} className={iconButtonClass('danger')}><Trash2 size={15} /></button>
                     )}
                   </div>
                 </div>
-                <div><RoleBadge role={u.role} /></div>
-                <div style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.64)' }}>{formatDate(u.createdAt)}</div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
-                  <button onClick={() => openEdit(u)} style={{ padding: 7, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.58)' }}
-                    onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.background = 'rgba(37,99,168,0.08)'; e.currentTarget.style.color = '#2563A8'; }}
-                    onPointerLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.58)'; }}
-                  ><Pencil size={15} /></button>
-                  {u.id !== me?.id && (
-                    <button onClick={() => setDeleteTarget(u)} style={{ padding: 7, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'rgba(11,11,14,0.58)' }}
-                      onPointerEnter={(e) => { if (e.pointerType !== 'mouse') return; e.currentTarget.style.background = 'rgba(192,57,43,0.08)'; e.currentTarget.style.color = '#C0392B'; }}
-                      onPointerLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(11,11,14,0.58)'; }}
-                    ><Trash2 size={15} /></button>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
       )}
 
       <Modal isOpen={!!editUser} onClose={() => setEditUser(null)} title={`Edit ${editUser?.name}`}
         footer={<><Button variant="secondary" onClick={() => setEditUser(null)}>Cancel</Button><Button onClick={() => updateMutation.mutate()} loading={updateMutation.isPending}>Save Changes</Button></>}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="flex flex-col gap-4">
           <Input label="Name" value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
           <Input label="New Password (leave blank to keep unchanged)" type="password" value={editForm.password} onChange={(e) => setEditForm((f) => ({ ...f, password: e.target.value }))} placeholder="Min 8 characters" />
           {editUser?.role === 'student' && (
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'rgba(11,11,14,0.65)', marginBottom: 6 }}>Assigned Teacher</label>
+              <label className="block text-[13px] font-semibold text-subtle mb-1.5">Assigned Teacher</label>
               <select
                 value={editForm.teacherId}
                 onChange={(e) => setEditForm((f) => ({ ...f, teacherId: e.target.value }))}
-                style={{ width: '100%', height: 40, padding: '0 12px', border: '1px solid #E7E4DE', borderRadius: 10, background: '#fff', color: '#0B0B0E', fontSize: 14, fontFamily: 'inherit', outline: 'none' }}
+                className="w-full h-10 px-3 border border-border rounded-[10px] bg-white text-ink text-sm outline-none"
               >
                 <option value="">No teacher assigned</option>
                 {teachers.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.email})</option>)}
               </select>
             </div>
           )}
-          {editError && <p style={{ color: '#C0392B', fontSize: 13 }}>{editError}</p>}
+          {editError && <p className="text-danger text-[13px]">{editError}</p>}
         </div>
       </Modal>
 

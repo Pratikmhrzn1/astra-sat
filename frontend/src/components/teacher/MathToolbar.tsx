@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 /**
  * Symbol palette for authoring math questions.
@@ -21,24 +22,24 @@ const SYMBOL_GROUPS = [
 export function MathToolbar({ onInsert }: { onInsert: (s: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
   return (
-    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
-      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(11,11,14,0.58)', alignSelf: 'center', marginRight: 4 }}>Math</span>
+    <div className="flex gap-1 flex-wrap mb-1.5">
+      <span className="text-[10.5px] font-bold tracking-[0.07em] uppercase text-muted self-center mr-1">Math</span>
       {SYMBOL_GROUPS.map((g) => (
-        <div key={g.label} style={{ position: 'relative' }}>
+        <div key={g.label} className="relative">
           <button
             type="button"
             title={g.tip}
             onClick={() => setOpen(open === g.label ? null : g.label)}
-            style={{ padding: '3px 8px', fontSize: 11, fontWeight: 600, border: '1px solid #E7E4DE', borderRadius: 6, background: open === g.label ? '#0B0B0E' : '#F2F0EC', color: open === g.label ? '#fff' : '#0B0B0E', cursor: 'pointer', fontFamily: 'inherit' }}
+            className={cn('px-2 py-[3px] text-[11px] font-semibold border border-border rounded-md cursor-pointer', open === g.label ? 'bg-ink text-white' : 'bg-sunken text-ink')}
           >{g.label} ▾</button>
           {open === g.label && (
-            <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: '#fff', border: '1px solid #E7E4DE', borderRadius: 10, padding: 8, zIndex: 50, display: 'flex', flexWrap: 'wrap', gap: 4, width: 200, boxShadow: '0 8px 24px rgba(11,11,14,0.12)' }}>
+            <div className="absolute top-full left-0 mt-1 bg-white border border-border rounded-[10px] p-2 z-50 flex flex-wrap gap-1 w-[200px] shadow-[0_8px_24px_rgba(11,11,14,0.12)]">
               {g.symbols.map((sym) => (
                 <button
                   key={sym}
                   type="button"
                   onClick={() => { onInsert(sym); setOpen(null); }}
-                  style={{ minWidth: 30, height: 30, padding: '0 6px', border: '1px solid #E7E4DE', borderRadius: 7, background: '#F8F7F4', color: '#0B0B0E', cursor: 'pointer', fontSize: 14, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  className="min-w-[30px] h-[30px] px-1.5 border border-border rounded-[7px] bg-[#F8F7F4] text-ink cursor-pointer text-sm flex items-center justify-center"
                 >{sym}</button>
               ))}
             </div>

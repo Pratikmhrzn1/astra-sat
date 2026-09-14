@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, MessageSquare } from 'lucide-react';
 import { getStudents, getStudentExams, getStudentDetail, getStudentAnalytics, sendFeedback, getSentFeedback } from '@/api/teacher';
 import { DomainPanel, ReadinessCard, TrendPanel } from '@/components/student/ProgressPanels';
-import { Button, Modal, Textarea, SubjectBadge, Badge, Spinner } from '@/components/common';
-import { formatDate } from '@/lib/utils';
+import { Button, Modal, Textarea, SubjectBadge, Badge, InlineLoader, pageClass, surfaceClass } from '@/components/common';
+import { BackPill, SendFeedbackPill } from '@/components/teacher/DetailHeader';
+import { cn, formatDate } from '@/lib/utils';
 import { getApiError } from '@/api/http';
 import { accuracyColor as scoreColor, daysUntil } from '@/lib/score';
 
-const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)', overflow: 'hidden' };
+const panel = cn(surfaceClass, 'overflow-hidden');
+const panelHead = 'px-[22px] py-4 border-b border-border-soft';
+const panelTitle = 'text-base font-semibold text-ink m-0';
 
 export default function StudentDetail() {
   const { studentId } = useParams<{ studentId: string }>();
@@ -35,48 +37,42 @@ export default function StudentDetail() {
     onError: (err) => setFeedbackError(getApiError(err)),
   });
 
-  if (isLoading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#C4471F]" /></div>;
-  }
+  if (isLoading) return <InlineLoader />;
 
   const completedExams = exams.filter((e) => e.status === 'completed');
 
   return (
-    <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 9999, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit' }}>
-            <ArrowLeft size={14} /> Back
-          </button>
+    <div className={pageClass}>
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-7">
+        <div className="flex items-center gap-3.5 min-w-0">
+          <BackPill onClick={() => navigate(-1)} />
           {student && (
-            <div>
-              <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 36, margin: 0, letterSpacing: '-0.02em', color: '#0B0B0E' }}>{student.name}</h1>
-              <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.58)', margin: 0 }}>{student.email}</p>
+            <div className="min-w-0">
+              <h1 className="font-display font-semibold text-[28px] sm:text-4xl m-0 tracking-[-0.02em] text-ink">{student.name}</h1>
+              <p className="text-[13px] text-muted m-0">{student.email}</p>
             </div>
           )}
         </div>
-        <button onClick={() => { setShowFeedback(true); setFeedbackError(''); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 18px', background: '#C4471F', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
-        ><MessageSquare size={15} /> Send Feedback</button>
+        <SendFeedbackPill onClick={() => { setShowFeedback(true); setFeedbackError(''); }} />
       </div>
 
-      <div style={{ ...CARD, marginBottom: 20, padding: '16px 22px' }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, color: '#0B0B0E', margin: '0 0 10px' }}>Goal</h2>
+      <div className={cn(panel, 'mb-5 px-[22px] py-4')}>
+        <h2 className={cn(panelTitle, 'mb-2.5')}>Goal</h2>
         {detail?.profile?.targetScore || detail?.profile?.testDate ? (
-          <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
+          <div className="flex gap-7 flex-wrap">
             <div>
-              <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>Target score</div>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>{detail.profile.targetScore ?? '—'}</div>
+              <div className="text-xs text-muted">Target score</div>
+              <div className="text-[15px] font-semibold">{detail.profile.targetScore ?? '—'}</div>
             </div>
             <div>
-              <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>Test date</div>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>
+              <div className="text-xs text-muted">Test date</div>
+              <div className="text-[15px] font-semibold">
                 {detail.profile.testDate ? formatDate(detail.profile.testDate) : '—'}
                 {(() => {
                   const days = daysUntil(detail.profile.testDate);
                   if (days === null) return null;
                   return (
-                    <span style={{ fontSize: 13, fontWeight: 400, color: 'rgba(11,11,14,0.58)', marginLeft: 8 }}>
+                    <span className="text-[13px] font-normal text-muted ml-2">
                       {days >= 0 ? `${days} ${days === 1 ? 'day' : 'days'} away` : 'passed'}
                     </span>
                   );
@@ -85,12 +81,12 @@ export default function StudentDetail() {
             </div>
           </div>
         ) : (
-          <div style={{ fontSize: 14, color: 'rgba(11,11,14,0.58)' }}>This student hasn't set a target score yet.</div>
+          <div className="text-sm text-muted">This student hasn't set a target score yet.</div>
         )}
       </div>
 
       {analytics && (analytics.trend.length > 0 || analytics.domains.length > 0) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
+        <div className="flex flex-col gap-4 mb-5">
           <ReadinessCard readiness={analytics.readiness} />
           <TrendPanel trend={analytics.trend} />
           {/* No practise button: a teacher assigning work to a student is an
@@ -100,28 +96,29 @@ export default function StudentDetail() {
         </div>
       )}
 
-      <div style={{ ...CARD, marginBottom: 20 }}>
-        <div style={{ padding: '16px 22px', borderBottom: '1px solid #EEEBE5' }}>
-          <h2 style={{ fontSize: 16, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>Exam History ({completedExams.length})</h2>
+      <div className={cn(panel, 'mb-5')}>
+        <div className={panelHead}>
+          <h2 className={panelTitle}>Exam History ({completedExams.length})</h2>
         </div>
         {completedExams.length === 0 ? (
-          <div style={{ padding: '40px 22px', textAlign: 'center', color: 'rgba(11,11,14,0.58)', fontSize: 14 }}>No completed exams yet.</div>
+          <div className="px-[22px] py-10 text-center text-muted text-sm">No completed exams yet.</div>
         ) : (
-          completedExams.map((exam, i) => {
+          completedExams.map((exam) => {
             const pct = exam.score !== null ? Math.round((exam.score / exam.totalQuestions) * 100) : null;
             return (
-              <div key={exam.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 22px', borderBottom: i < completedExams.length - 1 ? '1px solid #F2F0EC' : 'none' }}>
+              <div key={exam.id} className="flex items-center gap-3.5 flex-wrap px-[22px] py-3.5 border-b border-sunken last:border-b-0">
                 {exam.subject && <SubjectBadge subject={exam.subject as 'english' | 'math'} />}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0B0B0E' }}>{exam.setTitle ?? exam.label ?? 'Practice'}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>{formatDate(exam.startedAt)}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[14.5px] font-semibold text-ink">{exam.setTitle ?? exam.label ?? 'Practice'}</div>
+                  <div className="text-xs text-muted">{formatDate(exam.startedAt)}</div>
                 </div>
                 {pct !== null && (
-                  <span style={{ fontSize: 14, fontWeight: 700, color: scoreColor(pct), fontFamily: 'var(--font-display)' }}>{exam.score}/{exam.totalQuestions} ({pct}%)</span>
+                  <span className="text-sm font-bold font-display" style={{ color: scoreColor(pct) }}>{exam.score}/{exam.totalQuestions} ({pct}%)</span>
                 )}
-                <Link to={`/teacher/students/${studentId}/exams/${exam.id}`} style={{ textDecoration: 'none' }}>
-                  <button style={{ height: 34, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 9999, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit' }}>View Results</button>
-                </Link>
+                <Link
+                  to={`/teacher/students/${studentId}/exams/${exam.id}`}
+                  className="inline-flex items-center h-[34px] px-3.5 border border-border rounded-full bg-white text-[13px] font-semibold text-ink no-underline"
+                >View Results</Link>
               </div>
             );
           })
@@ -129,17 +126,17 @@ export default function StudentDetail() {
       </div>
 
       {studentFeedback.length > 0 && (
-        <div style={CARD}>
-          <div style={{ padding: '16px 22px', borderBottom: '1px solid #EEEBE5' }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600, color: '#0B0B0E', margin: 0 }}>Feedback Sent</h2>
+        <div className={panel}>
+          <div className={panelHead}>
+            <h2 className={panelTitle}>Feedback Sent</h2>
           </div>
-          {studentFeedback.map((fb, i) => (
-            <div key={fb.id} style={{ padding: '16px 22px', borderBottom: i < studentFeedback.length - 1 ? '1px solid #F2F0EC' : 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 12, color: 'rgba(11,11,14,0.58)' }}>{formatDate(fb.createdAt)}</span>
+          {studentFeedback.map((fb) => (
+            <div key={fb.id} className="px-[22px] py-4 border-b border-sunken last:border-b-0">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-muted">{formatDate(fb.createdAt)}</span>
                 <Badge variant={fb.isRead ? 'success' : 'neutral'}>{fb.isRead ? 'Read' : 'Unread'}</Badge>
               </div>
-              <p style={{ fontSize: 14, color: 'rgba(11,11,14,0.7)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{fb.content}</p>
+              <p className="text-sm text-body m-0 leading-[1.6] whitespace-pre-wrap">{fb.content}</p>
             </div>
           ))}
         </div>
@@ -148,9 +145,9 @@ export default function StudentDetail() {
       <Modal isOpen={showFeedback} onClose={() => setShowFeedback(false)} title={`Send Feedback to ${student?.name ?? 'Student'}`}
         footer={<><Button variant="secondary" onClick={() => setShowFeedback(false)}>Cancel</Button><Button onClick={() => feedbackMutation.mutate()} loading={feedbackMutation.isPending} disabled={!feedbackContent.trim()}>Send Feedback</Button></>}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="flex flex-col gap-3">
           <Textarea label="Feedback message" value={feedbackContent} onChange={(e) => setFeedbackContent(e.target.value)} placeholder="Write your feedback here…" rows={5} />
-          {feedbackError && <p style={{ color: '#C0392B', fontSize: 13 }}>{feedbackError}</p>}
+          {feedbackError && <p className="text-danger text-[13px]">{feedbackError}</p>}
         </div>
       </Modal>
     </div>

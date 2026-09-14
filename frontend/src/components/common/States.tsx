@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { surfaceClass } from './Card';
 
@@ -20,6 +21,16 @@ export function EmptyState({
       <div className={cn('font-display font-semibold text-[26px] text-subtle mb-1.5', titleClassName)}>{title}</div>
       {children && <p className="text-sm text-muted mx-auto my-0 max-w-[400px] leading-[1.6]">{children}</p>}
       {action && <div className="mt-[18px] flex justify-center">{action}</div>}
+    </div>
+  );
+}
+
+/** A faint icon over a line or two, for lists with nothing in them yet. */
+export function IconEmpty({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
+  return (
+    <div className="text-center pt-16 text-muted text-sm">
+      <Icon size={48} className="text-ink/20 mx-auto mb-4 block" />
+      {children}
     </div>
   );
 }

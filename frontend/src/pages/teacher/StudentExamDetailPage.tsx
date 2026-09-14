@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, XCircle, MinusCircle, MessageSquare } from 'lucide-react';
+import { CheckCircle2, XCircle, MinusCircle } from 'lucide-react';
 import { getStudentExamResults, sendFeedback } from '@/api/teacher';
-import { Button, Modal, Textarea, SubjectBadge, Spinner } from '@/components/common';
+import { Button, Modal, Textarea, SubjectBadge, InlineLoader, pageClass, surfaceClass } from '@/components/common';
+import { BackPill, SendFeedbackPill } from '@/components/teacher/DetailHeader';
+import { cn } from '@/lib/utils';
 import { getApiError } from '@/api/http';
 
-function scoreColor(pct: number) {
-  return pct >= 80 ? '#1A6B3C' : pct >= 65 ? '#2E7D5A' : pct >= 50 ? '#B8893E' : '#C47A1B';
+function scoreTone(pct: number) {
+  return pct >= 80 ? 'text-green-dark' : pct >= 65 ? 'text-green-sat' : pct >= 50 ? 'text-gold' : 'text-amber-sat';
 }
-
-const CARD: React.CSSProperties = { background: '#fff', border: '1px solid #E7E4DE', borderRadius: 16, boxShadow: '0 1px 3px rgba(11,11,14,0.05)' };
 
 export default function StudentExamDetail() {
   const { studentId, examId } = useParams<{ studentId: string; examId: string }>();
@@ -28,15 +28,13 @@ export default function StudentExamDetail() {
     onError: (err) => setFeedbackError(getApiError(err)),
   });
 
-  if (isLoading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 64 }}><Spinner className="w-8 h-8 text-[#C4471F]" /></div>;
-  }
+  if (isLoading) return <InlineLoader />;
 
   if (error || !data) {
     return (
-      <div style={{ textAlign: 'center', paddingTop: 64 }}>
-        <p style={{ color: '#C0392B', marginBottom: 16 }}>Failed to load exam results.</p>
-        <button onClick={() => navigate(-1)} style={{ height: 40, padding: '0 20px', border: '1px solid #E7E4DE', borderRadius: 9999, background: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>Go back</button>
+      <div className="text-center pt-16">
+        <p className="text-danger mb-4">Failed to load exam results.</p>
+        <button onClick={() => navigate(-1)} className="h-10 px-5 border border-border rounded-full bg-white cursor-pointer">Go back</button>
       </div>
     );
   }
@@ -48,73 +46,81 @@ export default function StudentExamDetail() {
   const skipped = results.filter((r) => r.isCorrect === null).length;
 
   return (
-    <div className="screen-fade" style={{ padding: '36px 48px 64px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', border: '1px solid #E7E4DE', borderRadius: 9999, background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#0B0B0E', fontFamily: 'inherit' }}>
-            <ArrowLeft size={14} /> Back
-          </button>
-          <div>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 32, margin: 0, letterSpacing: '-0.02em', color: '#0B0B0E' }}>{set?.title ?? 'Exam Results'}</h1>
-            <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.58)', margin: 0 }}>{student.name}</p>
+    <div className={pageClass}>
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-7">
+        <div className="flex items-center gap-3.5 flex-wrap min-w-0">
+          <BackPill onClick={() => navigate(-1)} />
+          <div className="min-w-0">
+            <h1 className="font-display font-semibold text-[26px] sm:text-[32px] m-0 tracking-[-0.02em] text-ink">{set?.title ?? 'Exam Results'}</h1>
+            <p className="text-[13px] text-muted m-0">{student.name}</p>
           </div>
           {set && <SubjectBadge subject={set.subject as 'english' | 'math'} />}
         </div>
-        <button onClick={() => { setShowFeedback(true); setFeedbackError(''); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, height: 40, padding: '0 18px', background: '#C4471F', color: '#fff', border: 'none', borderRadius: 9999, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
-        ><MessageSquare size={15} /> Send Feedback</button>
+        <SendFeedbackPill onClick={() => { setShowFeedback(true); setFeedbackError(''); }} />
       </div>
 
       {/* Score hero */}
-      <div style={{ background: '#0B0B0E', borderRadius: 18, padding: '28px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24, marginBottom: 20 }}>
+      <div className="bg-ink rounded-3xl px-6 py-6 sm:px-8 sm:py-7 flex items-center justify-between gap-6 flex-wrap mb-5">
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)', marginBottom: 4 }}>Score</div>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 72, lineHeight: 0.9, color: scoreColor(pct) }}>{pct}%</div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginTop: 8 }}>{exam.score} / {exam.totalQuestions} correct</div>
+          <div className="text-[11px] font-bold tracking-[0.1em] uppercase text-white/50 mb-1">Score</div>
+          <div className={cn('font-display font-semibold text-[56px] sm:text-[72px] leading-[0.9]', scoreTone(pct))}>{pct}%</div>
+          <div className="text-[13px] text-white/50 mt-2">{exam.score} / {exam.totalQuestions} correct</div>
         </div>
-        <div style={{ display: 'flex', gap: 36 }}>
-          {[{ label: 'Correct', value: correct, color: '#2E7D5A' }, { label: 'Wrong', value: wrong, color: '#C0392B' }, { label: 'Skipped', value: skipped, color: 'rgba(255,255,255,0.5)' }].map(({ label, value, color }) => (
-            <div key={label} style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 44, lineHeight: 1, color }}>{value}</div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.45)', marginTop: 4 }}>{label}</div>
+        <div className="flex gap-6 sm:gap-9">
+          {[
+            { label: 'Correct', value: correct, tone: 'text-green-sat' },
+            { label: 'Wrong', value: wrong, tone: 'text-danger' },
+            { label: 'Skipped', value: skipped, tone: 'text-white/50' },
+          ].map(({ label, value, tone }) => (
+            <div key={label} className="text-center">
+              <div className={cn('font-display font-semibold text-[36px] sm:text-[44px] leading-none', tone)}>{value}</div>
+              <div className="text-xs font-semibold text-white/45 mt-1">{label}</div>
             </div>
           ))}
         </div>
       </div>
 
       {/* Question results */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="flex flex-col gap-2.5">
         {results.map((r, i) => {
           const opts = [{ key: 'a', text: r.optionA }, { key: 'b', text: r.optionB }, { key: 'c', text: r.optionC }, { key: 'd', text: r.optionD }];
           return (
-            <div key={r.questionId} style={{ ...CARD, padding: '18px 22px' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
-                {r.isCorrect === true ? <CheckCircle2 size={20} color="#2E7D5A" style={{ flexShrink: 0, marginTop: 2 }} /> : r.isCorrect === false ? <XCircle size={20} color="#C0392B" style={{ flexShrink: 0, marginTop: 2 }} /> : <MinusCircle size={20} color="rgba(11,11,14,0.3)" style={{ flexShrink: 0, marginTop: 2 }} />}
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: 'rgba(11,11,14,0.58)', marginBottom: 4 }}>Question {i + 1}</p>
-                  <p style={{ fontSize: 14.5, color: '#0B0B0E', margin: 0, lineHeight: 1.5 }} dangerouslySetInnerHTML={{ __html: r.questionText }} />
+            <div key={r.questionId} className={cn(surfaceClass, 'px-[22px] py-[18px]')}>
+              <div className="flex items-start gap-3 mb-3.5">
+                {r.isCorrect === true
+                  ? <CheckCircle2 size={20} className="text-green-sat shrink-0 mt-0.5" />
+                  : r.isCorrect === false
+                    ? <XCircle size={20} className="text-danger shrink-0 mt-0.5" />
+                    : <MinusCircle size={20} className="text-ink/30 shrink-0 mt-0.5" />}
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-muted mb-1">Question {i + 1}</p>
+                  <p className="text-[14.5px] text-ink m-0 leading-normal" dangerouslySetInnerHTML={{ __html: r.questionText }} />
                 </div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 32 }}>
+              <div className="flex flex-col gap-1.5 pl-8">
                 {opts.map(({ key, text }) => {
                   const isSelected = r.selectedAnswer === key;
                   const isCorrect = r.correctAnswer === key;
-                  const bg = isCorrect ? 'rgba(46,125,90,0.08)' : isSelected ? 'rgba(192,57,43,0.07)' : 'transparent';
-                  const bd = isCorrect ? '1px solid rgba(46,125,90,0.3)' : isSelected ? '1px solid rgba(192,57,43,0.25)' : '1px solid #EEEBE5';
                   return (
-                    <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderRadius: 9, background: bg, border: bd }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#6F6B64', width: 16 }}>{key.toUpperCase()}.</span>
-                      <span style={{ fontSize: 13.5, flex: 1, color: '#0B0B0E' }}>{text}</span>
-                      {isCorrect && <span style={{ fontSize: 11, fontWeight: 700, color: '#2E7D5A' }}>CORRECT</span>}
-                      {isSelected && !isCorrect && <span style={{ fontSize: 11, fontWeight: 700, color: '#C0392B' }}>STUDENT</span>}
+                    <div
+                      key={key}
+                      className={cn(
+                        'flex items-center gap-2.5 px-3.5 py-[9px] rounded-[9px] border',
+                        isCorrect ? 'bg-green-sat/[.08] border-green-sat/30' : isSelected ? 'bg-danger/[.07] border-danger/25' : 'bg-transparent border-border-soft',
+                      )}
+                    >
+                      <span className="text-xs font-bold text-stone w-4">{key.toUpperCase()}.</span>
+                      <span className="text-[13.5px] flex-1 text-ink">{text}</span>
+                      {isCorrect && <span className="text-[11px] font-bold text-green-sat">CORRECT</span>}
+                      {isSelected && !isCorrect && <span className="text-[11px] font-bold text-danger">STUDENT</span>}
                     </div>
                   );
                 })}
               </div>
               {r.explanation && (
-                <div style={{ marginTop: 12, paddingLeft: 32, background: 'rgba(37,99,168,0.05)', border: '1px solid rgba(37,99,168,0.15)', borderRadius: 9, padding: '10px 14px' }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: '#2563A8', marginBottom: 4 }}>EXPLANATION</p>
-                  <p style={{ fontSize: 13.5, color: 'rgba(11,11,14,0.7)', margin: 0, lineHeight: 1.55 }}>{r.explanation}</p>
+                <div className="mt-3 bg-blue-sat/5 border border-blue-sat/15 rounded-[9px] px-3.5 py-2.5">
+                  <p className="text-[11px] font-bold text-blue-sat mb-1">EXPLANATION</p>
+                  <p className="text-[13.5px] text-body m-0 leading-[1.55]">{r.explanation}</p>
                 </div>
               )}
             </div>
@@ -125,10 +131,10 @@ export default function StudentExamDetail() {
       <Modal isOpen={showFeedback} onClose={() => setShowFeedback(false)} title={`Send Feedback to ${student.name}`}
         footer={<><Button variant="secondary" onClick={() => setShowFeedback(false)}>Cancel</Button><Button onClick={() => feedbackMutation.mutate()} loading={feedbackMutation.isPending} disabled={!feedbackContent.trim()}>Send Feedback</Button></>}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <p style={{ fontSize: 13, color: 'rgba(11,11,14,0.64)', margin: 0 }}>This feedback will be linked to <strong style={{ color: '#0B0B0E' }}>{set?.title}</strong> and visible to the student.</p>
+        <div className="flex flex-col gap-3">
+          <p className="text-[13px] text-subtle m-0">This feedback will be linked to <strong className="text-ink">{set?.title}</strong> and visible to the student.</p>
           <Textarea label="Feedback" rows={5} value={feedbackContent} onChange={(e) => setFeedbackContent(e.target.value)} placeholder="Write your feedback here…" />
-          {feedbackError && <p style={{ color: '#C0392B', fontSize: 13 }}>{feedbackError}</p>}
+          {feedbackError && <p className="text-danger text-[13px]">{feedbackError}</p>}
         </div>
       </Modal>
     </div>

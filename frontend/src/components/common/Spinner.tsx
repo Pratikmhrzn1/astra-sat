@@ -19,6 +19,15 @@ export function Spinner({ className }: { className?: string }) {
   );
 }
 
+/** A spinner inside a page's content area, while its first query loads. */
+export function InlineLoader() {
+  return (
+    <div className="flex justify-center pt-16">
+      <Spinner className="w-8 h-8 text-accent-text" />
+    </div>
+  );
+}
+
 export function PageLoader() {
   return (
     <div className="min-h-screen bg-paper flex items-center justify-center">

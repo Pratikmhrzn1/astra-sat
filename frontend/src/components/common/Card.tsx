@@ -18,6 +18,12 @@ export const cardClass = 'lift bg-white border border-border rounded-[13px] curs
 /** Small uppercase label above a figure or a group. */
 export const kickerClass = 'text-[11px] font-bold tracking-[0.08em] uppercase text-muted';
 
+/** Column heading in a card-table. */
+export const tableHeadClass = 'text-[11px] font-bold tracking-[0.07em] uppercase text-muted';
+
+/** A clickable card-table row. */
+export const tableRowClass = 'border-b border-sunken last:border-b-0 cursor-pointer hover:bg-[#FBFAF8]';
+
 /** Page gutters shared by every in-app screen: 48px desktop, 16px phone. */
 export const pageClass = 'screen-fade px-4 pt-5 pb-20 sm:px-12 sm:pt-9 sm:pb-16';
 
