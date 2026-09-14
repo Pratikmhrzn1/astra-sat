@@ -1,12 +1,46 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
+export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
+export type ButtonSize = 'sm' | 'md' | 'lg';
+
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
   children?: React.ReactNode;
 }
+
+const BASE = cn(
+  'inline-flex items-center justify-center gap-2 font-semibold rounded-full select-none whitespace-nowrap tracking-[-0.01em] cursor-pointer',
+  'transition-[background-color,color,border-color,box-shadow,opacity,transform] duration-150 ease-out active:scale-[0.97]',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+  'disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100',
+);
+
+const VARIANTS: Record<ButtonVariant, string> = {
+  primary: 'bg-accent-text hover:bg-[#AE3E1B] text-white shadow-[0_1px_2px_rgba(196,71,31,0.25)] focus-visible:ring-accent-text/50',
+  secondary: 'bg-white hover:bg-[#F5F3EF] text-ink border border-border focus-visible:ring-ink/20',
+  danger: 'bg-danger hover:bg-[#A93226] text-white focus-visible:ring-danger/50',
+  ghost: 'text-ink/[.62] hover:text-ink hover:bg-ink/5 focus-visible:ring-ink/20',
+};
+
+const SIZES: Record<ButtonSize, string> = {
+  sm: 'h-8 px-3.5 text-[13px]',
+  md: 'h-10 px-[18px] text-sm',
+  lg: 'h-12 px-6 text-[15px]',
+};
+
+/**
+ * The pill-button recipe, exported apart from the component so a `<Link>` or a
+ * one-off `<button>` with its own handlers can wear the same look.
+ */
+export const buttonClass = ({
+  variant = 'primary',
+  size = 'md',
+  className,
+}: { variant?: ButtonVariant; size?: ButtonSize; className?: string } = {}): string =>
+  cn(BASE, VARIANTS[variant], SIZES[size], className);
 
 /**
  * The platform's pill button. Pressing scales it on pointer-down (see the
@@ -26,22 +60,7 @@ export function Button({
       {...props}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={cn(
-        'inline-flex items-center justify-center gap-2 font-semibold rounded-full select-none whitespace-nowrap tracking-[-0.01em]',
-        'transition-[background-color,color,border-color,box-shadow,opacity,transform] duration-150 ease-out active:scale-[0.97]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
-        'disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100',
-        {
-          'bg-[#C4471F] hover:bg-[#AE3E1B] text-white shadow-[0_1px_2px_rgba(196,71,31,0.25)] focus-visible:ring-[#C4471F]/50': variant === 'primary',
-          'bg-white hover:bg-[#F5F3EF] text-[#0B0B0E] border border-[#E7E4DE] focus-visible:ring-[#0B0B0E]/20': variant === 'secondary',
-          'bg-[#C0392B] hover:bg-[#A93226] text-white focus-visible:ring-[#C0392B]/50': variant === 'danger',
-          'text-[rgba(11,11,14,0.62)] hover:text-[#0B0B0E] hover:bg-[rgba(11,11,14,0.05)] focus-visible:ring-[#0B0B0E]/20': variant === 'ghost',
-          'h-8 px-3.5 text-[13px]': size === 'sm',
-          'h-10 px-[18px] text-sm': size === 'md',
-          'h-12 px-6 text-[15px]': size === 'lg',
-        },
-        className
-      )}
+      className={buttonClass({ variant, size, className })}
     >
       {loading && (
         <svg className="animate-spin -ml-0.5 h-4 w-4" fill="none" viewBox="0 0 24 24" aria-hidden>

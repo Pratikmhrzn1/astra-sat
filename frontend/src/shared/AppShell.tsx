@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import { Sheet } from '@/components/common';
+import { cn } from '@/lib/utils';
 
 /**
  * The navigation chrome shared by all three roles.
@@ -13,7 +14,8 @@ import { Sheet } from '@/components/common';
  *   <640px   a translucent tab bar with the most-used destinations, and a
  *            grabbable "More" sheet holding the rest in sidebar order
  *
- * Styling lives in index.css under "App shell".
+ * The width-dependent rail behaviour (sidebar, labels, indicator, items, tab
+ * bar) lives in index.css under "App shell"; everything else is utilities.
  */
 
 export interface ShellNavItem {
@@ -48,6 +50,29 @@ interface AppShellProps {
 
 const ITEM_PITCH = 42; // item height 40 + gap 2 — keeps the indicator aligned
 
+const shellIcon = 'flex shrink-0 w-6 justify-center [&_svg]:w-[21px] [&_svg]:h-[21px]';
+const avatar = 'flex items-center justify-center shrink-0 rounded-full bg-ink text-white font-semibold tracking-[0.02em]';
+
+const menuItem = (destructive: boolean) => cn(
+  'flex items-center gap-2.5 w-full px-2.5 py-[9px] rounded-[9px] bg-transparent text-sm text-left cursor-pointer',
+  destructive ? 'text-danger hover:bg-danger/[.08]' : 'text-ink hover:bg-ink/5',
+);
+
+const tab = (open: boolean) => cn(
+  'flex flex-1 flex-col items-center justify-center gap-[3px] min-w-0 bg-transparent cursor-pointer',
+  'text-[10.5px] font-medium tracking-[0.01em] leading-none text-ink/[.62] [&_svg]:w-[23px] [&_svg]:h-[23px]',
+  'aria-[current=page]:text-accent-text aria-[current=page]:font-semibold',
+  open && 'text-accent-text font-semibold',
+);
+
+const sheetRow = (destructive: boolean) => cn(
+  'group flex items-center gap-3.5 w-full min-h-12 px-5 bg-transparent text-base font-medium tracking-[-0.012em] text-left cursor-pointer',
+  '[&_svg]:w-5 [&_svg]:h-5 active:bg-ink/5 active:transform-none',
+  'aria-[current=page]:text-accent-text aria-[current=page]:font-semibold aria-[current=page]:bg-ember/[.06]',
+  destructive ? 'text-danger' : 'text-ink',
+);
+const sheetRowIcon = 'flex shrink-0 text-[var(--ink-3)] group-aria-[current=page]:text-accent-text group-[.text-danger]:text-danger';
+
 const SignOutIcon = (
   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" />
@@ -64,8 +89,8 @@ const MoreIcon = (
 
 export function BrandMark() {
   return (
-    <div style={{ width: 24, height: 24, borderRadius: 7, background: '#E2562B', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'inset 0 -1px 0 rgba(0,0,0,0.12)' }}>
-      <div style={{ width: 9, height: 9, borderRadius: 2.5, background: '#fff' }} />
+    <div className="w-6 h-6 rounded-[7px] bg-ember shrink-0 flex items-center justify-center shadow-brand">
+      <div className="w-[9px] h-[9px] rounded-[2.5px] bg-white" />
     </div>
   );
 }
@@ -114,23 +139,23 @@ export default function AppShell({
   }, [menuOpen]);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FAF9F6' }}>
+    <div className="min-h-screen bg-paper">
       {/* ── Sidebar / rail ─────────────────────────────────────────────── */}
       <nav className="shell-sidebar" aria-label="Main">
-        <div className="shell-brand">
+        <div className="flex items-center gap-3.5 h-16 px-[26px] shrink-0">
           <BrandMark />
-          <span className="shell-label shell-brand-name">Score Studio</span>
+          <span className="shell-label font-display text-[19px] font-bold tracking-[-0.03em] text-ink">Score Studio</span>
         </div>
 
         {(roleLabel || status) && (
-          <div className="shell-eyebrow">
+          <div className="flex items-center justify-between h-7 px-7 text-[11px] font-semibold tracking-[0.06em] uppercase text-[var(--ink-3)]">
             <span className="shell-label">{roleLabel}</span>
             {status && <span className="shell-label">{status}</span>}
           </div>
         )}
 
-        <div className="scrollarea" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-          <div className="shell-list">
+        <div className="scrollarea flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="relative flex flex-col gap-0.5 px-3.5 py-1">
             <span
               className="shell-indicator"
               aria-hidden
@@ -147,7 +172,7 @@ export default function AppShell({
                 title={item.label}
                 onClick={() => go(item.path)}
               >
-                <span className="shell-icon">{item.icon}</span>
+                <span className={shellIcon}>{item.icon}</span>
                 <span className="shell-label">{item.label}</span>
               </button>
             ))}
@@ -155,43 +180,45 @@ export default function AppShell({
         </div>
 
         {utilityAction && (
-          <div style={{ padding: '4px 14px 8px' }}>
+          <div className="px-3.5 pt-1 pb-2">
             <button className="shell-item" title={utilityAction.label} onClick={utilityAction.onClick}>
-              <span className="shell-icon">{utilityAction.icon}</span>
+              <span className={shellIcon}>{utilityAction.icon}</span>
               <span className="shell-label">{utilityAction.label}</span>
             </button>
           </div>
         )}
 
-        <div className="shell-footer" ref={footerRef}>
+        <div className="relative px-3.5 pt-2 pb-3 border-t border-[var(--hairline-soft)]" ref={footerRef}>
           {menuOpen && (
-            <div className="shell-menu pop" role="menu">
-              <div style={{ padding: '8px 10px 10px' }}>
-                <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
-                <div style={{ fontSize: 12.5, color: 'rgba(11,11,14,0.64)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
+            <div
+              className="material pop absolute left-3.5 bottom-[calc(100%-4px)] w-[232px] p-1.5 z-[60] bg-[var(--material-thick)] border border-ink/[.08] rounded-[14px] shadow-lg origin-[20px_100%]"
+              role="menu"
+            >
+              <div className="px-2.5 pt-2 pb-2.5">
+                <div className="text-sm font-semibold tracking-[-0.01em] truncate">{user?.name}</div>
+                <div className="text-[12.5px] text-subtle truncate">{user?.email}</div>
               </div>
-              <div style={{ height: 1, background: 'rgba(11,11,14,0.08)', margin: '0 4px 4px' }} />
+              <div className="h-px bg-ink/[.08] mx-1 mb-1" />
               {menuActions.map((a) => (
-                <button key={a.label} role="menuitem" className="shell-menu-item" onClick={() => { setMenuOpen(false); a.onClick(); }}>
+                <button key={a.label} role="menuitem" className={menuItem(false)} onClick={() => { setMenuOpen(false); a.onClick(); }}>
                   {a.icon}{a.label}
                 </button>
               ))}
-              <button role="menuitem" className="shell-menu-item is-destructive" onClick={signOut}>
+              <button role="menuitem" className={menuItem(true)} onClick={signOut}>
                 {SignOutIcon}Sign out
               </button>
             </div>
           )}
           <button
-            className="shell-item"
-            style={{ height: 52, padding: '0 8px' }}
+            className="shell-item h-[52px] px-2"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
           >
-            <span className="shell-avatar">{initials}</span>
-            <span className="shell-label" style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: '#0B0B0E', letterSpacing: '-0.01em' }}>{user?.name}</span>
-              <span style={{ fontSize: 12, fontWeight: 400, color: 'rgba(11,11,14,0.58)' }}>{profileSubtitle}</span>
+            <span className={cn(avatar, 'w-8 h-8 text-[12.5px]')}>{initials}</span>
+            <span className="shell-label flex flex-col leading-[1.25]">
+              <span className="text-[13.5px] font-semibold text-ink tracking-[-0.01em]">{user?.name}</span>
+              <span className="text-xs font-normal text-muted">{profileSubtitle}</span>
             </span>
           </button>
         </div>
@@ -206,7 +233,7 @@ export default function AppShell({
         {tabs.map((item) => (
           <button
             key={item.path}
-            className="shell-tab"
+            className={tab(false)}
             aria-current={isActive(item.path) ? 'page' : undefined}
             onClick={() => go(item.path)}
           >
@@ -216,7 +243,7 @@ export default function AppShell({
         ))}
         {(overflow.length > 0 || utilityAction) && (
           <button
-            className={`shell-tab${moreOpen ? ' is-open' : ''}`}
+            className={tab(moreOpen)}
             aria-current={overflowActive && !moreOpen ? 'page' : undefined}
             aria-haspopup="dialog"
             aria-expanded={moreOpen}
@@ -229,37 +256,37 @@ export default function AppShell({
       </nav>
 
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} label="More">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 20px 14px' }}>
-          <span className="shell-avatar" style={{ width: 40, height: 40, fontSize: 14 }}>{initials}</span>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.015em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
-            <div style={{ fontSize: 13, color: 'rgba(11,11,14,0.64)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
+        <div className="flex items-center gap-3 px-5 pt-1.5 pb-3.5">
+          <span className={cn(avatar, 'w-10 h-10 text-sm')}>{initials}</span>
+          <div className="min-w-0">
+            <div className="text-base font-semibold tracking-[-0.015em] truncate">{user?.name}</div>
+            <div className="text-[13px] text-subtle truncate">{user?.email}</div>
           </div>
         </div>
-        <div style={{ height: 0.5, background: 'rgba(11,11,14,0.12)' }} />
-        <div style={{ padding: '6px 0' }}>
+        <div className="h-[0.5px] bg-ink/[.12]" />
+        <div className="py-1.5">
           {overflow.map((item) => (
             <button
               key={item.path}
-              className="sheet-row"
+              className={sheetRow(false)}
               aria-current={isActive(item.path) ? 'page' : undefined}
               onClick={() => go(item.path)}
             >
-              <span className="sheet-row-icon">{item.icon}</span>
+              <span className={sheetRowIcon}>{item.icon}</span>
               {item.label}
             </button>
           ))}
         </div>
-        <div style={{ height: 0.5, background: 'rgba(11,11,14,0.12)' }} />
-        <div style={{ padding: '6px 0 12px' }}>
+        <div className="h-[0.5px] bg-ink/[.12]" />
+        <div className="pt-1.5 pb-3">
           {utilityAction && (
-            <button className="sheet-row" onClick={() => { setMoreOpen(false); utilityAction.onClick(); }}>
-              <span className="sheet-row-icon">{utilityAction.icon}</span>
+            <button className={sheetRow(false)} onClick={() => { setMoreOpen(false); utilityAction.onClick(); }}>
+              <span className={sheetRowIcon}>{utilityAction.icon}</span>
               {utilityAction.label}
             </button>
           )}
-          <button className="sheet-row is-destructive" onClick={() => { setMoreOpen(false); signOut(); }}>
-            <span className="sheet-row-icon">{SignOutIcon}</span>
+          <button className={sheetRow(true)} onClick={() => { setMoreOpen(false); signOut(); }}>
+            <span className={sheetRowIcon}>{SignOutIcon}</span>
             Sign out
           </button>
         </div>

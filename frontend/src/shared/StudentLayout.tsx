@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
-import { Modal, Button } from '@/components/common';
+import { Modal, Button, inputClass, segmentGroupClass, segmentClass } from '@/components/common';
+import { toastClass } from '@/components/common/ErrorToasts';
+import { cn } from '@/lib/utils';
 import { submitFeedback } from '@/api/feedback';
 import AppShell, { type ShellNavItem } from './AppShell';
 
@@ -75,11 +77,6 @@ const NAV: ShellNavItem[] = [
   )},
 ];
 
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '11px 13px', border: '1px solid #E7E4DE', borderRadius: 12,
-  fontSize: 15, lineHeight: 1.45, background: '#fff', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box',
-};
-
 const FeedbackIcon = (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -143,18 +140,18 @@ export default function StudentLayout() {
       utilityAction={{ label: 'Send Feedback', icon: FeedbackIcon, onClick: () => setShowFeedback(true) }}
     >
       {notifications.length > 0 && (
-        <div role="status" aria-live="polite" style={{ position: 'fixed', top: 'max(12px, env(safe-area-inset-top))', left: '50%', transform: 'translateX(-50%)', zIndex: 999, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 420, width: 'calc(100% - 32px)' }}>
+        <div role="status" aria-live="polite" className="fixed top-[max(12px,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[999] flex flex-col gap-2 max-w-[420px] w-[calc(100%-32px)]">
           {notifications.map((n) => (
-            <div key={n.id} className="toast" style={{ color: '#fff', borderRadius: 16, padding: '12px 12px 12px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.22)' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontWeight: 600, fontSize: 14, letterSpacing: '-0.01em', margin: 0 }}>{n.title}</p>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.72)', margin: '1px 0 0', lineHeight: 1.4 }}>{n.message}</p>
+            <div key={n.id} className={cn(toastClass, 'rounded-2xl py-3 pr-3 pl-4')}>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm tracking-[-0.01em] m-0">{n.title}</p>
+                <p className="text-[13px] text-white/[.72] mt-px mb-0 leading-[1.4]">{n.message}</p>
               </div>
-              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+              <div className="flex gap-1.5 shrink-0">
                 {n.link && (
-                  <button onClick={() => { setNotifications((prev) => prev.filter((x) => x.id !== n.id)); navigate(n.link!); }} style={{ background: '#fff', color: '#0B0B0E', border: 'none', borderRadius: 9999, height: 32, padding: '0 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>View</button>
+                  <button onClick={() => { setNotifications((prev) => prev.filter((x) => x.id !== n.id)); navigate(n.link!); }} className="bg-white text-ink rounded-full h-8 px-3.5 text-[13px] font-semibold cursor-pointer whitespace-nowrap">View</button>
                 )}
-                <button aria-label="Dismiss" onClick={() => setNotifications((prev) => prev.filter((x) => x.id !== n.id))} style={{ background: 'rgba(255,255,255,0.14)', color: '#fff', border: 'none', borderRadius: 9999, width: 32, height: 32, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>✕</button>
+                <button aria-label="Dismiss" onClick={() => setNotifications((prev) => prev.filter((x) => x.id !== n.id))} className="bg-white/[.14] text-white rounded-full w-8 h-8 text-[13px] cursor-pointer">✕</button>
               </div>
             </div>
           ))}
@@ -183,38 +180,38 @@ export default function StudentLayout() {
         }
       >
         {feedbackSent ? (
-          <div style={{ textAlign: 'center', padding: '16px 0' }}>
-            <div aria-hidden style={{ width: 52, height: 52, borderRadius: 9999, background: 'rgba(26,107,60,0.1)', color: '#1A6B3C', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
-            <div style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.02em', marginBottom: 6 }}>Thank you!</div>
-            <div style={{ fontSize: 14.5, color: 'rgba(11,11,14,0.58)', lineHeight: 1.5 }}>Your feedback has been sent to the admin team.</div>
+          <div className="text-center py-4">
+            <div aria-hidden className="w-[52px] h-[52px] rounded-full bg-green-dark/10 text-green-dark flex items-center justify-center mx-auto mb-3.5"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+            <div className="text-[19px] font-semibold tracking-[-0.02em] mb-1.5">Thank you!</div>
+            <div className="text-[14.5px] text-muted leading-normal">Your feedback has been sent to the admin team.</div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="flex flex-col gap-3.5">
             {feedbackMutation.isError && (
-              <div role="alert" style={{ background: 'rgba(192,57,43,0.07)', color: '#C0392B', padding: '10px 12px', borderRadius: 10, fontSize: 13.5 }}>
+              <div role="alert" className="bg-danger/[.07] text-danger px-3 py-2.5 rounded-[10px] text-[13.5px]">
                 Something went wrong. Please try again.
               </div>
             )}
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 8, color: 'rgba(11,11,14,0.62)' }}>Category</label>
-              <div role="radiogroup" aria-label="Category" style={{ display: 'flex', gap: 2, padding: 2, borderRadius: 10, background: 'rgba(11,11,14,0.06)' }}>
+              <label className="block text-[13px] font-medium mb-2 text-ink/[.62]">Category</label>
+              <div role="radiogroup" aria-label="Category" className={segmentGroupClass}>
                 {(['bug', 'suggestion', 'other'] as FeedbackCategory[]).map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setFeedbackCategory(cat)}
                     role="radio"
                     aria-checked={feedbackCategory === cat}
-                    style={{ flex: 1, height: 32, border: 'none', borderRadius: 8, background: feedbackCategory === cat ? '#fff' : 'transparent', boxShadow: feedbackCategory === cat ? '0 1px 3px rgba(11,11,14,0.12), 0 0 0 0.5px rgba(11,11,14,0.04)' : 'none', color: '#0B0B0E', fontSize: 13, fontWeight: feedbackCategory === cat ? 600 : 500, cursor: 'pointer', fontFamily: 'inherit', textTransform: 'capitalize' }}
+                    className={cn(segmentClass(feedbackCategory === cat), 'capitalize')}
                   >{cat === 'bug' ? 'Bug Report' : cat === 'suggestion' ? 'Suggestion' : 'Other'}</button>
                 ))}
               </div>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 8, color: 'rgba(11,11,14,0.62)' }}>
-                Message <span style={{ color: 'rgba(11,11,14,0.58)', fontWeight: 400 }}>({feedbackMessage.length}/2000)</span>
+              <label className="block text-[13px] font-medium mb-2 text-ink/[.62]">
+                Message <span className="text-muted font-normal">({feedbackMessage.length}/2000)</span>
               </label>
               <textarea
-                style={{ ...inputStyle, height: 110, resize: 'vertical' }}
+                className={inputClass(false, 'h-[110px] resize-y')}
                 placeholder="Describe the bug or share your suggestion… (min 10 characters)"
                 value={feedbackMessage}
                 onChange={(e) => setFeedbackMessage(e.target.value.slice(0, 2000))}

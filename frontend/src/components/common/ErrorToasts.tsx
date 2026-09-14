@@ -1,5 +1,12 @@
 import { create } from 'zustand';
 import { useEffect } from 'react';
+import { cn } from '@/lib/utils';
+
+/**
+ * Dark translucent toast surface, shared with the live-exam notifications.
+ * `.toast` (index.css) carries the entrance and the reduced-transparency fallback.
+ */
+export const toastClass = 'toast material bg-[rgba(22,22,26,0.86)] text-white flex items-center gap-3 shadow-toast';
 
 /**
  * App-wide error toasts.
@@ -48,15 +55,14 @@ function ToastItem({ toast }: { toast: Toast }) {
   return (
     <div
       role="alert"
-      className="toast"
-      style={{ pointerEvents: 'auto', color: '#fff', borderRadius: 14, padding: '10px 10px 10px 16px', display: 'flex', alignItems: 'center', gap: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.22)', maxWidth: 'min(460px, calc(100vw - 32px))', fontSize: 14 }}
+      className={cn(toastClass, 'pointer-events-auto rounded-[14px] py-2.5 pr-2.5 pl-4 max-w-[min(460px,calc(100vw-32px))] text-sm')}
     >
-      <span style={{ width: 8, height: 8, borderRadius: 9999, background: '#E5584A', flexShrink: 0 }} />
-      <span style={{ flex: 1, lineHeight: 1.4 }}>{toast.message}</span>
+      <span className="w-2 h-2 rounded-full bg-[#E5584A] shrink-0" />
+      <span className="flex-1 leading-[1.4]">{toast.message}</span>
       <button
         onClick={() => dismiss(toast.id)}
         aria-label="Dismiss"
-        style={{ border: 'none', background: 'rgba(255,255,255,0.12)', color: '#fff', width: 28, height: 28, borderRadius: 9999, cursor: 'pointer', fontSize: 16, lineHeight: 1, flexShrink: 0, fontFamily: 'inherit' }}
+        className="bg-white/[.12] text-white w-7 h-7 rounded-full cursor-pointer text-base leading-none shrink-0"
       >×</button>
     </div>
   );
@@ -68,7 +74,7 @@ export function ErrorToasts() {
   return (
     <div
       aria-live="assertive"
-      style={{ position: 'fixed', top: 16, left: 0, right: 0, zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, pointerEvents: 'none', padding: '0 16px' }}
+      className="fixed top-4 inset-x-0 z-[1000] flex flex-col items-center gap-2 pointer-events-none px-4"
     >
       {toasts.map((t) => <ToastItem key={t.id} toast={t} />)}
     </div>

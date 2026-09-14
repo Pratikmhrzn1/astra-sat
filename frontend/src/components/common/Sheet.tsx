@@ -199,19 +199,21 @@ export function Sheet({ open, onClose, label, children }: SheetProps) {
 
   return (
     <>
-      <div ref={scrimRef} className="sheet-scrim" style={{ opacity: 0 }} onClick={onClose} />
+      {/* Opacity and transform are driven imperatively by place(), so they start inline. */}
+      <div ref={scrimRef} className="fixed inset-0 z-[48] bg-ink/[.32]" style={{ opacity: 0 }} onClick={onClose} />
       <div
         ref={sheetRef}
-        className="sheet"
+        className="material fixed inset-x-0 bottom-0 z-[49] max-h-[88dvh] overflow-hidden touch-none outline-none will-change-transform bg-[var(--material-thick)] rounded-t-[20px] shadow-[0_-8px_40px_rgba(11,11,14,0.14)] pb-[var(--safe-bottom)]"
         role="dialog"
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
         onPointerDown={onPointerDown}
         onClickCapture={(e) => { if (suppressClick.current) { e.stopPropagation(); e.preventDefault(); } }}
-        style={{ outline: 'none' }}
       >
-        <div className="sheet-grabber" aria-hidden><span /></div>
+        <div className="flex justify-center pt-2 pb-1.5 cursor-grab" aria-hidden>
+          <span className="w-9 h-[5px] rounded-full bg-ink/[.22]" />
+        </div>
         {children}
       </div>
     </>
