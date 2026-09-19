@@ -1,6 +1,7 @@
 import type { ConfirmFeedbacks } from '@/features/exam-review/api';
 import type { QuestionWithAnswer } from '@/entities/exam';
 import { AiFeedbackPanel } from '@/features/exam-review/components/AiFeedbackPanel';
+import { PassageBlock, QuestionImage } from '@/features/exam-review/components/PassageBlock';
 import { surfaceClass } from '@/shared/ui';
 import { cn } from '@/shared/lib/utils';
 import { AnswerReview } from './AnswerReview';
@@ -79,7 +80,15 @@ export function ReviewItem({
 
       {open && (
         <div className="px-3.5 pb-[18px] sm:pl-16 sm:pr-[18px] sm:pb-5">
+          {/*
+            Passage first, then the question — the order they have to be read
+            in. Only an expanded row renders its passage, so several questions
+            sharing one never repeat it on screen and no deduplication is
+            needed.
+          */}
+          <PassageBlock passageTitle={r.passageTitle} passageText={r.passageText} />
           <p className="text-[14.5px] font-medium leading-normal mt-0 mb-3.5" dangerouslySetInnerHTML={{ __html: r.questionText }} />
+          <QuestionImage imageUrl={r.imageUrl} />
           <AnswerReview r={r} />
           {r.explanation && (
             <div className="bg-sunken rounded-[10px] px-3.5 py-3 text-[13.5px] leading-[1.55] text-body mb-3.5">

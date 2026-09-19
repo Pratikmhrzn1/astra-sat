@@ -144,6 +144,16 @@ export async function listMistakes(studentId: string, filters: MistakeFilters) {
       correctAnswer: questions.correctAnswer,
       correctAnswerText: questions.correctAnswerText,
       explanation: questions.explanation,
+      /**
+       * What the student actually picked, from the attempt that most recently
+       * got it wrong. Null in two different ways, and the caller must tell them
+       * apart: the join misses when `exam_answer_id` was cleared (ON DELETE SET
+       * NULL), and `selectedAnswer` is itself null when the question was left
+       * blank — `gradeAnswer` counts a blank as wrong, so skipped questions are
+       * in the bank too.
+       */
+      selectedAnswer: examAnswers.selectedAnswer,
+      selectedAnswerText: examAnswers.selectedAnswerText,
       skillCode: questions.skillCode,
       skillLabel: skills.label,
       /** The domain a skill sits under, or the code itself when it is a domain. */
@@ -159,6 +169,7 @@ export async function listMistakes(studentId: string, filters: MistakeFilters) {
     .innerJoin(questions, eq(mistakes.questionId, questions.id))
     .innerJoin(questionSets, eq(questions.setId, questionSets.id))
     .leftJoin(skills, eq(questions.skillCode, skills.code))
+    .leftJoin(examAnswers, eq(mistakes.examAnswerId, examAnswers.id))
     .where(and(...conditions))
     .orderBy(sql`${mistakes.missCount} DESC, ${mistakes.lastMissedAt} DESC`);
 }

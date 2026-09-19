@@ -32,4 +32,6 @@ export const chatRoleEnum = pgEnum('chat_role', ['user', 'assistant']);
 
 export const feedbackCategoryEnum = pgEnum('feedback_category', ['bug', 'suggestion', 'other']);
 
+export const surveyQuestionTypeEnum = pgEnum('survey_question_type', ['single_choice', 'multi_choice', 'short_text', 'scale']);
+
 export const fileTypeEnum = pgEnum('file_type', ['audio', 'video', 'image', 'document', 'other', 'note']);

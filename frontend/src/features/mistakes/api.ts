@@ -19,6 +19,14 @@ export interface Mistake {
   correctAnswer: 'a' | 'b' | 'c' | 'd' | null;
   correctAnswerText: string | null;
   explanation: string | null;
+  /**
+   * What was picked on the attempt that most recently got this wrong. Null when
+   * the question was left blank — a blank counts as a miss — and also null when
+   * the originating answer row is gone, so a caller that needs to tell "skipped"
+   * from "unknown" has to check both this and `selectedAnswerText`.
+   */
+  selectedAnswer: 'a' | 'b' | 'c' | 'd' | null;
+  selectedAnswerText: string | null;
   skillCode: string | null;
   skillLabel: string | null;
   /** The domain the skill sits under, or the code itself when it is a domain. */

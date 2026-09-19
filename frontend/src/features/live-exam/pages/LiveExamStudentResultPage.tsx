@@ -297,7 +297,11 @@ function QuestionRow({ row, number, section, note, onNote }: {
   note: string;
   onNote: (value: string) => void;
 }) {
-  const isSPR = !row.optionA && !row.optionB && row.correctAnswerText !== null;
+  const [showPassage, setShowPassage] = useState(false);
+  // The question's own type, now that the marking payload carries it. This was
+  // inferred from "no options and a text answer", which mislabels a grid-in
+  // whose options were simply never authored.
+  const isSPR = row.questionType === 'student_produced_response';
   const picked = isSPR ? (row.selectedAnswerText?.trim() || null) : row.selectedAnswer;
   const correct = isSPR ? row.correctAnswerText : row.correctAnswer;
   const show = (v: string | null) => (v === null ? '—' : isSPR ? v : v.toUpperCase());
@@ -323,6 +327,28 @@ function QuestionRow({ row, number, section, note, onNote }: {
             <span className="text-muted tnum shrink-0">{String(number).padStart(2, '0')}</span>
             <span className="line-clamp-3" title={text}>{text}</span>
           </div>
+          {/*
+            On demand, not always open: this list is for scanning and annotating
+            a whole paper, and a passage on every row would bury the answers
+            being marked. But a passage question cannot be judged without it, so
+            it has to be one click away rather than absent.
+          */}
+          {row.passageText && (
+            <div className="mb-2">
+              <button
+                onClick={() => setShowPassage((v) => !v)}
+                aria-expanded={showPassage}
+                className="px-2 py-1 -ml-2 rounded-lg bg-transparent border-0 text-[12.5px] font-semibold text-accent-text cursor-pointer hover:bg-ember/[.08]"
+              >
+                {showPassage ? 'Hide passage' : 'Show passage'}
+              </button>
+              {showPassage && (
+                <p className="font-serif text-[14px] leading-[1.65] text-ink bg-[#FBFAF8] border border-border-soft rounded-[10px] px-3.5 py-3 mt-1.5 mb-0 whitespace-pre-wrap">
+                  {plainText(row.passageText)}
+                </p>
+              )}
+            </div>
+          )}
           <div className="flex gap-3.5 flex-wrap text-[12.5px] mb-2">
             <span className="text-subtle">Picked <strong className={tone.fg}>{picked === null ? 'nothing' : show(picked)}</strong></span>
             {outcome !== 'right' && <span className="text-subtle">Correct <strong className="text-green-dark">{show(correct)}</strong></span>}

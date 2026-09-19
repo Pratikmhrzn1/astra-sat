@@ -9,6 +9,13 @@ export interface AuthUser {
   email: string;
   role: Role;
   teacherId?: string | null;
+  /**
+   * Whether the onboarding survey is behind them. Sent on every auth payload;
+   * `ProtectedRoute` holds a student here until it is true. Optional because a
+   * session persisted before this existed has no such field — and those
+   * accounts predate the survey, so undefined must not gate them.
+   */
+  surveyCompleted?: boolean;
 }
 
 interface AuthState {

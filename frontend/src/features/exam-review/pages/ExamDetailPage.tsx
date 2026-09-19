@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQueries, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getExamResults, type QuestionWithAnswer } from '@/entities/exam';
 import { getMockNarrative, retryNarrative, confirmAnswer, sendChatMessage } from '@/features/exam-review/api';
-import { pageClass, surfaceClass } from '@/shared/ui';
+import { chipClass, pageClass, surfaceClass } from '@/shared/ui';
 import {
   ESTIMATED_LABEL, SECTION_MAX, TOTAL_MAX,
   formatExamScore, formatScore, scoreColor,
@@ -42,6 +42,7 @@ export default function ExamDetail() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const [reviewOpen, setReviewOpen] = useState<Record<number, boolean>>({});
+  const [reviewFilter, setReviewFilter] = useState<'all' | 'incorrect' | 'skipped'>('all');
 
   // AI guidance state (keyed by questionId)
   const [aiPanelOpen, setAiPanelOpen] = useState<Record<string, boolean>>({});
@@ -227,6 +228,29 @@ export default function ExamDetail() {
   const skipped = mathReview.filter((r) => r.isCorrect === null).length;
   const headlineColor = scoreColor(exam.scaledScore, SECTION_MAX);
 
+  // Review-list controls. Counts span both sections, because the filter does.
+  const allReview = [...englishReview, ...mathReview];
+  const wrongTotal = allReview.filter((r) => r.isCorrect === false).length;
+  const skippedTotal = allReview.filter((r) => r.isCorrect === null).length;
+  const allExpanded = allReview.length > 0 && allReview.every((_, i) => reviewOpen[i]);
+
+  /**
+   * The rows a filter leaves visible, each keeping the number it had in the
+   * full list. Numbering is derived before filtering on purpose: "Question 04"
+   * has to stay 04 when you filter to what you got wrong, or the list stops
+   * matching the paper the student actually sat.
+   */
+  const visibleRows = (rows: QuestionWithAnswer[], offset: number) =>
+    rows
+      .map((r, i) => ({ r, number: i + 1, listIdx: offset + i }))
+      .filter(({ r }) =>
+        reviewFilter === 'all'
+          ? true
+          : reviewFilter === 'incorrect'
+            ? r.isCorrect === false
+            : r.isCorrect === null,
+      );
+
   const topics: Record<string, { ok: number; n: number }> = {};
   results.forEach((r) => {
     const t = 'Question';
@@ -360,7 +384,7 @@ export default function ExamDetail() {
       </div>
 
       {/* Question review */}
-      <div className="flex justify-between items-center mt-1.5 mb-3.5 flex-wrap gap-2">
+      <div className="flex justify-between items-center mt-1.5 mb-3 flex-wrap gap-2">
         <h3 className="text-base m-0">Question review</h3>
         <span className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-gold bg-gold/10 border border-gold/30 rounded-full px-3 py-[5px]">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -371,8 +395,33 @@ export default function ExamDetail() {
         </span>
       </div>
 
+      {/*
+        Finding what you got wrong on a 44-question mock meant scrolling past
+        everything you got right. The counts are the static cue — a chip reading
+        "Incorrect 0" says the filter is empty before you press it.
+      */}
+      <div className="flex items-center gap-2 mb-3.5 flex-wrap">
+        <button onClick={() => setReviewFilter('all')} className={chipClass(reviewFilter === 'all')}>
+          All {allReview.length}
+        </button>
+        <button onClick={() => setReviewFilter('incorrect')} className={chipClass(reviewFilter === 'incorrect')}>
+          Incorrect {wrongTotal}
+        </button>
+        <button onClick={() => setReviewFilter('skipped')} className={chipClass(reviewFilter === 'skipped')}>
+          Skipped {skippedTotal}
+        </button>
+        <button
+          onClick={() =>
+            setReviewOpen(allExpanded ? {} : Object.fromEntries(allReview.map((_, i) => [i, true])))
+          }
+          className="ml-auto px-3 py-1.5 rounded-lg bg-transparent border-0 text-[13px] font-semibold text-accent-text cursor-pointer hover:bg-ember/[.08]"
+        >
+          {allExpanded ? 'Collapse all' : 'Expand all'}
+        </button>
+      </div>
+
       <div className="flex flex-col gap-2.5">
-        {isMockCombined && (
+        {isMockCombined && visibleRows(englishReview, 0).length > 0 && (
           <SectionDivider
             dot="bg-green-sat"
             title="Section 1 · Reading & Writing"
@@ -380,9 +429,9 @@ export default function ExamDetail() {
             className="pt-2.5"
           />
         )}
-        {isMockCombined && englishReview.map((r, i) => renderItem(r, i + 1, i))}
+        {isMockCombined && visibleRows(englishReview, 0).map(({ r, number, listIdx }) => renderItem(r, number, listIdx))}
 
-        {isMockCombined && (
+        {isMockCombined && visibleRows(mathReview, englishReview.length).length > 0 && (
           <SectionDivider
             dot="bg-blue-sat"
             title="Section 2 · Math"
@@ -390,7 +439,15 @@ export default function ExamDetail() {
             className="pt-[18px]"
           />
         )}
-        {mathReview.map((r, i) => renderItem(r, i + 1, isMockCombined ? englishReview.length + i : i))}
+        {visibleRows(mathReview, isMockCombined ? englishReview.length : 0).map(({ r, number, listIdx }) =>
+          renderItem(r, number, listIdx),
+        )}
+
+        {visibleRows(englishReview, 0).length + visibleRows(mathReview, 0).length === 0 && (
+          <p className="text-[13.5px] text-muted text-center py-8 m-0">
+            {reviewFilter === 'incorrect' ? 'You got every question right.' : 'You answered every question.'}
+          </p>
+        )}
       </div>
 
       {/* Actions */}

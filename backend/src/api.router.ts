@@ -12,6 +12,7 @@ import { platformFeedbackRouter } from './modules/platform-feedback';
 import { practiceStudentRouter } from './modules/practice';
 import { rosterTeacherRouter } from './modules/roster';
 import { skillsRouter } from './modules/taxonomy';
+import { surveyAdminRouter, surveyStudentRouter } from './modules/survey';
 import { vocabStudentRouter, vocabTeacherRouter } from './modules/vocab';
 
 /**
@@ -35,6 +36,7 @@ apiRouter.use('/student', mistakesStudentRouter);
 apiRouter.use('/student', analyticsStudentRouter);
 apiRouter.use('/student', messagesStudentRouter);
 apiRouter.use('/student', vocabStudentRouter);
+apiRouter.use('/student', surveyStudentRouter);
 
 apiRouter.use('/teacher', rosterTeacherRouter);
 apiRouter.use('/teacher', messagesTeacherRouter);
@@ -45,6 +47,7 @@ apiRouter.use('/admin', adminRouter);
 apiRouter.use('/admin', usersAdminRouter);
 apiRouter.use('/admin', contentAdminRouter);
 apiRouter.use('/admin', attemptsAdminRouter);
+apiRouter.use('/admin', surveyAdminRouter);
 
 apiRouter.use('/feedback', platformFeedbackRouter);
 apiRouter.use('/library', libraryRouter);

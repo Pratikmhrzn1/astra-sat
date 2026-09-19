@@ -24,3 +24,5 @@ export { Toggle } from './Toggle';
 export { Spinner, PageLoader, InlineLoader } from './Spinner';
 export { TrendChart, TREND_COLORS, type TrendSeries } from './TrendChart';
 export { AccuracyBars, type AccuracyRow } from './AccuracyBars';
+export { RadarChart, type RadarAxis } from './RadarChart';
+export { PieChart, type PieSlice } from './PieChart';

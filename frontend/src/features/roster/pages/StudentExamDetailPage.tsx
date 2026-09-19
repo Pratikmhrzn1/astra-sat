@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, XCircle, MinusCircle } from 'lucide-react';
 import { getStudentExamResults } from '@/features/roster/api';
 import { sendFeedback } from '@/features/messages';
+import { PassageBlock, QuestionImage } from '@/features/exam-review';
 import { Button, Modal, Textarea, SubjectBadge, InlineLoader, pageClass, surfaceClass } from '@/shared/ui';
 import { BackPill, SendFeedbackPill } from '@/features/roster/components/DetailHeader';
 import { cn } from '@/shared/lib/utils';
@@ -93,9 +94,13 @@ export default function StudentExamDetail() {
                   : r.isCorrect === false
                     ? <XCircle size={20} className="text-danger shrink-0 mt-0.5" />
                     : <MinusCircle size={20} className="text-ink/30 shrink-0 mt-0.5" />}
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-muted mb-1">Question {i + 1}</p>
+                  {/* Same passage and diagram the student saw — a teacher was
+                      marking passage questions without the passage. */}
+                  <PassageBlock passageTitle={r.passageTitle} passageText={r.passageText} />
                   <p className="text-[14.5px] text-ink m-0 leading-normal" dangerouslySetInnerHTML={{ __html: r.questionText }} />
+                  <QuestionImage imageUrl={r.imageUrl} className="mt-3 mb-0" />
                 </div>
               </div>
               <div className="flex flex-col gap-1.5 pl-8">

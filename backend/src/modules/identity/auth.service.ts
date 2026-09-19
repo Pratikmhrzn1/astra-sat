@@ -109,6 +109,7 @@ export async function login({ email, password }: LoginInput): Promise<AuthResult
     email: user.email,
     name: user.name,
     role: user.role,
+    surveyCompleted: user.surveyCompletedAt !== null,
   };
 
   return {

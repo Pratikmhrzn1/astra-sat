@@ -20,6 +20,8 @@ import {
   questionSets,
   questions,
   studentProfiles,
+  surveyQuestions,
+  surveyResponses,
   studentSkillTriggers,
   studentTeacherVocabProgress,
   studentVocab,
@@ -94,6 +96,10 @@ const BACKUP_TABLES = [
     sqlName: 'live_exam_question_feedback',
   },
   { key: 'platformFeedback', table: platformFeedback, sqlName: 'platform_feedback' },
+  // The onboarding survey: authored questions, and the answers keyed to them.
+  // Questions first — survey_responses.question_id points here.
+  { key: 'surveyQuestions', table: surveyQuestions, sqlName: 'survey_questions' },
+  { key: 'surveyResponses', table: surveyResponses, sqlName: 'survey_responses' },
   // Accountability for irreversible admin actions. Backed up rather than
   // excluded because an audit trail that disappears on restore cannot serve its
   // purpose — and the restore is itself one of the actions it records. Depends

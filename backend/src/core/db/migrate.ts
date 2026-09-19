@@ -50,6 +50,9 @@ const CREATE_ENUMS = `
     CREATE TYPE feedback_category AS ENUM ('bug', 'suggestion', 'other');
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
   DO $$ BEGIN
+    CREATE TYPE survey_question_type AS ENUM ('single_choice', 'multi_choice', 'short_text', 'scale');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+  DO $$ BEGIN
     CREATE TYPE file_type AS ENUM ('audio', 'video', 'image', 'document', 'other');
   EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 `;
@@ -565,6 +568,53 @@ const M0_FOUNDATION = `
   CREATE INDEX IF NOT EXISTS audit_log_created_at_idx ON audit_log (created_at DESC);
 `;
 
+/**
+ * The admin-authored onboarding survey, and the flag that gates a new student
+ * into it.
+ *
+ * The column is added inside a guard rather than with ADD COLUMN IF NOT EXISTS
+ * because the backfill next to it must run exactly once: every account that
+ * existed before the survey is marked complete, so the gate only ever stops
+ * genuinely new signups. An unguarded UPDATE would silently complete the survey
+ * for everyone who signed up since the last boot.
+ */
+const ONBOARDING_SURVEY = `
+  CREATE TABLE IF NOT EXISTS survey_questions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    prompt TEXT NOT NULL,
+    type survey_question_type NOT NULL DEFAULT 'single_choice',
+    options JSONB NOT NULL DEFAULT '[]'::jsonb,
+    is_required BOOLEAN NOT NULL DEFAULT TRUE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+
+  -- One answer per (student, question): answering again overwrites.
+  CREATE TABLE IF NOT EXISTS survey_responses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    question_id UUID NOT NULL REFERENCES survey_questions(id) ON DELETE CASCADE,
+    answer JSONB NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT survey_responses_user_id_question_id_unique UNIQUE (user_id, question_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS survey_questions_sort_idx ON survey_questions (sort_order, created_at);
+
+  DO $$ BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'survey_completed_at'
+    ) THEN
+      ALTER TABLE users ADD COLUMN survey_completed_at TIMESTAMP;
+      UPDATE users SET survey_completed_at = NOW();
+    END IF;
+  END $$;
+`;
+
 const SEED_DEFAULT_ADMIN_CODE = `
   INSERT INTO access_codes (code, role, description, is_active)
   SELECT '000000', 'admin', 'Default admin access code', TRUE
@@ -580,6 +630,7 @@ export async function runMigrations() {
     await client.query(SCHEMA_UPDATES);
     await client.query(PHASE2_FOUNDATION);
     await client.query(M0_FOUNDATION);
+    await client.query(ONBOARDING_SURVEY);
     await client.query(SEED_SAT_TAXONOMY);
     await client.query(BACKFILL_FOUNDATION);
     await client.query(SEED_DEFAULT_ADMIN_CODE);

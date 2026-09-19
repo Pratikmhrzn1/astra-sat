@@ -17,4 +17,5 @@ export * from './mistakes';
 export * from './live-exam';
 export * from './library';
 export * from './platform-feedback';
+export * from './survey';
 export * from './audit';

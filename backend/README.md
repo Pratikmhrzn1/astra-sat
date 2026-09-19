@@ -47,6 +47,7 @@ src/
     live-exam/         proctored classroom sessions
     library/           shared files and notes
     platform-feedback/ in-app bug reports
+    survey/            the admin-authored signup survey and its answers
     admin/             platform stats, AI model stats, database console
     audit/             audit log
     ai/                the only module that calls OpenRouter

@@ -2,18 +2,16 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '../../core/db';
 import {
-  examAnswers,
   exams,
   liveExamParticipants,
   liveExamQuestionFeedback,
   liveExamSessions,
   notifications,
   questionSets,
-  questions,
   users,
 } from '../../core/db/schema';
 import { badRequest, notFound } from '../../core/errors';
-import { createExamForSet } from '../exams';
+import { createExamForSet, examRepository } from '../exams';
 import { recordMistakesOnRelease } from '../mistakes';
 
 /**
@@ -306,26 +304,12 @@ async function loadSectionForMarking(examId: string | null) {
   const [exam] = await db.select().from(exams).where(eq(exams.id, examId)).limit(1);
   if (!exam) return null;
 
-  const results = await db
-    .select({
-      questionId: questions.id,
-      questionText: questions.questionText,
-      optionA: questions.optionA,
-      optionB: questions.optionB,
-      optionC: questions.optionC,
-      optionD: questions.optionD,
-      correctAnswer: questions.correctAnswer,
-      correctAnswerText: questions.correctAnswerText,
-      explanation: questions.explanation,
-      selectedAnswer: examAnswers.selectedAnswer,
-      selectedAnswerText: examAnswers.selectedAnswerText,
-      isCorrect: examAnswers.isCorrect,
-      orderIndex: examAnswers.orderIndex,
-    })
-    .from(examAnswers)
-    .innerJoin(questions, eq(examAnswers.questionId, questions.id))
-    .where(eq(examAnswers.examId, exam.id))
-    .orderBy(examAnswers.orderIndex);
+  // The shared review projection, which this query used to duplicate without
+  // the passage join — so a teacher marked passage questions without the
+  // passage. It also restores `questionType`, dropped here, which is what tells
+  // a grid-in apart from a multiple-choice question on the marking page.
+  const rows = await examRepository.findReviewRowsForExam(exam.id);
+  const results = rows.map(({ id, ...rest }) => ({ questionId: id, ...rest }));
 
   return { exam, results };
 }

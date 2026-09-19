@@ -31,9 +31,53 @@ export type StudentQuestion = {
   [K in keyof typeof studentQuestionColumns]: unknown;
 } & { id: string; imageUrl: string | null };
 
+/**
+ * The same question, once the exam is over and the answers may be shown.
+ *
+ * This exists because three separate review queries — the student's own report,
+ * a teacher reading one of their students', and the live-exam marking page —
+ * each hand-rolled their own projection, and all three forgot to join
+ * `passages`. A review that omits the passage strands every question that only
+ * makes sense beside it ("Which choice most logically completes the text?"),
+ * and all three dropped `imageUrl` too. One projection, so they cannot drift
+ * apart again.
+ *
+ * `orderIndex` deliberately comes from the answer sheet rather than from
+ * `questions`: an exam assembled across sets (topic practice, mistake review)
+ * has questions whose own order indices collide.
+ */
+export const reviewQuestionColumns = {
+  ...studentQuestionColumns,
+  orderIndex: examAnswers.orderIndex,
+  correctAnswer: questions.correctAnswer,
+  correctAnswerText: questions.correctAnswerText,
+  explanation: questions.explanation,
+  selectedAnswer: examAnswers.selectedAnswer,
+  selectedAnswerText: examAnswers.selectedAnswerText,
+  isCorrect: examAnswers.isCorrect,
+} as const;
+
 /** Applies `normalizeFileUrl` to every question's image before it leaves the API. */
 export function withPublicImageUrls<T extends { imageUrl: string | null }>(rows: T[]): T[] {
   return rows.map((row) => ({ ...row, imageUrl: normalizeFileUrl(row.imageUrl) }));
+}
+
+/**
+ * Every answered question of a finished exam, with its passage and image.
+ *
+ * Normalises the image URLs itself rather than leaving that to the caller —
+ * the three review paths had already each forgotten one convention, and
+ * `normalizeFileUrl` is the other one they were all skipping.
+ */
+export async function findReviewRowsForExam(examId: string) {
+  const rows = await db
+    .select(reviewQuestionColumns)
+    .from(examAnswers)
+    .innerJoin(questions, eq(examAnswers.questionId, questions.id))
+    .leftJoin(passages, eq(questions.passageId, passages.id))
+    .where(eq(examAnswers.examId, examId))
+    .orderBy(examAnswers.orderIndex);
+  return withPublicImageUrls(rows);
 }
 
 /** Questions of one set, in presentation order, with passage text joined in. */

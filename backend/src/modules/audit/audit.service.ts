@@ -27,7 +27,8 @@ export type AuditAction =
   | 'db.sql_run'
   | 'scoring.backfill_run'
   | 'question_set.archived'
-  | 'question_set.deleted';
+  | 'question_set.deleted'
+  | 'survey.question_deleted';
 
 export interface AuditEntry {
   actorId: string | null;

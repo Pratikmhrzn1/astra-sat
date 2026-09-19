@@ -35,6 +35,8 @@ export const restoreSchema = z.object({
     liveExamParticipants: backupRows.optional(),
     liveExamQuestionFeedback: backupRows.optional(),
     platformFeedback: backupRows.optional(),
+    surveyQuestions: backupRows.optional(),
+    surveyResponses: backupRows.optional(),
     auditLog: backupRows.optional(),
   }),
 });

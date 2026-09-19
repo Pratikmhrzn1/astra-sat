@@ -44,10 +44,17 @@ export const buttonClass = ({
 }: { variant?: ButtonVariant; size?: ButtonSize; className?: string } = {}): string =>
   cn(BASE, VARIANTS[variant], SIZES[size], className);
 
-/** Square icon-only row action (edit, delete) that tints on hover. */
+/**
+ * Square icon-only row action (edit, delete) that tints on hover.
+ *
+ * A disabled one drops to 35% and keeps its resting colours: without this it
+ * still tinted under the pointer and read as pressable, which is the only
+ * feedback a list's first "move up" button ever gives.
+ */
 export const iconButtonClass = (tone: 'edit' | 'danger' = 'edit', className?: string): string => cn(
   'p-[7px] rounded-lg bg-transparent cursor-pointer text-muted',
   tone === 'danger' ? 'hover:bg-danger/[.08] hover:text-danger' : 'hover:bg-blue-sat/[.08] hover:text-blue-sat',
+  'disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted',
   className,
 );
 

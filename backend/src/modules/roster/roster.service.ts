@@ -3,6 +3,7 @@ import { db } from '../../core/db';
 import { examAnswers, exams, questionSets, questions, users } from '../../core/db/schema';
 import { forbidden, notFound } from '../../core/errors';
 import { getProfile, overview } from '../analytics';
+import { examRepository } from '../exams';
 import { publicUserColumns } from '../identity';
 
 /**
@@ -131,27 +132,13 @@ export async function getStudentExamResults(teacherId: string, studentId: string
   if (!exam) throw notFound('Exam not found');
 
   const [results, set] = await Promise.all([
-    db
-      .select({
-        questionId: questions.id,
-        questionType: questions.questionType,
-        questionText: questions.questionText,
-        optionA: questions.optionA,
-        optionB: questions.optionB,
-        optionC: questions.optionC,
-        optionD: questions.optionD,
-        correctAnswer: questions.correctAnswer,
-        correctAnswerText: questions.correctAnswerText,
-        explanation: questions.explanation,
-        selectedAnswer: examAnswers.selectedAnswer,
-        selectedAnswerText: examAnswers.selectedAnswerText,
-        isCorrect: examAnswers.isCorrect,
-        orderIndex: examAnswers.orderIndex,
-      })
-      .from(examAnswers)
-      .innerJoin(questions, eq(examAnswers.questionId, questions.id))
-      .where(eq(examAnswers.examId, exam.id))
-      .orderBy(examAnswers.orderIndex),
+    // The same rows the student sees in their own report, so a teacher reading
+    // a passage question is not left guessing what it referred to. Keyed by
+    // `questionId` rather than `id` because this response always has been —
+    // the teacher client reads that name.
+    examRepository
+      .findReviewRowsForExam(exam.id)
+      .then((rows) => rows.map(({ id, ...rest }) => ({ questionId: id, ...rest }))),
     // An exam assembled across sets has no owning set to describe.
     exam.setId
       ? db

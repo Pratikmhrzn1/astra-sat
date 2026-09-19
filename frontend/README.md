@@ -27,7 +27,7 @@ src/
     styles/index.css
   features/         one folder per domain: api.ts, pages/, components/, hooks/, index.ts
     auth account dashboard practice exam-player exam-review progress mistakes
-    vocab live-exam library content roster messages platform-feedback admin
+    vocab live-exam library content roster messages platform-feedback survey admin
   entities/         domain primitives shared by several features, no pages
     exam/ (types + sitting endpoints)  skill/ (api + SkillSelect)  score/
   shared/           knows nothing about the domain
@@ -118,6 +118,11 @@ Buttons get press feedback from a global `:active` rule.
   `app/router.tsx` under the right role's `ProtectedRoute`. Do not hand-roll
   role checks inside a page.
 - Query keys are namespaced by feature, e.g. `['student', 'exam', id]`.
+- `ProtectedRoute` gates on more than the role: a student whose
+  `user.surveyCompleted` is `false` is sent to `/onboarding/survey` and cannot
+  reach any student page until the signup survey is answered. The survey route
+  itself passes `allowIncompleteSurvey`. The check is `=== false` on purpose —
+  a session persisted before the field existed must not be gated.
 - **Never hardcode the taxonomy.** Domain and skill names come from `/skills`
   via `entities/skill`; tag with its `<SkillSelect>`. Three
   separate hardcoded copies used to exist — a five-value list that excluded Math

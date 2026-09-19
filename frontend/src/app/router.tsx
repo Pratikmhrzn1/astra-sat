@@ -24,6 +24,7 @@ const JoinLiveExam = lazy(() => import('@/features/live-exam/pages/JoinLiveExamP
 const ExamDetail = lazy(() => import('@/features/exam-review/pages/ExamDetailPage'));
 const VocabReview = lazy(() => import('@/features/vocab/pages/VocabReviewPage'));
 const StudentSettings = lazy(() => import('@/features/account/pages/SettingsPage'));
+const OnboardingSurvey = lazy(() => import('@/features/survey/pages/OnboardingSurveyPage'));
 
 const TeacherDashboard = lazy(() => import('@/features/dashboard/pages/TeacherDashboardPage'));
 const Students = lazy(() => import('@/features/roster/pages/StudentsPage'));
@@ -35,6 +36,7 @@ const AdminDashboard = lazy(() => import('@/features/dashboard/pages/AdminDashbo
 const Users = lazy(() => import('@/features/admin/pages/UsersPage'));
 const AccessCodes = lazy(() => import('@/features/admin/pages/AccessCodesPage'));
 const Database = lazy(() => import('@/features/admin/pages/DatabasePage'));
+const AdminSurvey = lazy(() => import('@/features/survey/pages/AdminSurveyPage'));
 
 const LiveExamLobby = lazy(() => import('@/features/live-exam/pages/LiveExamLobbyPage'));
 const LiveExams = lazy(() => import('@/features/live-exam/pages/LiveExamsPage'));
@@ -148,6 +150,7 @@ export function AppRouter() {
           <Route path="access-codes" element={page(<AccessCodes />)} />
           <Route path="database" element={page(<Database />)} />
           <Route path="feedback" element={page(<AdminFeedback />)} />
+          <Route path="survey" element={page(<AdminSurvey />)} />
           <Route path="library" element={page(<AdminLibrary />)} />
         </Route>
 
@@ -156,6 +159,16 @@ export function AppRouter() {
           element={
             <ProtectedRoute role="student">
               {page(<TakeExam />)}
+            </ProtectedRoute>
+          }
+        />
+        {/* Outside the student layout, like the exam player: a new student has
+            nowhere else to go until the survey is answered. */}
+        <Route
+          path="/onboarding/survey"
+          element={
+            <ProtectedRoute role="student" allowIncompleteSurvey>
+              {page(<OnboardingSurvey />)}
             </ProtectedRoute>
           }
         />

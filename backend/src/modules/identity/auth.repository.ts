@@ -21,6 +21,11 @@ export interface PublicUser {
   email: string;
   name: string;
   role: 'student' | 'teacher' | 'admin';
+  /**
+   * Whether the onboarding survey is behind them. Carried on every auth payload
+   * so the client can gate on it without a second request at startup.
+   */
+  surveyCompleted: boolean;
 }
 
 export async function findUserByEmail(email: string) {
@@ -39,11 +44,14 @@ export async function findProfileById(id: string) {
       ...publicUserColumns,
       teacherId: users.teacherId,
       createdAt: users.createdAt,
+      surveyCompletedAt: users.surveyCompletedAt,
     })
     .from(users)
     .where(eq(users.id, id))
     .limit(1);
-  return profile ?? null;
+  if (!profile) return null;
+  const { surveyCompletedAt, ...rest } = profile;
+  return { ...rest, surveyCompleted: surveyCompletedAt !== null };
 }
 
 export async function emailExists(email: string): Promise<boolean> {
@@ -59,7 +67,8 @@ export async function createUser(input: {
   role: 'student' | 'teacher' | 'admin';
 }): Promise<PublicUser> {
   const [user] = await db.insert(users).values(input).returning(publicUserColumns);
-  return user;
+  // A brand-new account has answered nothing, by definition.
+  return { ...user, surveyCompleted: false };
 }
 
 export async function updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
@@ -67,8 +76,14 @@ export async function updatePasswordHash(userId: string, passwordHash: string): 
 }
 
 export async function updateName(userId: string, name: string): Promise<PublicUser | null> {
-  const [updated] = await db.update(users).set({ name }).where(eq(users.id, userId)).returning(publicUserColumns);
-  return updated ?? null;
+  const [updated] = await db
+    .update(users)
+    .set({ name })
+    .where(eq(users.id, userId))
+    .returning({ ...publicUserColumns, surveyCompletedAt: users.surveyCompletedAt });
+  if (!updated) return null;
+  const { surveyCompletedAt, ...rest } = updated;
+  return { ...rest, surveyCompleted: surveyCompletedAt !== null };
 }
 
 // ── Access codes ──────────────────────────────────────────────────────────────

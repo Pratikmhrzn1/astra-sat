@@ -314,27 +314,10 @@ export async function getResults(examId: string, studentId: string) {
   if (exam.status !== 'completed') throw badRequest('Exam not yet completed');
 
   const [results, set] = await Promise.all([
-    db
-      .select({
-        id: questions.id,
-        questionType: questions.questionType,
-        questionText: questions.questionText,
-        optionA: questions.optionA,
-        optionB: questions.optionB,
-        optionC: questions.optionC,
-        optionD: questions.optionD,
-        correctAnswer: questions.correctAnswer,
-        correctAnswerText: questions.correctAnswerText,
-        explanation: questions.explanation,
-        selectedAnswer: examAnswers.selectedAnswer,
-        selectedAnswerText: examAnswers.selectedAnswerText,
-        isCorrect: examAnswers.isCorrect,
-        orderIndex: examAnswers.orderIndex,
-      })
-      .from(examAnswers)
-      .innerJoin(questions, eq(examAnswers.questionId, questions.id))
-      .where(eq(examAnswers.examId, exam.id))
-      .orderBy(examAnswers.orderIndex),
+    // Shared with the teacher's read and the live-exam marking page. This used
+    // to be a projection of its own that never joined `passages`, so a review
+    // showed "Which choice most logically completes the text?" with no text.
+    repo.findReviewRowsForExam(exam.id),
     // An exam assembled across sets has no owning set to describe.
     exam.setId
       ? db

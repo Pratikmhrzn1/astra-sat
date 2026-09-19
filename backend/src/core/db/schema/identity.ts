@@ -15,6 +15,10 @@ export const users = pgTable('users', {
   // filtering on it until the whole data layer does, or isolation will be
   // half-applied, which is worse than not having it.
   organizationId: uuid('organization_id').references((): any => organizations.id, { onDelete: 'set null' }),
+  // Set when the onboarding survey is answered. NULL means the student has not
+  // taken it yet and the app gates them into it; accounts that predate the
+  // survey were backfilled as complete (see core/db/migrate.ts).
+  surveyCompletedAt: timestamp('survey_completed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

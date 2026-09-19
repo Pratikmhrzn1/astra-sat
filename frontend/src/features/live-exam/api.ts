@@ -83,11 +83,17 @@ export interface JoinResponse {
 /** One question as the teacher marks it. Keyed on `questionId`, like the server sends. */
 export interface MarkableAnswer {
   questionId: string;
+  /** Restored alongside the passage: a grid-in used to be marked as if it were multiple choice. */
+  questionType: 'multiple_choice' | 'student_produced_response';
   questionText: string;
   optionA: string | null;
   optionB: string | null;
   optionC: string | null;
   optionD: string | null;
+  imageUrl: string | null;
+  passageId: string | null;
+  passageText: string | null;
+  passageTitle: string | null;
   correctAnswer: 'a' | 'b' | 'c' | 'd' | null;
   correctAnswerText: string | null;
   explanation: string | null;
