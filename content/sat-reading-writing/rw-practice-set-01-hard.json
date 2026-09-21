@@ -1,0 +1,551 @@
+{
+  "title": "Reading and Writing Practice Set 1 — Hard",
+  "subject": "english",
+  "description": "The harder adaptive tier: 27 original questions across all four Digital SAT domains, for students routed to the harder Module 2. Denser passages, closer answer choices, and multi-step reasoning.",
+  "difficulty": "hard",
+  "isDraft": true,
+  "passages": [
+    {
+      "title": "",
+      "passageText": "The biologist's initial report on the coral reef was cautious, noting only a slight decline in fish populations. Her follow-up survey, however, revealed a far more ______ situation: several species that had been common only two years earlier could no longer be found anywhere on the reef.",
+      "orderIndex": 0
+    },
+    {
+      "title": "",
+      "passageText": "Reviewers praised the historian's biography for its exhaustive research but faulted its tendency to ______ its subject's failures, describing several costly misjudgments in such mild terms that readers could easily overlook their consequences.",
+      "orderIndex": 1
+    },
+    {
+      "title": "",
+      "passageText": "Although the commission's final report ran to several hundred pages, its recommendations were notably ______: rather than proposing sweeping reforms, it suggested a handful of modest adjustments that could be carried out without any new funding.",
+      "orderIndex": 2
+    },
+    {
+      "title": "",
+      "passageText": "For much of the twentieth century, scientists believed that the adult human brain could not produce new neurons. Studies in the late 1990s challenged this view, reporting evidence of new neuron growth in the hippocampus, a region involved in memory. More recent studies have produced conflicting results, however, and researchers continue to debate how much new neuron growth, if any, occurs in adults.",
+      "orderIndex": 3
+    },
+    {
+      "title": "",
+      "passageText": "The following text is from a novel. Elif, a translator, is working on a difficult poem.\n\nFor three nights Elif circled a single line, trying words and discarding them the way one tries keys in a stubborn lock. Each version was accurate; none was right. On the fourth night she set her dictionaries aside and simply read the line aloud, again and again, until its rhythm settled somewhere beneath its meaning. The word she needed arrived not as a definition but as a sound.",
+      "orderIndex": 4
+    },
+    {
+      "title": "",
+      "passageText": "Economists have long assumed that people treat an unexpected sum of money the same way they treat their regular income. Behavioral researchers, however, have documented a tendency they call mental accounting. People often label a tax refund or a gift as \"extra\" money and spend it more freely than they would spend their paycheck, even though a dollar is worth the same regardless of its source.",
+      "orderIndex": 5
+    },
+    {
+      "title": "",
+      "passageText": "Text 1\nMany museum curators argue that artifacts removed from their places of origin during colonial periods should be returned. Continuing to display such objects, they contend, prolongs the injustice of how they were acquired, while returning them allows source communities to interpret their own heritage.\n\nText 2\nCurator Ngozi Adeyemi supports returning looted artifacts but cautions against treating their return as the end of a museum's responsibility. In her view, museums should also share the conservation records and research they have compiled over decades, since that knowledge would help source communities care for the objects.",
+      "orderIndex": 6
+    },
+    {
+      "title": "",
+      "passageText": "Text 1\nOrnithologists have traditionally explained the long, elaborate tail feathers of some male birds as the product of female preference: over many generations, females that chose mates with showier tails produced sons with showier tails.\n\nText 2\nBiologist Kenji Morita does not dispute that female choice shapes ornamental tails, but his measurements of one species suggest a limit. Males with the very longest tails were slower to escape predators and less likely to survive to breeding age. Morita argues that tail length reflects a balance between the advantage of attracting mates and the cost of reduced survival.",
+      "orderIndex": 7
+    },
+    {
+      "title": "",
+      "passageText": "Standard accounts of the Industrial Revolution emphasize factories, steam engines, and the growth of cities. Some economic historians argue that these accounts overlook a quieter transformation inside homes. Before factories spread, many families produced goods such as cloth for sale, and the income that women and children earned from this work gave households new purchasing power, which in turn helped create demand for factory-made goods.",
+      "orderIndex": 8
+    },
+    {
+      "title": "",
+      "passageText": "The following text is from a novel. Teodor has returned to his childhood village after thirty years abroad.\n\nThe square was smaller than he remembered, as squares always are, and he had prepared himself for that. What he had not prepared for was the bakery, unchanged down to the chipped blue tiles above its door. He stood across the street for a long while without going in. It seemed to him that entering would require him to become again the boy who had last stood there, and he was not certain the man could survive the exchange.",
+      "orderIndex": 9
+    },
+    {
+      "title": "",
+      "passageText": "\"The Orchard Letters\" is a novel told through letters that Adela Crane, a farmer, writes to her sister. Throughout the letters, Crane expresses mixed feelings about farm life, conveying both deep affection for the work and weariness with its demands.",
+      "orderIndex": 10
+    },
+    {
+      "title": "",
+      "passageText": "A researcher surveyed visitors to a national park in 2015 and 2023. In 2015, the park had about 200,000 visitors, 40% of whom reported hiking at least one trail. In 2023, the park had about 310,000 visitors, 38% of whom reported hiking. The researcher concludes that the number of visitors who hiked increased between 2015 and 2023, even though the percentage who hiked decreased.",
+      "orderIndex": 11
+    },
+    {
+      "title": "",
+      "passageText": "Researchers have observed that blackbirds living in cities sing at a higher pitch than blackbirds living in forests. One research team hypothesizes that urban blackbirds raise their pitch so that their songs are not drowned out by low-frequency traffic noise.",
+      "orderIndex": 12
+    },
+    {
+      "title": "",
+      "passageText": "In many ancient societies, the earliest known written records are administrative lists — counts of grain, livestock, and laborers — rather than stories or poems. Some scholars argue that this pattern shows writing developed mainly to serve growing economies and governments. Other scholars point out that everyday records were often kept on durable materials such as clay, while other kinds of writing may have been recorded on wood or cloth, which rarely survive. If these other scholars are correct, then ______",
+      "orderIndex": 13
+    },
+    {
+      "title": "",
+      "passageText": "Ecologists introduced wolves into a large nature reserve where deer had become so numerous that they were eating most of the young willow trees along the riverbanks. Five years later, the willows along the riverbanks had grown substantially, yet the total number of deer in the reserve had declined only slightly. Researchers also observed that deer now spent much less time on the open riverbanks, where they could easily be seen. These observations suggest that the willows recovered mainly because ______",
+      "orderIndex": 14
+    },
+    {
+      "title": "",
+      "passageText": "Along the northern wall of the newly renovated gallery ______ a series of black-and-white photographs documenting the construction of the city's first subway line, each accompanied by a short account from a worker who helped build it.",
+      "orderIndex": 15
+    },
+    {
+      "title": "",
+      "passageText": "By the time the mountaineering expedition finally reached the summit, the exhausted team members ______ for nearly nineteen hours, stopping only briefly to rest and to melt snow for drinking water.",
+      "orderIndex": 16
+    },
+    {
+      "title": "",
+      "passageText": "After two years of public debate, the architect's final design—a neighborhood library built almost entirely from reclaimed ______ earned praise both for its sustainability and for its warm, weathered appearance.",
+      "orderIndex": 17
+    },
+    {
+      "title": "",
+      "passageText": "Although the two regional airlines merged into a single company last year, each still operates under ______ original name in several markets where loyal customers recognize the older brands.",
+      "orderIndex": 18
+    },
+    {
+      "title": "",
+      "passageText": "The six-month clinical trial of the new asthma medication produced promising early ______ the researchers caution that the sample was too small to support firm conclusions about the treatment's long-term effectiveness.",
+      "orderIndex": 19
+    },
+    {
+      "title": "",
+      "passageText": "To study how large coastal cities are adapting to rising temperatures and sea levels, the international research team brought together urban planners and engineers from three ______ Lagos, Nigeria; Lima, Peru; and Hanoi, Vietnam.",
+      "orderIndex": 20
+    },
+    {
+      "title": "",
+      "passageText": "The two state ______ joint report, released after a lengthy review of rainfall records and reservoir levels, called for stricter limits on water use by farms and cities during periods of prolonged drought.",
+      "orderIndex": 21
+    },
+    {
+      "title": "",
+      "passageText": "Early critics dismissed photography as a mechanical process incapable of producing art. ______ by the early twentieth century, photographers associated with the Pictorialist movement were exhibiting their work in galleries alongside paintings.",
+      "orderIndex": 22
+    },
+    {
+      "title": "",
+      "passageText": "A honeybee colony may contain tens of thousands of workers, yet no individual bee directs the colony's activity. Decisions such as where to build a new nest emerge from many small interactions among scout bees. ______ the colony as a whole can make choices that no single member could make alone.",
+      "orderIndex": 23
+    },
+    {
+      "title": "",
+      "passageText": "Glaciers are often described as rivers of ice, and like rivers, they flow downhill under their own weight. ______ the comparison has clear limits: a river's water may travel several kilometers in an hour, whereas most glaciers advance only a few meters, or less, in a day.",
+      "orderIndex": 24
+    },
+    {
+      "title": "",
+      "passageText": "While researching a topic, a student has taken the following notes:\n\n• The Voynich manuscript is a handwritten, illustrated book.\n• Radiocarbon dating places its vellum pages between 1404 and 1438.\n• Its text is written in a script that no one has identified.\n• Scholars and codebreakers have repeatedly failed to decipher it.\n• Many of its drawings show plants that do not match known species.",
+      "orderIndex": 25
+    },
+    {
+      "title": "",
+      "passageText": "While researching a topic, a student has taken the following notes:\n\n• Tardigrades are microscopic animals, usually less than 1 millimeter long.\n• In very dry conditions, they can enter a state called cryptobiosis.\n• In this state, they lose nearly all of their body water, and their metabolism almost stops.\n• In laboratory tests, tardigrades in this state have survived extreme cold.\n• When water returns, they can rehydrate and become active again.",
+      "orderIndex": 26
+    }
+  ],
+  "questions": [
+    {
+      "passageIndex": 0,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical and precise word or phrase?",
+      "skillCode": "vocab_in_context",
+      "difficulty": "medium",
+      "optionA": "dire",
+      "optionB": "stable",
+      "optionC": "ambiguous",
+      "optionD": "familiar",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "Species disappearing entirely is a far worse situation than a slight decline, so \"dire\" (extremely serious) fits. \"Stable\" and \"familiar\" contradict the change, and the evidence is anything but ambiguous.",
+      "orderIndex": 0
+    },
+    {
+      "passageIndex": 1,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical and precise word or phrase?",
+      "skillCode": "vocab_in_context",
+      "difficulty": "hard",
+      "optionA": "scrutinize",
+      "optionB": "chronicle",
+      "optionC": "gloss over",
+      "optionD": "exaggerate",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "Describing failures so mildly that readers could overlook them is treating them too lightly — glossing over them. \"Scrutinize\" and \"exaggerate\" are the opposite, and \"chronicle\" (merely record) does not capture the criticism that the failures were downplayed.",
+      "orderIndex": 1
+    },
+    {
+      "passageIndex": 2,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical and precise word or phrase?",
+      "skillCode": "vocab_in_context",
+      "difficulty": "hard",
+      "optionA": "ambitious",
+      "optionB": "circumscribed",
+      "optionC": "unprecedented",
+      "optionD": "contentious",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "The colon explains that the recommendations were a few modest changes, so they were limited in scope — \"circumscribed.\" \"Ambitious\" and \"unprecedented\" contradict \"modest,\" and nothing suggests the recommendations were contentious.",
+      "orderIndex": 2
+    },
+    {
+      "passageIndex": 3,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best states the main purpose of the text?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "medium",
+      "optionA": "To argue that the hippocampus is the most important region of the brain",
+      "optionB": "To explain how new neurons improve memory in adults",
+      "optionC": "To criticize twentieth-century scientists for making careless assumptions",
+      "optionD": "To trace how scientific understanding of a question has shifted and remains unsettled",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "The text moves from an old belief, to a challenge, to current disagreement, so its purpose is to trace a changing and unresolved question. It never ranks brain regions, explains how neurons improve memory, or calls earlier scientists careless.",
+      "orderIndex": 3
+    },
+    {
+      "passageIndex": 4,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best describes the overall structure of the text?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "hard",
+      "optionA": "It depicts a prolonged, methodical struggle and then a change of approach that finally succeeds.",
+      "optionB": "It presents a translator's criticism of a poem and then her decision to abandon the translation.",
+      "optionC": "It contrasts a translator's early career with her later achievements.",
+      "optionD": "It explains a poem's meaning and then argues that the meaning cannot be translated.",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "Elif spends three nights methodically trying words, then on the fourth night abandons the dictionaries for sound, and the right word comes. She never criticizes the poem or quits, no career is described, and the text never argues that translation is impossible.",
+      "orderIndex": 4
+    },
+    {
+      "passageIndex": 5,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best describes the function of the third sentence in the overall structure of the text?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "hard",
+      "optionA": "It restates the economists' assumption in more precise terms.",
+      "optionB": "It proposes a policy for how tax refunds should be distributed.",
+      "optionC": "It illustrates the tendency that contradicts the economists' assumption.",
+      "optionD": "It concedes that mental accounting is less common than researchers first claimed.",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "The third sentence shows mental accounting in action — people spend \"extra\" money more freely — which is the behavior that contradicts the economists' assumption. It does not restate the assumption, propose a policy, or weaken the researchers' claim.",
+      "orderIndex": 5
+    },
+    {
+      "passageIndex": 6,
+      "questionType": "multiple_choice",
+      "questionText": "Based on the texts, how would Adeyemi (Text 2) most likely respond to the curators in Text 1?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "hard",
+      "optionA": "By rejecting their claim that displaying such artifacts prolongs an injustice",
+      "optionB": "By agreeing with their position while arguing that museums' obligations extend beyond returning the objects",
+      "optionC": "By arguing that museums are better equipped than source communities to care for the artifacts",
+      "optionD": "By insisting that artifacts be returned only after museums have completed their research",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "Adeyemi supports returning the artifacts but adds that museums should also share their records. She does not reject Text 1's view, does not claim museums are better caretakers, and never makes return conditional on finishing research.",
+      "orderIndex": 6
+    },
+    {
+      "passageIndex": 7,
+      "questionType": "multiple_choice",
+      "questionText": "Based on the texts, how would Morita (Text 2) most likely respond to the explanation in Text 1?",
+      "skillCode": "craft_and_structure",
+      "difficulty": "hard",
+      "optionA": "By claiming that female preference has no effect on tail length",
+      "optionB": "By suggesting that longer tails help males escape predators",
+      "optionC": "By questioning whether females actually prefer showier tails",
+      "optionD": "By arguing that the explanation is accurate but leaves out a pressure that limits tail length",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "Morita accepts female choice but adds predation as a cost that caps tail length, so he sees Text 1 as correct but incomplete. He does not deny female preference, and his data show that long tails hinder escape rather than help it.",
+      "orderIndex": 7
+    },
+    {
+      "passageIndex": 8,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best states the main idea of the text?",
+      "skillCode": "information_and_ideas",
+      "difficulty": "medium",
+      "optionA": "Some historians argue that changes in household work helped drive the Industrial Revolution.",
+      "optionB": "Factories mattered less to the Industrial Revolution than steam engines did.",
+      "optionC": "Women and children earned more money working in factories than at home.",
+      "optionD": "Most families refused to buy goods made in factories.",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "The text presents historians who add household production and its income to the story of industrialization. It never ranks factories against engines, compares factory and home wages, or says families avoided factory goods — in fact, households created demand for them.",
+      "orderIndex": 8
+    },
+    {
+      "passageIndex": 9,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice best states the main idea of the text?",
+      "skillCode": "information_and_ideas",
+      "difficulty": "hard",
+      "optionA": "Teodor is disappointed that the village has changed so much while he was away.",
+      "optionB": "Teodor cannot remember which bakery he visited as a child.",
+      "optionC": "Teodor hesitates to enter a familiar place because it confronts him with his former self.",
+      "optionD": "Teodor regrets leaving the village and plans to stay permanently.",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "The unchanged bakery stops Teodor because going in would mean facing the boy he once was. The problem is what has not changed, he recognizes the bakery exactly, and nothing mentions regret or staying.",
+      "orderIndex": 9
+    },
+    {
+      "passageIndex": 10,
+      "questionType": "multiple_choice",
+      "questionText": "Which quotation from \"The Orchard Letters\" most effectively illustrates the claim?",
+      "skillCode": "command_of_evidence",
+      "difficulty": "medium",
+      "optionA": "\"The frost took half the peaches again, and the bank will not wait for the rest.\"",
+      "optionB": "\"I would not trade these rows for any city street, though some mornings my hands refuse to open until noon.\"",
+      "optionC": "\"Father's old wagon finally broke an axle on the hill road.\"",
+      "optionD": "\"You would laugh to see the goats escape the fence for the third time this week.\"",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "This line holds both feelings: love (she would not trade the orchard for the city) and weariness (hands too sore to open). The frost and wagon lines show only hardship, and the goats line is lighthearted with no affection for the work itself.",
+      "orderIndex": 10
+    },
+    {
+      "passageIndex": 11,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice most effectively uses data from the survey to support the researcher's conclusion?",
+      "skillCode": "command_of_evidence",
+      "difficulty": "hard",
+      "optionA": "The percentage of visitors who hiked fell from 40% in 2015 to 38% in 2023.",
+      "optionB": "The park had about 110,000 more visitors in 2023 than in 2015.",
+      "optionC": "About 80,000 visitors hiked in 2015, compared with about 118,000 in 2023.",
+      "optionD": "In both years, a minority of visitors reported hiking at least one trail.",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "The conclusion is about the number of hikers. 40% of 200,000 is 80,000, and 38% of 310,000 is about 118,000, so the number rose. The falling percentage, the total visitor increase, and the \"minority\" point do not show that the number of hikers grew.",
+      "orderIndex": 11
+    },
+    {
+      "passageIndex": 12,
+      "questionType": "multiple_choice",
+      "questionText": "Which finding, if true, would most directly weaken the team's hypothesis?",
+      "skillCode": "command_of_evidence",
+      "difficulty": "hard",
+      "optionA": "Urban blackbirds sing at a higher pitch on busy weekdays than on quiet weekends.",
+      "optionB": "Traffic noise in cities is concentrated at low frequencies.",
+      "optionC": "Forest blackbirds sing at a lower pitch than urban blackbirds do.",
+      "optionD": "Urban blackbirds in parks far from any roads sing at the same high pitch as those near busy roads, even though the parks are quiet.",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "If birds sing just as high where there is almost no traffic noise, noise cannot be what raises their pitch. Pitch rising on noisy weekdays and noise being low-frequency both support the hypothesis, and the forest comparison only restates the original observation.",
+      "orderIndex": 12
+    },
+    {
+      "passageIndex": 13,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice most logically completes the text?",
+      "skillCode": "inference",
+      "difficulty": "hard",
+      "optionA": "administrative lists may be overrepresented among the surviving records, so those records may not reveal why writing first developed.",
+      "optionB": "the earliest stories and poems were all written on clay.",
+      "optionC": "ancient governments deliberately destroyed early works of literature.",
+      "optionD": "writing developed before economies and governments existed.",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "If only durable records survive, the oldest finds would lean toward administrative lists whatever writing was first used for, so the pattern may not show writing's original purpose. The other choices go beyond what the second group of scholars claims.",
+      "orderIndex": 13
+    },
+    {
+      "passageIndex": 14,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice most logically completes the text?",
+      "skillCode": "inference",
+      "difficulty": "hard",
+      "optionA": "the wolves reduced the deer population to a very small size.",
+      "optionB": "the presence of wolves changed where the deer chose to feed.",
+      "optionC": "the willows became less appealing to deer as they grew.",
+      "optionD": "the river's water level rose after the wolves arrived.",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "The deer population barely fell, but the deer avoided the exposed riverbanks, so the willows recovered because the deer changed where they fed. The first choice contradicts the \"only slightly\" decline, and nothing supports the willow or water-level explanations.",
+      "orderIndex": 14
+    },
+    {
+      "passageIndex": 15,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "medium",
+      "optionA": "hang",
+      "optionB": "are hanging",
+      "optionC": "have hung",
+      "optionD": "hangs",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "The subject comes after the verb here: \"a series,\" which is singular, so the verb is \"hangs.\" \"Photographs\" belongs to the phrase \"of photographs\" and does not control the verb.",
+      "orderIndex": 15
+    },
+    {
+      "passageIndex": 16,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "medium",
+      "optionA": "climbed",
+      "optionB": "had been climbing",
+      "optionC": "are climbing",
+      "optionD": "will have climbed",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "The climbing went on before and up to another past event (reaching the summit), so the past perfect progressive \"had been climbing\" is correct. The simple past loses that sequence, and the present and future forms do not fit a past narrative.",
+      "orderIndex": 16
+    },
+    {
+      "passageIndex": 17,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "hard",
+      "optionA": "timber—",
+      "optionB": "timber,",
+      "optionC": "timber",
+      "optionD": "timber;",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "The interrupting phrase opens with a dash, so it must close with a matching dash. A comma, no punctuation, or a semicolon would leave the dash unmatched and break the sentence.",
+      "orderIndex": 17
+    },
+    {
+      "passageIndex": 18,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "hard",
+      "optionA": "their",
+      "optionB": "it's",
+      "optionC": "its",
+      "optionD": "they're",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "The pronoun refers to \"each,\" which is singular here and names an airline, so the possessive \"its\" is correct. \"It's\" means \"it is,\" \"they're\" means \"they are,\" and \"their\" does not agree with singular \"each\" referring to a company.",
+      "orderIndex": 18
+    },
+    {
+      "passageIndex": 19,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "hard",
+      "optionA": "results, however,",
+      "optionB": "results however",
+      "optionC": "results, however",
+      "optionD": "results; however,",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "Two independent clauses are joined by \"however,\" which needs a semicolon before it and a comma after it. The comma-only choices create comma splices, and the unpunctuated choice is a run-on.",
+      "orderIndex": 19
+    },
+    {
+      "passageIndex": 20,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "hard",
+      "optionA": "cities:",
+      "optionB": "cities;",
+      "optionC": "cities,",
+      "optionD": "cities",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "A complete clause introduces a list, so a colon is correct; the semicolons in the list are needed because each item already contains a comma. A semicolon cannot introduce a list, and a comma or no punctuation makes the sentence confusing.",
+      "orderIndex": 20
+    },
+    {
+      "passageIndex": 21,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+      "skillCode": "grammar",
+      "difficulty": "hard",
+      "optionA": "agencies",
+      "optionB": "agencies'",
+      "optionC": "agency's",
+      "optionD": "agency",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "The report belongs to two agencies, so the plural possessive \"agencies'\" is correct. \"Agency's\" is singular and conflicts with \"two,\" and the forms without an apostrophe do not show possession.",
+      "orderIndex": 21
+    },
+    {
+      "passageIndex": 22,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical transition?",
+      "skillCode": "transitions",
+      "difficulty": "medium",
+      "optionA": "Consequently,",
+      "optionB": "Similarly,",
+      "optionC": "However,",
+      "optionD": "For example,",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "Photographs hanging in galleries beside paintings contradicts the view that photography could not be art, so a contrast (\"However\") is needed. The gallery shows were not caused by the dismissal, similar to it, or an example of it.",
+      "orderIndex": 22
+    },
+    {
+      "passageIndex": 23,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical transition?",
+      "skillCode": "transitions",
+      "difficulty": "hard",
+      "optionA": "Even so,",
+      "optionB": "By contrast,",
+      "optionC": "In this way,",
+      "optionD": "Previously,",
+      "correctAnswer": "c",
+      "correctAnswerText": null,
+      "explanation": "The last sentence describes the result of the process just explained — many small interactions producing a group decision — so \"In this way\" fits. It is not a concession, a contrast, or an earlier event.",
+      "orderIndex": 23
+    },
+    {
+      "passageIndex": 24,
+      "questionType": "multiple_choice",
+      "questionText": "Which choice completes the text with the most logical transition?",
+      "skillCode": "transitions",
+      "difficulty": "hard",
+      "optionA": "Still,",
+      "optionB": "Therefore,",
+      "optionC": "Likewise,",
+      "optionD": "For instance,",
+      "correctAnswer": "a",
+      "correctAnswerText": null,
+      "explanation": "The text grants that the comparison is apt and then points out its limits, so the concessive \"Still\" is correct. The limits do not follow from the similarity (\"Therefore\"), are not an additional similarity (\"Likewise\"), and are not an example of it.",
+      "orderIndex": 24
+    },
+    {
+      "passageIndex": 25,
+      "questionType": "multiple_choice",
+      "questionText": "The student wants to contrast what is known about the Voynich manuscript with what remains unknown. Which choice most effectively uses relevant information from the notes to accomplish this goal?",
+      "skillCode": "expression_of_ideas",
+      "difficulty": "hard",
+      "optionA": "Many of the drawings in the Voynich manuscript show plants that do not match any known species.",
+      "optionB": "Although radiocarbon dating places the Voynich manuscript's pages between 1404 and 1438, no one has deciphered the unidentified script in which it is written.",
+      "optionC": "The Voynich manuscript is a handwritten, illustrated book written in a script that no one has identified.",
+      "optionD": "Radiocarbon dating places the vellum pages of the Voynich manuscript between 1404 and 1438.",
+      "correctAnswer": "b",
+      "correctAnswerText": null,
+      "explanation": "Only this choice joins a known fact (the dating) with an unknown (the undeciphered script) using \"Although,\" which creates the contrast. The other choices give only a known fact or only an unknown.",
+      "orderIndex": 25
+    },
+    {
+      "passageIndex": 26,
+      "questionType": "multiple_choice",
+      "questionText": "The student wants to explain what cryptobiosis is to an audience unfamiliar with the term. Which choice most effectively uses relevant information from the notes to accomplish this goal?",
+      "skillCode": "expression_of_ideas",
+      "difficulty": "hard",
+      "optionA": "Tardigrades, microscopic animals usually less than 1 millimeter long, can survive extreme conditions.",
+      "optionB": "In laboratory tests, tardigrades have survived extreme cold.",
+      "optionC": "Tardigrades can enter cryptobiosis in very dry conditions and become active again when water returns.",
+      "optionD": "Cryptobiosis is a state in which an organism, such as a tardigrade, loses nearly all of its body water and its metabolism almost stops.",
+      "correctAnswer": "d",
+      "correctAnswerText": null,
+      "explanation": "An unfamiliar reader needs a definition, and only this choice says what the state actually is. The third choice uses the term without explaining it, and the others do not mention it at all.",
+      "orderIndex": 26
+    }
+  ]
+}

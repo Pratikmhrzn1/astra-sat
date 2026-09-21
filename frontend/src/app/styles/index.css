@@ -1,0 +1,362 @@
+/*
+ * Design foundations.
+ *
+ * Type, in three roles (web fonts loaded in index.html):
+ *   --font-display  Bricolage Grotesque — headings and scores. Optical sizing
+ *                   makes it condensed and punchy large, calm small.
+ *   --font-reading  Newsreader — SAT passages and quoted text; a text serif
+ *                   built for paragraphs.
+ *   --font-sans     the system face — every control, label and body line.
+ *
+ * Styling lives in Tailwind classes; tokens live in tailwind.config.js. This
+ * file holds only what utilities can't express cleanly: the CSS variables the
+ * accessibility media queries retune, base element rules, the app shell's
+ * hover-rail (:has, cross-element hover), and the reduced-motion /
+ * reduced-transparency / high-contrast overrides.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-display: 'Bricolage Grotesque', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, Arial, sans-serif;
+    --font-reading: 'Newsreader', 'Iowan Old Style', 'Palatino Linotype', Georgia, ui-serif, serif;
+    --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+    --paper: #FAF9F6;
+    --ink: #0B0B0E;
+    --ink-2: rgba(11, 11, 14, 0.62);
+    --ink-3: rgba(11, 11, 14, 0.44);
+    --accent: #E2562B;
+    --accent-press: #C94A22;
+    --accent-text: #C4471F; /* accent as text or behind white text: 4.9:1 */
+    --accent-wash: rgba(226, 86, 43, 0.10);
+    --hairline: #E7E4DE;
+    --hairline-soft: #EEEBE5;
+    --fill-quiet: rgba(11, 11, 14, 0.05);
+
+    /* Materials: translucent chrome that content scrolls beneath. Variables,
+     * not tokens, because the transparency/contrast queries below retune them. */
+    --material-bar: rgba(250, 249, 246, 0.78);
+    --material-thick: rgba(255, 255, 255, 0.86);
+    --material-sidebar: rgba(255, 255, 255, 0.94); /* heavier: a structural region over busy content */
+    --material-blur: saturate(180%) blur(20px);
+
+    --shadow-sm: 0 1px 2px rgba(11, 11, 14, 0.04), 0 1px 3px rgba(11, 11, 14, 0.04);
+    --shadow-md: 0 2px 6px rgba(11, 11, 14, 0.04), 0 8px 24px rgba(11, 11, 14, 0.06);
+    --shadow-lg: 0 4px 12px rgba(11, 11, 14, 0.06), 0 24px 64px rgba(11, 11, 14, 0.16);
+
+    --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --dur-press: 100ms;
+    --dur-quick: 180ms;
+    --dur-move: 380ms;
+
+    --tabbar-h: 56px;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: var(--font-sans);
+    font-optical-sizing: auto;
+    color: var(--ink);
+    background: var(--paper);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
+  }
+  ::selection {
+    background: rgba(226, 86, 43, 0.18);
+  }
+
+  /* Headings: tight leading and negative tracking as size grows. */
+  h1, h2 {
+    font-family: var(--font-display);
+    line-height: 1.1;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+  }
+  h3, h4 {
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.012em;
+  }
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Kill the double-tap zoom delay; taps should respond on the press. */
+  a, button, [role='button'], input, select, textarea, label {
+    touch-action: manipulation;
+  }
+
+  /*
+   * Press feedback lives on pointer-down and is instant. Anything that sets its
+   * own transform (a utility or inline style) keeps it — both win over base.
+   */
+  button:not(:disabled):active,
+  [role='button']:active {
+    transform: scale(0.97);
+  }
+  /* Wide surfaces (answer choices) shrink less: .97 of 700px is a jolt, not a press. */
+  button[data-press='soft']:not(:disabled):active {
+    transform: scale(0.99);
+  }
+  button {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: var(--dur-quick), var(--dur-quick), var(--dur-quick), var(--dur-quick), var(--dur-quick), var(--dur-press);
+    transition-timing-function: var(--ease-out);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Tabular figures keep scores and timers from jittering as they change. */
+  .tnum, time {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Scrollbar styling needs ::-webkit-scrollbar pseudo-elements. */
+  .scrollarea {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .scrollarea::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scrollarea::-webkit-scrollbar-thumb {
+    background: rgba(11,11,14,0.16);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+
+  /*
+   * Named motion classes. Each is one Tailwind animation, kept as a name so the
+   * reduced-motion block below can swap every one of them for a cross-fade.
+   */
+  .lift {
+    transition: box-shadow var(--dur-quick) var(--ease-out), transform var(--dur-move) var(--ease-spring), border-color var(--dur-quick) ease;
+  }
+  .screen-fade { @apply animate-fade-up; }
+  .pop { @apply animate-pop; }
+  .nav-pop { @apply animate-nav-pop; transform-origin: 50% 100%; }
+  .toast { @apply animate-toast-in; }
+  .modal-scrim { @apply animate-scrim-in; }
+  .modal-panel { @apply animate-dialog-in; }
+
+  /* ─── App shell: sidebar / rail / tab bar ───────────────────────────── */
+  /*
+   * Kept as CSS: the rail opens on hover *or* keyboard focus inside it (:has),
+   * with an intent delay on hover only, and its labels fade in step with it —
+   * cross-element state that utilities would smear across a dozen elements.
+   */
+  .shell-main {
+    margin-left: 76px;
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+  }
+
+  .shell-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    width: 76px;
+    overflow: hidden;
+    background: var(--material-sidebar);
+    -webkit-backdrop-filter: var(--material-blur);
+    backdrop-filter: var(--material-blur);
+    border-right: 1px solid var(--hairline);
+    /* Closing is immediate; opening waits (below) so a cursor passing through doesn't trigger it. */
+    transition: width 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+  }
+  /* Medium widths: an icon rail that opens over content on hover. */
+  @media (hover: hover) and (min-width: 640px) and (max-width: 1279px) {
+    .shell-sidebar:hover,
+    .shell-sidebar:has(:focus-visible) {
+      width: 248px;
+      box-shadow: var(--shadow-lg);
+      transition-delay: 120ms;
+    }
+    .shell-sidebar:hover .shell-label,
+    .shell-sidebar:has(:focus-visible) .shell-label {
+      opacity: 1;
+      transition-delay: 160ms;
+    }
+    .shell-sidebar:has(:focus-visible),
+    .shell-sidebar:has(:focus-visible) .shell-label {
+      transition-delay: 0ms; /* keyboard focus is intentional — no intent delay */
+    }
+  }
+  .shell-label {
+    opacity: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity var(--dur-quick) ease;
+  }
+  /* Wide screens: a persistent sidebar, labels always visible. */
+  @media (min-width: 1280px) {
+    .shell-sidebar { width: 248px; }
+    .shell-sidebar .shell-label { opacity: 1; }
+    .shell-main { margin-left: 248px; }
+  }
+
+  /* One indicator that slides between items, so selection reads as a move. */
+  .shell-indicator {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    top: 4px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--accent-wash);
+    pointer-events: none;
+    transition: transform 240ms var(--ease-in-out), opacity var(--dur-quick) ease;
+  }
+  .shell-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    height: 40px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.006em;
+    text-align: left;
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  @media (hover: hover) {
+    .shell-item:hover:not([aria-current='page']) {
+      background: var(--fill-quiet);
+      color: var(--ink);
+    }
+  }
+  .shell-item[aria-current='page'] {
+    color: var(--accent-text);
+    font-weight: 600;
+  }
+  .shell-item:active {
+    transform: scale(0.98);
+  }
+
+  /* Tab bar — phones. Translucent, with content scrolling beneath it. */
+  .shell-tabbar {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    height: calc(var(--tabbar-h) + var(--safe-bottom));
+    padding: 0 4px var(--safe-bottom);
+    background: var(--material-bar);
+    -webkit-backdrop-filter: var(--material-blur);
+    backdrop-filter: var(--material-blur);
+    box-shadow: inset 0 0.5px 0 rgba(11, 11, 14, 0.14);
+  }
+
+  @media (max-width: 639px) {
+    .shell-sidebar { display: none; }
+    .shell-main {
+      margin-left: 0;
+      padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 8px);
+    }
+    .shell-tabbar { display: flex; }
+
+    /* Dialogs become bottom sheets on phones — they rise from where the thumb is. */
+    .modal-wrap {
+      align-items: flex-end !important;
+      padding: 0 !important;
+    }
+    .modal-panel {
+      max-width: none !important;
+      max-height: 92dvh !important;
+      border-radius: 20px 20px 0 0 !important;
+      padding-bottom: var(--safe-bottom);
+      @apply animate-sheet-up;
+    }
+  }
+
+  /* Translucent surfaces: dropped to solid under reduced transparency (below). */
+  .material {
+    -webkit-backdrop-filter: var(--material-blur);
+    backdrop-filter: var(--material-blur);
+  }
+}
+
+/* ─── Accessibility ─────────────────────────────────────────────────────── */
+
+/* Reduced motion: no travel, no scale — short cross-fades carry the change. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+  }
+  .screen-fade, .pop, .modal-panel, .toast, .nav-pop {
+    animation: scrimIn 160ms ease both !important;
+  }
+  .shell-indicator, .shell-sidebar, .lift {
+    transition-duration: 0ms !important;
+  }
+  button:not(:disabled):active,
+  button[data-press='soft']:not(:disabled):active,
+  [role='button']:active,
+  .shell-item:active {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --material-bar: #FAF9F6;
+    --material-thick: #FFFFFF;
+    --material-sidebar: #FFFFFF;
+  }
+  .shell-sidebar, .shell-tabbar, .material {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .toast { background: #16161A; }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --material-bar: #FFFFFF;
+    --material-thick: #FFFFFF;
+    --hairline: #8C8880;
+    --ink-2: rgba(11, 11, 14, 0.85);
+    --ink-3: rgba(11, 11, 14, 0.7);
+  }
+  .shell-tabbar { box-shadow: inset 0 1px 0 #0B0B0E; }
+}

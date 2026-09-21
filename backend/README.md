@@ -1,109 +1,204 @@
 # SAT Prep — Backend
 
-Express 4 + TypeScript + Drizzle ORM (PostgreSQL) + JWT auth + OpenRouter AI. Serves a JSON API under `/api` and static uploads under `/uploads`.
+Express 4 + TypeScript + Drizzle ORM (PostgreSQL) + JWT auth + OpenRouter AI.
+Serves a JSON API under `/api` and uploaded files under `/uploads`.
 
-## How to run
+## Running
 
 ```bash
-cp .env.example .env      # fill in DATABASE_URL at minimum
+cp .env.example .env      # DATABASE_URL and the two JWT secrets are required
 npm install
-npm run dev               # tsx watch src/index.ts, port 3001
+npm run dev               # tsx watch, port 3001
+npm run build && npm start
+npx tsc --noEmit          # the only automated gate — there is no test suite yet
 ```
 
-Server boot **runs migrations automatically** (`runMigrations()` in `src/index.ts:58`) — no separate migrate step in dev. The frontend dev server (port 5173) proxies `/api` → `:3001`.
+Migrations run automatically at boot, before the port opens. The frontend dev
+server (5173) proxies `/api` here.
 
-## Entry point → request flow (zoom out)
+## Layout
+
+Domain modules on top of shared infrastructure. Dependencies point one way:
+`api.router.ts` / `jobs/` → `modules/` → `core/`.
 
 ```
-src/index.ts                     creates express app, middleware, mounts routes, runs migrations on boot
-  └─ app.use("/api", apiRouter)  src/routes/index.ts → mounts all feature routers
-       ├─ /auth     → routes/auth.ts
-       ├─ /student  → routes/student.ts      (student portal + exam lifecycle + AI)
-       ├─ /teacher  → routes/teacher.ts      (content authoring, students, feedback)
-       ├─ /admin    → routes/admin.ts        (users, codes, DB tools, AI tools)
-       ├─ /feedback → routes/feedback.ts     (platform bug/suggestion feedback)
-       ├─ /library  → routes/library.ts      (file uploads + notes)
-       └─ /         → routes/liveExam.ts     (live exams: teacher + student endpoints)
-  └─ /uploads       static files (multer upload target)
+src/
+  index.ts           boot: startServer({ apiRouter, startupJobs })
+  api.router.ts      mounts every module router under /api (the only file that sees them all)
+  jobs/              work run after the port opens (scoring backfill)
+  core/              infrastructure — never imports a module
+    config/env.ts      every environment variable, validated once at boot
+    db/                pool + drizzle client, migrate.ts, schema/<domain>.ts (re-exported by schema/index.ts)
+    http/              app factory, server boot, asyncHandler, middleware (auth, validate, error)
+    errors.ts          AppError + factories (notFound, conflict, …) — HTTP status mapping lives in middleware/error
+    lib/               jwt, password, email, url, rate limiting, db-time
+  modules/           one folder per domain; other code imports it only through its index.ts
+    identity/          registration, login, token rotation, password reset, user admin
+    taxonomy/          the SAT domain/skill tree, readable by every role
+    exams/             foundation: provisioning, timing, grading, scaled scores, exam repository
+    attempts/          exam lifecycle and the adaptive mock chain (+ scoring backfill)
+    practice/          confirm + AI feedback, narratives, skill passages, tutor chat, topic practice
+    mistakes/          the mistake bank
+    vocab/             student deck + teacher word bank
+    analytics/         accuracy, trends, readiness, student profile
+    roster/            teacher ↔ student ownership and results
+    messages/          teacher feedback + student inbox
+    content/           question sets, passages, classification, AI content review
+    live-exam/         proctored classroom sessions
+    library/           shared files and notes
+    platform-feedback/ in-app bug reports
+    survey/            the admin-authored signup survey and its answers
+    admin/             platform stats, AI model stats, database console
+    audit/             audit log
+    ai/                the only module that calls OpenRouter
 ```
 
-Every request: `helmet` → `cors` (FRONTEND_URL only, credentials) → JSON body (50mb) → cookie parser → router. The refresh-token cookie `rt` is httpOnly and sent with every request (`path: '/'`). Auth is **header-based** (`Authorization: Bearer <accessToken>` — 15 min) with cookie-based silent refresh.
+A module is `routes -> service -> repository`: routes handle HTTP and nothing
+else, services hold the rules and throw `AppError`s, repositories hold the
+queries. Smaller modules collapse the repository into the service.
 
-## Files — what does what
+**Boundaries are checked.** `npm run depcruise` enforces that `core` imports no
+module, modules reach each other only through `index.ts`, the composition root
+uses public APIs only, and routes never query the database directly. Run it
+alongside `npx tsc --noEmit` before committing.
 
-### Boot & middleware
-| File | Role |
-|---|---|
-| `src/index.ts` | App factory. Sets `trust proxy`, middleware stack, mounts `/api` + `/uploads`, `GET /health`, 404 + 500 handlers. Runs migrations before `listen`. **Never touch lightly — a boot bug kills prod.** Also exports `UPLOAD_DIR`. |
-| `src/db/index.ts` | PostgreSQL `Pool` + `drizzle` client. Single source of DB access (`db`). |
-| `src/db/migrate.ts` | **Hand-rolled idempotent schema** (`CREATE TABLE IF NOT EXISTS` + `ALTER TABLE ... IF NOT EXISTS`). Runs on every boot *and* via the admin "Run migrations" button. The schema's real source of truth for prod. |
-| `src/middleware/auth.ts` | `requireAuth` (verifies access JWT → `req.user`), `requireRole([...])` (role gate). |
-| `src/middleware/validate.ts` | `validateBody` / `validateQuery` — zod parse, 422 on failure, replaces `req.body` with parsed data. |
+## The parts worth knowing before you change them
 
-### Auth (`src/lib`, `src/routes/auth.ts`)
-| File | Role |
-|---|---|
-| `src/lib/jwt.ts` | `signAccessToken` (15 min), `signRefreshToken` (7d, jti nonce). Secrets from env (`JWT_SECRET`, `JWT_REFRESH_SECRET`). |
-| `src/lib/password.ts` | bcrypt hash/compare (cost 12). |
-| `src/lib/email.ts` | Resend transactional emails (welcome, password reset) — HTML templates. No-op when `RESEND_API_KEY` unset. |
-| `src/lib/url.ts` | `normalizeFileUrl()` — rewrites `/uploads/...` paths to absolute `PUBLIC_BASE_URL`. **Apply to every file URL you return.** |
-| `src/routes/auth.ts` | register (access-code gated), login (per-account lockout map), refresh (**token rotation in a DB transaction + 30s in-memory grace map for multi-tab**), logout, /me, change-password, profile, forgot/reset password. |
+**`core/config/env.ts` owns `process.env`.** Nothing else reads it. A missing or
+malformed variable stops the server at boot with a message naming every problem,
+rather than failing later inside whichever request first needed the value. The
+AI and email settings double as feature switches — unset `AI_MODEL_NARRATIVE`
+and narratives are simply never generated, with no other effect.
 
-### Student portal — the heart (`src/routes/student.ts`, ~1500 lines)
-Everything a student does: catalogue, **exam lifecycle**, scoring, AI feedback orchestration, mock tests, vocab, chat. Read this one file and you know the product.
+**Handlers throw; one place answers.** `asyncHandler` wraps every route so a
+rejected promise reaches the error middleware instead of hanging the request —
+Express 4 does not await handlers. Services and routes throw `AppError`s from
+`core/errors.ts` (`notFound('Exam not found')`); `core/http/middleware/error.ts` maps
+each error kind to a status and everything else into a logged 500 with no internals
+disclosed. Do not reintroduce per-handler try/catch.
 
-- **Exam lifecycle**: `POST /exams` (creates exam + one `exam_answers` row per question), `PUT /exams/:id/answers` (autosave), `POST /exams/:id/submit` (grades everything, sets status/score, **fires narrative AI in background after responding**), `GET /exams/:id/results`.
-- **Scoring**: uses `examAnswers.isCorrect` set on submit; SPR answers (grid-in) graded by `sprIsCorrect()` (numeric tolerance 0.001, fraction parsing).
-- **Practice confirm** (`POST /exams/:id/questions/:qid/confirm`): checks `ai_feedback` cache → fires uncached types in parallel via `orchestrateConfirmFeedback` → writes results → returns. Rate-limits AI by user (300 calls / 15 min). After responding, runs weak-skill threshold check (`checkAndTriggerSkillPassage`, fires on every 3rd wrong answer per sub-skill).
-- **Mock tests**: `POST /mock-tests` (random medium sets → english + math M1), `POST /mock-tests/:id/next-module` (**adaptive**: ≥60% on M1 → hard M2, else low; idempotent), `GET /mock-tests`.
-- **Vocab**: SM-2-style spaced repetition in `POST /vocab/:id/review` + `/vocab/teacher/:wordId/review`; `/vocab/due` merges question-derived words + teacher word bank due items.
-- **Chat** (`POST /chat`): doubt-solving tutor, off-topic keyword guard, system prompt varies by subject, history trimmed to 2000 tokens. Free-text AI (not JSON).
-- **Narratives**: `GET /exams/:id/narrative`, `POST /exams/:id/narrative/retry`.
-- Rate limiting here is **in-memory Maps** — resets on server restart. Fine for single-instance deploy, not for horizontal scaling.
+**`core/db/migrate.ts` is the schema's source of truth**, not `core/db/schema/`. It is
+hand-written idempotent SQL that runs on every boot and again from the admin
+"Run migrations" button; a broken statement there stops the server from
+starting. The schema files only produce types and the query builder, so **a new
+column must be added to both** (the table's `schema/<domain>.ts` and `migrate.ts`). `npm run migrate` (`drizzle-kit push`) is
+a dev shortcut and is not what production uses.
 
-### Teacher portal (`src/routes/teacher.ts`)
-CRUD for students (scoped to `users.teacherId`), question sets (create/publish/delete), passages, questions (MC + SPR by discriminated zod union), `import-json` bulk import, teacher vocab word bank, feedback to students.
+**Exams are provisioned in one place.** `modules/exams/exam-provisioning.ts`
+creates the `exams` row, its blank `exam_answers` rows and the question count in
+a single transaction. Everything downstream assumes all three exist: saving an
+answer only UPDATEs an existing row and grading joins over them, so an exam
+created any other way silently accepts no answers and scores zero.
 
-### Admin portal (`src/routes/admin.ts`)
-Stats, user management, access codes, **DB backup/restore/run-sql/migrate** (raw SQL against the pool — admin-only and dangerous), `ai-model-stats`, `auto-tag-subskill` (batch AI classification of untagged questions), and the **generated-content quality gate** (`PATCH /generated-content/:id/flag`) — approving an AI `skill_passage` promotes it into live `question_sets`/`passages`/`questions` inside a transaction.
+**Questions are tagged with `skill_code`, not `sub_skill`.** `modules/taxonomy`
+serves the domain/skill tree from the `skills` table and is the only source of
+valid codes — `assertKnownSkillCode` checks a tag against the table rather than a
+zod enum, because the taxonomy is data. The `sub_skill` enum it replaced had five
+Reading-and-Writing values, so **Math could not be tagged at all** and was
+invisible to analytics, topic practice and the AI narrative. Those five values are
+spelled identically as skill codes and the migration backfills `skill_code` from
+`sub_skill`, which is why every reader moved across without translating values.
+The column and its zod field survive only so an old import payload still works —
+`createQuestion` and `importSetFromJson` map such a tag into `skill_code`. Nothing
+reads `sub_skill` any more; do not add a reader.
 
-### Live exams (`src/routes/liveExam.ts`)
-Teacher: create session (6-char join code), view participants, start (**creates english+math exams for every participant then flips status to active**), per-participant feedback, release results (notifications). Student: status check, join, poll lobby, results after release. No websockets/Socket.io — students **poll** the lobby.
+**There are two difficulty scales, on purpose.** `question_sets.difficulty` is
+`low | medium | hard` (TEXT + CHECK) and describes a whole module; it is what the
+adaptive mock routes on, so `pathFromModuleDifficulty` in `modules/exams/scaled-score.ts` reads
+it to decide which score band a student can reach. `questions.difficulty` is
+`easy | medium | hard` (a pgEnum) and describes one question; it is what topic
+practice filters on. They differ in both their values (`low` vs `easy`) and their
+type, which looks like a bug and is not. Never convert one into the other, and
+never widen one to match the other — a set is not hard because its questions are.
 
-### AI integration (`src/services/aiClient.ts`)
-The only file allowed to call OpenRouter.
-- `generateStructuredFeedback()` — JSON-mode call, auto-strip fences, **1 retry on parse failure**, per-request cost/latency/token recording.
-- `generateChatResponse()` — free-text for the chatbot.
-- `orchestrateConfirmFeedback()` — fan-out of independent feedback prompts via `Promise.all`; each catches its own errors so one type never blocks the rest.
-- Prompt builders are module-private per feedback type (`buildReasoningCheckpointPrompts`, `buildGrammarDiagnosisPrompts`, `buildTrapExplainerPrompts`, `buildCommandOfEvidencePrompts`, `buildTransitionsCoachPrompts`, `buildVocabDrillPrompts`).
-- `getApplicableFeedbackTypes()` decides which of the 6 feedback types fire for a given answer context.
+**Scores are computed once, on the server.** `modules/exams/scaled-score.ts` owns the 200-800 and 400-1600
+scales; nothing else may reimplement them, and the browser must never derive a score from a
+raw count. A mock module never carries its own `scaled_score` — it is half a section, and the
+mock row holds the two section scores. **Test mock membership with
+`findMockContextForExam`, never `exam.type`**: live exams use the same `mock_english` /
+`mock_math` types, have no `mock_tests` row, and do get a scaled score. When a score cannot
+honestly be produced — too few questions, an unfinished mock — the column stays NULL and the
+UI shows a dash or a raw tally rather than a number.
 
-## Env vars that matter
+**The mistake bank is written at submit, and only from there.** `submitExam` is
+the grading authority, so `recordMistakesForExam` runs from it rather than from
+the practice confirm step, which submit regrades anyway. One row per
+(student, question): a repeat miss bumps `miss_count` and reopens the row, a
+correct answer stamps `resolved_at`. **Live exams are the exception** — their
+results are hidden until the teacher releases them, so recording at submit would
+tell the student which questions they missed before release. Those go through
+`recordMistakesOnRelease`, and the release endpoints skip an already-released
+participant so a second release cannot double every miss count.
 
-| Var | Purpose |
-|---|---|
-| `DATABASE_URL` | Postgres (required) |
-| `JWT_SECRET` / `JWT_REFRESH_SECRET` | Token signing |
-| `FRONTEND_URL` | CORS origin (comma-separated not supported — single origin) |
-| `PUBLIC_BASE_URL` | Builds absolute `/uploads` URLs (email + frontend) |
-| `OPENROUTER_API_KEY` + `AI_MODEL_FEEDBACK` / `AI_MODEL_NARRATIVE` / `AI_MODEL_CLASSIFY` | **Presence = feature on/off.** If `AI_MODEL_NARRATIVE` is unset, mock narrative rows are never created and the narrative UI is hidden/disabled. |
-| `RESEND_API_KEY` / `RESEND_FROM` | Emails — unset = silently skipped |
-| `COOKIE_SECURE` / `NODE_ENV` | Refresh-cookie `secure`/`sameSite` rules |
-| `UPLOAD_DIR` | Where multer writes (persisted volume in prod) |
+**Analytics are one set of functions, called twice.** `modules/analytics` is the
+only place accuracy, trends and readiness are computed, and every function takes
+a **list** of student ids — the Phase 3 batch dashboard needs exactly these
+aggregates, and a per-student function would have to be rewritten to serve it.
+The student's own view and the teacher's view of that student call the same
+functions, so the two cannot quote different percentages at each other. Two rules
+hold throughout: completed exams only, and **a live-exam attempt only once
+released** — an analytic that counted an unreleased result would leak the thing
+the release mechanism exists to control. Readiness is arithmetic, never a
+projection. `readiness().estimate` is the single estimated score every screen
+shows — compute a headline score there, never in a page.
 
-## Golden rules (conventions to follow)
+**Scores for old history are filled on boot.** `backfillScores()` runs from `jobs/` after the
+port opens on every start: it only writes NULL scores, never overwrites, keeps a
+re-finalised mock's original `completed_at`, and logs rather than throws. Exams
+and mocks finished before scaled scoring existed therefore gain scores on the
+next deploy without anyone pressing the admin button.
 
-1. **Never call OpenRouter directly from a route.** Go through `services/aiClient.ts`. Check the `ai_feedback` cache before firing; respect `checkAiRateLimit`; write cost/latency rows after.
-2. **Validate every `req.body` with a zod schema through `validateBody`.** Raw schema at the top of the file, next to route.
-3. **Async handlers must be wrapped in try/catch → `res.status(500).json({ error: 'Internal server error' })`.** Express 4 does **not** catch rejected promises.
-4. **All queries use the drizzle `db` + schema imports.** Raw SQL (`db.execute`/`client.query`) only for things drizzle can't express (enum DDL, random set pick, aggregate filters). When doing multi-statement writes that must not partially apply, use `db.transaction` or an explicit pool transaction (see admin restore / generated-content approval — the fixes are documented inline as "Fix B1/B3").
-5. **Role gate at the router top**: `router.use(requireAuth, requireRole(['student']))`. New routes inherit it.
-6. **`normalizeFileUrl` on every file/image URL** before returning it to the frontend.
-7. **Response-first, background-after** for expensive AI work. The student never waits on a model call (see submit → narrative, confirm → skill-passage trigger).
-8. New DB columns: add to **both** `schema.ts` (types) **and** `migrate.ts` (idempotent ALTER). The Drizzle `npm run migrate` (`drizzle-kit push`) is a dev shortcut, not the prod mechanism.
+**The server holds the exam clock.** See `modules/exams/exam-timing.ts` and
+`flow.md` §5. Any read that is not the student sitting down to an exam must call
+`getExam` without `open`, or it starts a mock module's clock early.
 
-## Legacy you can ignore
+**Attempted content is versioned, never rewritten.** `updateQuestion` edits in
+place only while no exam has the question on its answer sheet; after that it
+inserts a new row (`supersedes_id`), retires the old one and moves mistakes to the
+new version, so past attempts keep the exact wording and key they were graded
+against. Deleting an attempted question retires it, and deleting a set with
+attempts archives it. **Every reader that offers content** — catalogues, exam
+assembly, topic and mistake practice, mock and live set pickers, tagging and
+counts — must filter `questions.retired_at IS NULL` and
+`question_sets.archived_at IS NULL`. Readers that go through `exam_answers`
+(results, history) must not.
 
-- `src/db/migrate-local.sql`, `src/db/seed-english.sql` — one-off local setup artifacts. Real schema + seed (admin code `000000`) live in `migrate.ts`.
-- The refresh-cookie `path: '/api/auth'` restriction described in `../sat-platform-prompt.md` — the implementation sets `path: '/'`; the doc is aspirational, code is truth.
-- `drizzle-kit push` as a migration strategy — it has no history and isn't what prod uses.
+**Irreversible admin actions are audited.** Routes call `logAudit()`
+(`modules/audit`) after the action succeeds; the SQL console and restore also log
+failed attempts. Never put secrets in the payload — no passwords, no access-code
+values, no query results. Raw `timestamp` columns from `db.execute` must be read
+with `parseDbTimestamp()` (`core/lib/db-time.ts`): they arrive as zone-less strings in
+UTC, and `new Date()` would parse them as local time.
+
+**Students never receive answers.** `modules/exams/exam.repository.ts`
+selects question columns explicitly, so `correctAnswer`, `correctAnswerText` and
+`explanation` are absent by construction rather than deleted afterwards. Add
+answer-bearing columns to that projection only if you mean to.
+
+**AI work happens after the response.** Narratives and weak-skill passages are
+started once the student already has their answer. The confirm step reads its
+cache before dispatching and charges the rate limiter only for calls it actually
+makes. All model access goes through `modules/ai` — never call OpenRouter
+directly, or the cost, retry and cache accounting stops being true.
+
+**In-memory state is single-instance.** The AI budget, login lockouts and the
+refresh-token grace window live in process memory (`core/lib/rate-limit.ts`,
+`modules/identity/auth.tokens.ts`). They reset on restart, and running two instances
+would give each its own budget. Moving to more than one process means moving
+these to Postgres or Redis first.
+
+**`modules/admin/database.service.ts` is a production console.** Backup, restore
+(truncates and replaces), arbitrary SQL and the migration runner, gated on the
+admin role alone. Treat edits there accordingly. **Every new table must be listed
+in either `BACKUP_TABLES` (in foreign-key order) or `EXCLUDED_TABLES` with a
+reason** — a load-time assertion refuses to boot otherwise. That check exists
+because the backup set was previously hand-maintained with no cross-check, so
+tables added later were silently never exported, and reading passages, the
+resource library and all vocabulary were missing from every backup until it was
+noticed during a restore.
+
+## Environment
+
+See `.env.example`, which documents every variable. `DATABASE_URL`, `JWT_SECRET`
+and `JWT_REFRESH_SECRET` are required; the AI and Resend settings are optional
+and disable their features when absent.

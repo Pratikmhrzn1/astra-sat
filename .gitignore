@@ -33,3 +33,6 @@ Thumbs.db
 
 # Drizzle migrations (keep drizzle/ in git if you version migrations)
 # drizzle/
+
+# Database exports — contain user data, never commit
+*backup*.json

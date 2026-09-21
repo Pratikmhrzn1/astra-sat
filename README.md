@@ -8,13 +8,14 @@ Digital SAT practice and mock-test platform with three user roles (student / tea
 backend/   Express 4 + TypeScript + Drizzle ORM + Postgres  →  see backend/README.md
 frontend/  React 18 + Vite + TS + TanStack Query + Zustand  →  see frontend/README.md
 flow.md    the end-to-end request flow (entry point zoom out)
+docs/      working notes: plan.md (Phase 2/3 build plan), Brainstorm.md, client-report.html
 sat-platform-prompt.md   original feature spec — historical, code is the source of truth
 docker-compose.yml / render.yaml / deploy.sh   deployment
 ```
 
 ## How it works in one paragraph
 
-A student registers with an access code, practices question sets, and gets AI feedback per question. A **practice exam** is auto-created per question set attempt, answers are autosaved (and locally persisted to IndexedDB for offline resilience), and on submit everything is graded server-side. Per-question "confirm" calls fire cached, parallel AI feedback types through a single AI client. A **mock test** chains four timed sections with adaptive difficulty (English M1 → Math M1 → English M2 → Math M2, M2 difficulty decided by the ≥60% threshold on M1). A teacher authors content in `AddContent`, can run **live exams** (6-char join code, students poll a lobby, all take the same set, results are released with teacher feedback afterward), and follows each student's exam/feedback history. Admin manages access codes, users, DB tools, and gates AI-generated skill passages before they go live.
+A student registers with an access code, answers a short admin-authored signup survey once (the questions live in Admin → Signup Survey; no questions means no survey), practices question sets, and gets AI feedback per question. A **practice exam** is auto-created per question set attempt, answers are autosaved (and locally persisted to IndexedDB for offline resilience), and on submit everything is graded server-side. Per-question "confirm" calls fire cached, parallel AI feedback types through a single AI client. A **mock test** chains four timed sections with adaptive difficulty (English M1 → Math M1 → English M2 → Math M2, M2 difficulty decided by the ≥60% threshold on M1). A teacher authors content in `AddContent`, can run **live exams** (6-char join code, students poll a lobby, all take the same set, results are released with teacher feedback afterward), and follows each student's exam/feedback history. Admin manages access codes, users, the signup survey and its answers, DB tools, and gates AI-generated skill passages before they go live.
 
 ## Environment
 
@@ -24,20 +25,21 @@ A student registers with an access code, practices question sets, and gets AI fe
 
 ## Key conventions (brief)
 
-- **Every async Express handler wraps its body in try/catch** — Express 4 does not catch rejected promises.
-- **All AI calls go through `backend/src/services/aiClient.ts`** — never call OpenRouter directly; rate-limit, cache, and cost-track there.
-- **All HTTP goes through `frontend/src/api/client.ts`** — bearer injection + silent refresh + 401 queueing.
-- **All server state on the frontend goes through TanStack Query** (`src/api/*` wrappers + hooks).
-- New DB columns are added to **both** `backend/src/db/schema.ts` (types) and `backend/src/db/migrate.ts` (idempotent SQL).
+- **Handlers throw; one middleware answers.** Routes are wrapped in `asyncHandler` and throw `AppError`s (`backend/src/core/errors.ts`) — no per-handler try/catch.
+- **Domain modules, public entry points.** Backend `modules/<domain>` and frontend `features/<domain>` / `entities/<x>` are imported only through their `index.ts`; `npm run depcruise` in each package enforces the dependency direction.
+- **All AI calls go through `backend/src/modules/ai/ai.client.ts`** — never call OpenRouter directly; rate-limit, cache, and cost-track there.
+- ***All HTTP goes through `frontend/src/shared/api/http.ts`** — bearer injection + silent refresh + 401 queueing.
+- **All server state on the frontend goes through TanStack Query** (per-feature `api.ts` wrappers).
+- New DB columns are added to **both** `backend/src/core/db/schema/<domain>.ts` (types) and `backend/src/core/db/migrate.ts` (idempotent SQL).
 
 ## Risk radar (read these before touching them)
 
 | File | Why it's risky |
 |---|---|
-| `backend/src/db/migrate.ts` | Hand-rolled idempotent schema **runs on every server boot** and via the admin migrations button. A bad ALTER can corrupt prod or brick startup. |
-| `backend/src/routes/student.ts` | ~1500-line heart of the product: exam lifecycle, scoring, adaptive mock chain, AI orchestration with in-memory rate limits. Bugs here grade real students wrong or burn AI spend. |
-| `frontend/src/pages/student/TakeExam.tsx` | The exam player — timer, offline IDB sync, adaptive section transitions driven by refs. A bug silently corrupts student attempts. |
-| `frontend/src/api/client.ts` | Refresh logic failure = everyone locked out. Net-effect of every 401 in the app. |
+| `backend/src/core/db/migrate.ts` | Hand-rolled idempotent schema **runs on every server boot** and via the admin migrations button. A bad ALTER can corrupt prod or brick startup. |
+| `backend/src/modules/{exams,attempts,practice}/` | The heart of the product: `exams/grading.ts` + `exams/scaled-score.ts`, `attempts/attempts.service.ts` (lifecycle), `attempts/mock.service.ts` (adaptive chain), `practice/practice.service.ts` (confirm + AI), `practice/narrative.service.ts`. Bugs here grade real students wrong or burn AI spend. |
+| `frontend/src/features/exam-player/pages/TakeExamPage.tsx` | The exam player — timer, offline IDB sync, adaptive section transitions driven by refs. A bug silently corrupts student attempts. |
+| `frontend/src/shared/api/http.ts` | Refresh logic failure = everyone locked out. Net-effect of every 401 in the app. |
 
 ## Running locally
 

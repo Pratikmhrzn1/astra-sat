@@ -7,7 +7,9 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "migrate": "drizzle-kit push"
+    "migrate": "drizzle-kit push",
+    "seed": "tsx src/core/db/seed.ts",
+    "depcruise": "depcruise src --config .dependency-cruiser.cjs"
   },
   "dependencies": {
     "@types/cookie-parser": "^1.4.10",
@@ -36,6 +38,7 @@
     "@types/node": "^20.12.7",
     "@types/pg": "^8.11.5",
     "@types/uuid": "^9.0.8",
+    "dependency-cruiser": "^18.3.0",
     "drizzle-kit": "^0.21.4",
     "tsx": "^4.7.3",
     "typescript": "^5.4.5"
