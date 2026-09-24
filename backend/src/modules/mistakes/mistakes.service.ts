@@ -9,7 +9,7 @@ import {
 } from '../../core/db/schema';
 import { invalidRequest } from '../../core/errors';
 import { buildAssessmentWithSheet } from '../exams';
-import type { MistakePracticeInput } from './mistakes.schemas';
+import type { MisstepPracticePayload } from './mistakes.schemas';
 
 /**
  * The mistake bank: every question a student has got wrong, as a worklist that
@@ -22,7 +22,7 @@ import type { MistakePracticeInput } from './mistakes.schemas';
  *
  * v1 has no spaced repetition on purpose: a row resolves on one correct answer.
  * If it turns out students re-miss resolved items often, the next step is SM-2
- * columns reusing `nextSchedule()` from `vocab.service.ts`, which already does
+ * columns reusing `nextReviewPlan()` from `vocab.service.ts`, which already does
  * exactly this for words.
  */
 
@@ -32,16 +32,16 @@ type GradedAnswer = { answerId: string; questionId: string; isCorrect: boolean |
 /**
  * Files this exam's wrong answers and clears the ones it got right.
  *
- * Called from `submitExam`, which is the grading authority: the practice confirm
+ * Called from `commitAssessment`, which is the grading authority: the practice confirm
  * step also writes `isCorrect`, but submit regrades everything, so recording here
  * cannot disagree with the score the student was shown.
  *
  * **Live exams do not call this at submit.** Their results are hidden until the
  * teacher releases them, and a bank that filled up the moment a student clicked
  * submit would tell them which questions they had missed before the teacher had
- * released anything. `recordMistakesOnRelease` handles those instead.
+ * released anything. `registerMisstepsOnRelease` handles those instead.
  */
-export async function recordMistakesForExam(examId: string, studentId: string): Promise<void> {
+export async function registerMisstepsForAssessment(examId: string, studentId: string): Promise<void> {
   const graded: GradedAnswer[] = await database
     .select({
       answerId: examAnswers.id,
@@ -102,16 +102,16 @@ export async function recordMistakesForExam(examId: string, studentId: string): 
  * participant who was not already released, so a second release cannot bump
  * every `missCount` a second time.
  */
-export async function recordMistakesOnRelease(
+export async function registerMisstepsOnRelease(
   studentId: string,
   examIds: (string | null)[],
 ): Promise<void> {
   for (const examId of examIds) {
-    if (examId) await recordMistakesForExam(examId, studentId);
+    if (examId) await registerMisstepsForAssessment(examId, studentId);
   }
 }
 
-export interface MistakeFilters {
+export interface MisstepFilters {
   subject?: 'english' | 'math';
   skillCode?: string;
   status?: 'open' | 'resolved';
@@ -125,7 +125,7 @@ export interface MistakeFilters {
  * would hide something they have already been shown — and a worklist you cannot
  * learn from is just a list of failures.
  */
-export async function listMistakes(studentId: string, filters: MistakeFilters) {
+export async function collectMissteps(studentId: string, filters: MisstepFilters) {
   const conditions = [eq(mistakes.studentId, studentId)];
   if (filters.subject) conditions.push(eq(questionSets.subject, filters.subject));
   if (filters.skillCode) conditions.push(eq(questions.skillCode, filters.skillCode));
@@ -175,7 +175,7 @@ export async function listMistakes(studentId: string, filters: MistakeFilters) {
 }
 
 /** Open counts per domain, for the summary strip above the list. */
-export async function getMistakeSummary(studentId: string) {
+export async function fetchMisstepSummary(studentId: string) {
   return database
     .select({
       domainCode: sql<string | null>`COALESCE(${skills.parentCode}, ${skills.code})`,
@@ -198,11 +198,11 @@ export async function getMistakeSummary(studentId: string) {
  * spends its questions where they are worth most.
  *
  * Nothing is resolved here. The exam goes through the ordinary submit path, so
- * `recordMistakesForExam` does the resolving with exactly the same grading rules
+ * `registerMisstepsForAssessment` does the resolving with exactly the same grading rules
  * as any other exam. That is the point of routing it through a real exam rather
  * than building a bespoke quiz.
  */
-export async function startMistakePractice(studentId: string, input: MistakePracticeInput) {
+export async function openMisstepPractice(studentId: string, input: MisstepPracticePayload) {
   const conditions = [eq(mistakes.studentId, studentId), isNull(mistakes.resolvedAt)];
   if (input.subject) conditions.push(eq(questionSets.subject, input.subject));
   if (input.skillCode) conditions.push(eq(questions.skillCode, input.skillCode));
@@ -238,7 +238,7 @@ export async function startMistakePractice(studentId: string, input: MistakePrac
  * are told apart by which table references them — the same reason mock membership
  * is looked up rather than inferred from `exam.type`.
  */
-export async function isLiveExamAttempt(examId: string): Promise<boolean> {
+export async function isLiveAssessmentSitting(examId: string): Promise<boolean> {
   const [row] = await database.execute<{ exists: boolean }>(sql`
     SELECT EXISTS (
       SELECT 1 FROM live_exam_participants

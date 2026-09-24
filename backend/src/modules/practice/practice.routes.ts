@@ -7,34 +7,34 @@ import * as practice from './practice.service';
 import * as skillPassages from './skill-passage.service';
 import * as topic from './topic.service';
 import {
-  chatSchema,
-  confirmAnswerSchema,
-  topicExamSchema,
-  type ChatInput,
-  type ConfirmAnswerInput,
-  type TopicExamInput,
+  chatRules,
+  confirmAnswerRules,
+  topicAssessmentRules,
+  type ChatPayload,
+  type ConfirmAnswerPayload,
+  type TopicAssessmentPayload,
 } from './practice.schemas';
 
 /** Practice support around an exam: per-question confirm, topic exams, skill passages and the tutor chat. */
 
-export const practiceStudentRouter = Router();
+export const drillsStudentRoutes = Router();
 
-practiceStudentRouter.use(requireSession, requireAccountRole(['student']));
+drillsStudentRoutes.use(requireSession, requireAccountRole(['student']));
 
 /**
  * Practice confirm. Responds as soon as feedback is ready, then checks whether
  * this miss crosses a remediation threshold — the student never waits on that.
  */
-practiceStudentRouter.post(
+drillsStudentRoutes.post(
   '/exams/:examId/questions/:questionId/confirm',
-  checkBody(confirmAnswerSchema),
+  checkBody(confirmAnswerRules),
   wrapAsync(async (req, res) => {
     const studentId = sessionUserId(req);
-    const result = await practice.confirmAnswer(
+    const result = await practice.acknowledgeAnswer(
       studentId,
       req.params.examId,
       req.params.questionId,
-      validatedBody<ConfirmAnswerInput>(req),
+      validatedBody<ConfirmAnswerPayload>(req),
     );
 
     res.json({
@@ -45,7 +45,7 @@ practiceStudentRouter.post(
 
     if (result.skillTrigger) {
       void skillPassages
-        .checkAndTriggerSkillPassage(
+        .maybeTriggerCompetencyPassage(
           studentId,
           result.skillTrigger.subSkill,
           result.skillTrigger.questionText,
@@ -59,37 +59,37 @@ practiceStudentRouter.post(
 // ── Topic practice ───────────────────────────────────────────────────────────
 
 /** An exam drawn across every published set for one domain or skill. */
-practiceStudentRouter.post(
+drillsStudentRoutes.post(
   '/exams/topic',
-  checkBody(topicExamSchema),
+  checkBody(topicAssessmentRules),
   wrapAsync(async (req, res) => {
-    const result = await topic.startTopicExam(sessionUserId(req), validatedBody<TopicExamInput>(req));
+    const result = await topic.openTopicAssessment(sessionUserId(req), validatedBody<TopicAssessmentPayload>(req));
     res.status(201).json(result);
   }),
 );
 
 // ── Skill passages ───────────────────────────────────────────────────────────
 
-practiceStudentRouter.get(
+drillsStudentRoutes.get(
   '/skill-passages/available',
   wrapAsync(async (req, res) => {
-    res.json(await skillPassages.findAvailableSkillPassages(sessionUserId(req)));
+    res.json(await skillPassages.loadAvailableSkillPassages(sessionUserId(req)));
   }),
 );
 
 // ── Tutor chat ───────────────────────────────────────────────────────────────
 
-practiceStudentRouter.post(
+drillsStudentRoutes.post(
   '/chat',
-  checkBody(chatSchema),
+  checkBody(chatRules),
   wrapAsync(async (req, res) => {
-    res.json(await chat.sendMessage(sessionUserId(req), validatedBody<ChatInput>(req)));
+    res.json(await chat.dispatchMessage(sessionUserId(req), validatedBody<ChatPayload>(req)));
   }),
 );
 
-practiceStudentRouter.get(
+drillsStudentRoutes.get(
   '/chat/:sessionId/messages',
   wrapAsync(async (req, res) => {
-    res.json(await chat.listMessages(sessionUserId(req), req.params.sessionId));
+    res.json(await chat.collectMessages(sessionUserId(req), req.params.sessionId));
   }),
 );

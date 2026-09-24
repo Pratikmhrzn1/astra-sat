@@ -5,70 +5,70 @@ import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import * as vocab from './vocab.service';
 import * as service from './word-bank.service';
 import {
-  reviewVocabSchema,
-  vocabWordSchema,
-  type ReviewVocabInput,
-  type VocabWordInput,
+  appraiseLexiconRules,
+  vocabWordRules,
+  type ReviewLexiconPayload,
+  type LexiconWordPayload,
 } from './vocab.schemas';
 
 /** Spaced-repetition review for students, and the word bank teachers maintain. */
 
-export const vocabStudentRouter = Router();
+export const lexiconStudentRoutes = Router();
 
-vocabStudentRouter.use(requireSession, requireAccountRole(['student']));
+lexiconStudentRoutes.use(requireSession, requireAccountRole(['student']));
 
 // ── Vocabulary ───────────────────────────────────────────────────────────────
 
-vocabStudentRouter.get(
+lexiconStudentRoutes.get(
   '/vocab/due',
   wrapAsync(async (req, res) => {
-    res.json(await vocab.findDueItems(sessionUserId(req)));
+    res.json(await vocab.loadDueItems(sessionUserId(req)));
   }),
 );
 
-vocabStudentRouter.post(
+lexiconStudentRoutes.post(
   '/vocab/:vocabId/review',
-  checkBody(reviewVocabSchema),
+  checkBody(appraiseLexiconRules),
   wrapAsync(async (req, res) => {
-    const { isCorrect } = validatedBody<ReviewVocabInput>(req);
-    res.json(await vocab.reviewQuestionWord(sessionUserId(req), req.params.vocabId, isCorrect));
+    const { isCorrect } = validatedBody<ReviewLexiconPayload>(req);
+    res.json(await vocab.appraiseQuestionWord(sessionUserId(req), req.params.vocabId, isCorrect));
   }),
 );
 
-vocabStudentRouter.post(
+lexiconStudentRoutes.post(
   '/vocab/teacher/:wordId/review',
-  checkBody(reviewVocabSchema),
+  checkBody(appraiseLexiconRules),
   wrapAsync(async (req, res) => {
-    const { isCorrect } = validatedBody<ReviewVocabInput>(req);
-    res.json(await vocab.reviewTeacherWord(sessionUserId(req), req.params.wordId, isCorrect));
+    const { isCorrect } = validatedBody<ReviewLexiconPayload>(req);
+    res.json(await vocab.appraiseTeacherWord(sessionUserId(req), req.params.wordId, isCorrect));
   }),
 );
 
-export const vocabTeacherRouter = Router();
+export const lexiconTeacherRoutes = Router();
 
-vocabTeacherRouter.use(requireSession, requireAccountRole(['teacher']));
+lexiconTeacherRoutes.use(requireSession, requireAccountRole(['teacher']));
 
 // ── Vocabulary bank ──────────────────────────────────────────────────────────
 
-vocabTeacherRouter.get(
+lexiconTeacherRoutes.get(
   '/vocab-words',
   wrapAsync(async (_req, res) => {
-    res.json(await service.listVocabWords());
+    res.json(await service.collectLexiconWords());
   }),
 );
 
-vocabTeacherRouter.post(
+lexiconTeacherRoutes.post(
   '/vocab-words',
-  checkBody(vocabWordSchema),
+  checkBody(vocabWordRules),
   wrapAsync(async (req, res) => {
-    res.status(201).json(await service.createVocabWord(validatedBody<VocabWordInput>(req)));
+    res.status(201).json(await service.addLexiconWord(validatedBody<LexiconWordPayload>(req)));
   }),
 );
 
-vocabTeacherRouter.delete(
+lexiconTeacherRoutes.delete(
   '/vocab-words/:wordId',
   wrapAsync(async (req, res) => {
-    await service.deleteVocabWord(req.params.wordId);
+    await service.removeLexiconWord(req.params.wordId);
     res.json({ ok: true });
   }),
 );

@@ -20,7 +20,7 @@ import { questionSets, questions, skills } from '../../core/db/schema';
  * is what let every reader move across without translating any values.
  */
 
-export interface SkillNode {
+export interface CompetencyNode {
   code: string;
   label: string;
   subject: 'english' | 'math';
@@ -28,7 +28,7 @@ export interface SkillNode {
   questionCount?: number;
   /** Questions tagged with this domain or any skill beneath it. */
   totalQuestionCount?: number;
-  skills: SkillNode[];
+  skills: CompetencyNode[];
 }
 
 /**
@@ -38,7 +38,7 @@ export interface SkillNode {
  * available under it — what topic practice needs to grey out a topic nobody has
  * written questions for yet, rather than offering it and failing at assembly.
  */
-export async function getSkillTree(withCounts = false): Promise<SkillNode[]> {
+export async function fetchSkillTree(withCounts = false): Promise<CompetencyNode[]> {
   // Subject first so consumers can slice the list into an English group and a
   // Math group without re-sorting; sortOrder is only unique within a subject.
   const rows = await database
@@ -68,7 +68,7 @@ export async function getSkillTree(withCounts = false): Promise<SkillNode[]> {
 function node(
   row: typeof skills.$inferSelect,
   counts: Map<string, number> | null,
-): SkillNode {
+): CompetencyNode {
   return {
     code: row.code,
     label: row.label,
@@ -109,7 +109,7 @@ async function countPublishedBySkill(): Promise<Map<string, number>> {
 }
 
 /** Every valid code, for validating a tag before it is written. */
-export async function listSkillCodes(): Promise<Set<string>> {
+export async function collectSkillCodes(): Promise<Set<string>> {
   const rows = await database.select({ code: skills.code }).from(skills);
   return new Set(rows.map((row) => row.code));
 }
@@ -121,7 +121,7 @@ export async function listSkillCodes(): Promise<Set<string>> {
  * admin dashboard rather than in someone's head. Math sat at 0% for as long as
  * it was untaggable.
  */
-export async function getTaggingCoverage(): Promise<
+export async function fetchTaggingCoverage(): Promise<
   { subject: 'english' | 'math'; tagged: number; total: number; percentage: number }[]
 > {
   const rows = await database

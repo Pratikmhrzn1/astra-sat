@@ -7,11 +7,11 @@ import { mailPasswordReset, mailWelcome } from '../../core/lib/email';
 import * as repo from './auth.repository';
 import * as tokens from './auth.tokens';
 import type {
-  ChangePasswordInput,
-  ForgotPasswordInput,
-  LoginInput,
-  RegisterInput,
-  ResetPasswordInput,
+  ChangePasswordPayload,
+  ForgotPasswordPayload,
+  LoginPayload,
+  RegisterPayload,
+  ResetPasswordPayload,
 } from './auth.schemas';
 
 /**
@@ -35,37 +35,37 @@ function minutesPhrase(seconds: number): string {
   return `${minutes} minute${minutes === 1 ? '' : 's'}`;
 }
 
-export interface AuthResult {
+export interface SessionGrant {
   accessToken: string;
   refreshToken: string;
-  user: repo.PublicUser;
+  user: repo.PublicAccount;
 }
 
-export async function register(input: RegisterInput): Promise<AuthResult> {
+export async function signUp(input: RegisterPayload): Promise<SessionGrant> {
   const { email, name, phone, password, accessCode } = input;
 
   // The access code decides the role, so it is checked before anything else.
-  const code = await repo.findActiveAccessCode(accessCode);
+  const code = await repo.loadActiveAccessCode(accessCode);
   if (!code) throw invalidRequest('Invalid or inactive access code');
   if (code.maxUses !== null && code.useCount >= code.maxUses) {
     throw invalidRequest('Access code has reached its usage limit');
   }
 
-  if (await repo.emailExists(email)) {
+  if (await repo.emailTaken(email)) {
     throw stateConflict('An account with this email already exists');
   }
   if (code.role === 'student' && !phone?.trim()) {
     throw invalidRequest('Phone number is required for student accounts');
   }
 
-  const user = await repo.createUser({
+  const user = await repo.addUser({
     email,
     name,
     phone: phone?.trim() ?? null,
     passwordHash: await hashSecret(password),
     role: code.role,
   });
-  await repo.incrementAccessCodeUse(code.id, code.useCount);
+  await repo.bumpAccessCodeUse(code.id, code.useCount);
 
   // Non-blocking: a mail outage must not fail an otherwise complete signup.
   void mailWelcome(user.email, user.name, password).catch((err) =>
@@ -74,12 +74,12 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
 
   return {
     accessToken: mintAccessToken(user),
-    refreshToken: await tokens.issueRefreshToken(user.id),
+    refreshToken: await tokens.grantRefreshToken(user.id),
     user,
   };
 }
 
-export async function login({ email, password }: LoginInput): Promise<AuthResult> {
+export async function signIn({ email, password }: LoginPayload): Promise<SessionGrant> {
   // Checked before bcrypt so a locked account costs no CPU to reject.
   const lockedFor = loginLockout.lockedFor(email);
   if (lockedFor > 0) {
@@ -89,7 +89,7 @@ export async function login({ email, password }: LoginInput): Promise<AuthResult
     );
   }
 
-  const user = await repo.findUserByEmail(email);
+  const user = await repo.loadUserByEmail(email);
   const passwordValid = await secretMatches(password, user?.passwordHash ?? DUMMY_HASH);
 
   if (!user || !passwordValid) {
@@ -104,7 +104,7 @@ export async function login({ email, password }: LoginInput): Promise<AuthResult
 
   loginLockout.reset(email);
 
-  const publicUser: repo.PublicUser = {
+  const publicUser: repo.PublicAccount = {
     id: user.id,
     email: user.email,
     name: user.name,
@@ -114,7 +114,7 @@ export async function login({ email, password }: LoginInput): Promise<AuthResult
 
   return {
     accessToken: mintAccessToken(publicUser),
-    refreshToken: await tokens.issueRefreshToken(user.id),
+    refreshToken: await tokens.grantRefreshToken(user.id),
     user: publicUser,
   };
 }
@@ -127,7 +127,7 @@ export async function login({ email, password }: LoginInput): Promise<AuthResult
  * re-read the grace map: the winning tab publishes there, and without this a
  * second browser tab would log the user out.
  */
-export async function refresh(rawToken: string | undefined): Promise<tokens.RotationResult> {
+export async function renewSession(rawToken: string | undefined): Promise<tokens.RotationOutcome> {
   if (!rawToken) throw notAuthenticated('No refresh token');
 
   let userId: string;
@@ -137,47 +137,47 @@ export async function refresh(rawToken: string | undefined): Promise<tokens.Rota
     throw notAuthenticated('Invalid or expired refresh token');
   }
 
-  const oldHash = tokens.hashToken(rawToken);
+  const oldHash = tokens.digestToken(rawToken);
 
-  const cached = tokens.readGraceEntry(oldHash);
+  const cached = tokens.lookupGraceEntry(oldHash);
   if (cached) return cached;
 
   // Reloaded so the new access token carries the current role/name/email.
-  const user = await repo.findUserById(userId);
+  const user = await repo.loadUserById(userId);
   if (!user) throw notAuthenticated('User not found');
 
-  const rotated = await tokens.rotateRefreshToken(oldHash, user);
+  const rotated = await tokens.cycleRefreshToken(oldHash, user);
   if (rotated) return rotated;
 
   await new Promise<void>((resolve) => setTimeout(resolve, 50));
-  const afterRace = tokens.readGraceEntry(oldHash);
+  const afterRace = tokens.lookupGraceEntry(oldHash);
   if (afterRace) return afterRace;
 
   throw notAuthenticated('Invalid refresh token');
 }
 
-export async function logout(rawToken: string | undefined): Promise<void> {
-  if (rawToken) await tokens.revokeRefreshToken(rawToken);
+export async function signOut(rawToken: string | undefined): Promise<void> {
+  if (rawToken) await tokens.voidRefreshToken(rawToken);
 }
 
-export async function getProfile(userId: string) {
-  const profile = await repo.findProfileById(userId);
+export async function fetchAccountProfile(userId: string) {
+  const profile = await repo.loadProfileById(userId);
   if (!profile) throw missing('User not found');
   return profile;
 }
 
-export async function changePassword(userId: string, input: ChangePasswordInput): Promise<void> {
-  const user = await repo.findUserById(userId);
+export async function replacePassword(userId: string, input: ChangePasswordPayload): Promise<void> {
+  const user = await repo.loadUserById(userId);
   if (!user) throw missing('User not found');
 
   const valid = await secretMatches(input.currentPassword, user.passwordHash);
   if (!valid) throw invalidRequest('Current password is incorrect');
 
-  await repo.updatePasswordHash(user.id, await hashSecret(input.newPassword));
+  await repo.editPasswordHash(user.id, await hashSecret(input.newPassword));
 }
 
-export async function updateProfile(userId: string, name: string): Promise<repo.PublicUser> {
-  const updated = await repo.updateName(userId, name);
+export async function editProfile(userId: string, name: string): Promise<repo.PublicAccount> {
+  const updated = await repo.editName(userId, name);
   if (!updated) throw missing('User not found');
   return updated;
 }
@@ -187,23 +187,23 @@ export async function updateProfile(userId: string, name: string): Promise<repo.
  * response for unknown addresses would turn this into an account-enumeration
  * oracle. Failure is only ever visible in the logs.
  */
-export async function requestPasswordReset({ email }: ForgotPasswordInput): Promise<void> {
-  const user = await repo.findUserByEmail(email);
+export async function beginPasswordReset({ email }: ForgotPasswordPayload): Promise<void> {
+  const user = await repo.loadUserByEmail(email);
   if (!user) return;
 
   const token = crypto.randomBytes(32).toString('hex');
-  await repo.createPasswordResetToken(user.id, token, new Date(Date.now() + 60 * 60 * 1000));
+  await repo.addPasswordResetToken(user.id, token, new Date(Date.now() + 60 * 60 * 1000));
 
   void mailPasswordReset(user.email, user.name, token).catch((err) =>
     console.error('[auth] Password reset email failed:', err),
   );
 }
 
-export async function resetPassword({ token, password }: ResetPasswordInput): Promise<void> {
-  const row = await repo.findUnexpiredResetToken(token);
+export async function completePasswordReset({ token, password }: ResetPasswordPayload): Promise<void> {
+  const row = await repo.loadUnexpiredResetToken(token);
   if (!row) throw invalidRequest('Reset link is invalid or has expired');
   if (row.usedAt) throw invalidRequest('Reset link has already been used');
 
-  await repo.updatePasswordHash(row.userId, await hashSecret(password));
-  await repo.markResetTokenUsed(row.id, new Date());
+  await repo.editPasswordHash(row.userId, await hashSecret(password));
+  await repo.consumeResetToken(row.id, new Date());
 }

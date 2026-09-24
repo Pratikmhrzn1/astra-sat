@@ -9,14 +9,14 @@ import { accessCodes, passwordResetTokens, refreshTokens, users } from '../../co
  */
 
 /** The user shape safe to return to a client — never includes `passwordHash`. */
-export const publicUserColumns = {
+export const publicAccountFields = {
   id: users.id,
   email: users.email,
   name: users.name,
   role: users.role,
 } as const;
 
-export interface PublicUser {
+export interface PublicAccount {
   id: string;
   email: string;
   name: string;
@@ -28,20 +28,20 @@ export interface PublicUser {
   surveyCompleted: boolean;
 }
 
-export async function findUserByEmail(email: string) {
+export async function loadUserByEmail(email: string) {
   const [user] = await database.select().from(users).where(eq(users.email, email)).limit(1);
   return user ?? null;
 }
 
-export async function findUserById(id: string) {
+export async function loadUserById(id: string) {
   const [user] = await database.select().from(users).where(eq(users.id, id)).limit(1);
   return user ?? null;
 }
 
-export async function findProfileById(id: string) {
+export async function loadProfileById(id: string) {
   const [profile] = await database
     .select({
-      ...publicUserColumns,
+      ...publicAccountFields,
       teacherId: users.teacherId,
       createdAt: users.createdAt,
       surveyCompletedAt: users.surveyCompletedAt,
@@ -54,33 +54,33 @@ export async function findProfileById(id: string) {
   return { ...rest, surveyCompleted: surveyCompletedAt !== null };
 }
 
-export async function emailExists(email: string): Promise<boolean> {
+export async function emailTaken(email: string): Promise<boolean> {
   const [row] = await database.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
   return row !== undefined;
 }
 
-export async function createUser(input: {
+export async function addUser(input: {
   email: string;
   name: string;
   phone: string | null;
   passwordHash: string;
   role: 'student' | 'teacher' | 'admin';
-}): Promise<PublicUser> {
-  const [user] = await database.insert(users).values(input).returning(publicUserColumns);
+}): Promise<PublicAccount> {
+  const [user] = await database.insert(users).values(input).returning(publicAccountFields);
   // A brand-new account has answered nothing, by definition.
   return { ...user, surveyCompleted: false };
 }
 
-export async function updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
+export async function editPasswordHash(userId: string, passwordHash: string): Promise<void> {
   await database.update(users).set({ passwordHash }).where(eq(users.id, userId));
 }
 
-export async function updateName(userId: string, name: string): Promise<PublicUser | null> {
+export async function editName(userId: string, name: string): Promise<PublicAccount | null> {
   const [updated] = await database
     .update(users)
     .set({ name })
     .where(eq(users.id, userId))
-    .returning({ ...publicUserColumns, surveyCompletedAt: users.surveyCompletedAt });
+    .returning({ ...publicAccountFields, surveyCompletedAt: users.surveyCompletedAt });
   if (!updated) return null;
   const { surveyCompletedAt, ...rest } = updated;
   return { ...rest, surveyCompleted: surveyCompletedAt !== null };
@@ -88,7 +88,7 @@ export async function updateName(userId: string, name: string): Promise<PublicUs
 
 // ── Access codes ──────────────────────────────────────────────────────────────
 
-export async function findActiveAccessCode(code: string) {
+export async function loadActiveAccessCode(code: string) {
   const [row] = await database
     .select()
     .from(accessCodes)
@@ -97,13 +97,13 @@ export async function findActiveAccessCode(code: string) {
   return row ?? null;
 }
 
-export async function incrementAccessCodeUse(id: string, currentCount: number): Promise<void> {
+export async function bumpAccessCodeUse(id: string, currentCount: number): Promise<void> {
   await database.update(accessCodes).set({ useCount: currentCount + 1 }).where(eq(accessCodes.id, id));
 }
 
 // ── Refresh tokens (stored as sha256 hashes, never raw) ───────────────────────
 
-export async function storeRefreshToken(
+export async function persistRefreshToken(
   userId: string,
   tokenHash: string,
   expiresAt: Date,
@@ -117,7 +117,7 @@ export async function storeRefreshToken(
  * removed it. Rotation relies on that answer: a `false` means another concurrent
  * request already consumed this token, so the caller lost the race.
  */
-export async function deleteRefreshToken(
+export async function removeRefreshToken(
   tokenHash: string,
   tx: DbTransaction | typeof database = database,
 ): Promise<boolean> {
@@ -130,11 +130,11 @@ export async function deleteRefreshToken(
 
 // ── Password reset tokens ─────────────────────────────────────────────────────
 
-export async function createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+export async function addPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
   await database.insert(passwordResetTokens).values({ userId, token, expiresAt });
 }
 
-export async function findUnexpiredResetToken(token: string) {
+export async function loadUnexpiredResetToken(token: string) {
   const [row] = await database
     .select()
     .from(passwordResetTokens)
@@ -143,6 +143,6 @@ export async function findUnexpiredResetToken(token: string) {
   return row ?? null;
 }
 
-export async function markResetTokenUsed(id: string, usedAt: Date): Promise<void> {
+export async function consumeResetToken(id: string, usedAt: Date): Promise<void> {
   await database.update(passwordResetTokens).set({ usedAt }).where(eq(passwordResetTokens.id, id));
 }

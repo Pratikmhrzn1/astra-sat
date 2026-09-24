@@ -4,38 +4,38 @@ import { sessionUserId, requireSession, requireAccountRole } from '../../core/ht
 import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import * as analytics from './analytics.service';
 import * as profile from './profile.service';
-import { updateProfileSchema, type UpdateProfileInput } from './analytics.schemas';
+import { editLearnerProfileRules, type UpdateLearnerProfilePayload } from './analytics.schemas';
 
 /** A student's own goal and progress analytics. Teachers read the same numbers through modules/roster. */
 
-export const analyticsStudentRouter = Router();
+export const insightsStudentRoutes = Router();
 
-analyticsStudentRouter.use(requireSession, requireAccountRole(['student']));
+insightsStudentRoutes.use(requireSession, requireAccountRole(['student']));
 
 // ── Profile ──────────────────────────────────────────────────────────────────
 
 /** Null when no goal has been set — the dashboard prompts rather than guessing. */
-analyticsStudentRouter.get(
+insightsStudentRoutes.get(
   '/profile',
   wrapAsync(async (req, res) => {
-    res.json(await profile.getProfile(sessionUserId(req)));
+    res.json(await profile.fetchLearnerProfile(sessionUserId(req)));
   }),
 );
 
-analyticsStudentRouter.put(
+insightsStudentRoutes.put(
   '/profile',
-  checkBody(updateProfileSchema),
+  checkBody(editLearnerProfileRules),
   wrapAsync(async (req, res) => {
-    res.json(await profile.upsertProfile(sessionUserId(req), validatedBody<UpdateProfileInput>(req)));
+    res.json(await profile.saveLearnerProfile(sessionUserId(req), validatedBody<UpdateLearnerProfilePayload>(req)));
   }),
 );
 
 // ── Analytics ────────────────────────────────────────────────────────────────
 
 /** Domain accuracy, the score trend and readiness, for the progress view. */
-analyticsStudentRouter.get(
+insightsStudentRoutes.get(
   '/analytics/overview',
   wrapAsync(async (req, res) => {
-    res.json(await analytics.overview(sessionUserId(req)));
+    res.json(await analytics.insightsOverview(sessionUserId(req)));
   }),
 );

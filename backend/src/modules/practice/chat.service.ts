@@ -3,7 +3,7 @@ import { database } from '../../core/db';
 import { chatMessages, chatSessions, exams, passages, questionSets, questions } from '../../core/db/schema';
 import { invalidRequest, missing, rateLimited } from '../../core/errors';
 import { tutorBudget, requestChatReply } from '../ai';
-import type { ChatInput } from './practice.schemas';
+import type { ChatPayload } from './practice.schemas';
 
 /**
  * The doubt-solving tutor, available while reviewing a practice exam.
@@ -36,7 +36,7 @@ function minutesPhrase(seconds: number): string {
  * never cutting into the most recent exchanges — losing those would make the
  * assistant forget what was just said, which is worse than losing older turns.
  */
-export function trimHistory(
+export function capHistory(
   messages: { role: string; content: string; tokenCount: number }[],
 ): { role: 'user' | 'assistant'; content: string }[] {
   const kept = [...messages];
@@ -49,12 +49,12 @@ export function trimHistory(
   return kept.map((message) => ({ role: message.role as 'user' | 'assistant', content: message.content }));
 }
 
-export interface ChatReply {
+export interface TutorReply {
   sessionId: string | null;
   assistantMessage: string;
 }
 
-export async function sendMessage(studentId: string, input: ChatInput): Promise<ChatReply> {
+export async function dispatchMessage(studentId: string, input: ChatPayload): Promise<TutorReply> {
   const { sessionId, userMessage, examId, questionId } = input;
 
   // Answered without a model call, so obvious off-topic asks cost nothing.
@@ -86,7 +86,7 @@ export async function sendMessage(studentId: string, input: ChatInput): Promise<
   ]);
 
   const { content: assistantMessage } = await requestChatReply(systemPrompt, [
-    ...trimHistory(storedMessages),
+    ...capHistory(storedMessages),
     { role: 'user', content: userMessage },
   ]);
 
@@ -204,7 +204,7 @@ Answer only questions related to SAT Math — arithmetic, algebra, geometry, tri
 Answer only questions related to SAT Reading and Writing — grammar, vocabulary, reading comprehension, rhetorical analysis, and test-taking strategy for these sections. If a student asks about math, other subjects, or anything unrelated to SAT Reading and Writing, respond with: "I'm focused on SAT Reading and Writing here — for that I'd suggest [the relevant resource]." Do not write essays, complete assignments, or answer questions from other subjects. Keep answers under 150 words — if more detail is needed, the student should ask a follow-up.`;
 }
 
-export async function listMessages(studentId: string, sessionId: string) {
+export async function collectMessages(studentId: string, sessionId: string) {
   const [session] = await database
     .select({ id: chatSessions.id })
     .from(chatSessions)

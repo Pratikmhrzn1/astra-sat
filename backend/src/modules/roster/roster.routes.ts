@@ -3,45 +3,45 @@ import { wrapAsync } from '../../core/http/async-handler';
 import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
 import * as service from './roster.service';
 
-export const rosterTeacherRouter = Router();
+export const cohortTeacherRoutes = Router();
 
-rosterTeacherRouter.use(requireSession, requireAccountRole(['teacher']));
+cohortTeacherRoutes.use(requireSession, requireAccountRole(['teacher']));
 
 // ── Roster ───────────────────────────────────────────────────────────────────
 
-rosterTeacherRouter.get(
+cohortTeacherRoutes.get(
   '/students',
   wrapAsync(async (req, res) => {
-    res.json(await service.listStudents(sessionUserId(req)));
+    res.json(await service.collectStudents(sessionUserId(req)));
   }),
 );
 
-rosterTeacherRouter.get(
+cohortTeacherRoutes.get(
   '/students/:studentId',
   wrapAsync(async (req, res) => {
-    res.json(await service.getStudentDetail(sessionUserId(req), req.params.studentId));
+    res.json(await service.fetchStudentDetail(sessionUserId(req), req.params.studentId));
   }),
 );
 
-rosterTeacherRouter.get(
+cohortTeacherRoutes.get(
   '/students/:studentId/analytics',
   wrapAsync(async (req, res) => {
-    res.json(await service.getStudentAnalytics(sessionUserId(req), req.params.studentId));
+    res.json(await service.fetchStudentAnalytics(sessionUserId(req), req.params.studentId));
   }),
 );
 
-rosterTeacherRouter.get(
+cohortTeacherRoutes.get(
   '/students/:studentId/exams',
   wrapAsync(async (req, res) => {
-    res.json(await service.listStudentExams(sessionUserId(req), req.params.studentId));
+    res.json(await service.collectStudentAssessments(sessionUserId(req), req.params.studentId));
   }),
 );
 
-rosterTeacherRouter.get(
+cohortTeacherRoutes.get(
   '/students/:studentId/exams/:examId/results',
   wrapAsync(async (req, res) => {
     res.json(
-      await service.getStudentExamResults(
+      await service.fetchStudentAssessmentResults(
         sessionUserId(req),
         req.params.studentId,
         req.params.examId,

@@ -2,86 +2,86 @@ import { Router } from 'express';
 import { wrapAsync } from '../../core/http/async-handler';
 import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
 import { validatedBody, checkBody } from '../../core/http/middleware/validate';
-import { listAudit, logAudit } from '../audit';
+import { collectTrail, logTrail } from '../audit';
 import * as database from './database.service';
 import * as service from './admin.service';
 import {
-  restoreSchema,
-  runSqlSchema,
-  type RestoreInput,
-  type RunSqlInput,
+  restoreRules,
+  executeSqlRules,
+  type RestorePayload,
+  type RunSqlPayload,
 } from './admin.schemas';
 
 /** Platform operations: overview stats, the database console, AI spend and the audit log. */
 
-export const adminRouter = Router();
+export const consoleRoutes = Router();
 
-adminRouter.use(requireSession, requireAccountRole(['admin']));
+consoleRoutes.use(requireSession, requireAccountRole(['admin']));
 
 // ── Overview ─────────────────────────────────────────────────────────────────
 
-adminRouter.get(
+consoleRoutes.get(
   '/stats',
   wrapAsync(async (_req, res) => {
-    res.json(await service.getStats());
+    res.json(await service.fetchStats());
   }),
 );
 
 // ── Database console ─────────────────────────────────────────────────────────
 // Destructive by design; see database.service.ts.
 
-adminRouter.get(
+consoleRoutes.get(
   '/backup',
   wrapAsync(async (req, res) => {
-    const { backup, filename } = await database.createBackup();
+    const { backup, filename } = await database.addBackup();
     // A backup is every user's data leaving the server, so it is recorded too.
-    await logAudit({ actorId: sessionUserId(req), action: 'db.backup_downloaded', payload: { filename } });
+    await logTrail({ actorId: sessionUserId(req), action: 'db.backup_downloaded', payload: { filename } });
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.json(backup);
   }),
 );
 
-adminRouter.post(
+consoleRoutes.post(
   '/restore',
-  checkBody(restoreSchema),
+  checkBody(restoreRules),
   wrapAsync(async (req, res) => {
-    const input = validatedBody<RestoreInput>(req);
+    const input = validatedBody<RestorePayload>(req);
     const rowCounts = Object.fromEntries(Object.entries(input.data).map(([k, rows]) => [k, Array.isArray(rows) ? rows.length : 0]));
     try {
-      const result = await database.restoreBackup(input);
+      const result = await database.applyBackup(input);
       // Written after the restore, so the restored audit_log cannot erase it.
-      await logAudit({ actorId: sessionUserId(req), action: 'db.restored', payload: { ok: true, version: input.version, rowCounts } });
+      await logTrail({ actorId: sessionUserId(req), action: 'db.restored', payload: { ok: true, version: input.version, rowCounts } });
       res.json(result);
     } catch (err) {
-      await logAudit({ actorId: sessionUserId(req), action: 'db.restored', payload: { ok: false, version: input.version, error: (err as Error).message } });
+      await logTrail({ actorId: sessionUserId(req), action: 'db.restored', payload: { ok: false, version: input.version, error: (err as Error).message } });
       throw err;
     }
   }),
 );
 
-adminRouter.post(
+consoleRoutes.post(
   '/migrate',
   wrapAsync(async (req, res) => {
-    const result = await database.runMigrationsNow();
-    await logAudit({ actorId: sessionUserId(req), action: 'db.migrations_run' });
+    const result = await database.executeMigrationsNow();
+    await logTrail({ actorId: sessionUserId(req), action: 'db.migrations_run' });
     res.json(result);
   }),
 );
 
-adminRouter.post(
+consoleRoutes.post(
   '/run-sql',
-  checkBody(runSqlSchema),
+  checkBody(executeSqlRules),
   wrapAsync(async (req, res) => {
-    const statement = validatedBody<RunSqlInput>(req).sql;
+    const statement = validatedBody<RunSqlPayload>(req).sql;
     // The statement is recorded; its result rows never are.
     const sqlText = statement.length > 4000 ? `${statement.slice(0, 4000)}…` : statement;
     try {
-      const result = await database.runSql(statement);
-      await logAudit({ actorId: sessionUserId(req), action: 'db.sql_run', payload: { ok: true, sql: sqlText, rowsAffected: result.rowsAffected } });
+      const result = await database.executeSql(statement);
+      await logTrail({ actorId: sessionUserId(req), action: 'db.sql_run', payload: { ok: true, sql: sqlText, rowsAffected: result.rowsAffected } });
       res.json(result);
     } catch (err) {
-      await logAudit({ actorId: sessionUserId(req), action: 'db.sql_run', payload: { ok: false, sql: sqlText, error: (err as Error).message } });
+      await logTrail({ actorId: sessionUserId(req), action: 'db.sql_run', payload: { ok: false, sql: sqlText, error: (err as Error).message } });
       throw err;
     }
   }),
@@ -89,20 +89,20 @@ adminRouter.post(
 
 // ── AI tooling ───────────────────────────────────────────────────────────────
 
-adminRouter.get(
+consoleRoutes.get(
   '/ai-model-stats',
   wrapAsync(async (_req, res) => {
-    res.json(await service.getModelStats());
+    res.json(await service.fetchModelStats());
   }),
 );
 
 // ── Audit log ────────────────────────────────────────────────────────────────
 
 /** Read-only. Nothing in the application edits or deletes audit rows. */
-adminRouter.get(
+consoleRoutes.get(
   '/audit-log',
   wrapAsync(async (req, res) => {
     const limit = Number(req.query.limit ?? 100);
-    res.json(await listAudit(Number.isFinite(limit) ? limit : 100));
+    res.json(await collectTrail(Number.isFinite(limit) ? limit : 100));
   }),
 );

@@ -1,2 +1,2 @@
 /** Shared files and notes. */
-export { libraryRouter } from './library.routes';
+export { resourceRoutes } from './library.routes';

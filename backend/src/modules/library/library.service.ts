@@ -16,7 +16,7 @@ import { toPublicFileUrl } from '../../core/lib/url';
  * admins anything.
  */
 
-export const createItemSchema = z.union([
+export const addItemRules = z.union([
   z.object({
     title: z.string().min(1).max(200).trim(),
     description: z.string().max(2000).trim().optional(),
@@ -32,15 +32,15 @@ export const createItemSchema = z.union([
     fileName: z.string().max(300).optional(),
   }),
 ]);
-export type CreateItemInput = z.infer<typeof createItemSchema>;
+export type CreateItemPayload = z.infer<typeof addItemRules>;
 
-export const updateItemSchema = z.object({
+export const editItemRules = z.object({
   title: z.string().min(1).max(200).trim().optional(),
   description: z.string().max(2000).trim().nullable().optional(),
   noteContent: z.string().max(50000).nullable().optional(),
   hidden: z.boolean().optional(),
 });
-export type UpdateItemInput = z.infer<typeof updateItemSchema>;
+export type UpdateItemPayload = z.infer<typeof editItemRules>;
 
 const itemColumns = {
   id: libraryItems.id,
@@ -56,7 +56,7 @@ const itemColumns = {
   createdAt: libraryItems.createdAt,
 } as const;
 
-export async function listItems(role: string) {
+export async function collectItems(role: string) {
   const query = database
     .select(itemColumns)
     .from(libraryItems)
@@ -71,7 +71,7 @@ export async function listItems(role: string) {
   return rows.map((row) => ({ ...row, fileUrl: toPublicFileUrl(row.fileUrl) }));
 }
 
-export async function createItem(uploadedBy: string, input: CreateItemInput) {
+export async function addItem(uploadedBy: string, input: CreateItemPayload) {
   const [row] = await database.insert(libraryItems).values({ ...input, uploadedBy }).returning();
   return row;
 }
@@ -86,10 +86,10 @@ async function findEditableItem(itemId: string, user: { id: string; role: string
   return item;
 }
 
-export async function updateItem(
+export async function editItem(
   itemId: string,
   user: { id: string; role: string },
-  input: UpdateItemInput,
+  input: UpdateItemPayload,
 ) {
   await findEditableItem(itemId, user);
   const [updated] = await database
@@ -100,7 +100,7 @@ export async function updateItem(
   return updated;
 }
 
-export async function deleteItem(itemId: string, user: { id: string; role: string }): Promise<void> {
+export async function removeItem(itemId: string, user: { id: string; role: string }): Promise<void> {
   const item = await findEditableItem(itemId, user);
   if (user.role === 'teacher' && item.uploadedBy !== user.id) {
     throw notPermitted('You can only delete your own items');

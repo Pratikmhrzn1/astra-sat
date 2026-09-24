@@ -2,18 +2,18 @@ import { desc, eq } from 'drizzle-orm';
 import { database } from '../../core/db';
 import { teacherVocabWords } from '../../core/db/schema';
 import { missing } from '../../core/errors';
-import type { VocabWordInput } from './vocab.schemas';
+import type { LexiconWordPayload } from './vocab.schemas';
 
 /**
  * The teachers' shared vocabulary bank. Like content, it is a common library any
  * teacher may edit; students review these words through vocab.service.ts.
  */
 
-export async function listVocabWords() {
+export async function collectLexiconWords() {
   return database.select().from(teacherVocabWords).orderBy(desc(teacherVocabWords.createdAt));
 }
 
-export async function createVocabWord(input: VocabWordInput) {
+export async function addLexiconWord(input: LexiconWordPayload) {
   const [word] = await database
     .insert(teacherVocabWords)
     .values({
@@ -25,7 +25,7 @@ export async function createVocabWord(input: VocabWordInput) {
   return word;
 }
 
-export async function deleteVocabWord(wordId: string) {
+export async function removeLexiconWord(wordId: string) {
   const [existing] = await database
     .select({ id: teacherVocabWords.id })
     .from(teacherVocabWords)

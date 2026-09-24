@@ -12,8 +12,8 @@ import { buildApp } from './app';
  * half-migrated database, and a failure exits non-zero so the orchestrator
  * restarts (or halts) rather than serving a broken app.
  */
-export async function bootServer({ apiRouter, startupJobs }: {
-  apiRouter: Router;
+export async function bootServer({ apiRoutes, startupJobs }: {
+  apiRoutes: Router;
   /** Run once the port is open. Must not throw: a repair job must not keep the app down. */
   startupJobs?: () => Promise<void>;
 }): Promise<Server> {
@@ -22,7 +22,7 @@ export async function bootServer({ apiRouter, startupJobs }: {
   console.log('[boot] Running database migrations…');
   await applySchema();
 
-  const app = buildApp(apiRouter);
+  const app = buildApp(apiRoutes);
   const server = app.listen(settings.port, () => {
     console.log(`[boot] SAT Prep backend listening on http://localhost:${settings.port} (${settings.nodeEnv})`);
   });

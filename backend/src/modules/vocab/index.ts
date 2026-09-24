@@ -1,2 +1,2 @@
 /** Vocabulary spaced repetition and the teachers' word bank. */
-export { vocabStudentRouter, vocabTeacherRouter } from './vocab.routes';
+export { lexiconStudentRoutes, lexiconTeacherRoutes } from './vocab.routes';

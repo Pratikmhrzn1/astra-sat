@@ -7,10 +7,10 @@ import { z } from 'zod';
  * Only the original eight keys are required. Everything added to the backup set
  * later is optional, because a file exported before that table was covered
  * simply has no such key and must still restore — an old backup is exactly when
- * a restore matters most. `restoreBackup` treats a missing key as zero rows.
+ * a restore matters most. `applyBackup` treats a missing key as zero rows.
  */
 const backupRows = z.array(z.any());
-export const restoreSchema = z.object({
+export const restoreRules = z.object({
   version: z.number(),
   data: z.object({
     users: backupRows,
@@ -40,7 +40,7 @@ export const restoreSchema = z.object({
     auditLog: backupRows.optional(),
   }),
 });
-export type RestoreInput = z.infer<typeof restoreSchema>;
+export type RestorePayload = z.infer<typeof restoreRules>;
 
-export const runSqlSchema = z.object({ sql: z.string().min(1).max(50000) });
-export type RunSqlInput = z.infer<typeof runSqlSchema>;
+export const executeSqlRules = z.object({ sql: z.string().min(1).max(50000) });
+export type RunSqlPayload = z.infer<typeof executeSqlRules>;

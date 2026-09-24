@@ -8,7 +8,7 @@ import { z } from 'zod';
  * because that is how scores are reported — a target of 1447 could never be
  * met exactly, so the gap shown against it would never reach zero.
  */
-export const updateProfileSchema = z.object({
+export const editLearnerProfileRules = z.object({
   targetScore: z
     .number()
     .int()
@@ -23,4 +23,4 @@ export const updateProfileSchema = z.object({
     .nullable()
     .optional(),
 });
-export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+export type UpdateLearnerProfilePayload = z.infer<typeof editLearnerProfileRules>;

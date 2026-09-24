@@ -1,4 +1,4 @@
 /** Accounts, sign-in and registration codes. */
-export { authRouter } from './auth.routes';
-export { usersAdminRouter } from './users.routes';
-export { publicUserColumns } from './auth.repository';
+export { accountRoutes } from './auth.routes';
+export { accountsAdminRoutes } from './users.routes';
+export { publicAccountFields } from './auth.repository';

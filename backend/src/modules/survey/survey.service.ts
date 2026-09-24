@@ -3,14 +3,14 @@ import { database } from '../../core/db';
 import { surveyQuestions, surveyResponses, users } from '../../core/db/schema';
 import { invalidRequest, missing } from '../../core/errors';
 import {
-  CHOICE_TYPES,
-  SCALE_MAX,
-  SCALE_MIN,
-  type CreateQuestionInput,
-  type ReorderQuestionsInput,
-  type SubmitSurveyInput,
-  type SurveyQuestionType,
-  type UpdateQuestionInput,
+  CHOICE_KINDS,
+  SCALE_CEILING,
+  SCALE_FLOOR,
+  type CreateIntakeQuestionPayload,
+  type ReorderQuestionsPayload,
+  type SubmitIntakePayload,
+  type IntakeQuestionType,
+  type UpdateIntakeQuestionPayload,
 } from './survey.schemas';
 
 /**
@@ -25,8 +25,8 @@ import {
 // ── Question authoring (admin) ───────────────────────────────────────────────
 
 /** Choice questions need options; the other two types must not carry any. */
-function assertOptionsValid(type: SurveyQuestionType, options: string[]): void {
-  if (CHOICE_TYPES.includes(type)) {
+function assertOptionsValid(type: IntakeQuestionType, options: string[]): void {
+  if (CHOICE_KINDS.includes(type)) {
     if (options.length < 2) throw invalidRequest('A choice question needs at least 2 options');
     const unique = new Set(options.map((o) => o.toLowerCase()));
     if (unique.size !== options.length) throw invalidRequest('Options must be distinct');
@@ -62,7 +62,7 @@ const adminQuestionColumns = {
   createdAt: surveyQuestions.createdAt,
 } as const;
 
-export async function listQuestions() {
+export async function collectIntakeQuestions() {
   return database
     .select({ ...adminQuestionColumns, responseCount: RESPONSE_COUNT.as('response_count') })
     .from(surveyQuestions)
@@ -80,7 +80,7 @@ async function readAdminQuestion(id: string) {
   return row;
 }
 
-export async function createQuestion(adminId: string, input: CreateQuestionInput) {
+export async function addIntakeQuestion(adminId: string, input: CreateIntakeQuestionPayload) {
   assertOptionsValid(input.type, input.options);
   const [row] = await database
     .insert(surveyQuestions)
@@ -101,14 +101,14 @@ export async function createQuestion(adminId: string, input: CreateQuestionInput
   return readAdminQuestion(row.id);
 }
 
-export async function updateQuestion(id: string, input: UpdateQuestionInput) {
+export async function editIntakeQuestion(id: string, input: UpdateIntakeQuestionPayload) {
   const [existing] = await database.select().from(surveyQuestions).where(eq(surveyQuestions.id, id)).limit(1);
   if (!existing) throw missing('Survey question not found');
 
-  const type = input.type ?? (existing.type as SurveyQuestionType);
+  const type = input.type ?? (existing.type as IntakeQuestionType);
   // Switching to a type that takes no options drops them rather than failing,
   // so an admin can change their mind without clearing the list by hand first.
-  const options = input.options ?? (CHOICE_TYPES.includes(type) ? existing.options : []);
+  const options = input.options ?? (CHOICE_KINDS.includes(type) ? existing.options : []);
   assertOptionsValid(type, options);
 
   // An answer is stored in the shape its question's type implies, and nothing
@@ -116,7 +116,7 @@ export async function updateQuestion(id: string, input: UpdateQuestionInput) {
   // been answered keeps its type. Without this, flipping single_choice to scale
   // leaves strings sitting under a question that everything reads as numbers.
   if (type !== existing.type) {
-    const answered = await countResponses(id);
+    const answered = await tallyResponses(id);
     if (answered > 0) {
       throw invalidRequest(
         `This question already has ${answered} answer${answered === 1 ? '' : 's'}, so its answer type cannot change. ` +
@@ -140,7 +140,7 @@ export async function updateQuestion(id: string, input: UpdateQuestionInput) {
 }
 
 /** Cascades to the answers given to it — the caller warns before asking. */
-export async function deleteQuestion(id: string): Promise<void> {
+export async function removeIntakeQuestion(id: string): Promise<void> {
   const deleted = await database
     .delete(surveyQuestions)
     .where(eq(surveyQuestions.id, id))
@@ -148,7 +148,7 @@ export async function deleteQuestion(id: string): Promise<void> {
   if (deleted.length === 0) throw missing('Survey question not found');
 }
 
-export async function reorderQuestions({ ids }: ReorderQuestionsInput): Promise<void> {
+export async function resequenceIntakeQuestions({ ids }: ReorderQuestionsPayload): Promise<void> {
   await database.transaction(async (tx) => {
     for (const [index, id] of ids.entries()) {
       await tx.update(surveyQuestions).set({ sortOrder: index }).where(eq(surveyQuestions.id, id));
@@ -173,7 +173,7 @@ async function activeQuestions() {
     .orderBy(asc(surveyQuestions.sortOrder), asc(surveyQuestions.createdAt));
 }
 
-export async function getSurveyForStudent(userId: string) {
+export async function fetchIntakeForStudent(userId: string) {
   const [user] = await database
     .select({ surveyCompletedAt: users.surveyCompletedAt })
     .from(users)
@@ -185,7 +185,7 @@ export async function getSurveyForStudent(userId: string) {
 
 /** Rejects an answer whose shape or value does not fit the question it answers. */
 function normalizeAnswer(
-  question: { prompt: string; type: SurveyQuestionType; options: string[] },
+  question: { prompt: string; type: IntakeQuestionType; options: string[] },
   answer: string | string[] | number,
 ): string | string[] | number {
   if (question.type === 'short_text') {
@@ -194,8 +194,8 @@ function normalizeAnswer(
   }
   if (question.type === 'scale') {
     const value = typeof answer === 'number' ? answer : Number(answer);
-    if (!Number.isInteger(value) || value < SCALE_MIN || value > SCALE_MAX) {
-      throw invalidRequest(`"${question.prompt}" expects a rating from ${SCALE_MIN} to ${SCALE_MAX}`);
+    if (!Number.isInteger(value) || value < SCALE_FLOOR || value > SCALE_CEILING) {
+      throw invalidRequest(`"${question.prompt}" expects a rating from ${SCALE_FLOOR} to ${SCALE_CEILING}`);
     }
     return value;
   }
@@ -225,7 +225,7 @@ function isBlank(answer: string | string[] | number): boolean {
  * Idempotent: re-submitting overwrites the previous answers rather than failing,
  * so a retried request after a dropped response cannot lock a student out.
  */
-export async function submitSurvey(userId: string, input: SubmitSurveyInput) {
+export async function commitIntake(userId: string, input: SubmitIntakePayload) {
   const questions = await activeQuestions();
   const byId = new Map(questions.map((q) => [q.id, q]));
 
@@ -239,7 +239,7 @@ export async function submitSurvey(userId: string, input: SubmitSurveyInput) {
     answered.set(
       question.id,
       normalizeAnswer(
-        { prompt: question.prompt, type: question.type as SurveyQuestionType, options: question.options },
+        { prompt: question.prompt, type: question.type as IntakeQuestionType, options: question.options },
         entry.answer,
       ),
     );
@@ -282,7 +282,7 @@ export async function submitSurvey(userId: string, input: SubmitSurveyInput) {
  * Coercing by the question's type fixes it at the one boundary where the type
  * is known, and repairs rows already stored rather than needing a migration.
  */
-function readAnswer(type: SurveyQuestionType, raw: unknown): string | string[] | number {
+function readAnswer(type: IntakeQuestionType, raw: unknown): string | string[] | number {
   if (type === 'multi_choice') {
     return (Array.isArray(raw) ? raw : [raw]).map((choice) => String(choice));
   }
@@ -291,7 +291,7 @@ function readAnswer(type: SurveyQuestionType, raw: unknown): string | string[] |
   return String(raw);
 }
 
-export interface SurveyRespondent {
+export interface IntakeRespondent {
   userId: string;
   userName: string | null;
   userEmail: string | null;
@@ -300,13 +300,13 @@ export interface SurveyRespondent {
     questionId: string;
     prompt: string;
     /** Carried so a reader can render the answer without re-joining the questions. */
-    type: SurveyQuestionType;
+    type: IntakeQuestionType;
     answer: string | string[] | number;
   }[];
 }
 
 /** One row per respondent, newest first, each carrying their answers in ask order. */
-export async function listResponses(): Promise<SurveyRespondent[]> {
+export async function collectResponses(): Promise<IntakeRespondent[]> {
   const rows = await database
     .select({
       userId: surveyResponses.userId,
@@ -327,7 +327,7 @@ export async function listResponses(): Promise<SurveyRespondent[]> {
   // Rows come newest answer first, which puts the newest respondent first; each
   // respondent's own answers are then put back into ask order below, since the
   // row order inside a group is when they answered, not what they were asked.
-  const byUser = new Map<string, SurveyRespondent & { order: number[] }>();
+  const byUser = new Map<string, IntakeRespondent & { order: number[] }>();
   for (const row of rows) {
     let respondent = byUser.get(row.userId);
     if (!respondent) {
@@ -341,7 +341,7 @@ export async function listResponses(): Promise<SurveyRespondent[]> {
       };
       byUser.set(row.userId, respondent);
     }
-    const type = (row.type ?? 'short_text') as SurveyQuestionType;
+    const type = (row.type ?? 'short_text') as IntakeQuestionType;
     respondent.order.push(row.sortOrder ?? 0);
     respondent.answers.push({
       questionId: row.questionId,
@@ -361,7 +361,7 @@ export async function listResponses(): Promise<SurveyRespondent[]> {
 }
 
 /** Used by the delete confirmation: how many students answered this question. */
-export async function countResponses(questionId: string): Promise<number> {
+export async function tallyResponses(questionId: string): Promise<number> {
   const [row] = await database
     .select({ count: sql<number>`COUNT(*)::int` })
     .from(surveyResponses)

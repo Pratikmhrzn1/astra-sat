@@ -16,13 +16,13 @@ const MAX_TIME_SPENT_SECONDS = 24 * 60 * 60;
 
 const timeSpentSeconds = z.number().int().min(0).max(MAX_TIME_SPENT_SECONDS).optional();
 
-export const startExamSchema = z.object({
+export const openAssessmentRules = z.object({
   setId: z.string().uuid('Invalid set ID'),
   type: z.enum(['individual']).default('individual'),
 });
-export type StartExamInput = z.infer<typeof startExamSchema>;
+export type StartAssessmentPayload = z.infer<typeof openAssessmentRules>;
 
-export const saveAnswersSchema = z.object({
+export const storeAnswersRules = z.object({
   answers: z.array(
     z.object({
       questionId: z.string().uuid(),
@@ -32,9 +32,9 @@ export const saveAnswersSchema = z.object({
   ),
   timeSpentSeconds,
 });
-export type SaveAnswersInput = z.infer<typeof saveAnswersSchema>;
+export type SaveAnswersPayload = z.infer<typeof storeAnswersRules>;
 
-export const submitExamSchema = z.object({
+export const commitAssessmentRules = z.object({
   timeSpentSeconds,
   /**
    * The player's final answers, saved before grading in the same request.
@@ -44,11 +44,11 @@ export const submitExamSchema = z.object({
    * the exam was graded as if those questions were skipped, and the review could
    * not show the student what they had chosen.
    */
-  answers: saveAnswersSchema.shape.answers.optional(),
+  answers: storeAnswersRules.shape.answers.optional(),
 });
-export type SubmitExamInput = z.infer<typeof submitExamSchema>;
+export type SubmitAssessmentPayload = z.infer<typeof commitAssessmentRules>;
 
-export const nextModuleSchema = z.object({
+export const nextModuleRules = z.object({
   submittedExamId: z.string().uuid(),
 });
-export type NextModuleInput = z.infer<typeof nextModuleSchema>;
+export type NextModulePayload = z.infer<typeof nextModuleRules>;

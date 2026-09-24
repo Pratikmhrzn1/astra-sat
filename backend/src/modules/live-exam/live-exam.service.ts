@@ -12,7 +12,7 @@ import {
 } from '../../core/db/schema';
 import { invalidRequest, missing } from '../../core/errors';
 import { buildAssessmentForSet, examRepository } from '../exams';
-import { recordMistakesOnRelease } from '../mistakes';
+import { registerMisstepsOnRelease } from '../mistakes';
 
 /**
  * Teacher-proctored exams taken together in a classroom.
@@ -28,20 +28,20 @@ import { recordMistakesOnRelease } from '../mistakes';
  * than a socket layer that would need its own reconnection and scaling story.
  */
 
-export const createSessionSchema = z.object({
+export const addSessionRules = z.object({
   title: z.string().min(1),
   englishSetId: z.string().uuid(),
   mathSetId: z.string().uuid(),
 });
-export type CreateSessionInput = z.infer<typeof createSessionSchema>;
+export type CreateSessionPayload = z.infer<typeof addSessionRules>;
 
-export const saveFeedbackSchema = z.object({
+export const storeFeedbackRules = z.object({
   globalFeedback: z.string().optional(),
   questionFeedbacks: z
     .array(z.object({ questionId: z.string().uuid(), feedback: z.string() }))
     .optional(),
 });
-export type SaveFeedbackInput = z.infer<typeof saveFeedbackSchema>;
+export type SaveFeedbackPayload = z.infer<typeof storeFeedbackRules>;
 
 /**
  * Join codes are read aloud and typed by hand, so the alphabet omits the
@@ -95,7 +95,7 @@ async function findSessionByCode(joinCode: string) {
 
 // ── Teacher ───────────────────────────────────────────────────────────────────
 
-export async function listSessions(teacherId: string) {
+export async function collectSessions(teacherId: string) {
   return database
     .select()
     .from(liveExamSessions)
@@ -103,7 +103,7 @@ export async function listSessions(teacherId: string) {
     .orderBy(liveExamSessions.createdAt);
 }
 
-export async function createSession(teacherId: string, input: CreateSessionInput) {
+export async function addSession(teacherId: string, input: CreateSessionPayload) {
   const [session] = await database
     .insert(liveExamSessions)
     .values({
@@ -118,7 +118,7 @@ export async function createSession(teacherId: string, input: CreateSessionInput
   return session;
 }
 
-export async function getSessionDetail(sessionId: string, teacherId: string) {
+export async function fetchSessionDetail(sessionId: string, teacherId: string) {
   const session = await findOwnedSession(sessionId, teacherId);
 
   const participants = await database
@@ -149,7 +149,7 @@ export async function getSessionDetail(sessionId: string, teacherId: string) {
  * nothing and grade zero. The timestamp is what every client's countdown is
  * derived from, so reloading mid-section cannot buy a student extra time.
  */
-export async function startSession(sessionId: string, teacherId: string) {
+export async function openSession(sessionId: string, teacherId: string) {
   const session = await findOwnedSession(sessionId, teacherId);
   if (session.status !== 'waiting') throw invalidRequest('Already started');
   if (!session.englishSetId || !session.mathSetId) {
@@ -226,7 +226,7 @@ async function provisionParticipantExams(
     }),
   ]);
 
-  // Claim the slots only while they are still empty. `pollSession` calls this on
+  // Claim the slots only while they are still empty. `checkSession` calls this on
   // a timer, so two in-flight polls (or a join racing the next poll tick) can
   // both read the participant as unprovisioned above. Without this guard both
   // would write and the last writer would win, leaving the student sitting the
@@ -267,7 +267,7 @@ async function findParticipantInSession(participantId: string, sessionId: string
   return participant;
 }
 
-export async function getParticipantResult(
+export async function fetchParticipantResult(
   sessionId: string,
   participantId: string,
   teacherId: string,
@@ -308,7 +308,7 @@ export async function getParticipantResult(
  * One section's paper, for the teacher marking it.
  *
  * Deliberately served from here rather than from the teacher module's
- * `getStudentExamResults`, because the two authorise on different things.
+ * `fetchStudentAssessmentResults`, because the two authorise on different things.
  * That one requires the student to be assigned to the teacher via
  * `users.teacher_id` — but a live exam is joined with a code by whoever is in
  * the room, and assignment has nothing to do with it. The marking page used to
@@ -340,11 +340,11 @@ async function loadSectionForMarking(examId: string | null) {
  * `(participant, question)` so revising a comment replaces it rather than
  * stacking duplicates.
  */
-export async function saveParticipantFeedback(
+export async function storeParticipantFeedback(
   sessionId: string,
   participantId: string,
   teacherId: string,
-  input: SaveFeedbackInput,
+  input: SaveFeedbackPayload,
 ) {
   const session = await findOwnedSession(sessionId, teacherId);
   const participant = await findParticipantInSession(participantId, session.id);
@@ -387,11 +387,11 @@ async function notifyResultsReleased(studentId: string, sessionTitle: string) {
 /**
  * Releases one participant's results.
  *
- * Skips a participant who is already released, like `releaseAllResults` does:
+ * Skips a participant who is already released, like `publishAllResults` does:
  * re-releasing would send a second notification, and would bump every miss in
  * their mistake bank a second time.
  */
-export async function releaseParticipantResult(
+export async function publishParticipantResult(
   sessionId: string,
   participantId: string,
   teacherId: string,
@@ -407,7 +407,7 @@ export async function releaseParticipantResult(
 
   // Only now: until this moment the student was not supposed to know which
   // questions they got wrong.
-  await recordMistakesOnRelease(participant.studentId, [
+  await registerMisstepsOnRelease(participant.studentId, [
     participant.englishExamId,
     participant.mathExamId,
   ]);
@@ -421,7 +421,7 @@ export async function releaseParticipantResult(
  * participants are skipped so re-running this does not send them a second
  * notification.
  */
-export async function releaseAllResults(sessionId: string, teacherId: string) {
+export async function publishAllResults(sessionId: string, teacherId: string) {
   const session = await findOwnedSession(sessionId, teacherId);
 
   const participants = await database
@@ -442,7 +442,7 @@ export async function releaseAllResults(sessionId: string, teacherId: string) {
       .update(liveExamParticipants)
       .set({ resultReleased: true })
       .where(eq(liveExamParticipants.id, participant.id));
-    await recordMistakesOnRelease(participant.studentId, [
+    await registerMisstepsOnRelease(participant.studentId, [
       participant.englishExamId,
       participant.mathExamId,
     ]);
@@ -458,7 +458,7 @@ export async function releaseAllResults(sessionId: string, teacherId: string) {
 }
 
 /** Sets flagged as live-exam material, offered when creating a session. */
-export async function listLiveExamSets() {
+export async function collectLiveAssessmentSets() {
   return database
     .select({
       id: questionSets.id,
@@ -473,7 +473,7 @@ export async function listLiveExamSets() {
 // ── Student ───────────────────────────────────────────────────────────────────
 
 /** Public lobby check: enough to render the waiting room, and nothing more. */
-export async function getSessionStatus(joinCode: string) {
+export async function fetchSessionStatus(joinCode: string) {
   const session = await findSessionByCode(joinCode);
   if (!session) throw missing('Session not found');
 
@@ -488,7 +488,7 @@ export async function getSessionStatus(joinCode: string) {
 }
 
 /** Joining is idempotent — a student reloading the lobby rejoins their seat. */
-export async function joinSession(joinCode: string, studentId: string) {
+export async function enterSession(joinCode: string, studentId: string) {
   const session = await findSessionByCode(joinCode);
   if (!session) throw missing('Session not found');
   if (session.status === 'completed') throw invalidRequest('Session already ended');
@@ -537,7 +537,7 @@ export async function joinSession(joinCode: string, studentId: string) {
  * which stay null until the teacher starts — that transition is the signal the
  * client is waiting for.
  */
-export async function pollSession(joinCode: string, studentId: string) {
+export async function checkSession(joinCode: string, studentId: string) {
   const session = await findSessionByCode(joinCode);
   if (!session) throw missing('Session not found');
 
@@ -569,7 +569,7 @@ export async function pollSession(joinCode: string, studentId: string) {
   };
 }
 
-export async function listStudentResults(studentId: string) {
+export async function collectStudentResults(studentId: string) {
   return database
     .select({
       sessionId: liveExamSessions.id,
@@ -594,7 +594,7 @@ export async function listStudentResults(studentId: string) {
     .orderBy(liveExamSessions.startedAt);
 }
 
-export async function listUnreadNotifications(userId: string) {
+export async function collectUnreadNotifications(userId: string) {
   return database
     .select()
     .from(notifications)
@@ -602,7 +602,7 @@ export async function listUnreadNotifications(userId: string) {
     .orderBy(notifications.createdAt);
 }
 
-export async function markNotificationRead(notificationId: string, userId: string): Promise<void> {
+export async function flagNotificationSeen(notificationId: string, userId: string): Promise<void> {
   await database
     .update(notifications)
     .set({ isRead: true })

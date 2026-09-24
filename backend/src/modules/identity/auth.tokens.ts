@@ -21,11 +21,11 @@ const REFRESH_COOKIE = 'rt';
 const GRACE_MS = 30_000;
 const recentlyRotated = new Map<string, { accessToken: string; rawToken: string; expiresAt: number }>();
 
-export function hashToken(token: string): string {
+export function digestToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-export function setRefreshCookie(res: Response, token: string): void {
+export function writeRefreshCookie(res: Response, token: string): void {
   res.cookie(REFRESH_COOKIE, token, {
     httpOnly: true,
     secure: settings.http.cookieSecure,
@@ -37,38 +37,38 @@ export function setRefreshCookie(res: Response, token: string): void {
   });
 }
 
-export function clearRefreshCookie(res: Response): void {
+export function dropRefreshCookie(res: Response): void {
   res.clearCookie(REFRESH_COOKIE, { httpOnly: true, path: '/' });
 }
 
-export function readRefreshCookie(req: { cookies?: Record<string, string> }): string | undefined {
+export function takeRefreshCookie(req: { cookies?: Record<string, string> }): string | undefined {
   return req.cookies?.[REFRESH_COOKIE];
 }
 
 /** Mints a refresh token and records its hash. Returns the raw token. */
-export async function issueRefreshToken(userId: string): Promise<string> {
+export async function grantRefreshToken(userId: string): Promise<string> {
   const jti = crypto.randomBytes(16).toString('hex');
   const rawToken = mintRefreshToken({ sub: userId, jti });
-  await repo.storeRefreshToken(userId, hashToken(rawToken), new Date(Date.now() + settings.jwt.refreshTtlMs));
+  await repo.persistRefreshToken(userId, digestToken(rawToken), new Date(Date.now() + settings.jwt.refreshTtlMs));
   return rawToken;
 }
 
-export async function revokeRefreshToken(rawToken: string): Promise<void> {
-  await repo.deleteRefreshToken(hashToken(rawToken));
+export async function voidRefreshToken(rawToken: string): Promise<void> {
+  await repo.removeRefreshToken(digestToken(rawToken));
 }
 
-export interface RotationResult {
+export interface RotationOutcome {
   accessToken: string;
   rawToken: string;
 }
 
-export function readGraceEntry(oldHash: string): RotationResult | null {
+export function lookupGraceEntry(oldHash: string): RotationOutcome | null {
   const cached = recentlyRotated.get(oldHash);
   if (!cached || cached.expiresAt <= Date.now()) return null;
   return { accessToken: cached.accessToken, rawToken: cached.rawToken };
 }
 
-function publishGraceEntry(oldHash: string, result: RotationResult): void {
+function publishGraceEntry(oldHash: string, result: RotationOutcome): void {
   recentlyRotated.set(oldHash, { ...result, expiresAt: Date.now() + GRACE_MS });
   setTimeout(() => recentlyRotated.delete(oldHash), GRACE_MS).unref?.();
 }
@@ -80,17 +80,17 @@ function publishGraceEntry(oldHash: string, result: RotationResult): void {
  * matched no rows, so this caller lost the race and should fall back to the
  * grace map rather than treating it as an invalid session.
  */
-export async function rotateRefreshToken(
+export async function cycleRefreshToken(
   oldHash: string,
   user: { id: string; email: string; name: string; role: string },
-): Promise<RotationResult | null> {
-  const result = await database.transaction(async (tx): Promise<RotationResult | null> => {
-    const wasDeleted = await repo.deleteRefreshToken(oldHash, tx);
+): Promise<RotationOutcome | null> {
+  const result = await database.transaction(async (tx): Promise<RotationOutcome | null> => {
+    const wasDeleted = await repo.removeRefreshToken(oldHash, tx);
     if (!wasDeleted) return null;
 
     const jti = crypto.randomBytes(16).toString('hex');
     const rawToken = mintRefreshToken({ sub: user.id, jti });
-    await repo.storeRefreshToken(user.id, hashToken(rawToken), new Date(Date.now() + settings.jwt.refreshTtlMs), tx);
+    await repo.persistRefreshToken(user.id, digestToken(rawToken), new Date(Date.now() + settings.jwt.refreshTtlMs), tx);
 
     return { accessToken: mintAccessToken(user), rawToken };
   });

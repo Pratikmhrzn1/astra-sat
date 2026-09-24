@@ -2,86 +2,86 @@ import { Router } from 'express';
 import { wrapAsync } from '../../core/http/async-handler';
 import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
 import { validatedBody, validatedQuery, checkBody, checkQuery } from '../../core/http/middleware/validate';
-import { logAudit } from '../audit';
+import { logTrail } from '../audit';
 import * as classification from './classification.service';
 import * as contentReview from './content-review.service';
 import * as service from './content.service';
 import {
-  createPassageSchema,
-  createQuestionSchema,
-  createSetSchema,
-  flagContentSchema,
-  importJsonSchema,
-  listContentQuerySchema,
-  updatePassageSchema,
-  updateQuestionSchema,
-  updateSetSchema,
-  updateSubSkillSchema,
-  type CreatePassageInput,
-  type CreateQuestionInput,
-  type CreateSetInput,
-  type FlagContentInput,
-  type ImportJsonInput,
-  type ListContentQuery,
-  type UpdatePassageInput,
-  type UpdateQuestionInput,
-  type UpdateSetInput,
-  type UpdateSubSkillInput,
+  addPassageRules,
+  addQuestionRules,
+  addSetRules,
+  flagContentRules,
+  ingestJsonRules,
+  collectContentQueryRules,
+  editPassageRules,
+  editQuestionRules,
+  editSetRules,
+  editSubSkillRules,
+  type CreatePassagePayload,
+  type CreateQuestionPayload,
+  type CreateSetPayload,
+  type FlagContentPayload,
+  type ImportJsonPayload,
+  type ContentQuery,
+  type UpdatePassagePayload,
+  type UpdateQuestionPayload,
+  type UpdateSetPayload,
+  type UpdateSubSkillPayload,
 } from './content.schemas';
 
 /** Question-set authoring for teachers, and AI tagging / generated-content review for admins. */
 
-export const contentTeacherRouter = Router();
+export const authoringTeacherRoutes = Router();
 
-contentTeacherRouter.use(requireSession, requireAccountRole(['teacher']));
+authoringTeacherRoutes.use(requireSession, requireAccountRole(['teacher']));
 
 // ── Question sets ────────────────────────────────────────────────────────────
 
-contentTeacherRouter.get(
+authoringTeacherRoutes.get(
   '/question-sets',
   wrapAsync(async (_req, res) => {
-    res.json(await service.listSets());
+    res.json(await service.collectSets());
   }),
 );
 
-contentTeacherRouter.post(
+authoringTeacherRoutes.post(
   '/question-sets',
-  checkBody(createSetSchema),
+  checkBody(addSetRules),
   wrapAsync(async (req, res) => {
-    res.status(201).json(await service.createSet(sessionUserId(req), validatedBody<CreateSetInput>(req)));
+    res.status(201).json(await service.addSet(sessionUserId(req), validatedBody<CreateSetPayload>(req)));
   }),
 );
 
 // Registered before '/question-sets/:setId' so the literal path is not
 // swallowed by the parameterised one.
-contentTeacherRouter.post(
+authoringTeacherRoutes.post(
   '/question-sets/import-json',
-  checkBody(importJsonSchema),
+  checkBody(ingestJsonRules),
   wrapAsync(async (req, res) => {
-    res.status(201).json(await service.importSetFromJson(sessionUserId(req), validatedBody<ImportJsonInput>(req)));
+    res.status(201).json(await service.ingestSetFromJson(sessionUserId(req), validatedBody<ImportJsonPayload>(req)));
   }),
 );
 
-contentTeacherRouter.put(
+authoringTeacherRoutes.put(
   '/question-sets/:setId',
-  checkBody(updateSetSchema),
+  checkBody(editSetRules),
   wrapAsync(async (req, res) => {
-    res.json(await service.updateSet(req.params.setId, validatedBody<UpdateSetInput>(req)));
+    res.json(await service.editSet(req.params.setId, validatedBody<UpdateSetPayload>(req)));
   }),
 );
 
-contentTeacherRouter.post(
+authoringTeacherRoutes.post(
   '/question-sets/:setId/publish',
   wrapAsync(async (req, res) => {
-    res.json(await service.publishSet(req.params.setId));
+    res.json(await service.releaseSet(req.params.setId));
   }),
 );
 
-contentTeacherRouter.delete(
+authoringTeacherRoutes.delete(
   '/question-sets/:setId',
   wrapAsync(async (req, res) => {
-    const result = await service.deleteSet(req.params.setId);
-    await logAudit({
+    const result = await service.removeSet(req.params.setId);
+    await logTrail({
       actorId: sessionUserId(req),
       action: result.archived ? 'question_set.archived' : 'question_set.deleted',
       targetType: 'question_set', targetId: req.params.setId,
@@ -94,104 +94,104 @@ contentTeacherRouter.delete(
 
 // ── Passages ─────────────────────────────────────────────────────────────────
 
-contentTeacherRouter.get(
+authoringTeacherRoutes.get(
   '/question-sets/:setId/passages',
   wrapAsync(async (req, res) => {
-    res.json(await service.listPassages(req.params.setId));
+    res.json(await service.collectPassages(req.params.setId));
   }),
 );
 
-contentTeacherRouter.post(
+authoringTeacherRoutes.post(
   '/question-sets/:setId/passages',
-  checkBody(createPassageSchema),
+  checkBody(addPassageRules),
   wrapAsync(async (req, res) => {
-    res.status(201).json(await service.createPassage(req.params.setId, validatedBody<CreatePassageInput>(req)));
+    res.status(201).json(await service.addPassage(req.params.setId, validatedBody<CreatePassagePayload>(req)));
   }),
 );
 
-contentTeacherRouter.put(
+authoringTeacherRoutes.put(
   '/passages/:passageId',
-  checkBody(updatePassageSchema),
+  checkBody(editPassageRules),
   wrapAsync(async (req, res) => {
-    res.json(await service.updatePassage(req.params.passageId, validatedBody<UpdatePassageInput>(req)));
+    res.json(await service.editPassage(req.params.passageId, validatedBody<UpdatePassagePayload>(req)));
   }),
 );
 
-contentTeacherRouter.delete(
+authoringTeacherRoutes.delete(
   '/passages/:passageId',
   wrapAsync(async (req, res) => {
-    await service.deletePassage(req.params.passageId);
+    await service.removePassage(req.params.passageId);
     res.json({ ok: true });
   }),
 );
 
 // ── Questions ────────────────────────────────────────────────────────────────
 
-contentTeacherRouter.get(
+authoringTeacherRoutes.get(
   '/question-sets/:setId/questions',
   wrapAsync(async (req, res) => {
-    res.json(await service.listQuestions(req.params.setId));
+    res.json(await service.collectQuestions(req.params.setId));
   }),
 );
 
-contentTeacherRouter.post(
+authoringTeacherRoutes.post(
   '/question-sets/:setId/questions',
-  checkBody(createQuestionSchema),
+  checkBody(addQuestionRules),
   wrapAsync(async (req, res) => {
-    res.status(201).json(await service.createQuestion(req.params.setId, validatedBody<CreateQuestionInput>(req)));
+    res.status(201).json(await service.addQuestion(req.params.setId, validatedBody<CreateQuestionPayload>(req)));
   }),
 );
 
-contentTeacherRouter.put(
+authoringTeacherRoutes.put(
   '/questions/:questionId',
-  checkBody(updateQuestionSchema),
+  checkBody(editQuestionRules),
   wrapAsync(async (req, res) => {
-    res.json(await service.updateQuestion(req.params.questionId, validatedBody<UpdateQuestionInput>(req)));
+    res.json(await service.editQuestion(req.params.questionId, validatedBody<UpdateQuestionPayload>(req)));
   }),
 );
 
-contentTeacherRouter.put(
+authoringTeacherRoutes.put(
   '/questions/:questionId/subskill',
-  checkBody(updateSubSkillSchema),
+  checkBody(editSubSkillRules),
   wrapAsync(async (req, res) => {
-    res.json(await service.updateQuestionSubSkill(req.params.questionId, validatedBody<UpdateSubSkillInput>(req)));
+    res.json(await service.editQuestionSubSkill(req.params.questionId, validatedBody<UpdateSubSkillPayload>(req)));
   }),
 );
 
-contentTeacherRouter.delete(
+authoringTeacherRoutes.delete(
   '/questions/:questionId',
   wrapAsync(async (req, res) => {
-    const { retired } = await service.deleteQuestion(req.params.questionId);
+    const { retired } = await service.removeQuestion(req.params.questionId);
     res.json({ ok: true, retired });
   }),
 );
 
-export const contentAdminRouter = Router();
+export const authoringAdminRoutes = Router();
 
-contentAdminRouter.use(requireSession, requireAccountRole(['admin']));
+authoringAdminRoutes.use(requireSession, requireAccountRole(['admin']));
 
 /** Long-running: it walks every untagged English question in batches. */
-contentAdminRouter.post(
+authoringAdminRoutes.post(
   '/questions/auto-tag-subskill',
   wrapAsync(async (_req, res) => {
-    res.json(await classification.autoTagSubSkills());
+    res.json(await classification.autoTagCompetencies());
   }),
 );
 
 // ── Generated content review ─────────────────────────────────────────────────
 
-contentAdminRouter.get(
+authoringAdminRoutes.get(
   '/generated-content',
-  checkQuery(listContentQuerySchema),
+  checkQuery(collectContentQueryRules),
   wrapAsync(async (req, res) => {
-    res.json(await contentReview.listGeneratedContent(validatedQuery<ListContentQuery>(req)));
+    res.json(await contentReview.collectGeneratedContent(validatedQuery<ContentQuery>(req)));
   }),
 );
 
-contentAdminRouter.patch(
+authoringAdminRoutes.patch(
   '/generated-content/:id/flag',
-  checkBody(flagContentSchema),
+  checkBody(flagContentRules),
   wrapAsync(async (req, res) => {
-    res.json(await contentReview.flagContent(req.params.id, validatedBody<FlagContentInput>(req)));
+    res.json(await contentReview.markContentQuality(req.params.id, validatedBody<FlagContentPayload>(req)));
   }),
 );

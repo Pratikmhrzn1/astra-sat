@@ -96,14 +96,14 @@ function buildPrompt(question: Classifiable): string {
   return prompt;
 }
 
-export interface ClassificationRun {
+export interface TaggingTally {
   totalFound: number;
   tagged: number;
   unclear: number;
   errors: number;
 }
 
-export async function autoTagSubSkills(): Promise<ClassificationRun> {
+export async function autoTagCompetencies(): Promise<TaggingTally> {
   if (!isModelReady('classify')) {
     throw dependencyDown('Classification model not configured (needs OPENROUTER_API_KEY and AI_MODEL_CLASSIFY)');
   }
@@ -128,7 +128,7 @@ export async function autoTagSubSkills(): Promise<ClassificationRun> {
     // sub_skill and would have been re-classified on every run forever.
     .where(and(isNull(questions.skillCode), isNull(questions.retiredAt)));
 
-  const run: ClassificationRun = { totalFound: untagged.length, tagged: 0, unclear: 0, errors: 0 };
+  const run: TaggingTally = { totalFound: untagged.length, tagged: 0, unclear: 0, errors: 0 };
   console.log(`[auto-tag] ${run.totalFound} untagged questions`);
 
   for (let offset = 0; offset < untagged.length; offset += BATCH_SIZE) {

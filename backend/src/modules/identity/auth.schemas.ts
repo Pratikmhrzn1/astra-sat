@@ -1,38 +1,38 @@
 import { z } from 'zod';
 
-export const registerSchema = z.object({
+export const registerRules = z.object({
   email: z.string().email('Invalid email address').toLowerCase(),
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
   phone: z.string().max(30).optional(),
   password: z.string().min(8, 'Password must be at least 8 characters').max(128),
   accessCode: z.string().min(1, 'Access code is required'),
 });
-export type RegisterInput = z.infer<typeof registerSchema>;
+export type RegisterPayload = z.infer<typeof registerRules>;
 
-export const loginSchema = z.object({
+export const loginRules = z.object({
   email: z.string().email().toLowerCase(),
   password: z.string().min(1, 'Password is required'),
 });
-export type LoginInput = z.infer<typeof loginSchema>;
+export type LoginPayload = z.infer<typeof loginRules>;
 
-export const changePasswordSchema = z.object({
+export const changePasswordRules = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
   newPassword: z.string().min(8, 'New password must be at least 8 characters').max(128),
 });
-export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type ChangePasswordPayload = z.infer<typeof changePasswordRules>;
 
-export const updateProfileSchema = z.object({
+export const editAccountProfileRules = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100).trim(),
 });
-export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+export type UpdateAccountProfilePayload = z.infer<typeof editAccountProfileRules>;
 
-export const forgotPasswordSchema = z.object({
+export const forgotPasswordRules = z.object({
   email: z.string().email().toLowerCase(),
 });
-export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ForgotPasswordPayload = z.infer<typeof forgotPasswordRules>;
 
-export const resetPasswordSchema = z.object({
+export const resetPasswordRules = z.object({
   token: z.string().min(1, 'Token is required'),
   password: z.string().min(8, 'Password must be at least 8 characters').max(128),
 });
-export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ResetPasswordPayload = z.infer<typeof resetPasswordRules>;

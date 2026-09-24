@@ -12,7 +12,7 @@ import { errorResponder, unmatchedRouteHandler } from './middleware/error';
  * construct an app without starting a server — see http/server.ts for boot.
  * The API router is passed in so core never imports a feature module.
  */
-export function buildApp(apiRouter: Router): Express {
+export function buildApp(apiRoutes: Router): Express {
   const app = express();
 
   // Behind nginx/Render: trust one proxy hop so req.ip and `secure` reflect the
@@ -38,7 +38,7 @@ export function buildApp(apiRouter: Router): Express {
     res.json({ ok: true, timestamp: new Date().toISOString() });
   });
 
-  app.use('/api', apiRouter);
+  app.use('/api', apiRoutes);
   app.use('/uploads', express.static(settings.uploads.dir));
 
   // Order matters: unmatched route first, then the single error responder.

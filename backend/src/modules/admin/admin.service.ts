@@ -1,11 +1,11 @@
 import { desc, eq, isNull, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
 import { aiFeedback, exams, questionSets, questions, users } from '../../core/db/schema';
-import { getTaggingCoverage } from '../taxonomy';
+import { fetchTaggingCoverage } from '../taxonomy';
 
 /** Platform overview for admins: headline counts and AI spend. */
 
-export async function getStats() {
+export async function fetchStats() {
   const [students, teachers, admins, examCount, questionCount, setCount] = await Promise.all([
     countRows(database.select({ count: sql<number>`count(*)::int` }).from(users).where(eq(users.role, 'student'))),
     countRows(database.select({ count: sql<number>`count(*)::int` }).from(users).where(eq(users.role, 'teacher'))),
@@ -27,7 +27,7 @@ export async function getStats() {
     // Every per-skill analytic is only as good as this number, so it belongs
     // where someone will see it rather than in a query someone has to remember
     // to run. Math sat at 0% for as long as it was untaggable.
-    taggingCoverage: await getTaggingCoverage(),
+    taggingCoverage: await fetchTaggingCoverage(),
   };
 }
 
@@ -43,7 +43,7 @@ async function countRows(query: Promise<{ count: number }[]>): Promise<number> {
  * call writes. `parseFailureRate` is the share of calls that needed a re-prompt
  * to return valid JSON — a rising value means a model or prompt is degrading.
  */
-export async function getModelStats() {
+export async function fetchModelStats() {
   return database
     .select({
       modelUsed: aiFeedback.modelUsed,

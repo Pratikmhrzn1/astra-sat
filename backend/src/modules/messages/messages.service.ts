@@ -1,13 +1,13 @@
 import { desc, eq } from 'drizzle-orm';
 import { database } from '../../core/db';
 import { feedback, users } from '../../core/db/schema';
-import { assertOwnsStudent } from '../roster';
-import type { SendFeedbackInput } from './messages.schemas';
+import { ensureOwnsStudent } from '../roster';
+import type { SendFeedbackPayload } from './messages.schemas';
 
 /** Teacher → student messages, from the teacher's side. The student's inbox is inbox.service.ts. */
 
-export async function sendFeedback(teacherId: string, input: SendFeedbackInput) {
-  await assertOwnsStudent(teacherId, input.studentId, 'forbidden');
+export async function dispatchFeedback(teacherId: string, input: SendFeedbackPayload) {
+  await ensureOwnsStudent(teacherId, input.studentId, 'forbidden');
 
   const [created] = await database
     .insert(feedback)
@@ -21,7 +21,7 @@ export async function sendFeedback(teacherId: string, input: SendFeedbackInput) 
   return created;
 }
 
-export async function listSentFeedback(teacherId: string) {
+export async function collectSentFeedback(teacherId: string) {
   return database
     .select({
       id: feedback.id,

@@ -3,16 +3,16 @@ import { database } from '../../core/db';
 import { examAnswers, exams, mistakes, passages, questionSets, questions } from '../../core/db/schema';
 import { invalidRequest, stateConflict, missing } from '../../core/errors';
 import { toPublicFileUrl } from '../../core/lib/url';
-import { listSkillCodes } from '../taxonomy';
+import { collectSkillCodes } from '../taxonomy';
 import type {
-  CreatePassageInput,
-  CreateQuestionInput,
-  CreateSetInput,
-  ImportJsonInput,
-  UpdatePassageInput,
-  UpdateQuestionInput,
-  UpdateSetInput,
-  UpdateSubSkillInput,
+  CreatePassagePayload,
+  CreateQuestionPayload,
+  CreateSetPayload,
+  ImportJsonPayload,
+  UpdatePassagePayload,
+  UpdateQuestionPayload,
+  UpdateSetPayload,
+  UpdateSubSkillPayload,
 } from './content.schemas';
 
 /**
@@ -35,8 +35,8 @@ async function assertSetExists(setId: string) {
   return set;
 }
 
-/** Archived sets are hidden everywhere, including here — see `deleteSet`. */
-export async function listSets() {
+/** Archived sets are hidden everywhere, including here — see `removeSet`. */
+export async function collectSets() {
   return database
     .select()
     .from(questionSets)
@@ -45,7 +45,7 @@ export async function listSets() {
 }
 
 /** New sets start as drafts so half-written content is never offered to students. */
-export async function createSet(teacherId: string, input: CreateSetInput) {
+export async function addSet(teacherId: string, input: CreateSetPayload) {
   const [set] = await database
     .insert(questionSets)
     .values({
@@ -61,7 +61,7 @@ export async function createSet(teacherId: string, input: CreateSetInput) {
   return set;
 }
 
-export async function updateSet(setId: string, input: UpdateSetInput) {
+export async function editSet(setId: string, input: UpdateSetPayload) {
   await assertSetExists(setId);
   const [updated] = await database
     .update(questionSets)
@@ -71,7 +71,7 @@ export async function updateSet(setId: string, input: UpdateSetInput) {
   return updated;
 }
 
-export async function publishSet(setId: string) {
+export async function releaseSet(setId: string) {
   await assertSetExists(setId);
   const [updated] = await database
     .update(questionSets)
@@ -91,7 +91,7 @@ export async function publishSet(setId: string) {
  * while the history that points at it stays intact. A set nobody has touched is
  * still deleted outright, so abandoned drafts don't pile up.
  */
-export async function deleteSet(setId: string): Promise<{ archived: boolean; title: string }> {
+export async function removeSet(setId: string): Promise<{ archived: boolean; title: string }> {
   await assertSetExists(setId);
   const [{ title }] = await database.select({ title: questionSets.title }).from(questionSets).where(eq(questionSets.id, setId)).limit(1);
 
@@ -129,10 +129,10 @@ export async function deleteSet(setId: string): Promise<{ archived: boolean; tit
  * student opens it. Passages are inserted first so questions can reference them
  * by the array index the payload uses.
  */
-export async function importSetFromJson(teacherId: string, input: ImportJsonInput) {
+export async function ingestSetFromJson(teacherId: string, input: ImportJsonPayload) {
   // Validated before the transaction opens, so a typo in one tag rejects the
   // whole payload with a clear message instead of rolling back mid-insert.
-  const known = await listSkillCodes();
+  const known = await collectSkillCodes();
   for (const [index, question] of input.questions.entries()) {
     if (question.skillCode && !known.has(question.skillCode)) {
       throw invalidRequest(`Unknown skill code on question ${index + 1}: ${question.skillCode}`);
@@ -206,18 +206,18 @@ export async function importSetFromJson(teacherId: string, input: ImportJsonInpu
 
 // ── Passages ──────────────────────────────────────────────────────────────────
 
-export async function listPassages(setId: string) {
+export async function collectPassages(setId: string) {
   await assertSetExists(setId);
   return database.select().from(passages).where(eq(passages.setId, setId)).orderBy(passages.orderIndex);
 }
 
-export async function createPassage(setId: string, input: CreatePassageInput) {
+export async function addPassage(setId: string, input: CreatePassagePayload) {
   await assertSetExists(setId);
   const [passage] = await database.insert(passages).values({ setId, ...input }).returning();
   return passage;
 }
 
-export async function updatePassage(passageId: string, input: UpdatePassageInput) {
+export async function editPassage(passageId: string, input: UpdatePassagePayload) {
   const [existing] = await database
     .select({ id: passages.id })
     .from(passages)
@@ -229,7 +229,7 @@ export async function updatePassage(passageId: string, input: UpdatePassageInput
   return updated;
 }
 
-export async function deletePassage(passageId: string) {
+export async function removePassage(passageId: string) {
   const [existing] = await database
     .select({ id: passages.id })
     .from(passages)
@@ -264,7 +264,7 @@ async function isQuestionAttempted(questionId: string): Promise<boolean> {
   return !!row;
 }
 
-export async function listQuestions(setId: string) {
+export async function collectQuestions(setId: string) {
   await assertSetExists(setId);
   const rows = await database
     .select()
@@ -286,7 +286,7 @@ export async function listQuestions(setId: string) {
  */
 async function assertKnownSkillCode(skillCode: string | null | undefined): Promise<void> {
   if (!skillCode) return;
-  const known = await listSkillCodes();
+  const known = await collectSkillCodes();
   if (!known.has(skillCode)) {
     throw invalidRequest(`Unknown skill code: ${skillCode}`);
   }
@@ -296,7 +296,7 @@ async function assertKnownSkillCode(skillCode: string | null | undefined): Promi
  * A tag a person typed is authoritative, whichever endpoint they typed it in.
  *
  * `subSkillSource = 'human_confirmed'` is what removes a question from the AI
- * Review queue. `createQuestion` set it and `updateQuestion` did not, so a tag
+ * Review queue. `addQuestion` set it and `editQuestion` did not, so a tag
  * corrected in the ordinary editor stayed marked `ai_suggested` and came back in
  * the queue for someone to review again — against the very correction they had
  * just made.
@@ -305,7 +305,7 @@ function provenanceFor(tagged: boolean): 'human_confirmed' | undefined {
   return tagged ? 'human_confirmed' : undefined;
 }
 
-export async function createQuestion(setId: string, input: CreateQuestionInput) {
+export async function addQuestion(setId: string, input: CreateQuestionPayload) {
   await assertSetExists(setId);
   await assertKnownSkillCode(input.skillCode);
 
@@ -325,7 +325,7 @@ export async function createQuestion(setId: string, input: CreateQuestionInput) 
   return question;
 }
 
-export async function updateQuestion(questionId: string, input: UpdateQuestionInput) {
+export async function editQuestion(questionId: string, input: UpdateQuestionPayload) {
   await assertQuestionExists(questionId);
   await assertKnownSkillCode(input.skillCode);
 
@@ -369,7 +369,7 @@ export async function updateQuestion(questionId: string, input: UpdateQuestionIn
 }
 
 /** Used by the review UI to confirm or correct an AI-suggested tag. */
-export async function updateQuestionSubSkill(questionId: string, input: UpdateSubSkillInput) {
+export async function editQuestionSubSkill(questionId: string, input: UpdateSubSkillPayload) {
   await assertQuestionExists(questionId);
   await assertKnownSkillCode(input.skillCode);
 
@@ -388,7 +388,7 @@ export async function updateQuestionSubSkill(questionId: string, input: UpdateSu
  * graded exam that contained it and change those exams' question counts after the
  * fact. Retiring hides it from all new content instead.
  */
-export async function deleteQuestion(questionId: string): Promise<{ retired: boolean }> {
+export async function removeQuestion(questionId: string): Promise<{ retired: boolean }> {
   await assertQuestionExists(questionId);
   if (await isQuestionAttempted(questionId)) {
     await database.update(questions).set({ retiredAt: new Date() }).where(eq(questions.id, questionId));

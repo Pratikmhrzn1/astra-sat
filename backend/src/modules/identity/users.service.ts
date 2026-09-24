@@ -3,11 +3,11 @@ import { database } from '../../core/db';
 import { accessCodes, users } from '../../core/db/schema';
 import { invalidRequest, stateConflict, missing } from '../../core/errors';
 import { hashSecret } from '../../core/lib/password';
-import type { AssignStudentsInput, CreateAccessCodeInput, UpdateUserInput } from './users.schemas';
+import type { AssignStudentsPayload, CreateAccessCodePayload, UpdateUserPayload } from './users.schemas';
 
 /** Administering accounts: users, teacher assignment, and registration codes. */
 
-export async function listUsers() {
+export async function collectUsers() {
   return database
     .select({
       id: users.id,
@@ -27,7 +27,7 @@ export async function listUsers() {
  * Role and email are deliberately not editable: changing either would silently
  * re-authorise or re-identify an existing account.
  */
-export async function updateUser(userId: string, input: UpdateUserInput) {
+export async function editUser(userId: string, input: UpdateUserPayload) {
   const [existing] = await database.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
   if (!existing) throw missing('User not found');
 
@@ -65,7 +65,7 @@ export async function updateUser(userId: string, input: UpdateUserInput) {
  * or filing an admin under a teacher, would be invisible until someone noticed
  * the roster was wrong.
  */
-export async function assignStudentsToTeacher(input: AssignStudentsInput) {
+export async function linkLearnersToTeacher(input: AssignStudentsPayload) {
   if (input.teacherId) {
     const [teacher] = await database
       .select({ id: users.id })
@@ -99,7 +99,7 @@ export async function assignStudentsToTeacher(input: AssignStudentsInput) {
  * Self-deletion is refused: an admin removing their own account could leave the
  * platform with no administrator at all.
  */
-export async function deleteUser(userId: string, actingAdminId: string): Promise<void> {
+export async function removeUser(userId: string, actingAdminId: string): Promise<void> {
   if (userId === actingAdminId) throw invalidRequest('Cannot delete your own account');
 
   const deleted = await database.delete(users).where(eq(users.id, userId)).returning({ id: users.id });
@@ -108,7 +108,7 @@ export async function deleteUser(userId: string, actingAdminId: string): Promise
 
 // ── Access codes ──────────────────────────────────────────────────────────────
 
-export async function listAccessCodes() {
+export async function collectAccessCodes() {
   return database
     .select({
       id: accessCodes.id,
@@ -129,7 +129,7 @@ export async function listAccessCodes() {
  * Creates a registration code. The code decides what role its holder gets on
  * signup, so `maxUses` is the main control on how far one can spread.
  */
-export async function createAccessCode(createdBy: string, input: CreateAccessCodeInput) {
+export async function addAccessCode(createdBy: string, input: CreateAccessCodePayload) {
   const [existing] = await database
     .select({ id: accessCodes.id })
     .from(accessCodes)
@@ -150,7 +150,7 @@ export async function createAccessCode(createdBy: string, input: CreateAccessCod
   return created;
 }
 
-export async function deleteAccessCode(codeId: string): Promise<void> {
+export async function removeAccessCode(codeId: string): Promise<void> {
   const deleted = await database
     .delete(accessCodes)
     .where(eq(accessCodes.id, codeId))

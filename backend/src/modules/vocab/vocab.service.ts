@@ -24,7 +24,7 @@ const DEFAULT_EASE = 2.5;
 const MIN_EASE = 1.3;
 const MAX_EASE = 5.0;
 
-export interface ReviewSchedule {
+export interface ReviewPlan {
   intervalDays: number;
   easeFactor: number;
   nextReviewAt: Date;
@@ -40,11 +40,11 @@ export interface ReviewSchedule {
  * long streak cannot push a word out of sight for years, and a bad run cannot
  * drive it below daily.
  */
-export function nextSchedule(
+export function nextReviewPlan(
   currentEase: number,
   currentIntervalDays: number,
   isCorrect: boolean,
-): ReviewSchedule {
+): ReviewPlan {
   const easeFactor = isCorrect
     ? Math.min(currentEase + 0.1, MAX_EASE)
     : Math.max(MIN_EASE, currentEase - 0.2);
@@ -64,7 +64,7 @@ export function nextSchedule(
  * included when they are due *or* never started, which is how a newly added
  * word bank reaches students without a backfill.
  */
-export async function findDueItems(studentId: string) {
+export async function loadDueItems(studentId: string) {
   const now = new Date();
 
   const dueVocab = await database
@@ -186,7 +186,7 @@ async function attachDrills(
   });
 }
 
-export async function reviewQuestionWord(studentId: string, vocabId: string, isCorrect: boolean) {
+export async function appraiseQuestionWord(studentId: string, vocabId: string, isCorrect: boolean) {
   const [vocab] = await database
     .select()
     .from(studentVocab)
@@ -194,7 +194,7 @@ export async function reviewQuestionWord(studentId: string, vocabId: string, isC
     .limit(1);
   if (!vocab) throw missing('Vocab item not found');
 
-  const schedule = nextSchedule(parseFloat(String(vocab.easeFactor)), vocab.intervalDays, isCorrect);
+  const schedule = nextReviewPlan(parseFloat(String(vocab.easeFactor)), vocab.intervalDays, isCorrect);
 
   await database
     .update(studentVocab)
@@ -211,7 +211,7 @@ export async function reviewQuestionWord(studentId: string, vocabId: string, isC
 }
 
 /** Teacher-bank review. Progress is created on first review, updated after. */
-export async function reviewTeacherWord(studentId: string, wordId: string, isCorrect: boolean) {
+export async function appraiseTeacherWord(studentId: string, wordId: string, isCorrect: boolean) {
   const [word] = await database
     .select({ id: teacherVocabWords.id })
     .from(teacherVocabWords)
@@ -230,7 +230,7 @@ export async function reviewTeacherWord(studentId: string, wordId: string, isCor
     )
     .limit(1);
 
-  const schedule = nextSchedule(
+  const schedule = nextReviewPlan(
     progress ? parseFloat(String(progress.easeFactor)) : DEFAULT_EASE,
     progress ? progress.intervalDays : 1,
     isCorrect,

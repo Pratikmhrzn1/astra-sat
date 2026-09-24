@@ -5,7 +5,7 @@ import { requireSession } from '../../core/http/middleware/auth';
 import { validatedQuery, checkQuery } from '../../core/http/middleware/validate';
 import * as service from './skills.service';
 
-export const skillsRouter = Router();
+export const competencyRoutes = Router();
 
 /**
  * Readable by any signed-in user, not role-gated like the other routers.
@@ -15,7 +15,7 @@ export const skillsRouter = Router();
  * nothing student-specific or teacher-specific to protect here — it is the same
  * eight domains for everyone.
  */
-skillsRouter.use(requireSession);
+competencyRoutes.use(requireSession);
 
 const listQuerySchema = z.object({
   // Query strings are text, so the flag is compared rather than coerced: a bare
@@ -24,11 +24,11 @@ const listQuerySchema = z.object({
 });
 type ListQuery = z.infer<typeof listQuerySchema>;
 
-skillsRouter.get(
+competencyRoutes.get(
   '/',
   checkQuery(listQuerySchema),
   wrapAsync(async (req, res) => {
     const withCounts = validatedQuery<ListQuery>(req).withCounts === 'true';
-    res.json(await service.getSkillTree(withCounts));
+    res.json(await service.fetchSkillTree(withCounts));
   }),
 );

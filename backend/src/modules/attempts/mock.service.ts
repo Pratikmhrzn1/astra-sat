@@ -86,7 +86,7 @@ async function createSectionExam(studentId: string, setId: string, subject: Subj
   return { exam, questions: repo.withPublicImageLinks(questionRows) };
 }
 
-export async function startMockTest(studentId: string) {
+export async function openMockTest(studentId: string) {
   const [englishSetId, mathSetId] = await Promise.all([
     pickModule1Set('english'),
     pickModule1Set('math'),
@@ -116,7 +116,7 @@ export async function startMockTest(studentId: string) {
  * a reload or double submit there must not create a second Module 2 or move the
  * student to a different paper. If one already exists it is returned as-is.
  */
-export async function startNextModule(studentId: string, mockTestId: string, submittedExamId: string) {
+export async function openNextModule(studentId: string, mockTestId: string, submittedExamId: string) {
   const [mockTest] = await database
     .select()
     .from(mockTests)
@@ -218,7 +218,7 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
   };
 }
 
-export async function listMockTests(studentId: string) {
+export async function collectMockTests(studentId: string) {
   return database
     .select()
     .from(mockTests)
@@ -226,7 +226,7 @@ export async function listMockTests(studentId: string) {
     .orderBy(desc(mockTests.startedAt));
 }
 
-export async function getMockTest(studentId: string, mockTestId: string) {
+export async function fetchMockTest(studentId: string, mockTestId: string) {
   const [mockTest] = await database
     .select()
     .from(mockTests)
@@ -251,7 +251,7 @@ async function findExamOrNull(examId: string | null) {
 // ── Mock membership and scoring ──────────────────────────────────────────────
 
 /** One module of a mock, in the order it is sat. */
-export interface MockModule {
+export interface MockSlot {
   examId: string;
   subject: Subject;
   /** 1 or 2. Module 2 is the adaptive one. */
@@ -263,10 +263,10 @@ export interface MockModule {
   setDifficulty: string | null;
 }
 
-export interface MockContext {
+export interface MockChain {
   mockTest: typeof mockTests.$inferSelect;
   /** Present modules in sitting order: English M1, M2, then Math M1, M2. */
-  modules: MockModule[];
+  modules: MockSlot[];
 }
 
 /**
@@ -281,7 +281,7 @@ export interface MockContext {
  * live exams are created with the same `mock_english` / `mock_math` types but
  * have no `mock_tests` row, so the type alone cannot tell them apart.
  */
-export async function findMockContextForExam(examId: string): Promise<MockContext | null> {
+export async function loadMockContextForAssessment(examId: string): Promise<MockChain | null> {
   const [mockTest] = await database
     .select()
     .from(mockTests)
@@ -306,7 +306,7 @@ const MODULE_SLOTS = [
   { column: 'mathM2ExamId', subject: 'math', module: 2 },
 ] as const;
 
-async function loadModules(mockTest: typeof mockTests.$inferSelect): Promise<MockModule[]> {
+async function loadModules(mockTest: typeof mockTests.$inferSelect): Promise<MockSlot[]> {
   const ids = MODULE_SLOTS.map((slot) => mockTest[slot.column]).filter(
     (id): id is string => id !== null,
   );
@@ -347,8 +347,8 @@ async function loadModules(mockTest: typeof mockTests.$inferSelect): Promise<Moc
 /**
  * Scores and closes a mock, once every one of its four modules is submitted.
  *
- * Called from `submitExam` after grading. Completion lives here rather than in
- * `startNextModule` because a mock is finished when the student finishes it,
+ * Called from `commitAssessment` after grading. Completion lives here rather than in
+ * `openNextModule` because a mock is finished when the student finishes it,
  * not when the last module is handed out.
  *
  * A section's raw score is Module 1 + Module 2 together — one module is not a
@@ -359,8 +359,8 @@ async function loadModules(mockTest: typeof mockTests.$inferSelect): Promise<Moc
  * Idempotent: the write is guarded on `status = 'in_progress'`, so a double
  * submit or a retry cannot rescore a mock that is already closed.
  */
-export async function finalizeMockIfComplete(examId: string): Promise<void> {
-  const context = await findMockContextForExam(examId);
+export async function sealMockWhenComplete(examId: string): Promise<void> {
+  const context = await loadMockContextForAssessment(examId);
   if (!context) return;
 
   const { mockTest, modules } = context;
@@ -384,7 +384,7 @@ export async function finalizeMockIfComplete(examId: string): Promise<void> {
 }
 
 /** Raw totals across a section's two modules, scaled against its adaptive path. */
-function scaleSection(sectionModules: MockModule[]): number | null {
+function scaleSection(sectionModules: MockSlot[]): number | null {
   const raw = sectionModules.reduce((sum, module) => sum + (module.score ?? 0), 0);
   const total = sectionModules.reduce((sum, module) => sum + module.totalQuestions, 0);
   const module2 = sectionModules.find((module) => module.module === 2);

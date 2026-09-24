@@ -24,7 +24,7 @@ import { readDbTimestamp } from '../../core/lib/db-time';
  *    convenience, and those scores count as self-study.
  *
  * There is no scheduler. An exam past its deadline is closed the next time it
- * is read, listed, saved to or needed for the next module (`closeIfExpired` in
+ * is read, listed, saved to or needed for the next module (`closeWhenExpired` in
  * exams.service).
  */
 

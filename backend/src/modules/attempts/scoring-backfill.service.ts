@@ -1,7 +1,7 @@
 import { and, eq, isNull, or } from 'drizzle-orm';
 import { database } from '../../core/db';
 import { exams, mockTests } from '../../core/db/schema';
-import { finalizeMockIfComplete, findMockContextForExam } from './mock.service';
+import { sealMockWhenComplete, loadMockContextForAssessment } from './mock.service';
 import { toSectionResult } from '../exams';
 
 /**
@@ -10,7 +10,7 @@ import { toSectionResult } from '../exams';
  * Every score in the database until now was a raw count of correct answers; the
  * 200-800 number was computed in the browser and never stored, so no trend,
  * target gap or average could be derived from history. This walks the existing
- * rows once and writes what `submitExam` would have written at the time.
+ * rows once and writes what `commitAssessment` would have written at the time.
  *
  * Two rules make it safe to run repeatedly:
  *
@@ -30,7 +30,7 @@ import { toSectionResult } from '../exams';
  * job id. Revisit if this ever has to walk tens of thousands of rows.
  */
 
-export interface BackfillRun {
+export interface BackfillTally {
   examsFound: number;
   examsScored: number;
   /** Completed but too short for a section score to mean anything. */
@@ -43,8 +43,8 @@ export interface BackfillRun {
   mocksIncomplete: number;
 }
 
-export async function backfillScores(): Promise<BackfillRun> {
-  const run: BackfillRun = {
+export async function fillMissingScores(): Promise<BackfillTally> {
+  const run: BackfillTally = {
     examsFound: 0,
     examsScored: 0,
     examsTooShort: 0,
@@ -65,7 +65,7 @@ export async function backfillScores(): Promise<BackfillRun> {
   for (const exam of pending) {
     // Mock membership, not exam.type: live exams share the mock_* types but are
     // whole sections in their own right and do get a scaled score.
-    if (await findMockContextForExam(exam.id)) {
+    if (await loadMockContextForAssessment(exam.id)) {
       run.examsSkippedAsMockModule++;
       continue;
     }
@@ -80,7 +80,7 @@ export async function backfillScores(): Promise<BackfillRun> {
     run.examsScored++;
   }
 
-  // Includes mocks wrongly marked `completed` by the old startNextModule, which
+  // Includes mocks wrongly marked `completed` by the old openNextModule, which
   // closed a mock when Math Module 2 was issued rather than submitted. Those
   // only score here if all four modules really were finished.
   const unscored = await database
@@ -97,7 +97,7 @@ export async function backfillScores(): Promise<BackfillRun> {
       continue;
     }
 
-    // finalizeMockIfComplete only writes to an in_progress mock, by design — it
+    // sealMockWhenComplete only writes to an in_progress mock, by design — it
     // must not rescore a closed one on the live path. Reopening here is what
     // lets a mock the old code closed prematurely be scored properly now.
     //
@@ -110,7 +110,7 @@ export async function backfillScores(): Promise<BackfillRun> {
       .set({ status: 'in_progress' })
       .where(and(eq(mockTests.id, mock.id), eq(mockTests.status, 'completed')));
 
-    await finalizeMockIfComplete(mock.englishExamId);
+    await sealMockWhenComplete(mock.englishExamId);
 
     const [after] = await database
       .select({ totalScore: mockTests.totalScore, status: mockTests.status })
@@ -118,7 +118,7 @@ export async function backfillScores(): Promise<BackfillRun> {
       .where(eq(mockTests.id, mock.id))
       .limit(1);
 
-    // finalizeMockIfComplete stamps completedAt with now(). For history that is
+    // sealMockWhenComplete stamps completedAt with now(). For history that is
     // wrong — it would re-date a mock sat weeks ago to today on every run, and
     // reorder the student's history and trend lines — so keep the original date.
     if (after?.status === 'completed' && mock.completedAt) {

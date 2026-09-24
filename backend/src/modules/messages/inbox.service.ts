@@ -4,7 +4,7 @@ import { feedback, users } from '../../core/db/schema';
 import { missing } from '../../core/errors';
 
 /** Teacher-written feedback addressed to this student. */
-export async function listFeedback(studentId: string) {
+export async function collectFeedback(studentId: string) {
   return database
     .select({
       id: feedback.id,
@@ -22,7 +22,7 @@ export async function listFeedback(studentId: string) {
     .orderBy(desc(feedback.createdAt));
 }
 
-export async function markFeedbackRead(studentId: string, feedbackId: string): Promise<void> {
+export async function flagNoteSeen(studentId: string, feedbackId: string): Promise<void> {
   // Scoped to the student so one id cannot mark another student's mail read.
   const updated = await database
     .update(feedback)

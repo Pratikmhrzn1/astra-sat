@@ -2,17 +2,17 @@ import { Router } from 'express';
 import { wrapAsync } from '../../core/http/async-handler';
 import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
 import { validatedBody, checkBody } from '../../core/http/middleware/validate';
-import { logAudit } from '../audit';
+import { logTrail } from '../audit';
 import * as service from './survey.service';
 import {
-  createQuestionSchema,
-  reorderQuestionsSchema,
-  submitSurveySchema,
-  updateQuestionSchema,
-  type CreateQuestionInput,
-  type ReorderQuestionsInput,
-  type SubmitSurveyInput,
-  type UpdateQuestionInput,
+  addIntakeQuestionRules,
+  reorderQuestionsRules,
+  commitIntakeRules,
+  editIntakeQuestionRules,
+  type CreateIntakeQuestionPayload,
+  type ReorderQuestionsPayload,
+  type SubmitIntakePayload,
+  type UpdateIntakeQuestionPayload,
 } from './survey.schemas';
 
 /**
@@ -21,50 +21,50 @@ import {
  * the role gate its prefix implies.
  */
 
-export const surveyAdminRouter = Router();
+export const intakeAdminRoutes = Router();
 
-surveyAdminRouter.use(requireSession, requireAccountRole(['admin']));
+intakeAdminRoutes.use(requireSession, requireAccountRole(['admin']));
 
-surveyAdminRouter.get(
+intakeAdminRoutes.get(
   '/survey-questions',
   wrapAsync(async (_req, res) => {
-    res.json(await service.listQuestions());
+    res.json(await service.collectIntakeQuestions());
   }),
 );
 
-surveyAdminRouter.post(
+intakeAdminRoutes.post(
   '/survey-questions',
-  checkBody(createQuestionSchema),
+  checkBody(addIntakeQuestionRules),
   wrapAsync(async (req, res) => {
-    res.status(201).json(await service.createQuestion(sessionUserId(req), validatedBody<CreateQuestionInput>(req)));
+    res.status(201).json(await service.addIntakeQuestion(sessionUserId(req), validatedBody<CreateIntakeQuestionPayload>(req)));
   }),
 );
 
 /** Whole-list ordering, sent as the ids in their new order. */
-surveyAdminRouter.put(
+intakeAdminRoutes.put(
   '/survey-questions/reorder',
-  checkBody(reorderQuestionsSchema),
+  checkBody(reorderQuestionsRules),
   wrapAsync(async (req, res) => {
-    await service.reorderQuestions(validatedBody<ReorderQuestionsInput>(req));
+    await service.resequenceIntakeQuestions(validatedBody<ReorderQuestionsPayload>(req));
     res.json({ ok: true });
   }),
 );
 
-surveyAdminRouter.patch(
+intakeAdminRoutes.patch(
   '/survey-questions/:id',
-  checkBody(updateQuestionSchema),
+  checkBody(editIntakeQuestionRules),
   wrapAsync(async (req, res) => {
-    res.json(await service.updateQuestion(req.params.id, validatedBody<UpdateQuestionInput>(req)));
+    res.json(await service.editIntakeQuestion(req.params.id, validatedBody<UpdateIntakeQuestionPayload>(req)));
   }),
 );
 
 /** Destructive: the answers given to the question go with it, hence the audit row. */
-surveyAdminRouter.delete(
+intakeAdminRoutes.delete(
   '/survey-questions/:id',
   wrapAsync(async (req, res) => {
-    const responseCount = await service.countResponses(req.params.id);
-    await service.deleteQuestion(req.params.id);
-    await logAudit({
+    const responseCount = await service.tallyResponses(req.params.id);
+    await service.removeIntakeQuestion(req.params.id);
+    await logTrail({
       actorId: sessionUserId(req),
       action: 'survey.question_deleted',
       targetType: 'survey_question',
@@ -75,28 +75,28 @@ surveyAdminRouter.delete(
   }),
 );
 
-surveyAdminRouter.get(
+intakeAdminRoutes.get(
   '/survey-responses',
   wrapAsync(async (_req, res) => {
-    res.json(await service.listResponses());
+    res.json(await service.collectResponses());
   }),
 );
 
-export const surveyStudentRouter = Router();
+export const intakeStudentRoutes = Router();
 
-surveyStudentRouter.use(requireSession, requireAccountRole(['student']));
+intakeStudentRoutes.use(requireSession, requireAccountRole(['student']));
 
-surveyStudentRouter.get(
+intakeStudentRoutes.get(
   '/survey',
   wrapAsync(async (req, res) => {
-    res.json(await service.getSurveyForStudent(sessionUserId(req)));
+    res.json(await service.fetchIntakeForStudent(sessionUserId(req)));
   }),
 );
 
-surveyStudentRouter.post(
+intakeStudentRoutes.post(
   '/survey',
-  checkBody(submitSurveySchema),
+  checkBody(commitIntakeRules),
   wrapAsync(async (req, res) => {
-    res.json(await service.submitSurvey(sessionUserId(req), validatedBody<SubmitSurveyInput>(req)));
+    res.json(await service.commitIntake(sessionUserId(req), validatedBody<SubmitIntakePayload>(req)));
   }),
 );

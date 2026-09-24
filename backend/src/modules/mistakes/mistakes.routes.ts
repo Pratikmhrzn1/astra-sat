@@ -4,15 +4,15 @@ import { sessionUserId, requireSession, requireAccountRole } from '../../core/ht
 import { validatedBody, validatedQuery, checkBody, checkQuery } from '../../core/http/middleware/validate';
 import * as mistakes from './mistakes.service';
 import {
-  mistakePracticeSchema,
-  mistakeQuerySchema,
-  type MistakePracticeInput,
-  type MistakeQuery,
+  mistakePracticeRules,
+  mistakeQueryRules,
+  type MisstepPracticePayload,
+  type MisstepQuery,
 } from './mistakes.schemas';
 
-export const mistakesStudentRouter = Router();
+export const misstepsStudentRoutes = Router();
 
-mistakesStudentRouter.use(requireSession, requireAccountRole(['student']));
+misstepsStudentRoutes.use(requireSession, requireAccountRole(['student']));
 
 // ── Mistake bank ─────────────────────────────────────────────────────────────
 
@@ -23,19 +23,19 @@ mistakesStudentRouter.use(requireSession, requireAccountRole(['student']));
  * has already completed and reviewed, so nothing is revealed that they have not
  * already been shown.
  */
-mistakesStudentRouter.get(
+misstepsStudentRoutes.get(
   '/mistakes',
-  checkQuery(mistakeQuerySchema),
+  checkQuery(mistakeQueryRules),
   wrapAsync(async (req, res) => {
-    res.json(await mistakes.listMistakes(sessionUserId(req), validatedQuery<MistakeQuery>(req)));
+    res.json(await mistakes.collectMissteps(sessionUserId(req), validatedQuery<MisstepQuery>(req)));
   }),
 );
 
 /** Open counts per domain, for the summary strip above the list. */
-mistakesStudentRouter.get(
+misstepsStudentRoutes.get(
   '/mistakes/summary',
   wrapAsync(async (req, res) => {
-    res.json(await mistakes.getMistakeSummary(sessionUserId(req)));
+    res.json(await mistakes.fetchMisstepSummary(sessionUserId(req)));
   }),
 );
 
@@ -43,13 +43,13 @@ mistakesStudentRouter.get(
  * Builds a review exam from open mistakes. Resolution happens through the
  * ordinary submit path, not here.
  */
-mistakesStudentRouter.post(
+misstepsStudentRoutes.post(
   '/mistakes/practice',
-  checkBody(mistakePracticeSchema),
+  checkBody(mistakePracticeRules),
   wrapAsync(async (req, res) => {
-    const result = await mistakes.startMistakePractice(
+    const result = await mistakes.openMisstepPractice(
       sessionUserId(req),
-      validatedBody<MistakePracticeInput>(req),
+      validatedBody<MisstepPracticePayload>(req),
     );
     res.status(201).json(result);
   }),

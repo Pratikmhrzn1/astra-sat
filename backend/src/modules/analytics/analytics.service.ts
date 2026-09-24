@@ -1,7 +1,7 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { database } from '../../core/db';
 import { readDbTimestamp } from '../../core/lib/db-time';
-import { getProfile } from './profile.service';
+import { fetchLearnerProfile } from './profile.service';
 
 /**
  * The numbers behind "why am I losing points?" and "am I improving?".
@@ -34,7 +34,7 @@ function studentIdList(studentIds: string[]): SQL {
 }
 
 /** Below this many attempts, an accuracy percentage is noise and is not shown. */
-export const MIN_ATTEMPTS_FOR_ACCURACY = 5;
+export const MIN_SITTINGS_FOR_ACCURACY = 5;
 
 /** Below this many mocks, a readiness estimate is a guess rather than a trend. */
 const MIN_MOCKS_FOR_CONFIDENCE = 2;
@@ -54,7 +54,7 @@ const VISIBLE_EXAM = sql`
   )
 `;
 
-export interface SkillAccuracyRow {
+export interface CompetencyAccuracyRow {
   domainCode: string;
   domainLabel: string;
   skillCode: string | null;
@@ -62,7 +62,7 @@ export interface SkillAccuracyRow {
   subject: 'english' | 'math';
   attempted: number;
   correct: number;
-  /** 0-100, rounded. Meaningless below MIN_ATTEMPTS_FOR_ACCURACY — check `attempted`. */
+  /** 0-100, rounded. Meaningless below MIN_SITTINGS_FOR_ACCURACY — check `attempted`. */
   accuracy: number;
 }
 
@@ -74,10 +74,10 @@ export interface SkillAccuracyRow {
  * being told you are weak at questions nobody has categorised. The admin
  * dashboard's tagging-coverage stat is where that gap belongs.
  */
-export async function skillAccuracy(
+export async function competencyAccuracy(
   studentIds: string[],
   options: { subject?: 'english' | 'math'; since?: Date; examId?: string } = {},
-): Promise<SkillAccuracyRow[]> {
+): Promise<CompetencyAccuracyRow[]> {
   if (studentIds.length === 0) return [];
 
   const result = await database.execute(sql`
@@ -105,17 +105,17 @@ export async function skillAccuracy(
      ORDER BY "accuracy" ASC, "attempted" DESC
   `);
 
-  return result.rows as unknown as SkillAccuracyRow[];
+  return result.rows as unknown as CompetencyAccuracyRow[];
 }
 
 /** Weakest domains first, with the skills beneath each folded in. */
-export async function domainAccuracy(
+export async function domainHitRate(
   studentIds: string[],
   options: { subject?: 'english' | 'math'; since?: Date } = {},
 ): Promise<
   { domainCode: string; domainLabel: string; subject: 'english' | 'math'; attempted: number; correct: number; accuracy: number }[]
 > {
-  const rows = await skillAccuracy(studentIds, options);
+  const rows = await competencyAccuracy(studentIds, options);
   const byDomain = new Map<string, { domainCode: string; domainLabel: string; subject: 'english' | 'math'; attempted: number; correct: number }>();
 
   for (const row of rows) {
@@ -132,7 +132,7 @@ export async function domainAccuracy(
     .sort((a, b) => a.accuracy - b.accuracy);
 }
 
-export interface TrendPoint {
+export interface TrendSample {
   at: string;
   kind: 'mock' | 'practice';
   label: string;
@@ -151,7 +151,7 @@ export interface TrendPoint {
  * twenty-question practice set and a chart that hid the difference would
  * overstate a good afternoon.
  */
-export async function scoreTrend(studentId: string): Promise<TrendPoint[]> {
+export async function scoreSeries(studentId: string): Promise<TrendSample[]> {
   const result = await database.execute(sql`
     SELECT mt.completed_at AS at, 'mock' AS kind, 'Full mock' AS label,
            mt.total_score AS total, mt.rw_score AS rw, mt.math_score AS math
@@ -194,13 +194,13 @@ export async function scoreTrend(studentId: string): Promise<TrendPoint[]> {
      ORDER BY at ASC
   `);
 
-  return (result.rows as unknown as (Omit<TrendPoint, 'at'> & { at: Date | string })[]).map((row) => ({
+  return (result.rows as unknown as (Omit<TrendSample, 'at'> & { at: Date | string })[]).map((row) => ({
     ...row,
     at: readDbTimestamp(row.at).toISOString(),
   }));
 }
 
-export interface Readiness {
+export interface ReadinessSummary {
   latestTotal: number | null;
   /** Mean of the last three mock totals — steadier than the single latest. */
   rollingAverage: number | null;
@@ -238,9 +238,9 @@ export interface Readiness {
  * of mocks per student, and a confident wrong number about someone's university
  * chances is worse than no number.
  */
-export async function readiness(studentId: string, trend?: TrendPoint[]): Promise<Readiness> {
+export async function computeReadiness(studentId: string, trend?: TrendSample[]): Promise<ReadinessSummary> {
   const [profile, mockRows, points] = await Promise.all([
-    getProfile(studentId),
+    fetchLearnerProfile(studentId),
     database.execute<{ total: number }>(sql`
       SELECT total_score AS total
         FROM mock_tests
@@ -249,7 +249,7 @@ export async function readiness(studentId: string, trend?: TrendPoint[]): Promis
          AND total_score IS NOT NULL
        ORDER BY completed_at DESC
     `),
-    trend ?? scoreTrend(studentId),
+    trend ?? scoreSeries(studentId),
   ]);
 
   const totals = (mockRows.rows as { total: number }[]).map((r) => Number(r.total));
@@ -278,8 +278,8 @@ export async function readiness(studentId: string, trend?: TrendPoint[]): Promis
   };
 }
 
-/** See `Readiness.estimate`. `points` is scoreTrend's output, oldest first. */
-function estimateFrom(points: TrendPoint[]): Readiness['estimate'] {
+/** See `ReadinessSummary.estimate`. `points` is scoreSeries's output, oldest first. */
+function estimateFrom(points: TrendSample[]): ReadinessSummary['estimate'] {
   const newestFirst = [...points].reverse();
   const mock = newestFirst.find((p) => p.kind === 'mock' && p.total !== null);
   if (mock) return { total: mock.total, rw: mock.rw, math: mock.math, source: 'mock' };
@@ -301,13 +301,13 @@ function startOfToday(): number {
 }
 
 /** Everything the progress view needs, in one round trip. */
-export async function overview(studentId: string) {
-  const trend = await scoreTrend(studentId);
+export async function insightsOverview(studentId: string) {
+  const trend = await scoreSeries(studentId);
   const [domains, skills, ready] = await Promise.all([
-    domainAccuracy([studentId]),
-    skillAccuracy([studentId]),
-    readiness(studentId, trend),
+    domainHitRate([studentId]),
+    competencyAccuracy([studentId]),
+    computeReadiness(studentId, trend),
   ]);
 
-  return { domains, skills, trend, readiness: ready, minAttempts: MIN_ATTEMPTS_FOR_ACCURACY };
+  return { domains, skills, trend, readiness: ready, minAttempts: MIN_SITTINGS_FOR_ACCURACY };
 }

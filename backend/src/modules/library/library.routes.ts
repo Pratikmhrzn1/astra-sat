@@ -7,7 +7,7 @@ import { sessionUser, requireSession, requireAccountRole } from '../../core/http
 import { parseOrReject } from '../../core/http/middleware/validate';
 import * as service from './library.service';
 
-export const libraryRouter = Router();
+export const resourceRoutes = Router();
 
 /**
  * Uploads land on disk with a generated name.
@@ -27,7 +27,7 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 },
 });
 
-libraryRouter.post(
+resourceRoutes.post(
   '/upload',
   requireSession,
   requireAccountRole(['teacher', 'admin']),
@@ -41,40 +41,40 @@ libraryRouter.post(
   },
 );
 
-libraryRouter.get(
+resourceRoutes.get(
   '/',
   requireSession,
   wrapAsync(async (req, res) => {
-    res.json(await service.listItems(sessionUser(req).role));
+    res.json(await service.collectItems(sessionUser(req).role));
   }),
 );
 
-libraryRouter.post(
+resourceRoutes.post(
   '/',
   requireSession,
   requireAccountRole(['teacher', 'admin']),
   wrapAsync(async (req, res) => {
-    const input = parseOrReject(service.createItemSchema, req.body);
-    res.status(201).json(await service.createItem(sessionUser(req).id, input));
+    const input = parseOrReject(service.addItemRules, req.body);
+    res.status(201).json(await service.addItem(sessionUser(req).id, input));
   }),
 );
 
-libraryRouter.patch(
+resourceRoutes.patch(
   '/:id',
   requireSession,
   requireAccountRole(['teacher', 'admin']),
   wrapAsync(async (req, res) => {
-    const input = parseOrReject(service.updateItemSchema, req.body);
-    res.json(await service.updateItem(req.params.id, sessionUser(req), input));
+    const input = parseOrReject(service.editItemRules, req.body);
+    res.json(await service.editItem(req.params.id, sessionUser(req), input));
   }),
 );
 
-libraryRouter.delete(
+resourceRoutes.delete(
   '/:id',
   requireSession,
   requireAccountRole(['teacher', 'admin']),
   wrapAsync(async (req, res) => {
-    await service.deleteItem(req.params.id, sessionUser(req));
+    await service.removeItem(req.params.id, sessionUser(req));
     res.status(204).send();
   }),
 );

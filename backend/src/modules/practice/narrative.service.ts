@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { skillAccuracy } from '../analytics';
+import { competencyAccuracy } from '../analytics';
 import { examAnswers, exams, mockNarratives, questionSets, questions } from '../../core/db/schema';
 import { requestStructuredOutput, isModelReady } from '../ai';
 
@@ -14,7 +14,7 @@ import { requestStructuredOutput, isModelReady } from '../ai';
  * entirely is indistinguishable from one that failed.
  */
 
-export interface NarrativeExam {
+export interface NarrativeAssessment {
   /** Needed to scope the skill breakdown; every caller passes a full exam row. */
   studentId: string;
   type: string;
@@ -26,18 +26,18 @@ export interface NarrativeExam {
 }
 
 /** Narratives are optional: with no model configured, none are ever created. */
-export function narrativesEnabled(): boolean {
+export function narrativesAvailable(): boolean {
   return isModelReady('narrative');
 }
 
-export async function createPendingNarrative(examId: string): Promise<string | null> {
-  if (!narrativesEnabled()) return null;
+export async function addPendingNarrative(examId: string): Promise<string | null> {
+  if (!narrativesAvailable()) return null;
   const [row] = await database.insert(mockNarratives).values({ examId }).returning({ id: mockNarratives.id });
   return row.id;
 }
 
 /** Resets an existing narrative to `pending`, or creates one. Used by retry. */
-export async function resetNarrative(examId: string): Promise<string> {
+export async function clearNarrative(examId: string): Promise<string> {
   const [existing] = await database
     .select({ id: mockNarratives.id })
     .from(mockNarratives)
@@ -56,7 +56,7 @@ export async function resetNarrative(examId: string): Promise<string> {
   return existing.id;
 }
 
-export async function findNarrative(examId: string) {
+export async function loadNarrative(examId: string) {
   const [row] = await database.select().from(mockNarratives).where(eq(mockNarratives.examId, examId)).limit(1);
   return row ?? null;
 }
@@ -70,7 +70,7 @@ export async function findNarrative(examId: string) {
  * questions only, and released exams only.
  */
 async function loadSubSkillBreakdown(examId: string, studentId: string) {
-  const rows = await skillAccuracy([studentId], { examId });
+  const rows = await competencyAccuracy([studentId], { examId });
 
   return rows.map((row) => ({
     // The key stays `subSkill`: it is the name the prompt below and the model's
@@ -84,7 +84,7 @@ async function loadSubSkillBreakdown(examId: string, studentId: string) {
   }));
 }
 
-async function resolveSectionLabel(exam: NarrativeExam): Promise<string> {
+async function resolveSectionLabel(exam: NarrativeAssessment): Promise<string> {
   if (exam.type === 'mock_english') return 'English (Reading & Writing)';
   if (exam.type === 'mock_math') return 'Math';
 
@@ -105,10 +105,10 @@ async function resolveSectionLabel(exam: NarrativeExam): Promise<string> {
  * detached from any request, so a failure is recorded as `failed` status —
  * which is what the retry endpoint looks for — and logged.
  */
-export async function generateNarrative(
+export async function produceNarrative(
   examId: string,
   narrativeId: string,
-  exam: NarrativeExam,
+  exam: NarrativeAssessment,
 ): Promise<void> {
   try {
     const breakdown = await loadSubSkillBreakdown(examId, exam.studentId);
@@ -161,14 +161,14 @@ ${breakdown.map((b) => `- ${b.subSkill}: ${b.wrong} wrong of ${b.total}${b.flag 
 }
 
 /** Fire-and-forget wrapper — the caller has already responded to the student. */
-export function generateNarrativeInBackground(examId: string, narrativeId: string, exam: NarrativeExam): void {
-  void generateNarrative(examId, narrativeId, exam).catch((err) =>
+export function produceNarrativeInBackground(examId: string, narrativeId: string, exam: NarrativeAssessment): void {
+  void produceNarrative(examId, narrativeId, exam).catch((err) =>
     console.error('[narrative] Unhandled background error:', err),
   );
 }
 
 /** Re-reads the exam a narrative belongs to, for the retry path. */
-export async function findExamForNarrative(examId: string): Promise<NarrativeExam | null> {
+export async function loadAssessmentForNarrative(examId: string): Promise<NarrativeAssessment | null> {
   const [exam] = await database
     .select({
       studentId: exams.studentId,

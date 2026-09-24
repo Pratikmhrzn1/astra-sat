@@ -1,2 +1,2 @@
 /** Teacher → student feedback messages. */
-export { messagesStudentRouter, messagesTeacherRouter } from './messages.routes';
+export { notesStudentRoutes, notesTeacherRoutes } from './messages.routes';

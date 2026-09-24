@@ -182,7 +182,7 @@ Generate a wholly original passage and exactly 2 questions testing ${label}.`;
  * Decides whether this miss crosses a threshold and, if it claims one, kicks off
  * generation.
  */
-export async function checkAndTriggerSkillPassage(
+export async function maybeTriggerCompetencyPassage(
   studentId: string,
   subSkill: string,
   currentQuestionText: string,
@@ -214,7 +214,7 @@ export async function checkAndTriggerSkillPassage(
  * generated for them, so one student's remediation never surfaces in another's
  * dashboard. One entry per sub-skill — the first approved passage wins.
  */
-export async function findAvailableSkillPassages(studentId: string) {
+export async function loadAvailableSkillPassages(studentId: string) {
   const triggers = await database
     .select({ subSkill: studentSkillTriggers.subSkill })
     .from(studentSkillTriggers)

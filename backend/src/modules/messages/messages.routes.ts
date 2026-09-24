@@ -4,48 +4,48 @@ import { sessionUserId, requireSession, requireAccountRole } from '../../core/ht
 import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import * as inbox from './inbox.service';
 import * as service from './messages.service';
-import { sendFeedbackSchema, type SendFeedbackInput } from './messages.schemas';
+import { dispatchFeedbackRules, type SendFeedbackPayload } from './messages.schemas';
 
 /** Teacher → student feedback messages: sent from the teacher portal, read in the student inbox. */
 
-export const messagesStudentRouter = Router();
+export const notesStudentRoutes = Router();
 
-messagesStudentRouter.use(requireSession, requireAccountRole(['student']));
+notesStudentRoutes.use(requireSession, requireAccountRole(['student']));
 
 // ── Teacher feedback inbox ───────────────────────────────────────────────────
 
-messagesStudentRouter.get(
+notesStudentRoutes.get(
   '/feedback',
   wrapAsync(async (req, res) => {
-    res.json(await inbox.listFeedback(sessionUserId(req)));
+    res.json(await inbox.collectFeedback(sessionUserId(req)));
   }),
 );
 
-messagesStudentRouter.put(
+notesStudentRoutes.put(
   '/feedback/:feedbackId/read',
   wrapAsync(async (req, res) => {
-    await inbox.markFeedbackRead(sessionUserId(req), req.params.feedbackId);
+    await inbox.flagNoteSeen(sessionUserId(req), req.params.feedbackId);
     res.json({ ok: true });
   }),
 );
 
-export const messagesTeacherRouter = Router();
+export const notesTeacherRoutes = Router();
 
-messagesTeacherRouter.use(requireSession, requireAccountRole(['teacher']));
+notesTeacherRoutes.use(requireSession, requireAccountRole(['teacher']));
 
 // ── Feedback ─────────────────────────────────────────────────────────────────
 
-messagesTeacherRouter.post(
+notesTeacherRoutes.post(
   '/feedback',
-  checkBody(sendFeedbackSchema),
+  checkBody(dispatchFeedbackRules),
   wrapAsync(async (req, res) => {
-    res.status(201).json(await service.sendFeedback(sessionUserId(req), validatedBody<SendFeedbackInput>(req)));
+    res.status(201).json(await service.dispatchFeedback(sessionUserId(req), validatedBody<SendFeedbackPayload>(req)));
   }),
 );
 
-messagesTeacherRouter.get(
+notesTeacherRoutes.get(
   '/feedback',
   wrapAsync(async (req, res) => {
-    res.json(await service.listSentFeedback(sessionUserId(req)));
+    res.json(await service.collectSentFeedback(sessionUserId(req)));
   }),
 );

@@ -2,7 +2,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { database } from '../../core/db';
 import { generatedContent, passages, questionSets, questions } from '../../core/db/schema';
 import { missing, unprocessableInput } from '../../core/errors';
-import type { FlagContentInput, ListContentQuery } from './content.schemas';
+import type { FlagContentPayload, ContentQuery } from './content.schemas';
 
 /**
  * The quality gate for AI-generated content.
@@ -26,7 +26,7 @@ interface SkillPassageContent {
   generationMeta?: { targetSubSkill?: string; difficultyLevel?: string };
 }
 
-export async function listGeneratedContent(query: ListContentQuery) {
+export async function collectGeneratedContent(query: ContentQuery) {
   const conditions = [];
   if (query.type) conditions.push(eq(generatedContent.contentType, query.type));
   if (query.flag) conditions.push(eq(generatedContent.qualityFlag, query.flag));
@@ -54,7 +54,7 @@ export async function listGeneratedContent(query: ListContentQuery) {
     .orderBy(desc(generatedContent.createdAt));
 }
 
-export async function flagContent(contentId: string, input: FlagContentInput) {
+export async function markContentQuality(contentId: string, input: FlagContentPayload) {
   const [row] = await database
     .select()
     .from(generatedContent)

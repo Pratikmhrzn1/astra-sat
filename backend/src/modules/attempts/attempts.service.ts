@@ -17,13 +17,13 @@ import {
 import * as mistakes from '../mistakes';
 import { narrative } from '../practice';
 import * as mock from './mock.service';
-import type { SaveAnswersInput, StartExamInput } from './attempts.schemas';
+import type { SaveAnswersPayload, StartAssessmentPayload } from './attempts.schemas';
 
 /**
  * The practice-exam lifecycle: start, load, autosave, submit, review.
  */
 
-export async function startExam(studentId: string, { setId, type }: StartExamInput) {
+export async function openAssessment(studentId: string, { setId, type }: StartAssessmentPayload) {
   const set = await repo.loadSetById(setId);
   if (!set) throw missing('Question set not found');
 
@@ -44,14 +44,14 @@ export async function startExam(studentId: string, { setId, type }: StartExamInp
  * Loads an exam for the player, plus the mock it belongs to (if any) so the
  * client can chain from one section to the next without a second round trip.
  */
-export async function getExam(examId: string, studentId: string, { open = false }: { open?: boolean } = {}) {
+export async function fetchAssessment(examId: string, studentId: string, { open = false }: { open?: boolean } = {}) {
   let exam = await repo.loadOwnedAssessment(examId, studentId);
   if (!exam) throw missing('Exam not found');
 
   // Opening starts a mock module's clock; any read closes an expired exam.
   const deadline = await settleDeadline(exam, { open });
   if (exam.status === 'in_progress' && isBeyondLeniency(deadline)) {
-    await closeExpiredExam(exam.id, studentId);
+    await closeExpiredAssessment(exam.id, studentId);
     exam = (await repo.loadOwnedAssessment(examId, studentId))!;
   }
 
@@ -72,7 +72,7 @@ export async function getExam(examId: string, studentId: string, { open = false 
   // Math at the section boundary. It comes from the mock rather than from a
   // sibling lookup keyed on this exam, so it resolves from either English
   // module rather than only from Module 1.
-  const mockContext = await mock.findMockContextForExam(exam.id);
+  const mockContext = await mock.loadMockContextForAssessment(exam.id);
   const slot = mockContext?.modules.find((m) => m.examId === exam.id);
 
   return {
@@ -100,14 +100,14 @@ export async function getExam(examId: string, studentId: string, { open = false 
  * had stored is what gets graded, exactly as if they had pressed submit at the
  * deadline. The AI narrative starts as it would after a normal submit.
  *
- * A concurrent real submit is safe: `submitExam` only closes an exam that is
+ * A concurrent real submit is safe: `commitAssessment` only closes an exam that is
  * still in progress, so whichever arrives second is refused.
  */
-export async function closeExpiredExam(examId: string, studentId: string): Promise<void> {
+export async function closeExpiredAssessment(examId: string, studentId: string): Promise<void> {
   try {
-    const result = await submitExam(examId, studentId, undefined);
+    const result = await commitAssessment(examId, studentId, undefined);
     if (result.pendingNarrative) {
-      narrative.generateNarrativeInBackground(result.exam.id, result.pendingNarrative.narrativeId, result.pendingNarrative.exam);
+      narrative.produceNarrativeInBackground(result.exam.id, result.pendingNarrative.narrativeId, result.pendingNarrative.exam);
     }
   } catch (err) {
     // Already closed by the student's own submit a moment earlier: nothing to do.
@@ -116,10 +116,10 @@ export async function closeExpiredExam(examId: string, studentId: string): Promi
 }
 
 /** Closes an exam if its deadline has passed. Used before anything that depends on it being finished. */
-export async function closeIfExpired(examId: string, studentId: string): Promise<void> {
+export async function closeWhenExpired(examId: string, studentId: string): Promise<void> {
   const exam = await repo.loadOwnedAssessment(examId, studentId);
   if (!exam || exam.status !== 'in_progress') return;
-  if (isBeyondLeniency(await settleDeadline(exam, { open: false }))) await closeExpiredExam(examId, studentId);
+  if (isBeyondLeniency(await settleDeadline(exam, { open: false }))) await closeExpiredAssessment(examId, studentId);
 }
 
 /**
@@ -131,10 +131,10 @@ export async function closeIfExpired(examId: string, studentId: string): Promise
  * exam, so a question id that is not part of this exam updates nothing rather
  * than inserting a stray answer.
  */
-export async function saveAnswers(
+export async function storeAnswers(
   examId: string,
   studentId: string,
-  { answers, timeSpentSeconds }: SaveAnswersInput,
+  { answers, timeSpentSeconds }: SaveAnswersPayload,
 ): Promise<void> {
   const exam = await repo.loadOwnedAssessment(examId, studentId);
   if (!exam) throw missing('Exam not found');
@@ -144,7 +144,7 @@ export async function saveAnswers(
   // on what was saved in time, and this late write is refused.
   const deadline = await settleDeadline(exam, { open: false });
   if (isBeyondLeniency(deadline)) {
-    await closeExpiredExam(examId, studentId);
+    await closeExpiredAssessment(examId, studentId);
     throw stateConflict('Time is up — this section has been submitted.');
   }
 
@@ -175,13 +175,13 @@ export async function saveAnswers(
   }
 }
 
-export interface SubmitResult {
+export interface CommitOutcome {
   score: number;
   total: number;
   percentage: number;
   exam: typeof exams.$inferSelect;
   /** Set when a narrative was queued; the caller starts it after responding. */
-  pendingNarrative: { narrativeId: string; exam: narrative.NarrativeExam } | null;
+  pendingNarrative: { narrativeId: string; exam: narrative.NarrativeAssessment } | null;
 }
 
 /**
@@ -191,19 +191,19 @@ export interface SubmitResult {
  * practice confirm step also sets `is_correct`, and submit is the authority.
  * The client's reported score is never an input — only its elapsed time is.
  */
-export async function submitExam(
+export async function commitAssessment(
   examId: string,
   studentId: string,
   timeSpentSeconds: number | undefined,
-  finalAnswers?: SaveAnswersInput['answers'],
-): Promise<SubmitResult> {
+  finalAnswers?: SaveAnswersPayload['answers'],
+): Promise<CommitOutcome> {
   // Final answers first, through the same path as autosave — including its
   // deadline check. Past the deadline the save is refused and the exam closed
   // on what was stored in time; the "already completed" below then tells the
   // client, which treats it as done.
   if (finalAnswers && finalAnswers.length > 0) {
     try {
-      await saveAnswers(examId, studentId, { answers: finalAnswers });
+      await storeAnswers(examId, studentId, { answers: finalAnswers });
     } catch (err) {
       if (!(isServiceError(err) && err.kind === 'conflict')) throw err;
     }
@@ -249,7 +249,7 @@ export async function submitExam(
   // score of its own; the mock's own row gets the two section scores once all
   // four modules are in. Membership is the test rather than `exam.type`, because
   // live exams are created with the same mock_* types and no mock row.
-  const mockContext = await mock.findMockContextForExam(exam.id);
+  const mockContext = await mock.loadMockContextForAssessment(exam.id);
   const scaledScore = mockContext
     ? null
     : toSectionResult(score, exam.totalQuestions, 'none');
@@ -284,19 +284,19 @@ export async function submitExam(
   // that reports the mock total, so it must be written before the response
   // rather than behind it like the AI work below. It re-reads the mock because
   // the lookup above ran before this module was marked completed.
-  if (mockContext) await mock.finalizeMockIfComplete(exam.id);
+  if (mockContext) await mock.sealMockWhenComplete(exam.id);
 
   // Every wrong answer joins the mistake bank, and every right one clears an
   // open entry — except in a live exam, whose results stay hidden until the
   // teacher releases them. Filling the bank at submit would tell that student
   // which questions they had missed before the teacher had released anything,
   // so those are recorded on release instead.
-  if (!(await mistakes.isLiveExamAttempt(exam.id))) {
-    await mistakes.recordMistakesForExam(exam.id, studentId);
+  if (!(await mistakes.isLiveAssessmentSitting(exam.id))) {
+    await mistakes.registerMisstepsForAssessment(exam.id, studentId);
   }
 
   // Created before responding so the client always has a row to poll.
-  const narrativeId = await narrative.createPendingNarrative(exam.id);
+  const narrativeId = await narrative.addPendingNarrative(exam.id);
 
   return {
     score,
@@ -308,7 +308,7 @@ export async function submitExam(
 }
 
 /** Full review of a finished exam — the only student read that reveals answers. */
-export async function getResults(examId: string, studentId: string) {
+export async function fetchResults(examId: string, studentId: string) {
   const exam = await repo.loadOwnedAssessment(examId, studentId);
   if (!exam) throw missing('Exam not found');
   if (exam.status !== 'completed') throw invalidRequest('Exam not yet completed');
@@ -333,7 +333,7 @@ export async function getResults(examId: string, studentId: string) {
   // modules. The client used to be told which sibling to fetch through an
   // `?englishExamId=` query parameter it had carried since the player, which
   // silently produced a single-module /800 report whenever it went missing.
-  const mockContext = await mock.findMockContextForExam(exam.id);
+  const mockContext = await mock.loadMockContextForAssessment(exam.id);
 
   return {
     exam,
@@ -354,25 +354,25 @@ export async function getResults(examId: string, studentId: string) {
 }
 
 /** Narrative retry — resets the row and regenerates behind the response. */
-export async function retryNarrative(examId: string, studentId: string) {
+export async function reRunNarrative(examId: string, studentId: string) {
   const exam = await repo.loadOwnedAssessment(examId, studentId);
   if (!exam) throw missing('Exam not found');
   if (exam.status !== 'completed') throw invalidRequest('Exam not completed');
 
-  const narrativeId = await narrative.resetNarrative(exam.id);
+  const narrativeId = await narrative.clearNarrative(exam.id);
   return { narrativeId, exam };
 }
 
-export async function getNarrative(examId: string, studentId: string) {
+export async function fetchNarrative(examId: string, studentId: string) {
   const exam = await repo.loadOwnedAssessment(examId, studentId);
   if (!exam) throw missing('Exam not found');
 
-  const row = await narrative.findNarrative(examId);
+  const row = await narrative.loadNarrative(examId);
   if (!row) throw missing('Narrative not found');
   return row;
 }
 
-export async function listExams(studentId: string) {
+export async function collectAssessments(studentId: string) {
   // An abandoned timed exam is closed when it next appears in a list, so history
   // never shows a section as "in progress" long after its time ran out.
   const expired = await database
@@ -385,16 +385,16 @@ export async function listExams(studentId: string) {
         lt(exams.deadlineAt, new Date(Date.now() - DEADLINE_LENIENCY_SECONDS * 1000)),
       ),
     );
-  for (const { id } of expired) await closeExpiredExam(id, studentId);
+  for (const { id } of expired) await closeExpiredAssessment(id, studentId);
 
   return repo.loadAssessmentsForStudent(studentId);
 }
 
-export async function getCatalogue() {
+export async function fetchCatalogue() {
   return repo.loadPublishedSets();
 }
 
-export async function getSetWithQuestions(setId: string) {
+export async function fetchSetWithQuestions(setId: string) {
   const set = await repo.loadSetById(setId);
   if (!set) throw missing('Question set not found');
   const questionRows = await repo.loadQuestionsForSet(setId);
@@ -402,7 +402,7 @@ export async function getSetWithQuestions(setId: string) {
 }
 
 /** Guards a route that only makes sense when the practice exam is this student's. */
-export async function assertOwnedExam(examId: string, studentId: string) {
+export async function ensureOwnedAssessment(examId: string, studentId: string) {
   const exam = await repo.loadOwnedAssessment(examId, studentId);
   if (!exam) throw missing('Exam not found');
   return exam;

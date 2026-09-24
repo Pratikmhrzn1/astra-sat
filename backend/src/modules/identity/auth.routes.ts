@@ -7,21 +7,21 @@ import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import * as service from './auth.service';
 import * as tokens from './auth.tokens';
 import {
-  changePasswordSchema,
-  forgotPasswordSchema,
-  loginSchema,
-  registerSchema,
-  resetPasswordSchema,
-  updateProfileSchema,
-  type ChangePasswordInput,
-  type ForgotPasswordInput,
-  type LoginInput,
-  type RegisterInput,
-  type ResetPasswordInput,
-  type UpdateProfileInput,
+  changePasswordRules,
+  forgotPasswordRules,
+  loginRules,
+  registerRules,
+  resetPasswordRules,
+  editAccountProfileRules,
+  type ChangePasswordPayload,
+  type ForgotPasswordPayload,
+  type LoginPayload,
+  type RegisterPayload,
+  type ResetPasswordPayload,
+  type UpdateAccountProfilePayload,
 } from './auth.schemas';
 
-export const authRouter = Router();
+export const accountRoutes = Router();
 
 /**
  * Volume guard on the unauthenticated endpoints. Disabled outside production
@@ -37,90 +37,90 @@ const authLimiter = rateLimit({
   skip: () => !settings.isProduction,
 });
 
-authRouter.post(
+accountRoutes.post(
   '/register',
   authLimiter,
-  checkBody(registerSchema),
+  checkBody(registerRules),
   wrapAsync(async (req, res) => {
-    const { accessToken, refreshToken, user } = await service.register(validatedBody<RegisterInput>(req));
-    tokens.setRefreshCookie(res, refreshToken);
+    const { accessToken, refreshToken, user } = await service.signUp(validatedBody<RegisterPayload>(req));
+    tokens.writeRefreshCookie(res, refreshToken);
     res.status(201).json({ accessToken, user });
   }),
 );
 
-authRouter.post(
+accountRoutes.post(
   '/login',
   authLimiter,
-  checkBody(loginSchema),
+  checkBody(loginRules),
   wrapAsync(async (req, res) => {
-    const { accessToken, refreshToken, user } = await service.login(validatedBody<LoginInput>(req));
-    tokens.setRefreshCookie(res, refreshToken);
+    const { accessToken, refreshToken, user } = await service.signIn(validatedBody<LoginPayload>(req));
+    tokens.writeRefreshCookie(res, refreshToken);
     res.json({ accessToken, user });
   }),
 );
 
 /** Deliberately unauthenticated — the expired access token is why we're here. */
-authRouter.post(
+accountRoutes.post(
   '/refresh',
   wrapAsync(async (req, res) => {
-    const { accessToken, rawToken } = await service.refresh(tokens.readRefreshCookie(req));
-    tokens.setRefreshCookie(res, rawToken);
+    const { accessToken, rawToken } = await service.renewSession(tokens.takeRefreshCookie(req));
+    tokens.writeRefreshCookie(res, rawToken);
     res.json({ accessToken });
   }),
 );
 
-authRouter.post(
+accountRoutes.post(
   '/logout',
   requireSession,
   wrapAsync(async (req, res) => {
-    await service.logout(tokens.readRefreshCookie(req));
-    tokens.clearRefreshCookie(res);
+    await service.signOut(tokens.takeRefreshCookie(req));
+    tokens.dropRefreshCookie(res);
     res.json({ ok: true });
   }),
 );
 
-authRouter.get(
+accountRoutes.get(
   '/me',
   requireSession,
   wrapAsync(async (req, res) => {
-    res.json(await service.getProfile(sessionUserId(req)));
+    res.json(await service.fetchAccountProfile(sessionUserId(req)));
   }),
 );
 
-authRouter.post(
+accountRoutes.post(
   '/change-password',
   requireSession,
-  checkBody(changePasswordSchema),
+  checkBody(changePasswordRules),
   wrapAsync(async (req, res) => {
-    await service.changePassword(sessionUserId(req), validatedBody<ChangePasswordInput>(req));
+    await service.replacePassword(sessionUserId(req), validatedBody<ChangePasswordPayload>(req));
     res.json({ ok: true });
   }),
 );
 
-authRouter.patch(
+accountRoutes.patch(
   '/profile',
   requireSession,
-  checkBody(updateProfileSchema),
+  checkBody(editAccountProfileRules),
   wrapAsync(async (req, res) => {
-    res.json(await service.updateProfile(sessionUserId(req), validatedBody<UpdateProfileInput>(req).name));
+    res.json(await service.editProfile(sessionUserId(req), validatedBody<UpdateAccountProfilePayload>(req).name));
   }),
 );
 
-authRouter.post(
+accountRoutes.post(
   '/forgot-password',
   authLimiter,
-  checkBody(forgotPasswordSchema),
+  checkBody(forgotPasswordRules),
   wrapAsync(async (req, res) => {
-    await service.requestPasswordReset(validatedBody<ForgotPasswordInput>(req));
+    await service.beginPasswordReset(validatedBody<ForgotPasswordPayload>(req));
     res.json({ ok: true });
   }),
 );
 
-authRouter.post(
+accountRoutes.post(
   '/reset-password',
-  checkBody(resetPasswordSchema),
+  checkBody(resetPasswordRules),
   wrapAsync(async (req, res) => {
-    await service.resetPassword(validatedBody<ResetPasswordInput>(req));
+    await service.completePasswordReset(validatedBody<ResetPasswordPayload>(req));
     res.json({ ok: true });
   }),
 );

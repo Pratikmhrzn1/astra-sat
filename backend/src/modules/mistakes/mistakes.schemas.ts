@@ -6,16 +6,16 @@ import { z } from 'zod';
  * Both filters are optional: with neither, the student practises their worst
  * misses across everything, which is the common case from the dashboard.
  */
-export const mistakePracticeSchema = z.object({
+export const mistakePracticeRules = z.object({
   subject: z.enum(['english', 'math']).optional(),
   skillCode: z.string().min(1).max(64).optional(),
   limit: z.number().int().min(1).max(20).optional().default(10),
 });
-export type MistakePracticeInput = z.infer<typeof mistakePracticeSchema>;
+export type MisstepPracticePayload = z.infer<typeof mistakePracticeRules>;
 
-export const mistakeQuerySchema = z.object({
+export const mistakeQueryRules = z.object({
   subject: z.enum(['english', 'math']).optional(),
   skillCode: z.string().min(1).max(64).optional(),
   status: z.enum(['open', 'resolved']).optional(),
 });
-export type MistakeQuery = z.infer<typeof mistakeQuerySchema>;
+export type MisstepQuery = z.infer<typeof mistakeQueryRules>;

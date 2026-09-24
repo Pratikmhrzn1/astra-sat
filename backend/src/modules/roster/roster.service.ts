@@ -2,29 +2,29 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
 import { examAnswers, exams, questionSets, questions, users } from '../../core/db/schema';
 import { notPermitted, missing } from '../../core/errors';
-import { getProfile, overview } from '../analytics';
+import { fetchLearnerProfile, insightsOverview } from '../analytics';
 import { examRepository } from '../exams';
-import { publicUserColumns } from '../identity';
+import { publicAccountFields } from '../identity';
 
 /**
  * A teacher's roster: the students assigned to them, and each student's goal,
  * analytics and exam history.
  *
  * **Students are owned.** A teacher may only see students whose `teacherId` is
- * theirs, so every student-scoped read passes through `assertOwnsStudent` — which
+ * theirs, so every student-scoped read passes through `ensureOwnsStudent` — which
  * other modules that act on a teacher's students (messages) reuse.
  */
 
 /**
  * Fails unless this student is assigned to this teacher.
  *
- * The projection is not decoration. `getStudentExamResults` returns this row to
+ * The projection is not decoration. `fetchStudentAssessmentResults` returns this row to
  * the teacher's browser verbatim, so the bare `select()` this used to be shipped
  * the student's `password_hash` to the client on every results page.
- * `publicUserColumns` is the shared definition of what is safe to put on the
+ * `publicAccountFields` is the shared definition of what is safe to put on the
  * wire — widen that, never this call site.
  */
-export async function assertOwnsStudent(
+export async function ensureOwnsStudent(
   teacherId: string,
   studentId: string,
   /**
@@ -34,7 +34,7 @@ export async function assertOwnsStudent(
   onMissing: 'notFound' | 'forbidden' = 'notFound',
 ) {
   const [student] = await database
-    .select(publicUserColumns)
+    .select(publicAccountFields)
     .from(users)
     .where(and(eq(users.id, studentId), eq(users.teacherId, teacherId)))
     .limit(1);
@@ -46,7 +46,7 @@ export async function assertOwnsStudent(
   return student;
 }
 
-export async function listStudents(teacherId: string) {
+export async function collectStudents(teacherId: string) {
   return database
     .select({ id: users.id, email: users.email, name: users.name, createdAt: users.createdAt })
     .from(users)
@@ -60,9 +60,9 @@ export async function listStudents(teacherId: string) {
  * that as "no target set" rather than substituting a number — the same rule the
  * student's own dashboard follows.
  */
-export async function getStudentDetail(teacherId: string, studentId: string) {
-  const student = await assertOwnsStudent(teacherId, studentId);
-  return { student, profile: await getProfile(studentId) };
+export async function fetchStudentDetail(teacherId: string, studentId: string) {
+  const student = await ensureOwnsStudent(teacherId, studentId);
+  return { student, profile: await fetchLearnerProfile(studentId) };
 }
 
 /**
@@ -72,9 +72,9 @@ export async function getStudentDetail(teacherId: string, studentId: string) {
  * one student id. A teacher and a student disagreeing about a percentage is a
  * support conversation nobody wants.
  */
-export async function getStudentAnalytics(teacherId: string, studentId: string) {
-  await assertOwnsStudent(teacherId, studentId);
-  return overview(studentId);
+export async function fetchStudentAnalytics(teacherId: string, studentId: string) {
+  await ensureOwnsStudent(teacherId, studentId);
+  return insightsOverview(studentId);
 }
 
 /**
@@ -84,11 +84,11 @@ export async function getStudentAnalytics(teacherId: string, studentId: string) 
  * practice and mistake reviews are assembled across many sets and own none. An
  * `innerJoin` here silently dropped those rows, so a teacher would have seen an
  * incomplete history the moment set-less exams existed —
- * `getStudentExamResults` below already tolerated a null `setId`, so the two
+ * `fetchStudentAssessmentResults` below already tolerated a null `setId`, so the two
  * disagreed. Such an exam carries its own `label` instead of a set title.
  */
-export async function listStudentExams(teacherId: string, studentId: string) {
-  await assertOwnsStudent(teacherId, studentId);
+export async function collectStudentAssessments(teacherId: string, studentId: string) {
+  await ensureOwnsStudent(teacherId, studentId);
 
   return database
     .select({
@@ -121,8 +121,8 @@ export async function listStudentExams(teacherId: string, studentId: string) {
     .orderBy(desc(exams.startedAt));
 }
 
-export async function getStudentExamResults(teacherId: string, studentId: string, examId: string) {
-  const student = await assertOwnsStudent(teacherId, studentId);
+export async function fetchStudentAssessmentResults(teacherId: string, studentId: string, examId: string) {
+  const student = await ensureOwnsStudent(teacherId, studentId);
 
   const [exam] = await database
     .select()

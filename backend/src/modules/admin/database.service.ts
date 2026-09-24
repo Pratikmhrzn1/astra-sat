@@ -30,7 +30,7 @@ import {
 } from '../../core/db/schema';
 import { applySchema } from '../../core/db/migrate';
 import { invalidRequest, internalFailure } from '../../core/errors';
-import type { RestoreInput } from './admin.schemas';
+import type { RestorePayload } from './admin.schemas';
 
 /**
  * Database operations exposed to admins from the Database screen.
@@ -47,7 +47,7 @@ import type { RestoreInput } from './admin.schemas';
  * violates a foreign key: parents first, children after.
  *
  * That ordering is load-bearing, and it is the *only* thing keeping the restore
- * valid — see the note in `restoreBackup` about constraint deferral, which does
+ * valid — see the note in `applyBackup` about constraint deferral, which does
  * not do what it appears to. Never reorder these without checking the FKs.
  *
  * `organizations` has to be here even though nothing scopes by it yet: the
@@ -158,7 +158,7 @@ assertEveryTableClassified();
 /**
  * Drizzle property name → SQL column name, per backup table.
  *
- * `createBackup` exports rows through Drizzle, so every key in a backup file is
+ * `addBackup` exports rows through Drizzle, so every key in a backup file is
  * a *property* name (`passwordHash`). The column it has to be written back to is
  * snake_case (`password_hash`), and a quoted identifier in Postgres is
  * case-sensitive — so inserting a backup's keys verbatim failed on every
@@ -177,13 +177,13 @@ const COLUMN_NAMES: Record<string, Record<string, string>> = Object.fromEntries(
   ]),
 );
 
-export interface Backup {
+export interface BackupBundle {
   version: number;
   exportedAt: string;
   data: Record<string, unknown[]>;
 }
 
-export async function createBackup(): Promise<{ backup: Backup; filename: string }> {
+export async function addBackup(): Promise<{ backup: BackupBundle; filename: string }> {
   const tables = await Promise.all(BACKUP_TABLES.map(({ table }) => database.select().from(table)));
 
   const data: Record<string, unknown[]> = {};
@@ -211,7 +211,7 @@ export async function createBackup(): Promise<{ backup: Backup; filename: string
  * is `BACKUP_TABLES` being in dependency order, plus the `users` sort below for
  * the one self-reference. Do not rely on deferral to cover a new FK.
  */
-export async function restoreBackup(input: RestoreInput): Promise<{ ok: true; message: string }> {
+export async function applyBackup(input: RestorePayload): Promise<{ ok: true; message: string }> {
   const client = await pgPool.connect();
 
   try {
@@ -298,7 +298,7 @@ async function insertRows(
   return unknown;
 }
 
-export async function runMigrationsNow(): Promise<{ ok: true; message: string }> {
+export async function executeMigrationsNow(): Promise<{ ok: true; message: string }> {
   try {
     await applySchema();
     return { ok: true, message: 'Migrations completed successfully' };
@@ -308,7 +308,7 @@ export async function runMigrationsNow(): Promise<{ ok: true; message: string }>
   }
 }
 
-export interface SqlResult {
+export interface SqlOutcome {
   ok: true;
   statements: number;
   rowsAffected: number;
@@ -324,7 +324,7 @@ export interface SqlResult {
  * back as a 400 with the driver's message, because the caller is a person
  * debugging their own statement.
  */
-export async function runSql(statement: string): Promise<SqlResult> {
+export async function executeSql(statement: string): Promise<SqlOutcome> {
   const client = await pgPool.connect();
   try {
     const result = await client.query(statement);

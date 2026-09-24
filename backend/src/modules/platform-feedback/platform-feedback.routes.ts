@@ -3,46 +3,46 @@ import { wrapAsync } from '../../core/http/async-handler';
 import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
 import { parseOrReject } from '../../core/http/middleware/validate';
 import * as service from './platform-feedback.service';
-import { submitFeedbackSchema } from './platform-feedback.schemas';
+import { commitFeedbackRules } from './platform-feedback.schemas';
 
 /** Any signed-in user files a report; only admins read, mark and delete them. */
-export const platformFeedbackRouter = Router();
+export const reportRoutes = Router();
 
-platformFeedbackRouter.post(
+reportRoutes.post(
   '/',
   requireSession,
   wrapAsync(async (req, res) => {
-    const input = parseOrReject(submitFeedbackSchema, req.body);
-    const row = await service.submitFeedback(sessionUserId(req), input);
+    const input = parseOrReject(commitFeedbackRules, req.body);
+    const row = await service.commitFeedback(sessionUserId(req), input);
     res.status(201).json({ id: row.id });
   }),
 );
 
-platformFeedbackRouter.get(
+reportRoutes.get(
   '/',
   requireSession,
   requireAccountRole(['admin']),
   wrapAsync(async (_req, res) => {
-    res.json(await service.listFeedback());
+    res.json(await service.collectReports());
   }),
 );
 
-platformFeedbackRouter.patch(
+reportRoutes.patch(
   '/:id/read',
   requireSession,
   requireAccountRole(['admin']),
   wrapAsync(async (req, res) => {
-    await service.markRead(req.params.id);
+    await service.flagReportSeen(req.params.id);
     res.json({ ok: true });
   }),
 );
 
-platformFeedbackRouter.delete(
+reportRoutes.delete(
   '/:id',
   requireSession,
   requireAccountRole(['admin']),
   wrapAsync(async (req, res) => {
-    await service.deleteFeedback(req.params.id);
+    await service.removeFeedback(req.params.id);
     res.status(204).send();
   }),
 );

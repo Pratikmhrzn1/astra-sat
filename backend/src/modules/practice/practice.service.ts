@@ -20,7 +20,7 @@ import {
   type FeedbackKind,
 } from '../ai';
 import { examRepository as repo, markAnswer, isAnswered } from '../exams';
-import type { ConfirmAnswerInput } from './practice.schemas';
+import type { ConfirmAnswerPayload } from './practice.schemas';
 
 /**
  * Practice mode's per-question "confirm" step.
@@ -36,7 +36,7 @@ import type { ConfirmAnswerInput } from './practice.schemas';
  * or expensive (re-running cached calls, charging budget for cache hits).
  */
 
-export interface ConfirmResult {
+export interface ConfirmOutcome {
   isCorrect: boolean;
   feedbacks: Record<string, unknown>;
   vocabTrackingId: string | null;
@@ -49,12 +49,12 @@ function minutesPhrase(seconds: number): string {
   return `${minutes} minute${minutes === 1 ? '' : 's'}`;
 }
 
-export async function confirmAnswer(
+export async function acknowledgeAnswer(
   studentId: string,
   examId: string,
   questionId: string,
-  input: ConfirmAnswerInput,
-): Promise<ConfirmResult> {
+  input: ConfirmAnswerPayload,
+): Promise<ConfirmOutcome> {
   const exam = await repo.loadOwnedAssessment(examId, studentId);
   if (!exam) throw missing('Exam not found');
   // Mock and live attempts are assessments — feedback there would amount to

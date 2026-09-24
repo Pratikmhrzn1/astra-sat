@@ -3,7 +3,7 @@ import { database } from '../../core/db';
 import { skills } from '../../core/db/schema';
 import { invalidRequest, missing } from '../../core/errors';
 import { buildAssessmentWithSheet } from '../exams';
-import type { TopicExamInput } from './practice.schemas';
+import type { TopicAssessmentPayload } from './practice.schemas';
 
 /**
  * Practice assembled by topic rather than by set.
@@ -24,7 +24,7 @@ import type { TopicExamInput } from './practice.schemas';
  */
 const MIN_TOPIC_QUESTIONS = 5;
 
-export async function startTopicExam(studentId: string, input: TopicExamInput) {
+export async function openTopicAssessment(studentId: string, input: TopicAssessmentPayload) {
   const [skill] = await database
     .select({ code: skills.code, label: skills.label, subject: skills.subject })
     .from(skills)
@@ -73,7 +73,7 @@ export async function startTopicExam(studentId: string, input: TopicExamInput) {
  * archived, not retired — because a question that cannot be served in practice
  * must not be served here either.
  */
-async function pickQuestions(studentId: string, input: TopicExamInput): Promise<string[]> {
+async function pickQuestions(studentId: string, input: TopicAssessmentPayload): Promise<string[]> {
   const result = await database.execute<{ id: string }>(sql`
     SELECT q.id
       FROM questions q

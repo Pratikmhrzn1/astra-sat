@@ -15,7 +15,7 @@ import { auditLog, users } from '../../core/db/schema';
  * admin it didn't.
  */
 
-export type AuditAction =
+export type TrailAction =
   | 'user.updated'
   | 'user.deleted'
   | 'users.assigned_teacher'
@@ -30,16 +30,16 @@ export type AuditAction =
   | 'question_set.deleted'
   | 'survey.question_deleted';
 
-export interface AuditEntry {
+export interface TrailEntry {
   actorId: string | null;
-  action: AuditAction;
+  action: TrailAction;
   targetType?: string;
   targetId?: string;
   /** Never put secrets here — no passwords, no hashes, no query results. */
   payload?: Record<string, unknown>;
 }
 
-export async function logAudit(entry: AuditEntry): Promise<void> {
+export async function logTrail(entry: TrailEntry): Promise<void> {
   const row = {
     actorId: entry.actorId,
     action: entry.action,
@@ -70,7 +70,7 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
 }
 
 /** Newest first, with the actor's name where the account still exists. */
-export async function listAudit(limit = 100) {
+export async function collectTrail(limit = 100) {
   return database
     .select({
       id: auditLog.id,

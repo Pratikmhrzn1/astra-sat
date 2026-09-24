@@ -2,14 +2,14 @@ import { desc, eq } from 'drizzle-orm';
 import { database } from '../../core/db';
 import { platformFeedback, users } from '../../core/db/schema';
 import { missing } from '../../core/errors';
-import type { SubmitFeedbackInput } from './platform-feedback.schemas';
+import type { SubmitFeedbackPayload } from './platform-feedback.schemas';
 
 /**
  * Bug reports and suggestions about the platform itself, submitted from the
  * in-app feedback modal. Any signed-in user can file one; only admins read them.
  */
 
-export async function submitFeedback(userId: string, input: SubmitFeedbackInput) {
+export async function commitFeedback(userId: string, input: SubmitFeedbackPayload) {
   const [row] = await database
     .insert(platformFeedback)
     .values({ userId, category: input.category, message: input.message })
@@ -17,7 +17,7 @@ export async function submitFeedback(userId: string, input: SubmitFeedbackInput)
   return row;
 }
 
-export async function listFeedback() {
+export async function collectReports() {
   // LEFT JOIN so a report survives the reporter's account being deleted.
   return database
     .select({
@@ -35,7 +35,7 @@ export async function listFeedback() {
     .orderBy(desc(platformFeedback.createdAt));
 }
 
-export async function markRead(id: string): Promise<void> {
+export async function flagReportSeen(id: string): Promise<void> {
   const updated = await database
     .update(platformFeedback)
     .set({ isRead: true })
@@ -44,7 +44,7 @@ export async function markRead(id: string): Promise<void> {
   if (updated.length === 0) throw missing('Feedback not found');
 }
 
-export async function deleteFeedback(id: string): Promise<void> {
+export async function removeFeedback(id: string): Promise<void> {
   const deleted = await database
     .delete(platformFeedback)
     .where(eq(platformFeedback.id, id))

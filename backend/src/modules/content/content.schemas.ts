@@ -7,7 +7,7 @@ import { z } from 'zod';
  * too. Kept only because the AI classifier's prompt still names these five and
  * the column still exists; new tagging goes through `skillCodeField`.
  */
-export const SUB_SKILLS = [
+export const LEGACY_SUB_SKILLS = [
   'grammar',
   'inference',
   'command_of_evidence',
@@ -15,7 +15,7 @@ export const SUB_SKILLS = [
   'transitions',
 ] as const;
 
-const subSkillField = z.enum(SUB_SKILLS).nullable().optional();
+const subSkillField = z.enum(LEGACY_SUB_SKILLS).nullable().optional();
 
 /**
  * A domain or skill code from the `skills` table.
@@ -33,28 +33,28 @@ const skillCodeField = z.string().min(1).max(64).nullable().optional();
  */
 const questionDifficultyField = z.enum(['easy', 'medium', 'hard']).nullable().optional();
 
-export const createSetSchema = z.object({
+export const addSetRules = z.object({
   title: z.string().min(1).max(255),
   subject: z.enum(['english', 'math']),
   description: z.string().max(2000).optional().default(''),
   difficulty: z.enum(['low', 'medium', 'hard']).nullable().optional(),
   isLiveExam: z.boolean().optional().default(false),
 });
-export type CreateSetInput = z.infer<typeof createSetSchema>;
+export type CreateSetPayload = z.infer<typeof addSetRules>;
 
-export const updateSetSchema = createSetSchema.partial();
-export type UpdateSetInput = z.infer<typeof updateSetSchema>;
+export const editSetRules = addSetRules.partial();
+export type UpdateSetPayload = z.infer<typeof editSetRules>;
 
 /**
  * Bulk import of a whole set.
  *
- * `isDraft` defaults to true to match `createSet`: an imported set used to
+ * `isDraft` defaults to true to match `addSet`: an imported set used to
  * publish the instant it landed, so a bad paste was live to students before
  * anyone had looked at it. Pass `isDraft: false` to import something already
  * reviewed. Set-level `difficulty` is accepted because without it an imported
  * set is invisible to adaptive module selection, which picks by tier.
  */
-export const importJsonSchema = z.object({
+export const ingestJsonRules = z.object({
   title: z.string().min(1).max(255),
   subject: z.enum(['english', 'math']),
   description: z.string().max(2000).optional().default(''),
@@ -91,17 +91,17 @@ export const importJsonSchema = z.object({
     )
     .min(1, 'At least one question is required'),
 });
-export type ImportJsonInput = z.infer<typeof importJsonSchema>;
+export type ImportJsonPayload = z.infer<typeof ingestJsonRules>;
 
-export const createPassageSchema = z.object({
+export const addPassageRules = z.object({
   title: z.string().max(255).optional().default(''),
   passageText: z.string().min(1, 'Passage text is required').max(20000),
   orderIndex: z.number().int().min(0).optional().default(0),
 });
-export type CreatePassageInput = z.infer<typeof createPassageSchema>;
+export type CreatePassagePayload = z.infer<typeof addPassageRules>;
 
-export const updatePassageSchema = createPassageSchema.partial();
-export type UpdatePassageInput = z.infer<typeof updatePassageSchema>;
+export const editPassageRules = addPassageRules.partial();
+export type UpdatePassagePayload = z.infer<typeof editPassageRules>;
 
 /**
  * Multiple choice and grid-in questions have genuinely different requirements —
@@ -109,7 +109,7 @@ export type UpdatePassageInput = z.infer<typeof updatePassageSchema>;
  * schema is a discriminated union rather than one shape with everything
  * optional. That way "an MC question with no option C" is rejected at the edge.
  */
-export const createQuestionSchema = z.discriminatedUnion('questionType', [
+export const addQuestionRules = z.discriminatedUnion('questionType', [
   z.object({
     questionType: z.literal('multiple_choice'),
     passageId: z.string().uuid().nullable().optional(),
@@ -144,7 +144,7 @@ export const createQuestionSchema = z.discriminatedUnion('questionType', [
     orderIndex: z.number().int().min(0).default(0),
   }),
 ]);
-export type CreateQuestionInput = z.infer<typeof createQuestionSchema>;
+export type CreateQuestionPayload = z.infer<typeof addQuestionRules>;
 
 /**
  * Editable fields of an existing question.
@@ -154,12 +154,12 @@ export type CreateQuestionInput = z.infer<typeof createQuestionSchema>;
  * `generated`, simply by naming the column. Identity and provenance columns are
  * absent by design.
  */
-export const updateQuestionSchema = z
+export const editQuestionRules = z
   .object({
     passageId: z.string().uuid().nullable(),
     questionType: z.enum(['multiple_choice', 'student_produced_response']),
     questionText: z.string().min(1),
-    subSkill: z.enum(SUB_SKILLS).nullable(),
+    subSkill: z.enum(LEGACY_SUB_SKILLS).nullable(),
     skillCode: z.string().min(1).max(64).nullable(),
     difficulty: z.enum(['easy', 'medium', 'hard']).nullable(),
     optionA: z.string().nullable(),
@@ -173,7 +173,7 @@ export const updateQuestionSchema = z
     orderIndex: z.number().int().min(0),
   })
   .partial();
-export type UpdateQuestionInput = z.infer<typeof updateQuestionSchema>;
+export type UpdateQuestionPayload = z.infer<typeof editQuestionRules>;
 
 /**
  * The AI Review flow: confirm or override a machine-suggested tag.
@@ -183,20 +183,20 @@ export type UpdateQuestionInput = z.infer<typeof updateQuestionSchema>;
  * provenance marker — writing `human_confirmed` is what removes a question from
  * the review queue.
  */
-export const updateSubSkillSchema = z.object({
+export const editSubSkillRules = z.object({
   skillCode: z.string().min(1).max(64).nullable().optional(),
   subSkillSource: z.enum(['ai_suggested', 'human_confirmed']),
 });
-export type UpdateSubSkillInput = z.infer<typeof updateSubSkillSchema>;
+export type UpdateSubSkillPayload = z.infer<typeof editSubSkillRules>;
 
-export const flagContentSchema = z.object({
+export const flagContentRules = z.object({
   qualityFlag: z.enum(['approved', 'rejected']),
   rejectionReason: z.string().optional(),
 });
-export type FlagContentInput = z.infer<typeof flagContentSchema>;
+export type FlagContentPayload = z.infer<typeof flagContentRules>;
 
-export const listContentQuerySchema = z.object({
+export const collectContentQueryRules = z.object({
   type: z.enum(['vocab_quiz', 'skill_passage']).optional(),
   flag: z.enum(['pending', 'approved', 'rejected']).optional(),
 });
-export type ListContentQuery = z.infer<typeof listContentQuerySchema>;
+export type ContentQuery = z.infer<typeof collectContentQueryRules>;

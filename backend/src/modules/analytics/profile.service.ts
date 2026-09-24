@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { database } from '../../core/db';
 import { studentProfiles } from '../../core/db/schema';
-import type { UpdateProfileInput } from './analytics.schemas';
+import type { UpdateLearnerProfilePayload } from './analytics.schemas';
 
 /**
  * The goal a student is working towards: a target total and the sitting they
@@ -14,10 +14,10 @@ import type { UpdateProfileInput } from './analytics.schemas';
  * inventing a number.
  */
 
-export type StudentProfile = typeof studentProfiles.$inferSelect;
+export type LearnerProfile = typeof studentProfiles.$inferSelect;
 
 /** Null when the student has not set a goal yet — the caller must prompt, not guess. */
-export async function getProfile(studentId: string): Promise<StudentProfile | null> {
+export async function fetchLearnerProfile(studentId: string): Promise<LearnerProfile | null> {
   const [profile] = await database
     .select()
     .from(studentProfiles)
@@ -32,10 +32,10 @@ export async function getProfile(studentId: string): Promise<StudentProfile | nu
  * An upsert on the unique `student_id` rather than a read-then-write, so two
  * concurrent saves cannot race into a duplicate-key error.
  */
-export async function upsertProfile(
+export async function saveLearnerProfile(
   studentId: string,
-  input: UpdateProfileInput,
-): Promise<StudentProfile> {
+  input: UpdateLearnerProfilePayload,
+): Promise<LearnerProfile> {
   const values = {
     targetScore: input.targetScore ?? null,
     testDate: input.testDate ?? null,
