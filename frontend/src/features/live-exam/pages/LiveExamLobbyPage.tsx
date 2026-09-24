@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '@/features/auth';
-import { joinSession, pollSession, type JoinResponse } from '@/features/live-exam/api';
-import { getApiError } from '@/shared/api/http';
-import { JoinCodePlate, liveTitleClass } from '@/features/live-exam/components/ui';
-import { Button, surfaceClass, kickerClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { useSessionVault } from '@/features/auth';
+import { enterSession, checkSession, type JoinReply } from '@/features/live-exam/api';
+import { fetchApiError } from '@/shared/api/http';
+import { EntryCodePlate, sessionTitleStyle } from '@/features/live-exam/components/ui';
+import { Control, surfaceStyle, kickerStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * The waiting room a student sits in between entering the code and the teacher
@@ -17,11 +17,11 @@ import { cn } from '@/shared/lib/utils';
 
 const POLL_MS = 3000;
 
-export default function LiveExamLobby() {
+export default function LiveAssessmentLobby() {
   const { joinCode } = useParams<{ joinCode: string }>();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
-  const [joined, setJoined] = useState<JoinResponse | null>(null);
+  const { user } = useSessionVault();
+  const [joined, setJoined] = useState<JoinReply | null>(null);
   const [error, setError] = useState('');
   const [joining, setJoining] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -34,12 +34,12 @@ export default function LiveExamLobby() {
   useEffect(() => {
     if (!user || !joinCode) return;
     setJoining(true);
-    joinSession(joinCode)
+    enterSession(joinCode)
       .then((resp) => {
         setJoined(resp);
         launch(resp);
       })
-      .catch((err) => setError(getApiError(err)))
+      .catch((err) => setError(fetchApiError(err)))
       .finally(() => setJoining(false));
   }, [user, joinCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -57,7 +57,7 @@ export default function LiveExamLobby() {
 
     pollRef.current = setInterval(async () => {
       try {
-        const poll = await pollSession(joinCode);
+        const poll = await checkSession(joinCode);
         if (poll.englishExamId) {
           if (pollRef.current) clearInterval(pollRef.current);
           launch({ ...joined, ...poll });
@@ -71,7 +71,7 @@ export default function LiveExamLobby() {
   }, [joined, joinCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Guarded: a poll landing while navigation is in flight must not fire twice. */
-  function launch(data: JoinResponse) {
+  function launch(data: JoinReply) {
     if (!data.englishExamId || launchedRef.current) return;
     launchedRef.current = true;
     navigate(`/student/exams/${data.englishExamId}`, {
@@ -90,15 +90,15 @@ export default function LiveExamLobby() {
 
   return (
     <div className="min-h-[100dvh] bg-paper flex flex-col items-center justify-center px-4 py-6">
-      <div className={cn(surfaceClass, 'screen-fade px-[clamp(20px,5vw,36px)] py-[clamp(28px,6vw,40px)] max-w-[440px] w-full text-center')}>
+      <div className={classes(surfaceStyle, 'screen-fade px-[clamp(20px,5vw,36px)] py-[clamp(28px,6vw,40px)] max-w-[440px] w-full text-center')}>
         {error ? (
           <>
             <StateIcon tone="danger">!</StateIcon>
-            <h1 className={cn(liveTitleClass, 'text-[28px] mb-2')}>Can't join</h1>
+            <h1 className={classes(sessionTitleStyle, 'text-[28px] mb-2')}>Can't join</h1>
             <p className="text-[14.5px] text-subtle leading-[1.6] mt-0 mb-6">{error}</p>
             <div className="flex gap-2 justify-center flex-wrap">
-              <Button type="button" variant="secondary" onClick={() => navigate('/student/dashboard')}>Dashboard</Button>
-              <Button type="button" onClick={() => navigate('/student/live-exam')}>Try another code</Button>
+              <Control type="button" variant="secondary" onClick={() => navigate('/student/dashboard')}>Dashboard</Control>
+              <Control type="button" onClick={() => navigate('/student/live-exam')}>Try another code</Control>
             </div>
           </>
         ) : joining || !joined ? (
@@ -109,15 +109,15 @@ export default function LiveExamLobby() {
         ) : (
           <>
             <StateIcon tone="success">✓</StateIcon>
-            <h1 className={cn(liveTitleClass, 'text-[30px] mb-2')}>You're in</h1>
+            <h1 className={classes(sessionTitleStyle, 'text-[30px] mb-2')}>You're in</h1>
             <p className="text-[14.5px] text-subtle leading-[1.6] mx-auto mt-0 mb-6 max-w-[320px]">
               Keep this page open. Your paper opens by itself the moment your teacher starts.
             </p>
 
             <div className="bg-[#FBFAF8] border border-sunken rounded-xl px-3 py-3.5 mb-[22px]">
-              <div className={cn(kickerClass, 'mb-2')}>Session code</div>
+              <div className={classes(kickerStyle, 'mb-2')}>Session code</div>
               <div className="flex justify-center">
-                <JoinCodePlate code={(joinCode ?? '').toUpperCase()} size="small" />
+                <EntryCodePlate code={(joinCode ?? '').toUpperCase()} size="small" />
               </div>
             </div>
 
@@ -128,7 +128,7 @@ export default function LiveExamLobby() {
                 <span
                   key={delay}
                   aria-hidden
-                  className={cn('inline-block w-[7px] h-[7px] rounded-full bg-ember animate-lobby-pulse motion-reduce:animate-none motion-reduce:opacity-60', delay)}
+                  className={classes('inline-block w-[7px] h-[7px] rounded-full bg-ember animate-lobby-pulse motion-reduce:animate-none motion-reduce:opacity-60', delay)}
                 />
               ))}
               <span className="text-[13px] text-subtle ml-1.5">Waiting for your teacher to start</span>
@@ -153,7 +153,7 @@ function StateIcon({ tone, children }: { tone: 'success' | 'danger'; children: R
   return (
     <div
       aria-hidden
-      className={cn(
+      className={classes(
         'w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center text-[22px] font-bold leading-none',
         tone === 'success' ? 'bg-green-dark/10 text-green-dark' : 'bg-danger/[.08] text-danger',
       )}

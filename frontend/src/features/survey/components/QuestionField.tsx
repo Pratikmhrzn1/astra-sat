@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react';
-import { SCALE_MAX, SCALE_MIN, type SurveyAnswer, type SurveyQuestion } from '@/features/survey/api';
-import { inputClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { SCALE_CEILING, SCALE_FLOOR, type IntakeAnswer, type IntakeQuestion } from '@/features/survey/api';
+import { fieldInputStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * The one place a survey question is rendered as something to answer.
@@ -11,7 +11,7 @@ import { cn } from '@/shared/lib/utils';
  * previewing a question cannot be shown a stale imitation of it.
  */
 
-export function isAnswered(answer: SurveyAnswer | undefined): boolean {
+export function hasResponse(answer: IntakeAnswer | undefined): boolean {
   if (answer === undefined) return false;
   if (typeof answer === 'string') return answer.trim().length > 0;
   if (Array.isArray(answer)) return answer.length > 0;
@@ -31,8 +31,8 @@ export function isAnswered(answer: SurveyAnswer | undefined): boolean {
  * exactly right here; naming a subset would drop transform from the transition
  * and make the press release snap.
  */
-export const choiceClass = (selected: boolean, className?: string) =>
-  cn(
+export const choiceStyle = (selected: boolean, className?: string) =>
+  classes(
     'w-full flex items-center gap-3 text-left px-4 py-3 rounded-xl text-[14.5px] text-ink cursor-pointer',
     'border-[1.5px]',
     selected ? 'bg-ember/[.06] border-ember' : 'bg-white border-border hover:border-field',
@@ -46,11 +46,11 @@ export const choiceClass = (selected: boolean, className?: string) =>
  * The tick is always in the DOM and animates in on opacity, scale and blur —
  * toggling visibility would make the state arrive with no transition at all.
  */
-export function ChoiceIndicator({ multi, selected }: { multi: boolean; selected: boolean }) {
+export function ChoiceMarker({ multi, selected }: { multi: boolean; selected: boolean }) {
   return (
     <span
       aria-hidden
-      className={cn(
+      className={classes(
         'w-[22px] h-[22px] shrink-0 flex items-center justify-center border-[1.5px]',
         multi ? 'rounded-[7px]' : 'rounded-full',
         'transition-[background-color,border-color] duration-quick ease-ui',
@@ -60,7 +60,7 @@ export function ChoiceIndicator({ multi, selected }: { multi: boolean; selected:
       <Check
         size={13}
         strokeWidth={3}
-        className={cn(
+        className={classes(
           'transition-[opacity,transform,filter] duration-quick ease-[cubic-bezier(0.2,0,0,1)]',
           selected ? 'opacity-100 scale-100 blur-0' : 'opacity-0 scale-[0.25] blur-[4px]',
         )}
@@ -69,16 +69,16 @@ export function ChoiceIndicator({ multi, selected }: { multi: boolean; selected:
   );
 }
 
-export function QuestionField({
+export function ItemField({
   question,
   value,
   onChange,
   /** Set on the field the "answer this one" jump landed on. */
   highlighted = false,
 }: {
-  question: SurveyQuestion;
-  value: SurveyAnswer | undefined;
-  onChange: (next: SurveyAnswer) => void;
+  question: IntakeQuestion;
+  value: IntakeAnswer | undefined;
+  onChange: (next: IntakeAnswer) => void;
   highlighted?: boolean;
 }) {
   if (question.type === 'short_text') {
@@ -90,7 +90,7 @@ export function QuestionField({
         placeholder="Your answer"
         aria-label={question.prompt}
         aria-required={question.isRequired}
-        className={inputClass(false, cn('resize-y min-h-[84px]', highlighted && 'border-ember'))}
+        className={fieldInputStyle(false, classes('resize-y min-h-[84px]', highlighted && 'border-ember'))}
       />
     );
   }
@@ -100,14 +100,14 @@ export function QuestionField({
     return (
       <div>
         <div role="radiogroup" aria-label={question.prompt} aria-required={question.isRequired} className="flex gap-2">
-          {Array.from({ length: SCALE_MAX - SCALE_MIN + 1 }, (_, i) => SCALE_MIN + i).map((n) => (
+          {Array.from({ length: SCALE_CEILING - SCALE_FLOOR + 1 }, (_, i) => SCALE_FLOOR + i).map((n) => (
             <button
               key={n}
               type="button"
               role="radio"
               aria-checked={selected === n}
               onClick={() => onChange(n)}
-              className={cn(
+              className={classes(
                 'flex-1 h-12 rounded-xl text-[15px] font-semibold text-ink cursor-pointer border-[1.5px]',
                 selected === n ? 'bg-ember/[.06] border-ember' : 'bg-white border-border hover:border-field',
               )}
@@ -143,9 +143,9 @@ export function QuestionField({
               aria-checked={selected}
               data-press="soft"
               onClick={() => onChange(selected ? picked.filter((o) => o !== option) : [...picked, option])}
-              className={choiceClass(selected)}
+              className={choiceStyle(selected)}
             >
-              <ChoiceIndicator multi selected={selected} />
+              <ChoiceMarker multi selected={selected} />
               {option}
             </button>
           );
@@ -164,9 +164,9 @@ export function QuestionField({
           aria-checked={value === option}
           data-press="soft"
           onClick={() => onChange(option)}
-          className={choiceClass(value === option)}
+          className={choiceStyle(value === option)}
         >
-          <ChoiceIndicator multi={false} selected={value === option} />
+          <ChoiceMarker multi={false} selected={value === option} />
           {option}
         </button>
       ))}

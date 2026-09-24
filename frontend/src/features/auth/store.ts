@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type Role = 'student' | 'teacher' | 'admin';
+export type AccountRole = 'student' | 'teacher' | 'admin';
 
-export interface AuthUser {
+export interface SessionAccount {
   id: string;
   name: string;
   email: string;
-  role: Role;
+  role: AccountRole;
   teacherId?: string | null;
   /**
    * Whether the onboarding survey is behind them. Sent on every auth payload;
@@ -19,15 +19,15 @@ export interface AuthUser {
 }
 
 interface AuthState {
-  user: AuthUser | null;
+  user: SessionAccount | null;
   accessToken: string | null;
-  login: (user: AuthUser, accessToken: string) => void;
+  login: (user: SessionAccount, accessToken: string) => void;
   logout: () => void;
   setAccessToken: (token: string) => void;
-  setUser: (user: AuthUser) => void;
+  setUser: (user: SessionAccount) => void;
 }
 
-export const useAuthStore = create<AuthState>()(
+export const useSessionVault = create<AuthState>()(
   persist(
     (set) => ({
       user: null,

@@ -5,32 +5,32 @@ import axios from 'axios';
  * startup (see features/auth/session.ts, wired in main.tsx), so this shared
  * transport never imports feature state.
  */
-export interface HttpSession {
+export interface TransportSession {
   getAccessToken(): string | null;
   setAccessToken(token: string): void;
   /** The refresh endpoint rejected the session: sign out and send the user to log in. */
   onSessionExpired(): void;
 }
 
-let session: HttpSession = {
+let session: TransportSession = {
   getAccessToken: () => null,
   setAccessToken: () => {},
   onSessionExpired: () => {},
 };
 
-export function configureSession(next: HttpSession): void {
+export function installSession(next: TransportSession): void {
   session = next;
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-export const apiClient = axios.create({
+export const apiTransport = axios.create({
   baseURL: `${API_BASE}/api`,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true, // send the httpOnly refresh-token cookie on every request
 });
 
-apiClient.interceptors.request.use((config) => {
+apiTransport.interceptors.request.use((config) => {
   const token = session.getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -73,7 +73,7 @@ async function doRefresh(): Promise<string> {
 // Called on tab-focus before any API calls fire. Refreshes the token silently if
 // it's expired or within 60 seconds of expiry, so React Query's refetchOnWindowFocus
 // burst doesn't hit the backend with a wave of 401s.
-export async function proactiveRefresh(): Promise<void> {
+export async function proactiveRenew(): Promise<void> {
   if (isRefreshing) return;
   const accessToken = session.getAccessToken();
   if (!accessToken) return;
@@ -94,7 +94,7 @@ export async function proactiveRefresh(): Promise<void> {
   }
 }
 
-apiClient.interceptors.response.use(
+apiTransport.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
@@ -105,13 +105,13 @@ apiClient.interceptors.response.use(
         })
           .then((token) => {
             originalRequest.headers.Authorization = `Bearer ${token}`;
-            return apiClient(originalRequest);
+            return apiTransport(originalRequest);
           }, (err) => {
             // A failed *proactive* refresh says nothing final about the session:
             // replay the request so it goes through the normal 401 → refresh path
             // instead of failing a page load outright.
             if (err instanceof Error && err.message === 'proactive-refresh-failed') {
-              return apiClient(originalRequest);
+              return apiTransport(originalRequest);
             }
             return Promise.reject(err);
           });
@@ -125,7 +125,7 @@ apiClient.interceptors.response.use(
         session.setAccessToken(newToken);
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         processQueue(null, newToken);
-        return apiClient(originalRequest);
+        return apiTransport(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
         // Only force-logout when the refresh endpoint explicitly rejects the session
@@ -142,7 +142,7 @@ apiClient.interceptors.response.use(
   }
 );
 
-export function getApiError(error: unknown): string {
+export function fetchApiError(error: unknown): string {
   if (axios.isAxiosError(error)) {
     return error.response?.data?.error || error.message || 'An error occurred';
   }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * Rich-text editing for question and passage content.
@@ -11,7 +11,7 @@ import { cn } from '@/shared/lib/utils';
  * every keystroke.
  */
 
-export function UnderlineBtn({ onApply }: { onApply: () => void }) {
+export function UnderlineControl({ onApply }: { onApply: () => void }) {
   return (
     <button
       type="button"
@@ -27,7 +27,7 @@ export function UnderlineBtn({ onApply }: { onApply: () => void }) {
 
 // Rich text field (contenteditable) — supports underline formatting
 
-export const RichTextArea = React.forwardRef<HTMLDivElement, {
+export const RichTextField = React.forwardRef<HTMLDivElement, {
   label?: string;
   value: string;
   onChange: (html: string) => void;
@@ -72,7 +72,7 @@ export const RichTextArea = React.forwardRef<HTMLDivElement, {
           onInput={() => {
             if (innerRef.current) onChange(innerRef.current.innerHTML);
           }}
-          className={cn(
+          className={classes(
             'px-[15px] py-3 border rounded-xl text-[15px] bg-white text-ink outline-none leading-[1.6] overflow-y-auto break-words whitespace-pre-wrap',
             'transition-[border-color,box-shadow] duration-150 focus:border-ember focus:shadow-[0_0_0_3px_rgba(226,86,43,0.18)]',
             error ? 'border-error-field' : 'border-field',
@@ -85,4 +85,4 @@ export const RichTextArea = React.forwardRef<HTMLDivElement, {
     </div>
   );
 });
-RichTextArea.displayName = 'RichTextArea';
+RichTextField.displayName = 'RichTextArea';

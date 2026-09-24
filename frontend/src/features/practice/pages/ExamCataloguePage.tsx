@@ -1,20 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { getAnalytics } from '@/features/progress';
-import { getQuestionSets, startExam } from '@/entities/exam';
-import { startTopicExam } from '@/features/practice/api';
-import { getApiError } from '@/shared/api/http';
-import { getAllExamProgress, clearExamProgress } from '@/shared/lib/offline';
-import { surfaceClass, cardClass, pageClass } from '@/shared/ui';
-import { ExamBlurb, ExamKicker, ExamTitle, MetaStats, RulesCard } from '@/features/practice/components/ExamIntro';
-import { cn } from '@/shared/lib/utils';
-import { getSkills, skillsQueryKey } from '@/entities/skill';
+import { fetchAnalytics } from '@/features/progress';
+import { fetchQuestionSets, openAssessment } from '@/entities/exam';
+import { openTopicAssessment } from '@/features/practice/api';
+import { fetchApiError } from '@/shared/api/http';
+import { fetchAllAssessmentProgress, clearAssessmentProgress } from '@/shared/lib/offline';
+import { surfaceStyle, panelStyle, screenStyle } from '@/shared/ui';
+import { AssessmentBlurb, AssessmentKicker, AssessmentTitle, MetaMetrics, RulesPanel } from '@/features/practice/components/ExamIntro';
+import { classes } from '@/shared/lib/utils';
+import { fetchCompetencys, competencyQueryKey } from '@/entities/skill';
 
 /** Cycled across the domains of a subject, so the cards stay visually distinct. */
 const DOMAIN_DOTS = ['bg-green-sat', 'bg-blue-sat', 'bg-gold', 'bg-ember'];
 
-export default function ExamCatalogue() {
+export default function AssessmentCatalogue() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const subject = (searchParams.get('subject') as 'math' | 'english') ?? 'math';
@@ -24,24 +24,24 @@ export default function ExamCatalogue() {
   const pendingSetTitleRef = useRef('');
 
   useEffect(() => {
-    getAllExamProgress().then((all) => {
+    fetchAllAssessmentProgress().then((all) => {
       if (all.length === 0) return;
       const sorted = [...all].sort((a, b) => new Date(b.lastSaved).getTime() - new Date(a.lastSaved).getTime());
       const [latest, ...stale] = sorted;
-      stale.forEach((s) => clearExamProgress(s.examId));
+      stale.forEach((s) => clearAssessmentProgress(s.examId));
       setResumeItems([latest]);
     });
   }, []);
 
   const switchSubject = (s: 'math' | 'english') => navigate(`/student/exams?subject=${s}`, { replace: true });
 
-  const { data: sets = [], isLoading } = useQuery({ queryKey: ['student', 'question-sets'], queryFn: getQuestionSets });
+  const { data: sets = [], isLoading } = useQuery({ queryKey: ['student', 'question-sets'], queryFn: fetchQuestionSets });
   // The student's own accuracy per domain, so the topic list doubles as a map of
   // where points are going. Same query key as the Dashboard and Progress.
-  const { data: analytics } = useQuery({ queryKey: ['student', 'analytics'], queryFn: getAnalytics });
+  const { data: analytics } = useQuery({ queryKey: ['student', 'analytics'], queryFn: fetchAnalytics });
   const { data: skillTree = [] } = useQuery({
-    queryKey: skillsQueryKey(true),
-    queryFn: () => getSkills(true),
+    queryKey: competencyQueryKey(true),
+    queryFn: () => fetchCompetencys(true),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -51,16 +51,16 @@ export default function ExamCatalogue() {
   const pendingTopicRef = useRef<string | null>(null);
 
   const topicMutation = useMutation({
-    mutationFn: startTopicExam,
+    mutationFn: openTopicAssessment,
     onSuccess: (data) =>
       navigate(`/student/exams/${data.exam.id}`, {
         state: { timerEnabled, examTitle: `Topic: ${data.skill.label}` },
       }),
-    onError: (err) => setTopicError(getApiError(err)),
+    onError: (err) => setTopicError(fetchApiError(err)),
   });
 
   const startMutation = useMutation({
-    mutationFn: startExam,
+    mutationFn: openAssessment,
     onError: () => {}, // shown inline on the page, not as a toast
     onSuccess: (data) => navigate(`/student/exams/${data.exam.id}`, { state: { timerEnabled, examTitle: pendingSetTitleRef.current } }),
   });
@@ -72,7 +72,7 @@ export default function ExamCatalogue() {
   };
 
   const dismissResume = async (examId: string) => {
-    await clearExamProgress(examId);
+    await clearAssessmentProgress(examId);
     setResumeItems((r) => r.filter((x) => x.examId !== examId));
   };
 
@@ -111,7 +111,7 @@ export default function ExamCatalogue() {
   ];
 
   return (
-    <div className={cn(pageClass, 'sm:pt-10')}>
+    <div className={classes(screenStyle, 'sm:pt-10')}>
       {/* Resume banner */}
       {resumeItems.length > 0 && (
         <div className="bg-[#FFFBF0] border border-gold/[.35] rounded-[14px] px-4 py-3.5 mb-5">
@@ -149,7 +149,7 @@ export default function ExamCatalogue() {
           <button
             key={s}
             onClick={() => switchSubject(s)}
-            className={cn(
+            className={classes(
               'px-3 py-[9px] sm:px-[18px] sm:py-2 rounded-[9px] text-[13px] sm:text-[13.5px] font-semibold cursor-pointer text-center transition-[background-color,color] duration-150',
               subject === s ? 'bg-white text-ink shadow-[0_1px_4px_rgba(11,11,14,0.1)]' : 'bg-transparent text-muted',
             )}
@@ -160,11 +160,11 @@ export default function ExamCatalogue() {
         ))}
       </div>
 
-      <ExamKicker>{kicker}</ExamKicker>
-      <ExamTitle className="mt-1.5">{title}</ExamTitle>
-      <ExamBlurb className="mt-2.5 mb-[22px]">{blurb}</ExamBlurb>
+      <AssessmentKicker>{kicker}</AssessmentKicker>
+      <AssessmentTitle className="mt-1.5">{title}</AssessmentTitle>
+      <AssessmentBlurb className="mt-2.5 mb-[22px]">{blurb}</AssessmentBlurb>
 
-      <MetaStats stats={[['—', 'Questions per set'], [timerEnabled ? '20m' : '∞', 'Time limit'], ['800', 'Score scale']]} />
+      <MetaMetrics stats={[['—', 'Questions per set'], [timerEnabled ? '20m' : '∞', 'Time limit'], ['800', 'Score scale']]} />
 
       <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_1fr] gap-3.5 sm:gap-5 mb-5 sm:mb-7">
         <div>
@@ -178,7 +178,7 @@ export default function ExamCatalogue() {
                 <button
                   key={level}
                   onClick={() => setTopicDifficulty(level)}
-                  className={cn(
+                  className={classes(
                     'px-2.5 py-[3px] text-[11.5px] font-semibold rounded-full cursor-pointer capitalize',
                     topicDifficulty === level ? 'bg-ink text-white' : 'border border-border bg-sunken text-stone',
                   )}
@@ -207,9 +207,9 @@ export default function ExamCatalogue() {
               const mine = analytics?.domains.find((d) => d.domainCode === m.code);
               const minAttempts = analytics?.minAttempts ?? 5;
               return (
-                <div key={m.code} className={cn(surfaceClass, 'px-4 py-3.5 sm:px-5 sm:py-[18px]', !enough && 'opacity-60')}>
+                <div key={m.code} className={classes(surfaceStyle, 'px-4 py-3.5 sm:px-5 sm:py-[18px]', !enough && 'opacity-60')}>
                   <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
-                    <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', m.dot)} />
+                    <span className={classes('w-2.5 h-2.5 rounded-full shrink-0', m.dot)} />
                     <span className="text-sm sm:text-[15.5px] font-semibold">{m.name}</span>
                     <span className="ml-auto text-[12.5px] text-muted font-mono">
                       {m.available ?? 0} Qs
@@ -218,7 +218,7 @@ export default function ExamCatalogue() {
                       onClick={() => { setTopicError(''); pendingTopicRef.current = m.code; topicMutation.mutate({ subject, skillCode: m.code, difficulty: topicDifficulty === 'any' ? undefined : topicDifficulty, count: topicCount }); }}
                       disabled={!enough || topicMutation.isPending}
                       title={enough ? undefined : 'Not enough questions in this topic yet'}
-                      className={cn(
+                      className={classes(
                         'h-[30px] px-3.5 rounded-full text-[12.5px] font-semibold shrink-0',
                         enough ? 'bg-accent-text text-white' : 'bg-border text-muted',
                         enough && !topicMutation.isPending ? 'cursor-pointer' : 'cursor-default',
@@ -226,7 +226,7 @@ export default function ExamCatalogue() {
                     >{starting ? 'Building…' : 'Practise'}</button>
                   </div>
                   {mine && mine.attempted > 0 && (
-                    <div className={cn('text-[12.5px] text-subtle', m.detail && 'sm:mb-1')}>
+                    <div className={classes('text-[12.5px] text-subtle', m.detail && 'sm:mb-1')}>
                       {mine.attempted >= minAttempts
                         ? <>You get <strong className="text-ink">{mine.accuracy}%</strong> right · {mine.attempted} answered</>
                         : <>{mine.attempted} answered · not enough yet for a percentage</>}
@@ -241,7 +241,7 @@ export default function ExamCatalogue() {
           </div>
         </div>
 
-        <RulesCard rules={rules} />
+        <RulesPanel rules={rules} />
       </div>
 
       {/* Available sets + timer toggle */}
@@ -249,7 +249,7 @@ export default function ExamCatalogue() {
         <h3 className="text-[15px] m-0">Available question sets</h3>
         <button
           onClick={toggleTimer}
-          className={cn(
+          className={classes(
             'flex items-center gap-2 px-3.5 py-2 rounded-[10px] cursor-pointer border',
             timerEnabled ? 'border-ember bg-ember/[.06] text-accent-text' : 'border-field bg-white text-stone',
           )}
@@ -258,8 +258,8 @@ export default function ExamCatalogue() {
             <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
           </svg>
           <span className="text-[13px] font-semibold">Timer: {timerEnabled ? 'On' : 'Off'}</span>
-          <div className={cn('w-[34px] h-[18px] rounded-full relative shrink-0 transition-colors duration-200', timerEnabled ? 'bg-ember' : 'bg-[#D0CCC6]')}>
-            <div className={cn('absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-[left] duration-200', timerEnabled ? 'left-[18px]' : 'left-0.5')} />
+          <div className={classes('w-[34px] h-[18px] rounded-full relative shrink-0 transition-colors duration-200', timerEnabled ? 'bg-ember' : 'bg-[#D0CCC6]')}>
+            <div className={classes('absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-[left] duration-200', timerEnabled ? 'left-[18px]' : 'left-0.5')} />
           </div>
         </button>
       </div>
@@ -267,7 +267,7 @@ export default function ExamCatalogue() {
       {isLoading ? (
         <div className="text-muted text-sm">Loading…</div>
       ) : filtered.length === 0 ? (
-        <div className={cn(surfaceClass, 'px-6 py-8 text-center text-muted text-sm')}>
+        <div className={classes(surfaceStyle, 'px-6 py-8 text-center text-muted text-sm')}>
           No {title} question sets available yet. Ask your teacher to add some.
         </div>
       ) : (
@@ -275,7 +275,7 @@ export default function ExamCatalogue() {
           {filtered.map((set) => (
             <div
               key={set.id}
-              className={cn(cardClass, 'rounded-2xl shadow-stat cursor-default px-4 py-3.5 sm:px-[22px] sm:py-[18px] flex items-center gap-3.5')}
+              className={classes(panelStyle, 'rounded-2xl shadow-stat cursor-default px-4 py-3.5 sm:px-[22px] sm:py-[18px] flex items-center gap-3.5')}
             >
               <div className="flex-1 min-w-0">
                 <div className="text-sm sm:text-[15px] font-semibold">{set.title}</div>
@@ -285,7 +285,7 @@ export default function ExamCatalogue() {
               <button
                 onClick={() => { pendingSetTitleRef.current = set.title; startMutation.mutate(set.id); }}
                 disabled={startMutation.isPending}
-                className={cn('h-9 sm:h-10 px-[18px] text-white rounded-full text-[13px] font-semibold cursor-pointer shrink-0', accentBg)}
+                className={classes('h-9 sm:h-10 px-[18px] text-white rounded-full text-[13px] font-semibold cursor-pointer shrink-0', accentBg)}
               >
                 {startMutation.isPending ? 'Starting…' : 'Begin →'}
               </button>
@@ -295,7 +295,7 @@ export default function ExamCatalogue() {
       )}
 
       {startMutation.isError && (
-        <p className="text-danger text-[13px] mt-3">{getApiError(startMutation.error)}</p>
+        <p className="text-danger text-[13px] mt-3">{fetchApiError(startMutation.error)}</p>
       )}
     </div>
   );

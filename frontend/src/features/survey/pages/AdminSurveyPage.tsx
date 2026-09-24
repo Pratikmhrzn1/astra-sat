@@ -2,25 +2,25 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronUp, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import {
-  createSurveyQuestion,
-  deleteSurveyQuestion,
-  getSurveyQuestions,
-  getSurveyResponses,
-  reorderSurveyQuestions,
-  updateSurveyQuestion,
-  type AdminSurveyQuestion,
-  type SurveyQuestionPayload,
-  type SurveyRespondent,
+  addIntakeQuestion,
+  removeIntakeQuestion,
+  fetchIntakeQuestions,
+  fetchIntakeResponses,
+  reorderIntakeQuestions,
+  editIntakeQuestion,
+  type AdminIntakeQuestion,
+  type IntakeQuestionPayload,
+  type IntakeRespondent,
 } from '@/features/survey/api';
-import { QuestionEditor, TYPE_LABELS, emptyQuestionForm } from '@/features/survey/components/QuestionEditor';
-import { ResponseSummary, answerText } from '@/features/survey/components/ResponseSummary';
+import { ItemComposer, TYPE_CAPTIONS, emptyItemSheet } from '@/features/survey/components/QuestionEditor';
+import { ReplySummary, responseText } from '@/features/survey/components/ResponseSummary';
 import {
-  Button, EmptyState, InlineLoader, Modal, PageHeader,
-  accentActionClass, iconButtonClass, inputClass, pageClass, segmentClass, segmentGroupClass, surfaceClass,
+  Control, BlankStatus, InlineSpinner, Dialog, ScreenMasthead,
+  accentControlStyle, iconControlStyle, fieldInputStyle, screenStyle, segmentStyle, segmentClusterClass, surfaceStyle,
 } from '@/shared/ui';
-import { showErrorToast } from '@/shared/ui/toast/ErrorToasts';
-import { cn, formatDate } from '@/shared/lib/utils';
-import { getApiError } from '@/shared/api/http';
+import { raiseFailureToast } from '@/shared/ui/toast/ErrorToasts';
+import { classes, renderDate } from '@/shared/lib/utils';
+import { fetchApiError } from '@/shared/api/http';
 
 /**
  * Where the signup survey is authored, and where its answers are read.
@@ -55,7 +55,7 @@ function DeleteQuestionModal({
   onDeactivate,
   onDelete,
 }: {
-  question: AdminSurveyQuestion | null;
+  question: AdminIntakeQuestion | null;
   deleting: boolean;
   deactivating: boolean;
   onClose: () => void;
@@ -67,17 +67,17 @@ function DeleteQuestionModal({
   const offerDeactivate = !!question?.isActive && count > 0;
 
   return (
-    <Modal
+    <Dialog
       isOpen={!!question}
       onClose={busy ? () => {} : onClose}
       title="Delete Survey Question?"
       size="md"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button variant="danger" onClick={onDelete} loading={deleting} disabled={deactivating}>
+          <Control variant="secondary" onClick={onClose} disabled={busy}>Cancel</Control>
+          <Control variant="danger" onClick={onDelete} loading={deleting} disabled={deactivating}>
             Delete permanently
-          </Button>
+          </Control>
         </>
       }
     >
@@ -96,13 +96,13 @@ function DeleteQuestionModal({
               An inactive question is never asked again, but the {count} answer{count === 1 ? '' : 's'} already given
               stay in your results.
             </p>
-            <Button size="sm" variant="secondary" onClick={onDeactivate} loading={deactivating} disabled={deleting}>
+            <Control size="sm" variant="secondary" onClick={onDeactivate} loading={deactivating} disabled={deleting}>
               Make it inactive
-            </Button>
+            </Control>
           </div>
         )}
       </div>
-    </Modal>
+    </Dialog>
   );
 }
 
@@ -115,7 +115,7 @@ function QuestionRow({
   onEdit,
   onDelete,
 }: {
-  question: AdminSurveyQuestion;
+  question: AdminIntakeQuestion;
   index: number;
   total: number;
   onMove: (delta: number) => void;
@@ -124,18 +124,18 @@ function QuestionRow({
   onDelete: () => void;
 }) {
   return (
-    <div className={cn(surfaceClass, 'lift hover:shadow-card-hover px-5 py-4 flex items-start gap-3.5')}>
+    <div className={classes(surfaceStyle, 'lift hover:shadow-card-hover px-5 py-4 flex items-start gap-3.5')}>
       <div className="flex flex-col gap-1 shrink-0 pt-0.5">
         <button
           onClick={() => onMove(-1)}
           disabled={index === 0}
-          className={iconButtonClass()}
+          className={iconControlStyle()}
           aria-label={`Move “${question.prompt}” up`}
         ><ChevronUp size={14} /></button>
         <button
           onClick={() => onMove(1)}
           disabled={index === total - 1}
-          className={iconButtonClass()}
+          className={iconControlStyle()}
           aria-label={`Move “${question.prompt}” down`}
         ><ChevronDown size={14} /></button>
       </div>
@@ -146,13 +146,13 @@ function QuestionRow({
           whole row took the badges and the controls down with it, which made
           the one control that turns it back on the hardest thing to read.
         */}
-        <div className={cn('transition-opacity duration-quick ease-ui', !question.isActive && 'opacity-55')}>
+        <div className={classes('transition-opacity duration-quick ease-ui', !question.isActive && 'opacity-55')}>
           <div className="text-[14.5px] font-semibold text-ink mb-1.5">{question.prompt}</div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <span className={cn(pillBase, 'bg-ink/[.06] text-stone')}>{TYPE_LABELS[question.type]}</span>
-          {question.isRequired && <span className={cn(pillBase, 'bg-ember/[.08] text-accent-text')}>Required</span>}
+          <span className={classes(pillBase, 'bg-ink/[.06] text-stone')}>{TYPE_CAPTIONS[question.type]}</span>
+          {question.isRequired && <span className={classes(pillBase, 'bg-ember/[.08] text-accent-text')}>Required</span>}
           {/*
             The status badge is the switch. A row's most frequent edit is
             "stop asking this", and routing it through the editor modal made a
@@ -162,7 +162,7 @@ function QuestionRow({
             onClick={onToggleActive}
             aria-pressed={question.isActive}
             title={question.isActive ? 'Asked at signup — click to stop asking it' : 'Not asked — click to start asking it'}
-            className={cn(
+            className={classes(
               pillBase, 'cursor-pointer border-0',
               question.isActive ? 'bg-green-sat/[.12] text-green-sat' : 'bg-[#8C8880]/10 text-[#6B7280]',
             )}
@@ -175,15 +175,15 @@ function QuestionRow({
         </div>
 
         {question.options.length > 0 && (
-          <div className={cn('mt-2 text-[13px] text-subtle', !question.isActive && 'opacity-55')}>
+          <div className={classes('mt-2 text-[13px] text-subtle', !question.isActive && 'opacity-55')}>
             {question.options.join(' · ')}
           </div>
         )}
       </div>
 
       <div className="flex items-center gap-1.5 shrink-0">
-        <button onClick={onEdit} className={iconButtonClass()} aria-label={`Edit “${question.prompt}”`}><Pencil size={15} /></button>
-        <button onClick={onDelete} className={iconButtonClass('danger')} aria-label={`Delete “${question.prompt}”`}><Trash2 size={15} /></button>
+        <button onClick={onEdit} className={iconControlStyle()} aria-label={`Edit “${question.prompt}”`}><Pencil size={15} /></button>
+        <button onClick={onDelete} className={iconControlStyle('danger')} aria-label={`Delete “${question.prompt}”`}><Trash2 size={15} /></button>
       </div>
     </div>
   );
@@ -191,11 +191,11 @@ function QuestionRow({
 
 function QuestionsTab({ onAdd, creating, onCloseCreate }: { onAdd: () => void; creating: boolean; onCloseCreate: () => void }) {
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState<AdminSurveyQuestion | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<AdminSurveyQuestion | null>(null);
+  const [editing, setEditing] = useState<AdminIntakeQuestion | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminIntakeQuestion | null>(null);
   const [error, setError] = useState('');
 
-  const { data: questions = [], isLoading } = useQuery({ queryKey: QUESTIONS_KEY, queryFn: getSurveyQuestions });
+  const { data: questions = [], isLoading } = useQuery({ queryKey: QUESTIONS_KEY, queryFn: fetchIntakeQuestions });
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: QUESTIONS_KEY });
     // A deleted question takes its answers with it, so the other tab is stale too.
@@ -203,37 +203,37 @@ function QuestionsTab({ onAdd, creating, onCloseCreate }: { onAdd: () => void; c
   };
 
   /** Applies `next` to the cached list now, and hands back the rollback. */
-  const optimistic = async (next: (list: AdminSurveyQuestion[]) => AdminSurveyQuestion[]) => {
+  const optimistic = async (next: (list: AdminIntakeQuestion[]) => AdminIntakeQuestion[]) => {
     await queryClient.cancelQueries({ queryKey: QUESTIONS_KEY });
-    const previous = queryClient.getQueryData<AdminSurveyQuestion[]>(QUESTIONS_KEY);
+    const previous = queryClient.getQueryData<AdminIntakeQuestion[]>(QUESTIONS_KEY);
     if (previous) queryClient.setQueryData(QUESTIONS_KEY, next(previous));
     return { previous };
   };
 
-  const rollback = (err: unknown, context?: { previous?: AdminSurveyQuestion[] }) => {
+  const rollback = (err: unknown, context?: { previous?: AdminIntakeQuestion[] }) => {
     if (context?.previous) queryClient.setQueryData(QUESTIONS_KEY, context.previous);
-    showErrorToast(getApiError(err));
+    raiseFailureToast(fetchApiError(err));
   };
 
   const createMutation = useMutation({
-    mutationFn: createSurveyQuestion,
+    mutationFn: addIntakeQuestion,
     onSuccess: () => { invalidate(); onCloseCreate(); },
-    onError: (err) => setError(getApiError(err)),
+    onError: (err) => setError(fetchApiError(err)),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Partial<SurveyQuestionPayload> }) => updateSurveyQuestion(id, payload),
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<IntakeQuestionPayload> }) => editIntakeQuestion(id, payload),
     onSuccess: () => { invalidate(); setEditing(null); },
-    onError: (err) => setError(getApiError(err)),
+    onError: (err) => setError(fetchApiError(err)),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteSurveyQuestion(id),
+    mutationFn: (id: string) => removeIntakeQuestion(id),
     onSuccess: () => { invalidate(); setDeleteTarget(null); },
   });
 
   const activeMutation = useMutation({
-    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => updateSurveyQuestion(id, { isActive }),
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => editIntakeQuestion(id, { isActive }),
     onMutate: ({ id, isActive }) =>
       optimistic((list) => list.map((q) => (q.id === id ? { ...q, isActive } : q))),
     onError: (err, _vars, context) => rollback(err, context),
@@ -247,7 +247,7 @@ function QuestionsTab({ onAdd, creating, onCloseCreate }: { onAdd: () => void; c
   // snap the list back to the previous move for a frame. A failure still rolls
   // the cache back.
   const reorderMutation = useMutation({
-    mutationFn: reorderSurveyQuestions,
+    mutationFn: reorderIntakeQuestions,
     onMutate: (ids: string[]) =>
       optimistic((list) => {
         const byId = new Map(list.map((q) => [q.id, q]));
@@ -276,17 +276,17 @@ function QuestionsTab({ onAdd, creating, onCloseCreate }: { onAdd: () => void; c
     );
   };
 
-  if (isLoading) return <InlineLoader />;
+  if (isLoading) return <InlineSpinner />;
 
   return (
     <>
       {questions.length === 0 ? (
-        <EmptyState
+        <BlankStatus
           title="No questions yet"
-          action={<Button onClick={onAdd}><Plus size={16} /> Add the first question</Button>}
+          action={<Control onClick={onAdd}><Plus size={16} /> Add the first question</Control>}
         >
           Until a question is added there is no survey, and new students go straight to their dashboard.
-        </EmptyState>
+        </BlankStatus>
       ) : (
         <div className="flex flex-col gap-2.5">
           {questions.map((question, index) => (
@@ -305,11 +305,11 @@ function QuestionsTab({ onAdd, creating, onCloseCreate }: { onAdd: () => void; c
       )}
 
       {creating && (
-        <QuestionEditor
+        <ItemComposer
           key="create"
           open
           title="Add Survey Question"
-          initial={emptyQuestionForm}
+          initial={emptyItemSheet}
           saving={createMutation.isPending}
           error={error}
           onClose={onCloseCreate}
@@ -318,7 +318,7 @@ function QuestionsTab({ onAdd, creating, onCloseCreate }: { onAdd: () => void; c
       )}
 
       {editing && (
-        <QuestionEditor
+        <ItemComposer
           key={editing.id}
           open
           title="Edit Survey Question"
@@ -351,13 +351,13 @@ function QuestionsTab({ onAdd, creating, onCloseCreate }: { onAdd: () => void; c
 
 // ── Responses tab ────────────────────────────────────────────────────────────
 
-function RespondentList({ people }: { people: SurveyRespondent[] }) {
+function RespondentList({ people }: { people: IntakeRespondent[] }) {
   const [query, setQuery] = useState('');
 
   const needle = query.trim().toLowerCase();
   const filtered = needle
     ? people.filter((person) =>
-        [person.userName, person.userEmail, ...person.answers.map((a) => answerText(a.answer, a.type))]
+        [person.userName, person.userEmail, ...person.answers.map((a) => responseText(a.answer, a.type))]
           .some((field) => field?.toLowerCase().includes(needle)),
       )
     : people;
@@ -371,7 +371,7 @@ function RespondentList({ people }: { people: SurveyRespondent[] }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by name, email or answer"
           aria-label="Search respondents"
-          className={inputClass(false, 'pl-9')}
+          className={fieldInputStyle(false, 'pl-9')}
         />
       </div>
 
@@ -380,17 +380,17 @@ function RespondentList({ people }: { people: SurveyRespondent[] }) {
       ) : (
         <div className="flex flex-col gap-2.5">
           {filtered.map((person) => (
-            <div key={person.userId} className={cn(surfaceClass, 'px-5 py-4')}>
+            <div key={person.userId} className={classes(surfaceStyle, 'px-5 py-4')}>
               <div className="flex items-center gap-2.5 flex-wrap mb-3">
                 <span className="text-sm font-semibold text-ink">{person.userName ?? 'Unknown'}</span>
                 {person.userEmail && <span className="text-[12.5px] text-muted">{person.userEmail}</span>}
-                <span className="text-xs text-muted ml-auto">{formatDate(person.submittedAt)}</span>
+                <span className="text-xs text-muted ml-auto">{renderDate(person.submittedAt)}</span>
               </div>
               <div className="flex flex-col gap-2.5">
                 {person.answers.map((answer) => (
                   <div key={answer.questionId}>
                     <div className="text-[13px] font-semibold text-subtle">{answer.prompt}</div>
-                    <div className="text-[14px] text-ink whitespace-pre-wrap">{answerText(answer.answer, answer.type)}</div>
+                    <div className="text-[14px] text-ink whitespace-pre-wrap">{responseText(answer.answer, answer.type)}</div>
                   </div>
                 ))}
               </div>
@@ -404,10 +404,10 @@ function RespondentList({ people }: { people: SurveyRespondent[] }) {
 
 function ResponsesTab() {
   const [view, setView] = useState<'summary' | 'people'>('summary');
-  const { data: respondents = [], isLoading } = useQuery({ queryKey: RESPONSES_KEY, queryFn: getSurveyResponses });
+  const { data: respondents = [], isLoading } = useQuery({ queryKey: RESPONSES_KEY, queryFn: fetchIntakeResponses });
   const { data: questions = [], isLoading: questionsLoading } = useQuery({
     queryKey: QUESTIONS_KEY,
-    queryFn: getSurveyQuestions,
+    queryFn: fetchIntakeQuestions,
   });
 
   // A question nobody has answered is still worth seeing as an empty bar; one
@@ -420,27 +420,27 @@ function ResponsesTab() {
     [questions, respondents],
   );
 
-  if (isLoading || questionsLoading) return <InlineLoader />;
+  if (isLoading || questionsLoading) return <InlineSpinner />;
 
   if (respondents.length === 0) {
     return (
-      <EmptyState title="No answers yet">
+      <BlankStatus title="No answers yet">
         As soon as a student signs up and answers the survey, their responses show up here.
-      </EmptyState>
+      </BlankStatus>
     );
   }
 
   return (
     <>
       <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
-        <div role="tablist" aria-label="Response view" className={cn(segmentGroupClass, 'w-[260px]')}>
+        <div role="tablist" aria-label="Response view" className={classes(segmentClusterClass, 'w-[260px]')}>
           {(['summary', 'people'] as const).map((value) => (
             <button
               key={value}
               role="tab"
               aria-selected={view === value}
               onClick={() => setView(value)}
-              className={segmentClass(view === value)}
+              className={segmentStyle(view === value)}
             >
               {value === 'summary' ? 'By question' : 'By student'}
             </button>
@@ -452,7 +452,7 @@ function ResponsesTab() {
       </div>
 
       {view === 'summary' ? (
-        <ResponseSummary questions={relevant} respondents={respondents} />
+        <ReplySummary questions={relevant} respondents={respondents} />
       ) : (
         <RespondentList people={respondents} />
       )}
@@ -462,25 +462,25 @@ function ResponsesTab() {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default function AdminSurvey() {
+export default function AdminIntake() {
   const [tab, setTab] = useState<'questions' | 'responses'>('questions');
   const [creating, setCreating] = useState(false);
 
   return (
-    <div className={pageClass}>
-      <PageHeader
+    <div className={screenStyle}>
+      <ScreenMasthead
         kicker="Registration"
         title="Signup Survey"
         subtitle="Asked once, right after a student signs up. Active questions are the survey."
       >
         {tab === 'questions' && (
-          <button onClick={() => setCreating(true)} className={accentActionClass}>
+          <button onClick={() => setCreating(true)} className={accentControlStyle}>
             <Plus size={16} /> Add Question
           </button>
         )}
-      </PageHeader>
+      </ScreenMasthead>
 
-      <div role="tablist" aria-label="Survey" className={cn(segmentGroupClass, 'max-w-[320px] mb-5')}>
+      <div role="tablist" aria-label="Survey" className={classes(segmentClusterClass, 'max-w-[320px] mb-5')}>
         {(['questions', 'responses'] as const).map((value) => (
           <button
             key={value}
@@ -489,7 +489,7 @@ export default function AdminSurvey() {
             aria-selected={tab === value}
             aria-controls={`survey-panel-${value}`}
             onClick={() => setTab(value)}
-            className={segmentClass(tab === value)}
+            className={segmentStyle(tab === value)}
           >
             {value === 'questions' ? 'Questions' : 'Responses'}
           </button>

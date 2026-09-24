@@ -1,15 +1,15 @@
 import { ChevronRight } from 'lucide-react';
-import type { LiveExamResult } from '@/features/live-exam/api';
-import { liveTitleClass } from '@/features/live-exam/components/ui';
-import { surfaceClass, kickerClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import type { LiveAssessmentResult } from '@/features/live-exam/api';
+import { sessionTitleStyle } from '@/features/live-exam/components/ui';
+import { surfaceStyle, kickerStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * One released live exam in the student's History: when it was sat, a link into
  * each section's full review, and the teacher's note on the paper.
  */
-export function LiveResultCard({ result, onOpen }: {
-  result: LiveExamResult;
+export function SessionOutcomePanel({ result, onOpen }: {
+  result: LiveAssessmentResult;
   onOpen: (examId: string) => void;
 }) {
   const sections = [
@@ -22,17 +22,17 @@ export function LiveResultCard({ result, onOpen }: {
     : null;
 
   return (
-    <article className={cn(surfaceClass, 'overflow-hidden')}>
+    <article className={classes(surfaceStyle, 'overflow-hidden')}>
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 px-4 py-3.5 sm:pl-5 sm:pr-[18px] sm:py-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className={cn(kickerClass, 'text-accent-text')}>Live exam</span>
+            <span className={classes(kickerStyle, 'text-accent-text')}>Live exam</span>
             {date && <span className="text-[12.5px] text-muted">· {date}</span>}
           </div>
-          <h3 className={cn(liveTitleClass, 'text-xl leading-[1.25] [overflow-wrap:anywhere]')}>{result.sessionTitle}</h3>
+          <h3 className={classes(sessionTitleStyle, 'text-xl leading-[1.25] [overflow-wrap:anywhere]')}>{result.sessionTitle}</h3>
         </div>
 
-        <div className={cn('grid gap-2 sm:grid-flow-col sm:grid-cols-none', sections.length === 2 ? 'grid-cols-2' : 'grid-cols-1')}>
+        <div className={classes('grid gap-2 sm:grid-flow-col sm:grid-cols-none', sections.length === 2 ? 'grid-cols-2' : 'grid-cols-1')}>
           {sections.map((s) => (
             <button
               key={s.label}
@@ -40,7 +40,7 @@ export function LiveResultCard({ result, onOpen }: {
               aria-label={`Open ${s.label} review`}
               className="inline-flex items-center justify-center gap-[7px] h-[38px] pl-3.5 pr-2.5 rounded-full border border-border bg-white text-ink text-[13px] font-semibold cursor-pointer whitespace-nowrap"
             >
-              <span aria-hidden className={cn('w-[7px] h-[7px] rounded-full', s.dot)} />
+              <span aria-hidden className={classes('w-[7px] h-[7px] rounded-full', s.dot)} />
               <span className="sm:hidden">{s.short}</span>
               <span className="hidden sm:inline">{s.label}</span>
               <ChevronRight size={15} aria-hidden className="text-muted -ml-0.5" />
@@ -51,7 +51,7 @@ export function LiveResultCard({ result, onOpen }: {
 
       {result.globalFeedback && (
         <div className="border-t border-sunken bg-[#FBFAF8] px-4 sm:px-5 pt-3 pb-3.5">
-          <div className={cn(kickerClass, 'mb-1')}>Note from your teacher</div>
+          <div className={classes(kickerStyle, 'mb-1')}>Note from your teacher</div>
           <p className="text-sm text-ink m-0 leading-[1.6] whitespace-pre-line [overflow-wrap:anywhere]">{result.globalFeedback}</p>
         </div>
       )}

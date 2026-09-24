@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * A share-of-total pie, with its key beside it.
@@ -11,7 +11,7 @@ import { cn } from '@/shared/lib/utils';
  * repeats each value as a number, so the chart is readable without colour.
  */
 
-export interface PieSlice {
+export interface PieWedge {
   code: string;
   label: string;
   value: number;
@@ -35,12 +35,12 @@ function arcPath(cx: number, cy: number, r: number, start: number, end: number):
   return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
 }
 
-export function PieChart({
+export function PieGraph({
   slices,
   size = 190,
   className,
 }: {
-  slices: PieSlice[];
+  slices: PieWedge[];
   size?: number;
   className?: string;
 }) {
@@ -66,7 +66,7 @@ export function PieChart({
   });
 
   return (
-    <div className={cn('flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-7', className)}>
+    <div className={classes('flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-7', className)}>
       <svg
         viewBox={`0 0 ${size} ${size}`}
         width={size}

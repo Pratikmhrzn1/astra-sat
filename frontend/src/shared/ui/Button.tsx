@@ -1,24 +1,24 @@
 import React from 'react';
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'quiet';
-export type ButtonSize = 'sm' | 'md' | 'lg';
+export type ControlVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'quiet';
+export type ControlSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
+  variant?: ControlVariant;
+  size?: ControlSize;
   loading?: boolean;
   children?: React.ReactNode;
 }
 
-const BASE = cn(
+const BASE = classes(
   'inline-flex items-center justify-center gap-2 font-semibold rounded-full select-none whitespace-nowrap tracking-[-0.01em] cursor-pointer',
   'transition-[background-color,color,border-color,box-shadow,opacity,transform] duration-150 ease-out active:scale-[0.97]',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
   'disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100',
 );
 
-const VARIANTS: Record<ButtonVariant, string> = {
+const VARIANTS: Record<ControlVariant, string> = {
   primary: 'bg-accent-text hover:bg-[#AE3E1B] text-white shadow-[0_1px_2px_rgba(196,71,31,0.25)] focus-visible:ring-accent-text/50',
   secondary: 'bg-white hover:bg-[#F5F3EF] text-ink border border-border focus-visible:ring-ink/20',
   danger: 'bg-danger hover:bg-[#A93226] text-white focus-visible:ring-danger/50',
@@ -27,7 +27,7 @@ const VARIANTS: Record<ButtonVariant, string> = {
   quiet: 'bg-transparent text-subtle border border-border hover:bg-ink/5 focus-visible:ring-ink/20',
 };
 
-const SIZES: Record<ButtonSize, string> = {
+const SIZES: Record<ControlSize, string> = {
   sm: 'h-8 px-3.5 text-[13px]',
   md: 'h-10 px-[18px] text-sm',
   lg: 'h-12 px-6 text-[15px]',
@@ -37,12 +37,12 @@ const SIZES: Record<ButtonSize, string> = {
  * The pill-button recipe, exported apart from the component so a `<Link>` or a
  * one-off `<button>` with its own handlers can wear the same look.
  */
-export const buttonClass = ({
+export const controlStyle = ({
   variant = 'primary',
   size = 'md',
   className,
-}: { variant?: ButtonVariant; size?: ButtonSize; className?: string } = {}): string =>
-  cn(BASE, VARIANTS[variant], SIZES[size], className);
+}: { variant?: ControlVariant; size?: ControlSize; className?: string } = {}): string =>
+  classes(BASE, VARIANTS[variant], SIZES[size], className);
 
 /**
  * Square icon-only row action (edit, delete) that tints on hover.
@@ -51,7 +51,7 @@ export const buttonClass = ({
  * still tinted under the pointer and read as pressable, which is the only
  * feedback a list's first "move up" button ever gives.
  */
-export const iconButtonClass = (tone: 'edit' | 'danger' = 'edit', className?: string): string => cn(
+export const iconControlStyle = (tone: 'edit' | 'danger' = 'edit', className?: string): string => classes(
   'p-[7px] rounded-lg bg-transparent cursor-pointer text-muted',
   tone === 'danger' ? 'hover:bg-danger/[.08] hover:text-danger' : 'hover:bg-blue-sat/[.08] hover:text-blue-sat',
   'disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted',
@@ -59,13 +59,13 @@ export const iconButtonClass = (tone: 'edit' | 'danger' = 'edit', className?: st
 );
 
 /** Accent pill with an icon: the page-level "create" action. */
-export const accentActionClass = 'flex items-center gap-2 h-[42px] px-[18px] bg-accent-text text-white rounded-full text-sm font-semibold cursor-pointer shadow-[0_2px_10px_rgba(226,86,43,0.26)] shrink-0';
+export const accentControlStyle = 'flex items-center gap-2 h-[42px] px-[18px] bg-accent-text text-white rounded-full text-sm font-semibold cursor-pointer shadow-[0_2px_10px_rgba(226,86,43,0.26)] shrink-0';
 
 /**
  * The platform's pill button. Pressing scales it on pointer-down (see the
  * global `button:active` rule), so feedback arrives before the click commits.
  */
-export function Button({
+export function Control({
   variant = 'primary',
   size = 'md',
   loading = false,
@@ -79,7 +79,7 @@ export function Button({
       {...props}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={buttonClass({ variant, size, className })}
+      className={controlStyle({ variant, size, className })}
     >
       {loading && (
         <svg className="animate-spin -ml-0.5 h-4 w-4" fill="none" viewBox="0 0 24 24" aria-hidden>

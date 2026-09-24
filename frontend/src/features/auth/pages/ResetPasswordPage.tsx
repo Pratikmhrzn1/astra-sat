@@ -3,10 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { resetPassword } from '@/features/auth/api';
-import { getApiError } from '@/shared/api/http';
-import { fieldClass, labelClass, errorTextClass, alertClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { resetPassphrase } from '@/features/auth/api';
+import { fetchApiError } from '@/shared/api/http';
+import { fieldStyle, fieldCaptionStyle, errorTextStyle, alertStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 const schema = z
   .object({
@@ -17,12 +17,12 @@ const schema = z
 
 type FormData = z.infer<typeof schema>;
 
-const submitClass = (busy: boolean) => cn(
+const submitClass = (busy: boolean) => classes(
   'w-full h-12 text-white rounded-full text-[15px] font-semibold shadow-accent',
   busy ? 'bg-accent-disabled cursor-default' : 'bg-accent-text cursor-pointer',
 );
 
-export default function ResetPassword() {
+export default function RestorePassphrase() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
   const [done, setDone] = useState(false);
@@ -33,10 +33,10 @@ export default function ResetPassword() {
   const onSubmit = async (data: FormData) => {
     setApiError('');
     try {
-      await resetPassword(token, data.password);
+      await resetPassphrase(token, data.password);
       setDone(true);
     } catch (err) {
-      setApiError(getApiError(err));
+      setApiError(fetchApiError(err));
     }
   };
 
@@ -68,19 +68,19 @@ export default function ResetPassword() {
         ) : (
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="mb-3.5">
-              <label className={labelClass}>New password</label>
-              <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('password')} className={fieldClass(!!errors.password)} />
-              {errors.password && <p className={errorTextClass}>{errors.password.message}</p>}
+              <label className={fieldCaptionStyle}>New password</label>
+              <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('password')} className={fieldStyle(!!errors.password)} />
+              {errors.password && <p className={errorTextStyle}>{errors.password.message}</p>}
             </div>
 
             <div className="mb-4">
-              <label className={labelClass}>Confirm password</label>
-              <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('confirmPassword')} className={fieldClass(!!errors.confirmPassword)} />
-              {errors.confirmPassword && <p className={errorTextClass}>{errors.confirmPassword.message}</p>}
+              <label className={fieldCaptionStyle}>Confirm password</label>
+              <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('confirmPassword')} className={fieldStyle(!!errors.confirmPassword)} />
+              {errors.confirmPassword && <p className={errorTextStyle}>{errors.confirmPassword.message}</p>}
             </div>
 
             {apiError && (
-              <div className={cn(alertClass, 'mb-3')}>
+              <div className={classes(alertStyle, 'mb-3')}>
                 {apiError}{' '}
                 {apiError.includes('expired') || apiError.includes('invalid') ? (
                   <Link to="/forgot-password" className="text-danger font-semibold">Request a new link</Link>

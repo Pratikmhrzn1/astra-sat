@@ -1,11 +1,11 @@
-import type { Question } from '@/entities/exam';
-import { cn } from '@/shared/lib/utils';
+import type { Item } from '@/entities/exam';
+import { classes } from '@/shared/lib/utils';
 
 /** Jump to any question; answered, unseen and flagged at a glance. */
-export function NavigatorPopup({
+export function CompassOverlay({
   questions, answers, flags, index, onJump, finishLabel, onFinish, transitioning,
 }: {
-  questions: Question[];
+  questions: Item[];
   answers: Record<string, string | null>;
   flags: Record<number, boolean>;
   index: number;
@@ -19,7 +19,7 @@ export function NavigatorPopup({
 
   return (
     <div
-      className={cn(
+      className={classes(
         'nav-pop fixed left-1/2 -translate-x-1/2 bottom-[78px] sm:bottom-[84px] w-[calc(100vw-28px)] sm:w-[min(560px,90vw)]',
         'bg-white border border-border rounded-2xl shadow-[0_16px_48px_rgba(11,11,14,0.18)] p-3.5 sm:p-5 z-[45] max-h-[60vh] sm:max-h-[70vh] flex flex-col',
       )}
@@ -29,9 +29,9 @@ export function NavigatorPopup({
       <div className="flex justify-between items-center mb-2.5 shrink-0">
         <span className="text-[13px] font-bold">Navigator</span>
         <div className="flex gap-2 sm:gap-3.5 text-[10px] text-subtle">
-          <span className={legend}><span className={cn(swatch, 'bg-ink')} />Done</span>
-          <span className={legend}><span className={cn(swatch, 'bg-white border border-field')} />Unseen</span>
-          <span className={legend}><span className={cn(swatch, 'bg-ember')} />Flagged</span>
+          <span className={legend}><span className={classes(swatch, 'bg-ink')} />Done</span>
+          <span className={legend}><span className={classes(swatch, 'bg-white border border-field')} />Unseen</span>
+          <span className={legend}><span className={classes(swatch, 'bg-ember')} />Flagged</span>
         </div>
       </div>
       <div className="overflow-y-auto flex-1">
@@ -42,7 +42,7 @@ export function NavigatorPopup({
               <button
                 key={qi}
                 onClick={() => onJump(qi)}
-                className={cn(
+                className={classes(
                   'h-9 sm:h-11 rounded-lg font-semibold text-xs sm:text-sm cursor-pointer',
                   cur ? 'border-2 border-ember' : 'border border-field',
                   fl ? 'bg-ember text-white' : ans ? 'bg-ink text-white' : 'bg-white text-[#8C8880]',
@@ -57,7 +57,7 @@ export function NavigatorPopup({
         <button
           onClick={onFinish}
           disabled={transitioning}
-          className={cn('w-full h-[42px] rounded-full bg-ink text-white text-sm font-semibold', transitioning ? 'cursor-default' : 'cursor-pointer')}
+          className={classes('w-full h-[42px] rounded-full bg-ink text-white text-sm font-semibold', transitioning ? 'cursor-default' : 'cursor-pointer')}
         >{finishLabel}</button>
       </div>
     </div>

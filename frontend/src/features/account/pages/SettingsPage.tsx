@@ -1,21 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { updateProfile, useAuthStore } from '@/features/auth';
-import { getProfile as getStudentProfile, updateProfile as updateStudentProfile } from '@/features/progress';
-import { getApiError } from '@/shared/api/http';
-import { PageHeader, Toggle, pageClass } from '@/shared/ui';
-import { TOTAL_MAX, TOTAL_MIN, daysUntil } from '@/entities/score';
-import { cn } from '@/shared/lib/utils';
+import { editAccountDossier, useSessionVault } from '@/features/auth';
+import { fetchProfile as getStudentProfile, editLearnerDossier as updateStudentProfile } from '@/features/progress';
+import { fetchApiError } from '@/shared/api/http';
+import { ScreenMasthead, Switch, screenStyle } from '@/shared/ui';
+import { COMPOSITE_CEILING, COMPOSITE_FLOOR, daysRemaining } from '@/entities/score';
+import { classes } from '@/shared/lib/utils';
 import {
-  SettingsGroup, SettingsRow, settingsInputClass, settingsLabelClass,
+  PreferencesCluster, PreferencesRow, settingsFieldClass, settingsCaptionClass,
 } from '@/features/account/components/SettingsCard';
-import { ChangePasswordModal } from '@/features/account/components/ChangePasswordModal';
+import { ChangePassphraseDialog } from '@/features/account/components/ChangePasswordModal';
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function StudentSettings() {
-  const { user, logout, setUser } = useAuthStore();
+export default function LearnerSettings() {
+  const { user, logout, setUser } = useSessionVault();
   const navigate = useNavigate();
 
   // Profile
@@ -57,7 +57,7 @@ export default function StudentSettings() {
       queryClient.setQueryData(['student', 'profile'], saved);
       setTimeout(() => setGoalSaved(false), 2000);
     },
-    onError: (err) => { setGoalSaved(false); setGoalError(getApiError(err)); },
+    onError: (err) => { setGoalSaved(false); setGoalError(fetchApiError(err)); },
   });
 
   const handleSaveGoal = () => {
@@ -68,8 +68,8 @@ export default function StudentSettings() {
     }
 
     const parsed = Number(trimmed);
-    if (!Number.isFinite(parsed) || parsed < TOTAL_MIN || parsed > TOTAL_MAX) {
-      setGoalError(`Target must be between ${TOTAL_MIN} and ${TOTAL_MAX}.`);
+    if (!Number.isFinite(parsed) || parsed < COMPOSITE_FLOOR || parsed > COMPOSITE_CEILING) {
+      setGoalError(`Target must be between ${COMPOSITE_FLOOR} and ${COMPOSITE_CEILING}.`);
       return;
     }
 
@@ -80,7 +80,7 @@ export default function StudentSettings() {
     goalMutation.mutate({ targetScore: rounded, testDate: testDateInput || null });
   };
 
-  const goalDays = daysUntil(testDateInput || null);
+  const goalDays = daysRemaining(testDateInput || null);
 
   // Keep editName in sync if user changes (e.g. after save)
   useEffect(() => { setEditName(user?.name ?? ''); }, [user?.name]);
@@ -91,12 +91,12 @@ export default function StudentSettings() {
     setNameSaving(true);
     setNameSaved(false);
     try {
-      const updated = await updateProfile(editName.trim());
+      const updated = await editAccountDossier(editName.trim());
       setUser({ ...user!, name: updated.name });
       setNameSaved(true);
       setTimeout(() => setNameSaved(false), 2500);
     } catch (err) {
-      setNameError(getApiError(err));
+      setNameError(fetchApiError(err));
     } finally {
       setNameSaving(false);
     }
@@ -122,10 +122,10 @@ export default function StudentSettings() {
   const pillBtn = 'h-[38px] rounded-full text-[13px] font-semibold cursor-pointer w-full sm:w-auto';
 
   return (
-    <div className={cn(pageClass, 'max-w-[820px] mx-auto')}>
-      <PageHeader title="Settings" subtitle="Manage your profile and how the platform behaves for you." className="mb-7" />
+    <div className={classes(screenStyle, 'max-w-[820px] mx-auto')}>
+      <ScreenMasthead title="Settings" subtitle="Manage your profile and how the platform behaves for you." className="mb-7" />
 
-      <SettingsGroup title="Profile">
+      <PreferencesCluster title="Profile">
         {/* Avatar + name display */}
         <div className="flex items-center gap-3.5 px-5 py-[18px] border-b border-sunken">
           <div className="w-[42px] h-[42px] sm:w-[52px] sm:h-[52px] rounded-full bg-ink text-white flex items-center justify-center text-base sm:text-xl font-semibold shrink-0">
@@ -139,19 +139,19 @@ export default function StudentSettings() {
 
         {/* Editable name */}
         <div className="px-5 py-[15px] border-b border-sunken">
-          <label className={settingsLabelClass}>Display name</label>
+          <label className={settingsCaptionClass}>Display name</label>
           <div className="flex gap-2.5">
             <input
               value={editName}
               onChange={(e) => { setEditName(e.target.value); setNameError(''); setNameSaved(false); }}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSaveName(); }}
-              className={cn('flex-1 h-[42px] px-3.5 border rounded-[10px] text-sm bg-white outline-none', nameError ? 'border-error-field' : 'border-field')}
+              className={classes('flex-1 h-[42px] px-3.5 border rounded-[10px] text-sm bg-white outline-none', nameError ? 'border-error-field' : 'border-field')}
               placeholder="Your full name"
             />
             <button
               onClick={handleSaveName}
               disabled={nameSaving || !nameChanged}
-              className={cn(
+              className={classes(
                 'h-[42px] px-[18px] rounded-[10px] text-[13.5px] font-semibold shrink-0 transition-colors duration-200',
                 nameSaved ? 'bg-green-sat text-white' : (nameSaving || !nameChanged) ? 'bg-border text-stone' : 'bg-ink text-white',
                 (nameSaving || !nameChanged) ? 'cursor-default' : 'cursor-pointer',
@@ -165,34 +165,34 @@ export default function StudentSettings() {
 
         {/* Email — read only */}
         <div className="px-5 py-[15px]">
-          <label className={settingsLabelClass}>Email address</label>
+          <label className={settingsCaptionClass}>Email address</label>
           <div className="h-[42px] px-3.5 border border-border rounded-[10px] text-sm bg-[#F8F6F2] text-subtle flex items-center">
             {user?.email}
           </div>
           <p className="mt-[5px] mb-0 text-xs text-muted">Email cannot be changed here. Contact your teacher or admin.</p>
         </div>
-      </SettingsGroup>
+      </PreferencesCluster>
 
-      <SettingsGroup title="Your goal">
-        <SettingsRow
+      <PreferencesCluster title="Your goal">
+        <PreferencesRow
           title="Target score"
-          desc={`The total you're aiming for, ${TOTAL_MIN}–${TOTAL_MAX}. Your dashboard measures progress against this instead of a default.`}
+          desc={`The total you're aiming for, ${COMPOSITE_FLOOR}–${COMPOSITE_CEILING}. Your dashboard measures progress against this instead of a default.`}
           control={
             <input
               type="number"
               inputMode="numeric"
-              min={TOTAL_MIN}
-              max={TOTAL_MAX}
+              min={COMPOSITE_FLOOR}
+              max={COMPOSITE_CEILING}
               step={10}
               value={targetInput}
               onChange={(e) => { setTargetInput(e.target.value); setGoalError(''); }}
               placeholder="Not set"
-              className={cn(settingsInputClass, 'w-full sm:w-[120px]')}
+              className={classes(settingsFieldClass, 'w-full sm:w-[120px]')}
             />
           }
           stack
         />
-        <SettingsRow
+        <PreferencesRow
           title="Test date"
           desc={
             goalDays === null
@@ -206,64 +206,64 @@ export default function StudentSettings() {
               type="date"
               value={testDateInput}
               onChange={(e) => { setTestDateInput(e.target.value); setGoalError(''); }}
-              className={cn(settingsInputClass, 'w-full sm:w-[170px]')}
+              className={classes(settingsFieldClass, 'w-full sm:w-[170px]')}
             />
           }
           stack
         />
-        <SettingsRow
+        <PreferencesRow
           title="Save goal"
           desc={goalError || (goalSaved ? 'Saved.' : 'Leave the target empty to clear it.')}
           control={
             <button
               onClick={handleSaveGoal}
               disabled={goalMutation.isPending}
-              className={cn(pillBtn, 'px-4 bg-accent-text text-white disabled:cursor-default disabled:opacity-60')}
+              className={classes(pillBtn, 'px-4 bg-accent-text text-white disabled:cursor-default disabled:opacity-60')}
             >
               {goalMutation.isPending ? 'Saving…' : 'Save'}
             </button>
           }
           stack
         />
-      </SettingsGroup>
+      </PreferencesCluster>
 
-      <SettingsGroup title="Test experience">
-        <SettingsRow
+      <PreferencesCluster title="Test experience">
+        <PreferencesRow
           title="Practice timer on by default"
           desc="Start individual practice sets with the 20-minute countdown running."
-          control={<Toggle on={timerOn} onClick={toggleTimer} label="Practice timer on by default" />}
+          control={<Switch on={timerOn} onClick={toggleTimer} label="Practice timer on by default" />}
         />
-        <SettingsRow
+        <PreferencesRow
           title="Larger question text"
           desc="Increases font size in the test player for easier reading."
-          control={<Toggle on={largeFontOn} onClick={toggleLargeFont} label="Larger question text" />}
+          control={<Switch on={largeFontOn} onClick={toggleLargeFont} label="Larger question text" />}
         />
-      </SettingsGroup>
+      </PreferencesCluster>
 
-      <SettingsGroup title="Account" className="mb-0">
-        <SettingsRow
+      <PreferencesCluster title="Account" className="mb-0">
+        <PreferencesRow
           title="Password"
           desc="Change your account password."
           control={
-            <button onClick={() => setShowPwModal(true)} className={cn(pillBtn, 'px-4 border border-field bg-white text-ink')}>
+            <button onClick={() => setShowPwModal(true)} className={classes(pillBtn, 'px-4 border border-field bg-white text-ink')}>
               Change password
             </button>
           }
           stack
         />
-        <SettingsRow
+        <PreferencesRow
           title="Sign out"
           desc="Sign out of your account on this device."
           control={
-            <button onClick={handleSignOut} className={cn(pillBtn, 'px-[18px] bg-ink text-white')}>
+            <button onClick={handleSignOut} className={classes(pillBtn, 'px-[18px] bg-ink text-white')}>
               Sign out
             </button>
           }
           stack
         />
-      </SettingsGroup>
+      </PreferencesCluster>
 
-      {showPwModal && <ChangePasswordModal onClose={() => setShowPwModal(false)} />}
+      {showPwModal && <ChangePassphraseDialog onClose={() => setShowPwModal(false)} />}
     </div>
   );
 }

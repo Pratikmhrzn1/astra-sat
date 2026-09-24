@@ -1,8 +1,8 @@
-import { apiClient } from '@/shared/api/http';
+import { apiTransport } from '@/shared/api/http';
 
 /** Content authoring: question sets, passages, questions and bulk import. */
 
-export interface QuestionSet {
+export interface AuthoringBundle {
   id: string;
   title: string;
   subject: 'english' | 'math';
@@ -14,7 +14,7 @@ export interface QuestionSet {
   updatedAt: string;
 }
 
-export interface Passage {
+export interface Extract {
   id: string;
   setId: string;
   title: string;
@@ -28,23 +28,23 @@ export interface Passage {
  * superseded by `skillCode`. Still in the payload because the column exists;
  * nothing in the UI writes it any more.
  */
-export type SubSkill = 'grammar' | 'inference' | 'command_of_evidence' | 'vocab_in_context' | 'transitions';
+export type SubCompetency = 'grammar' | 'inference' | 'command_of_evidence' | 'vocab_in_context' | 'transitions';
 
-export type SubSkillSource = 'ai_suggested' | 'human_confirmed';
+export type SubCompetencySource = 'ai_suggested' | 'human_confirmed';
 
 /** Per-question difficulty. A *set's* difficulty is `low | medium | hard` — different scale. */
-export type QuestionDifficulty = 'easy' | 'medium' | 'hard';
+export type ItemDifficulty = 'easy' | 'medium' | 'hard';
 
-export interface Question {
+export interface AuthoringItem {
   id: string;
   setId: string;
   passageId: string | null;
   questionType: 'multiple_choice' | 'student_produced_response';
-  subSkill: SubSkill | null;
+  subSkill: SubCompetency | null;
   /** A domain or skill code from `/skills`. Covers Math, which `subSkill` never could. */
   skillCode: string | null;
-  difficulty: QuestionDifficulty | null;
-  subSkillSource: SubSkillSource | null;
+  difficulty: ItemDifficulty | null;
+  subSkillSource: SubCompetencySource | null;
   questionText: string;
   optionA: string | null;
   optionB: string | null;
@@ -57,13 +57,13 @@ export interface Question {
   orderIndex: number;
 }
 
-export async function getQuestionSets(): Promise<QuestionSet[]> {
-  const { data } = await apiClient.get<QuestionSet[]>('/teacher/question-sets');
+export async function fetchAuthoringBundles(): Promise<AuthoringBundle[]> {
+  const { data } = await apiTransport.get<AuthoringBundle[]>('/teacher/question-sets');
   return data;
 }
 
-export async function createQuestionSet(payload: { title: string; subject: 'english' | 'math'; description: string; difficulty?: 'low' | 'medium' | 'hard' | null; isLiveExam?: boolean }): Promise<QuestionSet> {
-  const { data } = await apiClient.post<QuestionSet>('/teacher/question-sets', payload);
+export async function addQuestionSet(payload: { title: string; subject: 'english' | 'math'; description: string; difficulty?: 'low' | 'medium' | 'hard' | null; isLiveExam?: boolean }): Promise<AuthoringBundle> {
+  const { data } = await apiTransport.post<AuthoringBundle>('/teacher/question-sets', payload);
   return data;
 }
 
@@ -72,69 +72,69 @@ export async function createQuestionSet(payload: { title: string; subject: 'engl
  * only sets carrying that flag, so without a way to set it on an existing set a
  * teacher has to re-author their whole paper to run one.
  */
-export async function updateQuestionSet(setId: string, payload: Partial<{ title: string; description: string; difficulty: 'low' | 'medium' | 'hard' | null; isLiveExam: boolean }>): Promise<QuestionSet> {
-  const { data } = await apiClient.put<QuestionSet>(`/teacher/question-sets/${setId}`, payload);
+export async function editQuestionSet(setId: string, payload: Partial<{ title: string; description: string; difficulty: 'low' | 'medium' | 'hard' | null; isLiveExam: boolean }>): Promise<AuthoringBundle> {
+  const { data } = await apiTransport.put<AuthoringBundle>(`/teacher/question-sets/${setId}`, payload);
   return data;
 }
 
-export async function deleteQuestionSet(setId: string): Promise<void> {
-  await apiClient.delete(`/teacher/question-sets/${setId}`);
+export async function removeQuestionSet(setId: string): Promise<void> {
+  await apiTransport.delete(`/teacher/question-sets/${setId}`);
 }
 
-export async function publishQuestionSet(setId: string): Promise<QuestionSet> {
-  const { data } = await apiClient.post<QuestionSet>(`/teacher/question-sets/${setId}/publish`);
+export async function publishItemBundle(setId: string): Promise<AuthoringBundle> {
+  const { data } = await apiTransport.post<AuthoringBundle>(`/teacher/question-sets/${setId}/publish`);
   return data;
 }
 
-export async function getSetPassages(setId: string): Promise<Passage[]> {
-  const { data } = await apiClient.get<Passage[]>(`/teacher/question-sets/${setId}/passages`);
+export async function fetchSetPassages(setId: string): Promise<Extract[]> {
+  const { data } = await apiTransport.get<Extract[]>(`/teacher/question-sets/${setId}/passages`);
   return data;
 }
 
-export async function createPassage(setId: string, payload: { title: string; passageText: string; orderIndex: number }): Promise<Passage> {
-  const { data } = await apiClient.post<Passage>(`/teacher/question-sets/${setId}/passages`, payload);
+export async function addPassage(setId: string, payload: { title: string; passageText: string; orderIndex: number }): Promise<Extract> {
+  const { data } = await apiTransport.post<Extract>(`/teacher/question-sets/${setId}/passages`, payload);
   return data;
 }
 
-export async function updatePassage(passageId: string, payload: Partial<{ title: string; passageText: string }>): Promise<Passage> {
-  const { data } = await apiClient.put<Passage>(`/teacher/passages/${passageId}`, payload);
+export async function editPassage(passageId: string, payload: Partial<{ title: string; passageText: string }>): Promise<Extract> {
+  const { data } = await apiTransport.put<Extract>(`/teacher/passages/${passageId}`, payload);
   return data;
 }
 
-export async function deletePassage(passageId: string): Promise<void> {
-  await apiClient.delete(`/teacher/passages/${passageId}`);
+export async function removePassage(passageId: string): Promise<void> {
+  await apiTransport.delete(`/teacher/passages/${passageId}`);
 }
 
-export async function getSetQuestions(setId: string): Promise<Question[]> {
-  const { data } = await apiClient.get<Question[]>(`/teacher/question-sets/${setId}/questions`);
+export async function fetchSetQuestions(setId: string): Promise<AuthoringItem[]> {
+  const { data } = await apiTransport.get<AuthoringItem[]>(`/teacher/question-sets/${setId}/questions`);
   return data;
 }
 
 /** `subSkill` is omitted too: tagging goes through `skillCode` now. */
-export async function addQuestion(setId: string, payload: Omit<Question, 'id' | 'setId' | 'subSkillSource' | 'subSkill'>): Promise<Question> {
-  const { data } = await apiClient.post<Question>(`/teacher/question-sets/${setId}/questions`, payload);
+export async function addItem(setId: string, payload: Omit<AuthoringItem, 'id' | 'setId' | 'subSkillSource' | 'subSkill'>): Promise<AuthoringItem> {
+  const { data } = await apiTransport.post<AuthoringItem>(`/teacher/question-sets/${setId}/questions`, payload);
   return data;
 }
 
-export async function updateQuestion(questionId: string, payload: Omit<Question, 'id' | 'setId' | 'subSkillSource' | 'subSkill'>): Promise<Question> {
-  const { data } = await apiClient.put<Question>(`/teacher/questions/${questionId}`, payload);
+export async function editQuestion(questionId: string, payload: Omit<AuthoringItem, 'id' | 'setId' | 'subSkillSource' | 'subSkill'>): Promise<AuthoringItem> {
+  const { data } = await apiTransport.put<AuthoringItem>(`/teacher/questions/${questionId}`, payload);
   return data;
 }
 
 /** Confirm or override an AI-suggested tag. Takes a skill code, so Math is correctable. */
-export async function updateQuestionSubSkill(
+export async function editQuestionSubCompetency(
   questionId: string,
-  payload: { skillCode?: string | null; subSkillSource: SubSkillSource },
-): Promise<Question> {
-  const { data } = await apiClient.put<Question>(`/teacher/questions/${questionId}/subskill`, payload);
+  payload: { skillCode?: string | null; subSkillSource: SubCompetencySource },
+): Promise<AuthoringItem> {
+  const { data } = await apiTransport.put<AuthoringItem>(`/teacher/questions/${questionId}/subskill`, payload);
   return data;
 }
 
-export async function deleteQuestion(questionId: string): Promise<void> {
-  await apiClient.delete(`/teacher/questions/${questionId}`);
+export async function removeQuestion(questionId: string): Promise<void> {
+  await apiTransport.delete(`/teacher/questions/${questionId}`);
 }
 
-export interface QuestionSetImportPayload {
+export interface ItemBundleImportBody {
   title: string;
   subject: 'english' | 'math';
   description?: string;
@@ -152,7 +152,7 @@ export interface QuestionSetImportPayload {
     questionType: 'multiple_choice' | 'student_produced_response';
     questionText: string;
     skillCode?: string | null;
-    difficulty?: QuestionDifficulty | null;
+    difficulty?: ItemDifficulty | null;
     optionA?: string | null;
     optionB?: string | null;
     optionC?: string | null;
@@ -164,9 +164,9 @@ export interface QuestionSetImportPayload {
   }>;
 }
 
-export async function importQuestionSetFromJSON(
-  payload: QuestionSetImportPayload,
-): Promise<{ set: QuestionSet; questionCount: number; passageCount: number }> {
-  const { data } = await apiClient.post('/teacher/question-sets/import-json', payload);
+export async function ingestQuestionSetFromJSON(
+  payload: ItemBundleImportBody,
+): Promise<{ set: AuthoringBundle; questionCount: number; passageCount: number }> {
+  const { data } = await apiTransport.post('/teacher/question-sets/import-json', payload);
   return data;
 }

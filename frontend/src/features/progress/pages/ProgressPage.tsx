@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { getAnalytics } from '@/features/progress/api';
-import { startTopicExam } from '@/features/practice';
-import { getApiError } from '@/shared/api/http';
-import { useMobile } from '@/shared/hooks/useMobile';
-import { DomainPanel, ReadinessCard, TrendPanel } from '@/features/progress/components/ProgressPanels';
-import { pageClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { fetchAnalytics } from '@/features/progress/api';
+import { openTopicAssessment } from '@/features/practice';
+import { fetchApiError } from '@/shared/api/http';
+import { useNarrowViewport } from '@/shared/hooks/useMobile';
+import { DomainPane, PreparednessPanel, SeriesPane } from '@/features/progress/components/ProgressPanels';
+import { screenStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * Progress: where a student stands, what is going up, and what to work on.
@@ -16,20 +16,20 @@ import { cn } from '@/shared/lib/utils';
  * topic row is a button that builds an exam from that topic, so the answer to
  * "what should I do about this" is one click away from the finding.
  */
-export default function Progress() {
+export default function Advance() {
   const navigate = useNavigate();
-  const isMobile = useMobile();
+  const isMobile = useNarrowViewport();
   const [error, setError] = useState('');
 
-  const { data, isLoading } = useQuery({ queryKey: ['student', 'analytics'], queryFn: getAnalytics });
+  const { data, isLoading } = useQuery({ queryKey: ['student', 'analytics'], queryFn: fetchAnalytics });
 
   const topicMutation = useMutation({
-    mutationFn: startTopicExam,
+    mutationFn: openTopicAssessment,
     onSuccess: (result) =>
       navigate(`/student/exams/${result.exam.id}`, {
         state: { timerEnabled: false, examTitle: `Topic: ${result.skill.label}` },
       }),
-    onError: (err) => setError(getApiError(err)),
+    onError: (err) => setError(fetchApiError(err)),
   });
 
   if (isLoading) {
@@ -39,7 +39,7 @@ export default function Progress() {
   const hasAnything = !!data && (data.trend.length > 0 || data.domains.length > 0);
 
   return (
-    <div className={cn(pageClass, 'max-w-[900px]')}>
+    <div className={classes(screenStyle, 'max-w-[900px]')}>
       <h1 className="font-display font-semibold text-[32px] sm:text-[44px] mt-0 mb-1.5 tracking-[-0.02em]">
         Progress
       </h1>
@@ -68,9 +68,9 @@ export default function Progress() {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          <ReadinessCard readiness={data!.readiness} isMobile={isMobile} />
-          <TrendPanel trend={data!.trend} isMobile={isMobile} />
-          <DomainPanel
+          <PreparednessPanel readiness={data!.readiness} isMobile={isMobile} />
+          <SeriesPane trend={data!.trend} isMobile={isMobile} />
+          <DomainPane
             overview={data!}
             isMobile={isMobile}
             onPractise={(domainCode, subject) => {

@@ -1,23 +1,23 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FileText, Pencil, Trash2 } from 'lucide-react';
-import type { Passage, Question } from '@/features/content/api';
-import { getSkills, skillLabel, skillsQueryKey } from '@/entities/skill';
-import { SkillSelect } from '@/entities/skill';
-import { iconButtonClass, surfaceClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import type { Extract, AuthoringItem } from '@/features/content/api';
+import { fetchCompetencys, skillCaption, competencyQueryKey } from '@/entities/skill';
+import { CompetencySelect } from '@/entities/skill';
+import { iconControlStyle, surfaceStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 type QFilter = 'all' | 'ai_suggested' | 'untagged';
 
 /** Every question in the set, filterable to the ones whose AI tag needs review. */
-export function QuestionList({
+export function ItemRoll({
   questions, passages, subject, editingId, onEdit, onDelete, onConfirmTag, onOverrideTag,
 }: {
-  questions: Question[];
-  passages: Passage[];
+  questions: AuthoringItem[];
+  passages: Extract[];
   subject: 'english' | 'math';
   editingId: string | null;
-  onEdit: (q: Question) => void;
+  onEdit: (q: AuthoringItem) => void;
   onDelete: (id: string) => void;
   onConfirmTag: (questionId: string) => void;
   onOverrideTag: (questionId: string, skillCode: string) => void;
@@ -35,7 +35,7 @@ export function QuestionList({
   const labels: Record<QFilter, string> = { all: 'All', ai_suggested: 'AI Review', untagged: 'Untagged' };
 
   return (
-    <div className={cn(surfaceClass, 'overflow-hidden')}>
+    <div className={classes(surfaceStyle, 'overflow-hidden')}>
       <div className="px-[22px] py-3.5 border-b border-border-soft flex items-center justify-between flex-wrap gap-2.5">
         <h3 className="text-sm font-semibold text-ink m-0">Questions Added ({questions.length})</h3>
         {showFilter && (
@@ -46,9 +46,9 @@ export function QuestionList({
                 <button
                   key={f}
                   onClick={() => setQFilter(f)}
-                  className={cn(
+                  className={classes(
                     'px-3 py-1 text-[11.5px] font-semibold rounded-full cursor-pointer',
-                    active ? cn('text-white', f === 'ai_suggested' ? 'bg-gold' : 'bg-ink') : 'border border-border bg-sunken text-stone',
+                    active ? classes('text-white', f === 'ai_suggested' ? 'bg-gold' : 'bg-ink') : 'border border-border bg-sunken text-stone',
                   )}
                 >
                   {f === 'ai_suggested' && '⚡ '}{labels[f]}
@@ -84,7 +84,7 @@ export function QuestionList({
 const chip = 'text-[10.5px] px-[7px] py-0.5 rounded-[5px]';
 
 function QuestionRow({ q, index, passages, subject, isEditing, onDelete, onEdit, onConfirm, onOverride }: {
-  q: Question; index: number; passages: Passage[];
+  q: AuthoringItem; index: number; passages: Extract[];
   subject: 'english' | 'math';
   isEditing?: boolean;
   onDelete: () => void;
@@ -96,14 +96,14 @@ function QuestionRow({ q, index, passages, subject, isEditing, onDelete, onEdit,
   const passage = passages.find((p) => p.id === q.passageId);
   const isAiSuggested = q.subSkillSource === 'ai_suggested';
   const { data: skillTree = [] } = useQuery({
-    queryKey: skillsQueryKey(),
-    queryFn: () => getSkills(),
+    queryKey: competencyQueryKey(),
+    queryFn: () => fetchCompetencys(),
     staleTime: 60 * 60 * 1000,
   });
 
   return (
     <div
-      className={cn(
+      className={classes(
         'border-b border-sunken last:border-b-0',
         isEditing ? 'bg-ember/[.04] outline outline-2 outline-ember/25 -outline-offset-1' : isAiSuggested && 'bg-gold/[.03]',
       )}
@@ -112,14 +112,14 @@ function QuestionRow({ q, index, passages, subject, isEditing, onDelete, onEdit,
         <span className="w-6 h-6 rounded-[7px] bg-sunken flex items-center justify-center text-xs font-semibold text-subtle shrink-0 mt-0.5">{index + 1}</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-[3px] flex-wrap">
-            <span className={cn(chip, 'font-bold tracking-[0.06em] uppercase', isMC ? 'bg-[#EEF2FB] text-blue-sat' : 'bg-ember/[.08] text-accent-text')}>{isMC ? 'MC' : 'SPR'}</span>
+            <span className={classes(chip, 'font-bold tracking-[0.06em] uppercase', isMC ? 'bg-[#EEF2FB] text-blue-sat' : 'bg-ember/[.08] text-accent-text')}>{isMC ? 'MC' : 'SPR'}</span>
             {q.skillCode && (
-              <span className={cn(chip, 'font-semibold tracking-[0.04em]', isAiSuggested ? 'bg-gold/[.12] text-gold-dark border border-gold/30' : 'bg-[#F0ECE4] text-[#6B5F4A]')}>
-                {isAiSuggested && '⚡ '}{skillLabel(skillTree, q.skillCode)}
+              <span className={classes(chip, 'font-semibold tracking-[0.04em]', isAiSuggested ? 'bg-gold/[.12] text-gold-dark border border-gold/30' : 'bg-[#F0ECE4] text-[#6B5F4A]')}>
+                {isAiSuggested && '⚡ '}{skillCaption(skillTree, q.skillCode)}
               </span>
             )}
             {q.difficulty && (
-              <span className={cn(chip, 'font-semibold tracking-[0.04em] bg-[#EEF2FB] text-blue-sat capitalize')}>
+              <span className={classes(chip, 'font-semibold tracking-[0.04em] bg-[#EEF2FB] text-blue-sat capitalize')}>
                 {q.difficulty}
               </span>
             )}
@@ -136,9 +136,9 @@ function QuestionRow({ q, index, passages, subject, isEditing, onDelete, onEdit,
           <button
             onClick={onEdit}
             title="Edit question"
-            className={isEditing ? 'p-1.5 rounded-[7px] bg-ember/10 cursor-pointer text-accent-text' : iconButtonClass('edit', 'p-1.5 rounded-[7px]')}
+            className={isEditing ? 'p-1.5 rounded-[7px] bg-ember/10 cursor-pointer text-accent-text' : iconControlStyle('edit', 'p-1.5 rounded-[7px]')}
           ><Pencil size={14} /></button>
-          <button onClick={onDelete} title="Delete question" className={iconButtonClass('danger', 'p-1.5 rounded-[7px]')}><Trash2 size={14} /></button>
+          <button onClick={onDelete} title="Delete question" className={iconControlStyle('danger', 'p-1.5 rounded-[7px]')}><Trash2 size={14} /></button>
         </div>
       </div>
 
@@ -153,7 +153,7 @@ function QuestionRow({ q, index, passages, subject, isEditing, onDelete, onEdit,
           {/* The full tree, so a Math suggestion is correctable — the old
               five-value list could not express a Math topic at all. */}
           <div className="min-w-[220px]">
-            <SkillSelect
+            <CompetencySelect
               subject={subject}
               value={null}
               onChange={(code) => { if (code) onOverride(code); }}

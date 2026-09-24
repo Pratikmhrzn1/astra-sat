@@ -1,6 +1,6 @@
-import { apiClient } from '@/shared/api/http';
+import { apiTransport } from '@/shared/api/http';
 
-export interface FeedbackItem {
+export interface ReportNote {
   id: string;
   category: 'bug' | 'suggestion' | 'other';
   message: string;
@@ -11,23 +11,23 @@ export interface FeedbackItem {
   userEmail: string | null;
 }
 
-export async function submitFeedback(payload: {
+export async function commitFeedback(payload: {
   category: 'bug' | 'suggestion' | 'other';
   message: string;
 }): Promise<{ id: string }> {
-  const { data } = await apiClient.post<{ id: string }>('/feedback', payload);
+  const { data } = await apiTransport.post<{ id: string }>('/feedback', payload);
   return data;
 }
 
-export async function getAdminFeedback(): Promise<FeedbackItem[]> {
-  const { data } = await apiClient.get<FeedbackItem[]>('/feedback');
+export async function fetchAdminFeedback(): Promise<ReportNote[]> {
+  const { data } = await apiTransport.get<ReportNote[]>('/feedback');
   return data;
 }
 
-export async function markFeedbackRead(id: string): Promise<void> {
-  await apiClient.patch(`/feedback/${id}/read`);
+export async function flagReportSeen(id: string): Promise<void> {
+  await apiTransport.patch(`/feedback/${id}/read`);
 }
 
-export async function deleteFeedback(id: string): Promise<void> {
-  await apiClient.delete(`/feedback/${id}`);
+export async function removeFeedback(id: string): Promise<void> {
+  await apiTransport.delete(`/feedback/${id}`);
 }

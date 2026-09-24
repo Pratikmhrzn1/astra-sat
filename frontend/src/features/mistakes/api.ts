@@ -1,5 +1,5 @@
-import { apiClient } from '@/shared/api/http';
-import type { Exam } from '@/entities/exam';
+import { apiTransport } from '@/shared/api/http';
+import type { Assessment } from '@/entities/exam';
 
 // ── Mistake bank ─────────────────────────────────────────────────────────────
 
@@ -8,7 +8,7 @@ import type { Exam } from '@/entities/exam';
  * it. The correct answer and explanation are included because these come from
  * exams they have already completed and reviewed.
  */
-export interface Mistake {
+export interface Misstep {
   questionId: string;
   questionType: 'multiple_choice' | 'student_produced_response';
   questionText: string;
@@ -40,32 +40,32 @@ export interface Mistake {
   resolvedAt: string | null;
 }
 
-export interface MistakeSummaryRow {
+export interface MisstepSummaryRow {
   domainCode: string | null;
   subject: 'english' | 'math';
   openCount: number;
 }
 
-export async function getMistakes(filters: {
+export async function fetchMissteps(filters: {
   subject?: 'english' | 'math';
   skillCode?: string;
   status?: 'open' | 'resolved';
-} = {}): Promise<Mistake[]> {
-  const { data } = await apiClient.get<Mistake[]>('/student/mistakes', { params: filters });
+} = {}): Promise<Misstep[]> {
+  const { data } = await apiTransport.get<Misstep[]>('/student/mistakes', { params: filters });
   return data;
 }
 
-export async function getMistakeSummary(): Promise<MistakeSummaryRow[]> {
-  const { data } = await apiClient.get<MistakeSummaryRow[]>('/student/mistakes/summary');
+export async function fetchMisstepSummary(): Promise<MisstepSummaryRow[]> {
+  const { data } = await apiTransport.get<MisstepSummaryRow[]>('/student/mistakes/summary');
   return data;
 }
 
 /** Builds a review exam from open mistakes. Resolution happens on submit. */
-export async function startMistakePractice(payload: {
+export async function openMisstepPractice(payload: {
   subject?: 'english' | 'math';
   skillCode?: string;
   limit?: number;
-}): Promise<{ exam: Exam; questionCount: number }> {
-  const { data } = await apiClient.post('/student/mistakes/practice', payload);
+}): Promise<{ exam: Assessment; questionCount: number }> {
+  const { data } = await apiTransport.post('/student/mistakes/practice', payload);
   return data;
 }

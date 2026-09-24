@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { proactiveRefresh } from '@/shared/api/http';
+import { proactiveRenew } from '@/shared/api/http';
 
 /**
  * Refreshes the access token when the tab regains focus, and once on mount.
@@ -12,14 +12,14 @@ import { proactiveRefresh } from '@/shared/api/http';
  * Mount also matters: the page can be loaded with an already-expired token
  * restored from localStorage.
  */
-export function useProactiveTokenRefresh(): void {
+export function useEagerTicketRenew(): void {
   useEffect(() => {
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') void proactiveRefresh();
+      if (document.visibilityState === 'visible') void proactiveRenew();
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
-    void proactiveRefresh();
+    void proactiveRenew();
 
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);

@@ -1,16 +1,16 @@
 import { useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import {
-  type SurveyAnswer,
-  type SurveyQuestionPayload,
-  type SurveyQuestionType,
+  type IntakeAnswer,
+  type IntakeQuestionPayload,
+  type IntakeQuestionType,
 } from '@/features/survey/api';
-import { QuestionField } from '@/features/survey/components/QuestionField';
+import { ItemField } from '@/features/survey/components/QuestionField';
 import {
-  Button, Modal, Toggle,
-  alertClass, hintTextClass, iconButtonClass, inputClass, labelClass, segmentClass,
+  Control, Dialog, Switch,
+  alertStyle, hintTextStyle, iconControlStyle, fieldInputStyle, fieldCaptionStyle, segmentStyle,
 } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * Authoring one survey question.
@@ -23,18 +23,18 @@ import { cn } from '@/shared/lib/utils';
  * server remains the authority; this only saves the round trip.
  */
 
-export const TYPE_LABELS: Record<SurveyQuestionType, string> = {
+export const TYPE_CAPTIONS: Record<IntakeQuestionType, string> = {
   single_choice: 'Single choice',
   multi_choice: 'Multiple choice',
   short_text: 'Short text',
   scale: 'Scale 1–5',
 };
 
-export const CHOICE_TYPES: SurveyQuestionType[] = ['single_choice', 'multi_choice'];
+export const CHOICE_KINDS: IntakeQuestionType[] = ['single_choice', 'multi_choice'];
 
-export const MAX_OPTIONS = 12;
+export const MAX_CHOICES = 12;
 
-export const emptyQuestionForm: SurveyQuestionPayload = {
+export const emptyItemSheet: IntakeQuestionPayload = {
   prompt: '',
   type: 'single_choice',
   options: ['', ''],
@@ -47,11 +47,11 @@ interface Problems {
   options?: string;
 }
 
-function validate(form: SurveyQuestionPayload, filled: string[]): Problems {
+function validate(form: IntakeQuestionPayload, filled: string[]): Problems {
   const problems: Problems = {};
   if (form.prompt.trim().length < 3) problems.prompt = 'Give the question at least 3 characters.';
 
-  if (CHOICE_TYPES.includes(form.type)) {
+  if (CHOICE_KINDS.includes(form.type)) {
     if (filled.length < 2) {
       problems.options = 'A choice question needs at least 2 options.';
     } else if (new Set(filled.map((o) => o.toLowerCase())).size !== filled.length) {
@@ -63,7 +63,7 @@ function validate(form: SurveyQuestionPayload, filled: string[]): Problems {
   return problems;
 }
 
-export function QuestionEditor({
+export function ItemComposer({
   open,
   initial,
   title,
@@ -75,19 +75,19 @@ export function QuestionEditor({
   onSave,
 }: {
   open: boolean;
-  initial: SurveyQuestionPayload;
+  initial: IntakeQuestionPayload;
   title: string;
   saving: boolean;
   error: string;
   responseCount?: number;
   onClose: () => void;
-  onSave: (payload: SurveyQuestionPayload) => void;
+  onSave: (payload: IntakeQuestionPayload) => void;
 }) {
   const [form, setForm] = useState(initial);
-  const [preview, setPreview] = useState<SurveyAnswer | undefined>(undefined);
+  const [preview, setPreview] = useState<IntakeAnswer | undefined>(undefined);
   const optionRefs = useRef(new Map<number, HTMLInputElement>());
 
-  const takesOptions = CHOICE_TYPES.includes(form.type);
+  const takesOptions = CHOICE_KINDS.includes(form.type);
   const filled = form.options.map((o) => o.trim()).filter(Boolean);
   const problems = validate(form, filled);
   const valid = !problems.prompt && !problems.options;
@@ -100,7 +100,7 @@ export function QuestionEditor({
     setForm((f) => ({ ...f, options: next(f.options) }));
 
   const addOption = (focusIt = true) => {
-    if (form.options.length >= MAX_OPTIONS) return;
+    if (form.options.length >= MAX_CHOICES) return;
     const index = form.options.length;
     setOptions((options) => [...options, '']);
     if (focusIt) requestAnimationFrame(() => optionRefs.current.get(index)?.focus());
@@ -120,7 +120,7 @@ export function QuestionEditor({
   const previewReady = !takesOptions || (filled.length >= 2 && !problems.options);
 
   return (
-    <Modal
+    <Dialog
       isOpen={open}
       // Closing mid-save would leave the student-facing survey in whichever
       // state the request settles on, with nothing on screen to say so.
@@ -129,20 +129,20 @@ export function QuestionEditor({
       size="lg"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button
+          <Control variant="secondary" onClick={onClose} disabled={saving}>Cancel</Control>
+          <Control
             onClick={() => onSave({ ...form, prompt: form.prompt.trim(), options: takesOptions ? filled : [] })}
             loading={saving}
             disabled={!valid}
           >
             Save Question
-          </Button>
+          </Control>
         </>
       }
     >
       <div className="flex flex-col gap-5">
         <div>
-          <label className={labelClass} htmlFor="survey-prompt">Question</label>
+          <label className={fieldCaptionStyle} htmlFor="survey-prompt">Question</label>
           <textarea
             id="survey-prompt"
             value={form.prompt}
@@ -150,13 +150,13 @@ export function QuestionEditor({
             rows={2}
             placeholder="e.g. What is your target SAT score?"
             aria-invalid={!!problems.prompt}
-            className={inputClass(false, 'resize-y min-h-[64px]')}
+            className={fieldInputStyle(false, 'resize-y min-h-[64px]')}
           />
-          {problems.prompt && <p className={hintTextClass}>{problems.prompt}</p>}
+          {problems.prompt && <p className={hintTextStyle}>{problems.prompt}</p>}
         </div>
 
         <div>
-          <label className={labelClass}>Answer type</label>
+          <label className={fieldCaptionStyle}>Answer type</label>
           {/*
             A grid rather than the four-up segmented control: "Multiple choice"
             does not fit a quarter of this modal on a phone, and the labels were
@@ -167,7 +167,7 @@ export function QuestionEditor({
             aria-label="Answer type"
             className="grid grid-cols-2 sm:grid-cols-4 gap-0.5 p-0.5 rounded-[10px] bg-ink/[.06]"
           >
-            {(Object.keys(TYPE_LABELS) as SurveyQuestionType[]).map((type) => (
+            {(Object.keys(TYPE_CAPTIONS) as IntakeQuestionType[]).map((type) => (
               <button
                 key={type}
                 type="button"
@@ -181,17 +181,17 @@ export function QuestionEditor({
                     // Keep whatever options were typed when moving between the
                     // two choice types; seed a pair when arriving from a type
                     // that has none.
-                    options: CHOICE_TYPES.includes(type) ? (f.options.length ? f.options : ['', '']) : f.options,
+                    options: CHOICE_KINDS.includes(type) ? (f.options.length ? f.options : ['', '']) : f.options,
                   }))
                 }
-                className={cn(segmentClass(form.type === type), 'disabled:opacity-40 disabled:cursor-not-allowed')}
+                className={classes(segmentStyle(form.type === type), 'disabled:opacity-40 disabled:cursor-not-allowed')}
               >
-                {TYPE_LABELS[type]}
+                {TYPE_CAPTIONS[type]}
               </button>
             ))}
           </div>
           {typeLocked && (
-            <p className={hintTextClass}>
+            <p className={hintTextStyle}>
               {responseCount} student{responseCount === 1 ? ' has' : 's have'} already answered this, so its answer type
               is fixed. Make it inactive and add a replacement instead.
             </p>
@@ -200,7 +200,7 @@ export function QuestionEditor({
 
         {takesOptions && (
           <div>
-            <label className={labelClass}>Options</label>
+            <label className={fieldCaptionStyle}>Options</label>
             <div className="flex flex-col gap-2">
               {form.options.map((option, index) => (
                 <div key={index} className="flex gap-2">
@@ -221,13 +221,13 @@ export function QuestionEditor({
                     }}
                     placeholder={`Option ${index + 1}`}
                     aria-label={`Option ${index + 1}`}
-                    className={inputClass()}
+                    className={fieldInputStyle()}
                   />
                   <button
                     type="button"
                     onClick={() => setOptions((options) => options.filter((_, i) => i !== index))}
                     disabled={form.options.length <= 2}
-                    className={iconButtonClass('danger')}
+                    className={iconControlStyle('danger')}
                     aria-label={`Remove option ${index + 1}`}
                     title={form.options.length <= 2 ? 'A choice question needs at least 2 options' : 'Remove option'}
                   >
@@ -236,8 +236,8 @@ export function QuestionEditor({
                 </div>
               ))}
             </div>
-            {problems.options && <p className={hintTextClass}>{problems.options}</p>}
-            {form.options.length < MAX_OPTIONS ? (
+            {problems.options && <p className={hintTextStyle}>{problems.options}</p>}
+            {form.options.length < MAX_CHOICES ? (
               <button
                 type="button"
                 onClick={() => addOption()}
@@ -246,7 +246,7 @@ export function QuestionEditor({
                 + Add option
               </button>
             ) : (
-              <p className={hintTextClass}>That is the maximum of {MAX_OPTIONS} options.</p>
+              <p className={hintTextStyle}>That is the maximum of {MAX_CHOICES} options.</p>
             )}
           </div>
         )}
@@ -256,7 +256,7 @@ export function QuestionEditor({
             <div className="text-[13px] font-semibold text-body">Required</div>
             <div className="text-xs text-muted">Students cannot continue without answering it.</div>
           </div>
-          <Toggle on={form.isRequired} onClick={() => setForm((f) => ({ ...f, isRequired: !f.isRequired }))} label="Required" />
+          <Switch on={form.isRequired} onClick={() => setForm((f) => ({ ...f, isRequired: !f.isRequired }))} label="Required" />
         </div>
 
         <div className="flex items-center justify-between gap-4">
@@ -264,7 +264,7 @@ export function QuestionEditor({
             <div className="text-[13px] font-semibold text-body">Active</div>
             <div className="text-xs text-muted">Inactive questions keep past answers but are no longer asked.</div>
           </div>
-          <Toggle on={form.isActive} onClick={() => setForm((f) => ({ ...f, isActive: !f.isActive }))} label="Active" />
+          <Switch on={form.isActive} onClick={() => setForm((f) => ({ ...f, isActive: !f.isActive }))} label="Active" />
         </div>
 
         {/*
@@ -273,14 +273,14 @@ export function QuestionEditor({
           way round is looking at the real thing.
         */}
         <div>
-          <label className={labelClass}>Student preview</label>
+          <label className={fieldCaptionStyle}>Student preview</label>
           <div className="rounded-2xl border border-border bg-sunken p-4">
-            <div className={cn(labelClass, 'mb-3')}>
+            <div className={classes(fieldCaptionStyle, 'mb-3')}>
               {previewQuestion.prompt}
               {!form.isRequired && <span className="ml-2 font-normal text-muted">(optional)</span>}
             </div>
             {previewReady ? (
-              <QuestionField question={previewQuestion} value={preview} onChange={setPreview} />
+              <ItemField question={previewQuestion} value={preview} onChange={setPreview} />
             ) : (
               <p className="text-[13px] text-muted m-0">
                 {problems.options ?? 'Add at least 2 options to see the preview.'}
@@ -289,8 +289,8 @@ export function QuestionEditor({
           </div>
         </div>
 
-        {error && <div role="alert" className={alertClass}>{error}</div>}
+        {error && <div role="alert" className={alertStyle}>{error}</div>}
       </div>
-    </Modal>
+    </Dialog>
   );
 }

@@ -1,51 +1,51 @@
-import { apiClient } from '@/shared/api/http';
-import type { VocabDrillContent } from '@/features/vocab';
+import { apiTransport } from '@/shared/api/http';
+import type { LexiconDrillContent } from '@/features/vocab';
 
 /** Reviewing a finished exam: AI guidance per question, the narrative, and the tutor chat. */
 
-export type ReasoningClassification =
+export type ReasoningTag =
   | 'correct_logic_correct_answer'
   | 'correct_logic_wrong_answer'
   | 'wrong_logic_correct_answer'
   | 'wrong_logic_wrong_answer';
 
-export interface ReasoningCheckpointContent {
-  classification: ReasoningClassification;
+export interface ReasoningCheckpointAuthoring {
+  classification: ReasoningTag;
   explanation: string;
 }
 
-export interface GrammarDiagnosisContent {
+export interface GrammarDiagnosisAuthoring {
   grammarRule: string;
   grammarFix: string;
 }
 
-export interface TrapExplainerContent {
+export interface TrapExplainerAuthoring {
   trap: string;
   explanation: string;
 }
 
-export interface CommandOfEvidenceContent {
+export interface CommandOfEvidenceAuthoring {
   supportingLine: string;
   whyCorrect: string;
   whyStudentWrong: string;
 }
 
-export interface TransitionsCoachContent {
+export interface TransitionsCoachAuthoring {
   logicalRelationship: string;
   whyCorrect: string;
   whyStudentWrong: string;
 }
 
-export interface ConfirmFeedbacks {
-  reasoning_checkpoint?: ReasoningCheckpointContent | null;
-  grammar_diagnosis?: GrammarDiagnosisContent | null;
-  trap_explainer?: TrapExplainerContent | null;
-  command_of_evidence?: CommandOfEvidenceContent | null;
-  transitions_coach?: TransitionsCoachContent | null;
-  vocab_drill?: VocabDrillContent | null;
+export interface AcknowledgeNotes {
+  reasoning_checkpoint?: ReasoningCheckpointAuthoring | null;
+  grammar_diagnosis?: GrammarDiagnosisAuthoring | null;
+  trap_explainer?: TrapExplainerAuthoring | null;
+  command_of_evidence?: CommandOfEvidenceAuthoring | null;
+  transitions_coach?: TransitionsCoachAuthoring | null;
+  vocab_drill?: LexiconDrillContent | null;
 }
 
-export async function confirmAnswer(
+export async function acknowledgeAnswer(
   examId: string,
   questionId: string,
   payload: {
@@ -54,32 +54,32 @@ export async function confirmAnswer(
     confidence: 'sure' | 'eliminated' | 'guessed';
     reasoning?: string;
   },
-): Promise<{ isCorrect: boolean; feedbacks: ConfirmFeedbacks; vocabTrackingId: string | null }> {
-  const { data } = await apiClient.post(
+): Promise<{ isCorrect: boolean; feedbacks: AcknowledgeNotes; vocabTrackingId: string | null }> {
+  const { data } = await apiTransport.post(
     `/student/exams/${examId}/questions/${questionId}/confirm`,
     payload,
   );
   return data;
 }
 
-export interface NarrativeSubSkill {
+export interface NarrativeSubCompetency {
   subSkill: string;
   wrong: number;
   total: number;
   flag: boolean;
 }
 
-export interface NarrativeContent {
+export interface SummaryAuthoring {
   scoreRange: string | null;
   primaryGap: string;
   narrative: string;
-  subSkillBreakdown: NarrativeSubSkill[];
+  subSkillBreakdown: NarrativeSubCompetency[];
 }
 
-export interface MockNarrative {
+export interface TrialSummary {
   id: string;
   examId: string;
-  content: NarrativeContent | null;
+  content: SummaryAuthoring | null;
   modelUsed: string;
   latencyMs: number | null;
   costUsd: string | null;
@@ -87,33 +87,33 @@ export interface MockNarrative {
   createdAt: string;
 }
 
-export async function getMockNarrative(examId: string): Promise<MockNarrative> {
-  const { data } = await apiClient.get<MockNarrative>(`/student/exams/${examId}/narrative`);
+export async function fetchMockNarrative(examId: string): Promise<TrialSummary> {
+  const { data } = await apiTransport.get<TrialSummary>(`/student/exams/${examId}/narrative`);
   return data;
 }
 
-export async function retryNarrative(examId: string): Promise<void> {
-  await apiClient.post(`/student/exams/${examId}/narrative/retry`);
+export async function retrySummary(examId: string): Promise<void> {
+  await apiTransport.post(`/student/exams/${examId}/narrative/retry`);
 }
 
-export interface ChatMessage {
+export interface TutorNote {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   createdAt: string;
 }
 
-export async function sendChatMessage(params: {
+export async function dispatchChatMessage(params: {
   sessionId?: string;
   userMessage: string;
   examId?: string;
   questionId?: string;
 }): Promise<{ sessionId: string; assistantMessage: string }> {
-  const { data } = await apiClient.post('/student/chat', params);
+  const { data } = await apiTransport.post('/student/chat', params);
   return data;
 }
 
-export async function getChatMessages(sessionId: string): Promise<ChatMessage[]> {
-  const { data } = await apiClient.get<ChatMessage[]>(`/student/chat/${sessionId}/messages`);
+export async function fetchChatMessages(sessionId: string): Promise<TutorNote[]> {
+  const { data } = await apiTransport.get<TutorNote[]>(`/student/chat/${sessionId}/messages`);
   return data;
 }

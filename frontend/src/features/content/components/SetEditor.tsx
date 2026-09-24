@@ -1,23 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, ChevronLeft, Pencil, Plus, WifiOff } from 'lucide-react';
-import { addQuestion, deletePassage, deleteQuestion, getSetPassages, getSetQuestions, publishQuestionSet, updateQuestion, updateQuestionSet, updateQuestionSubSkill, type Question, type QuestionSet } from '@/features/content/api';
-import { getApiError } from '@/shared/api/http';
-import { clearTeacherDraft, loadTeacherDraft, saveTeacherDraft } from '@/shared/lib/offline';
-import { useOnlineStatus } from '@/shared/hooks/useOnlineStatus';
+import { addItem, removePassage, removeQuestion, fetchSetPassages, fetchSetQuestions, publishItemBundle, editQuestion, editQuestionSet, editQuestionSubCompetency, type AuthoringItem, type AuthoringBundle } from '@/features/content/api';
+import { fetchApiError } from '@/shared/api/http';
+import { clearCoachDraft, loadCoachDraft, storeTeacherDraft } from '@/shared/lib/offline';
+import { useConnectivity } from '@/shared/hooks/useOnlineStatus';
 import {
-  Button, ConfirmModal, Input, SubjectBadge, Textarea, surfaceClass,
+  Control, AcknowledgeDialog, Field, SubjectTag, TextField, surfaceStyle,
 } from '@/shared/ui';
-import { SkillSelect } from '@/entities/skill';
-import { MathToolbar } from '@/features/content/components/MathToolbar';
-import { RichTextArea, UnderlineBtn } from '@/features/content/components/RichTextArea';
-import { cn } from '@/shared/lib/utils';
-import { ImagePickerModal } from './ImagePickerModal';
-import { PassagesTab } from './PassagesTab';
-import { QuestionList } from './QuestionList';
+import { CompetencySelect } from '@/entities/skill';
+import { MathPalette } from '@/features/content/components/MathToolbar';
+import { RichTextField, UnderlineControl } from '@/features/content/components/RichTextArea';
+import { classes } from '@/shared/lib/utils';
+import { ImageChooserDialog } from './ImagePickerModal';
+import { ExtractsTab } from './PassagesTab';
+import { ItemRoll } from './QuestionList';
 import {
-  emptyMC, emptySPR, fieldLabelClass, hintClass, moduleLimit,
-  type EditorTab, type MCForm, type QuestionForm, type QuestionType, type SPRForm,
+  blankChoiceItem, blankGridItem, fieldCaptionClass, hintStyle, slotLimit,
+  type ComposerTab, type MCSheet, type ItemSheet, type ItemType, type SPRSheet,
 } from './questionForm';
 
 /**
@@ -27,20 +27,20 @@ import {
  * Mounted only while a set is open, so leaving the set discards an unsaved
  * edit — the draft auto-save below is what carries unsubmitted work across.
  */
-export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
-  activeSet: QuestionSet;
-  onActiveSetChange: (set: QuestionSet) => void;
+export function BundleComposer({ activeSet, onActiveSetChange, onExit }: {
+  activeSet: AuthoringBundle;
+  onActiveSetChange: (set: AuthoringBundle) => void;
   onExit: () => void;
 }) {
   const queryClient = useQueryClient();
-  const online = useOnlineStatus();
+  const online = useConnectivity();
   const isMath = activeSet.subject === 'math';
 
-  const [editorTab, setEditorTab] = useState<EditorTab>('questions');
+  const [editorTab, setEditorTab] = useState<ComposerTab>('questions');
 
   // Question form
-  const [qType, setQType] = useState<QuestionType>('multiple_choice');
-  const [qForm, setQForm] = useState<QuestionForm>({ ...emptyMC });
+  const [qType, setQType] = useState<ItemType>('multiple_choice');
+  const [qForm, setQForm] = useState<ItemSheet>({ ...blankChoiceItem });
   const [qErrors, setQErrors] = useState<Record<string, string>>({});
   const [qError, setQError] = useState('');
   const [draftSaved, setDraftSaved] = useState(false);
@@ -48,7 +48,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
   const [showImagePicker, setShowImagePicker] = useState(false);
 
   // Edit mode
-  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<AuthoringItem | null>(null);
   const formCardRef = useRef<HTMLDivElement | null>(null);
   const questionTextDivRef = useRef<HTMLDivElement | null>(null);
 
@@ -58,23 +58,23 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
   const [activeField, setActiveField] = useState<string | null>(null);
   const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
-  const { data: passages = [] } = useQuery({ queryKey: ['teacher', 'passages', activeSet.id], queryFn: () => getSetPassages(activeSet.id) });
-  const { data: questions = [] } = useQuery({ queryKey: ['teacher', 'questions', activeSet.id], queryFn: () => getSetQuestions(activeSet.id) });
+  const { data: passages = [] } = useQuery({ queryKey: ['teacher', 'passages', activeSet.id], queryFn: () => fetchSetPassages(activeSet.id) });
+  const { data: questions = [] } = useQuery({ queryKey: ['teacher', 'questions', activeSet.id], queryFn: () => fetchSetQuestions(activeSet.id) });
 
-  const limit = moduleLimit(activeSet.subject);
+  const limit = slotLimit(activeSet.subject);
 
   // Switch question type — keep shared fields
-  const switchQType = (t: QuestionType) => {
+  const switchQType = (t: ItemType) => {
     setQType(t);
     const shared = { passageId: qForm.passageId ?? '', questionText: qForm.questionText, explanation: qForm.explanation };
-    setQForm(t === 'multiple_choice' ? { ...emptyMC, ...shared } : { ...emptySPR, ...shared });
+    setQForm(t === 'multiple_choice' ? { ...blankChoiceItem, ...shared } : { ...blankGridItem, ...shared });
     setQErrors({});
   };
 
   // Draft auto-save (question form)
   const saveDraft = useCallback(async () => {
     if (editingQuestion) return;
-    await saveTeacherDraft(`q-draft-${activeSet.id}`, activeSet.id, qForm as unknown as Record<string, unknown>);
+    await storeTeacherDraft(`q-draft-${activeSet.id}`, activeSet.id, qForm as unknown as Record<string, unknown>);
     setDraftSaved(true);
     setTimeout(() => setDraftSaved(false), 1500);
   }, [activeSet, qForm, editingQuestion]);
@@ -82,8 +82,8 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
   useEffect(() => { const t = setTimeout(saveDraft, 900); return () => clearTimeout(t); }, [qForm, saveDraft]);
 
   useEffect(() => {
-    loadTeacherDraft(`q-draft-${activeSet.id}`).then((saved) => {
-      if (saved?.questionForm?.questionText) setQForm(saved.questionForm as unknown as QuestionForm);
+    loadCoachDraft(`q-draft-${activeSet.id}`).then((saved) => {
+      if (saved?.questionForm?.questionText) setQForm(saved.questionForm as unknown as ItemSheet);
     });
   }, [activeSet.id]);
 
@@ -107,7 +107,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
         sel.addRange(range);
       }
       requestAnimationFrame(() => {
-        if (questionTextDivRef.current) setQForm((prev) => ({ ...prev, questionText: questionTextDivRef.current!.innerHTML } as QuestionForm));
+        if (questionTextDivRef.current) setQForm((prev) => ({ ...prev, questionText: questionTextDivRef.current!.innerHTML } as ItemSheet));
       });
     } else {
       const el = textareaRefs.current[activeField];
@@ -116,7 +116,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
       const end = el.selectionEnd ?? el.value.length;
       const newCursorPos = start + symbol.length;
       const newValue = el.value.substring(0, start) + symbol + el.value.substring(end);
-      setQForm((prev) => ({ ...prev, [activeField]: newValue } as QuestionForm));
+      setQForm((prev) => ({ ...prev, [activeField]: newValue } as ItemSheet));
       requestAnimationFrame(() => { el.focus(); el.setSelectionRange(newCursorPos, newCursorPos); });
     }
   }, [activeField]);
@@ -128,7 +128,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
       const el = questionTextDivRef.current;
       if (!el) return;
       document.execCommand('underline', false);
-      setQForm((prev) => ({ ...prev, questionText: el.innerHTML } as QuestionForm));
+      setQForm((prev) => ({ ...prev, questionText: el.innerHTML } as ItemSheet));
     } else {
       if (!activeField) return;
       const el = textareaRefs.current[activeField];
@@ -141,7 +141,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
       const after = el.value.substring(end);
       const newValue = `${before}<u>${selected}</u>${after}`;
       const cursor = before.length + 3 + selected.length + 4;
-      setQForm((prev) => ({ ...prev, [activeField]: newValue } as QuestionForm));
+      setQForm((prev) => ({ ...prev, [activeField]: newValue } as ItemSheet));
       requestAnimationFrame(() => { el.focus(); el.setSelectionRange(cursor, cursor); });
     }
   }, [activeField]);
@@ -150,75 +150,75 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
   const focusField = (field: string) => () => setActiveField(field);
 
   function updateQ(field: string, value: string) {
-    setQForm((prev) => ({ ...prev, [field]: value } as QuestionForm));
+    setQForm((prev) => ({ ...prev, [field]: value } as ItemSheet));
     setQErrors((e) => { const n = { ...e }; delete n[field]; return n; });
   }
 
   const resetForm = () => {
-    setQForm(qType === 'multiple_choice' ? { ...emptyMC } : { ...emptySPR });
+    setQForm(qType === 'multiple_choice' ? { ...blankChoiceItem } : { ...blankGridItem });
     setQErrors({}); setQError('');
   };
 
   // Mutations — set
   const updateSetMutation = useMutation({
     mutationFn: (payload: { difficulty?: 'low' | 'medium' | 'hard' | null; isLiveExam?: boolean }) =>
-      updateQuestionSet(activeSet.id, payload),
+      editQuestionSet(activeSet.id, payload),
     onSuccess: (updated) => {
       onActiveSetChange(updated);
       queryClient.invalidateQueries({ queryKey: ['teacher', 'question-sets'] });
     },
-    onError: (err) => alert(getApiError(err)),
+    onError: (err) => alert(fetchApiError(err)),
   });
 
   // Mutations — questions
   const questionPayload = (questionText: string, orderIndex: number) => {
     const base = { passageId: qForm.passageId || null, skillCode: qForm.skillCode || null, difficulty: qForm.difficulty || null, questionText, explanation: qForm.explanation || null, imageUrl: qForm.imageUrl || null, orderIndex };
     if (qForm.questionType === 'multiple_choice') {
-      const f = qForm as MCForm;
+      const f = qForm as MCSheet;
       return { ...base, questionType: 'multiple_choice' as const, optionA: f.optionA, optionB: f.optionB, optionC: f.optionC, optionD: f.optionD, correctAnswer: f.correctAnswer, correctAnswerText: null };
     }
-    const f = qForm as SPRForm;
+    const f = qForm as SPRSheet;
     return { ...base, questionType: 'student_produced_response' as const, optionA: null, optionB: null, optionC: null, optionD: null, correctAnswer: null, correctAnswerText: f.correctAnswerText };
   };
 
   const addQuestionMutation = useMutation({
-    mutationFn: (questionText: string) => addQuestion(activeSet.id, questionPayload(questionText, questions.length)),
+    mutationFn: (questionText: string) => addItem(activeSet.id, questionPayload(questionText, questions.length)),
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet.id] });
-      await clearTeacherDraft(`q-draft-${activeSet.id}`);
+      await clearCoachDraft(`q-draft-${activeSet.id}`);
       resetForm();
     },
-    onError: (err) => setQError(getApiError(err)),
+    onError: (err) => setQError(fetchApiError(err)),
   });
 
   const updateQuestionMutation = useMutation({
-    mutationFn: (questionText: string) => updateQuestion(editingQuestion!.id, questionPayload(questionText, editingQuestion!.orderIndex)),
+    mutationFn: (questionText: string) => editQuestion(editingQuestion!.id, questionPayload(questionText, editingQuestion!.orderIndex)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet.id] });
       setEditingQuestion(null);
       resetForm();
     },
-    onError: (err) => setQError(getApiError(err)),
+    onError: (err) => setQError(fetchApiError(err)),
   });
 
   const deleteQuestionMutation = useMutation({
-    mutationFn: (id: string) => deleteQuestion(id),
+    mutationFn: (id: string) => removeQuestion(id),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet.id] }); setDeleteTarget(null); },
   });
 
   const deletePassageMutation = useMutation({
-    mutationFn: (id: string) => deletePassage(id),
+    mutationFn: (id: string) => removePassage(id),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['teacher', 'passages', activeSet.id] }); setDeleteTarget(null); },
   });
 
   const confirmSubSkillMutation = useMutation({
-    mutationFn: (questionId: string) => updateQuestionSubSkill(questionId, { subSkillSource: 'human_confirmed' }),
+    mutationFn: (questionId: string) => editQuestionSubCompetency(questionId, { subSkillSource: 'human_confirmed' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet.id] }),
   });
 
   const overrideSubSkillMutation = useMutation({
     mutationFn: ({ questionId, skillCode }: { questionId: string; skillCode: string }) =>
-      updateQuestionSubSkill(questionId, { skillCode, subSkillSource: 'human_confirmed' }),
+      editQuestionSubCompetency(questionId, { skillCode, subSkillSource: 'human_confirmed' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teacher', 'questions', activeSet.id] }),
   });
 
@@ -233,13 +233,13 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
     const errors: Record<string, string> = {};
     if (!(questionTextDivRef.current?.innerText.trim() ?? qForm.questionText.trim())) errors.questionText = 'Required';
     if (qForm.questionType === 'multiple_choice') {
-      const f = qForm as MCForm;
+      const f = qForm as MCSheet;
       if (!f.optionA.trim()) errors.optionA = 'Required';
       if (!f.optionB.trim()) errors.optionB = 'Required';
       if (!f.optionC.trim()) errors.optionC = 'Required';
       if (!f.optionD.trim()) errors.optionD = 'Required';
     } else {
-      const f = qForm as SPRForm;
+      const f = qForm as SPRSheet;
       if (!f.correctAnswerText.trim()) errors.correctAnswerText = 'Required';
     }
     setQErrors(errors);
@@ -249,7 +249,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
     }
   }
 
-  function startEdit(q: Question) {
+  function startEdit(q: AuthoringItem) {
     setQType(q.questionType);
     const shared = {
       passageId: q.passageId ?? '', skillCode: q.skillCode ?? '', difficulty: q.difficulty ?? '',
@@ -277,9 +277,9 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
     if (hasText) {
       let valid = true;
       if (qForm.questionType === 'multiple_choice') {
-        const f = qForm as MCForm;
+        const f = qForm as MCSheet;
         if (!f.optionA.trim() || !f.optionB.trim() || !f.optionC.trim() || !f.optionD.trim()) valid = false;
-      } else if (!(qForm as SPRForm).correctAnswerText.trim()) {
+      } else if (!(qForm as SPRSheet).correctAnswerText.trim()) {
         valid = false;
       }
       if (valid) {
@@ -290,12 +290,12 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
       }
     }
 
-    try { await publishQuestionSet(activeSet.id); } catch { /* best-effort */ }
+    try { await publishItemBundle(activeSet.id); } catch { /* best-effort */ }
     setTimeout(() => { setDoneSaving(false); onExit(); }, 800);
   }
 
   const atLimit = questions.length >= limit;
-  const mc = qForm as MCForm;
+  const mc = qForm as MCSheet;
 
   return (
     <div className="screen-fade px-4 pt-5 pb-20 sm:px-12 sm:pt-9 sm:pb-16 max-w-[960px] mx-auto">
@@ -305,7 +305,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
           <ChevronLeft size={15} />All Sets
         </button>
         <span className="text-ink/20">/</span>
-        <SubjectBadge subject={activeSet.subject} />
+        <SubjectTag subject={activeSet.subject} />
         <span className="text-[15px] font-semibold text-ink truncate min-w-0">{activeSet.title}</span>
         <div className="ml-auto flex items-center gap-2.5 flex-wrap">
           {!online && <span className="flex items-center gap-[5px] text-xs text-danger"><WifiOff size={13} />Offline</span>}
@@ -327,7 +327,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
               one means re-authoring the whole paper. */}
           <label
             title="Make this set selectable when creating a live exam"
-            className={cn(
+            className={classes(
               'flex items-center gap-[7px] text-xs font-semibold border border-border rounded-lg px-2.5 py-1',
               activeSet.isLiveExam ? 'text-accent-text bg-ember/[.07]' : 'text-subtle bg-white',
               updateSetMutation.isPending ? 'cursor-default' : 'cursor-pointer',
@@ -355,11 +355,11 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
 
       {/* Tabs */}
       <div className="flex border-b border-border mb-6">
-        {(['questions', 'passages'] as EditorTab[]).map((t) => (
+        {(['questions', 'passages'] as ComposerTab[]).map((t) => (
           <button
             key={t}
             onClick={() => setEditorTab(t)}
-            className={cn(
+            className={classes(
               'px-5 py-2.5 text-sm font-semibold cursor-pointer bg-transparent border-b-2 -mb-px',
               editorTab === t ? 'border-ember text-accent-text' : 'border-transparent text-subtle',
             )}
@@ -368,16 +368,16 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
       </div>
 
       {editorTab === 'passages' && (
-        <PassagesTab setId={activeSet.id} passages={passages} onDelete={(id) => setDeleteTarget({ type: 'passage', id })} />
+        <ExtractsTab setId={activeSet.id} passages={passages} onDelete={(id) => setDeleteTarget({ type: 'passage', id })} />
       )}
 
       {editorTab === 'questions' && (
         <div className="flex flex-col gap-5">
           {/* Question form */}
-          <div ref={formCardRef} className={cn(surfaceClass, 'overflow-hidden')}>
+          <div ref={formCardRef} className={classes(surfaceStyle, 'overflow-hidden')}>
             <div className="px-6 py-4 border-b border-border-soft">
               <div className="flex items-center justify-between mb-3">
-                <h3 className={cn('text-[15px] font-semibold m-0', editingQuestion ? 'text-accent-text' : 'text-ink')}>
+                <h3 className={classes('text-[15px] font-semibold m-0', editingQuestion ? 'text-accent-text' : 'text-ink')}>
                   {editingQuestion ? `Edit Question #${questions.findIndex((q) => q.id === editingQuestion.id) + 1}` : 'Add Question'}
                 </h3>
                 {editingQuestion && (
@@ -394,12 +394,12 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
               <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={() => switchQType('multiple_choice')}
-                  className={cn('px-4 py-[7px] rounded-full text-[13px] font-semibold cursor-pointer', qType === 'multiple_choice' ? 'border-[1.5px] border-ink bg-ink text-white' : 'border border-border bg-sunken text-stone')}
+                  className={classes('px-4 py-[7px] rounded-full text-[13px] font-semibold cursor-pointer', qType === 'multiple_choice' ? 'border-[1.5px] border-ink bg-ink text-white' : 'border border-border bg-sunken text-stone')}
                 >Multiple Choice</button>
                 {isMath && (
                   <button
                     onClick={() => switchQType('student_produced_response')}
-                    className={cn('px-4 py-[7px] rounded-full text-[13px] font-semibold cursor-pointer', qType === 'student_produced_response' ? 'border-[1.5px] border-ember bg-ember/[.08] text-accent-text' : 'border border-border bg-sunken text-stone')}
+                    className={classes('px-4 py-[7px] rounded-full text-[13px] font-semibold cursor-pointer', qType === 'student_produced_response' ? 'border-[1.5px] border-ember bg-ember/[.08] text-accent-text' : 'border border-border bg-sunken text-stone')}
                   >Student-Produced Response</button>
                 )}
                 <span className="text-[11.5px] text-muted self-center ml-1">
@@ -412,7 +412,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
               {/* Passage selector */}
               {passages.length > 0 && (
                 <div>
-                  <label className={fieldLabelClass}>Associated Passage (optional)</label>
+                  <label className={fieldCaptionClass}>Associated Passage (optional)</label>
                   <select
                     value={qForm.passageId ?? ''}
                     onChange={(e) => updateQ('passageId', e.target.value)}
@@ -429,16 +429,16 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
                   analytics and topic practice. */}
               <div className="flex gap-3 flex-wrap">
                 <div className="flex-[1_1_260px] min-w-0">
-                  <label className={fieldLabelClass}>Topic (optional)</label>
-                  <SkillSelect
+                  <label className={fieldCaptionClass}>Topic (optional)</label>
+                  <CompetencySelect
                     subject={isMath ? 'math' : 'english'}
                     value={qForm.skillCode || null}
                     onChange={(code) => updateQ('skillCode', code ?? '')}
                   />
-                  <p className={hintClass}>Drives topic practice, per-skill analytics and targeted AI feedback.</p>
+                  <p className={hintStyle}>Drives topic practice, per-skill analytics and targeted AI feedback.</p>
                 </div>
                 <div className="flex-[0_1_200px]">
-                  <label className={fieldLabelClass}>Difficulty (optional)</label>
+                  <label className={fieldCaptionClass}>Difficulty (optional)</label>
                   <div className="flex gap-1.5">
                     {(['easy', 'medium', 'hard'] as const).map((level) => {
                       const active = qForm.difficulty === level;
@@ -447,7 +447,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
                           key={level}
                           type="button"
                           onClick={() => updateQ('difficulty', active ? '' : level)}
-                          className={cn(
+                          className={classes(
                             'flex-1 h-10 rounded-[10px] border text-[13px] font-semibold cursor-pointer capitalize',
                             active ? 'border-ember bg-ember/[.08] text-accent-text' : 'border-border bg-white text-ink/60',
                           )}
@@ -455,18 +455,18 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
                       );
                     })}
                   </div>
-                  <p className={hintClass}>Per question — separate from the set's difficulty tier.</p>
+                  <p className={hintStyle}>Per question — separate from the set's difficulty tier.</p>
                 </div>
               </div>
 
               {/* Question text */}
               <div>
-                {isMath && <MathToolbar onInsert={handleSymbolInsert} />}
+                {isMath && <MathPalette onInsert={handleSymbolInsert} />}
                 <div className="flex items-center gap-2 mb-1.5">
-                  <UnderlineBtn onApply={handleUnderline} />
+                  <UnderlineControl onApply={handleUnderline} />
                   <span className="text-[11px] text-muted">Select text in any field below, then click</span>
                 </div>
-                <RichTextArea
+                <RichTextField
                   label="Question text"
                   value={qForm.questionText}
                   onChange={(html) => updateQ('questionText', html)}
@@ -486,8 +486,8 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
                       const field = `option${letter}` as 'optionA' | 'optionB' | 'optionC' | 'optionD';
                       return (
                         <div key={letter}>
-                          {isMath && letter === 'A' && <MathToolbar onInsert={handleSymbolInsert} />}
-                          <Textarea
+                          {isMath && letter === 'A' && <MathPalette onInsert={handleSymbolInsert} />}
+                          <TextField
                             label={`Option ${letter}`}
                             value={mc[field]}
                             onChange={(e) => updateQ(field, e.target.value)}
@@ -508,7 +508,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
                         <button
                           key={k}
                           onClick={() => updateQ('correctAnswer', k)}
-                          className={cn('w-12 h-12 rounded-xl font-bold text-base cursor-pointer transition-all duration-150', mc.correctAnswer === k ? 'bg-green-sat text-white' : 'bg-sunken text-stone')}
+                          className={classes('w-12 h-12 rounded-xl font-bold text-base cursor-pointer transition-all duration-150', mc.correctAnswer === k ? 'bg-green-sat text-white' : 'bg-sunken text-stone')}
                         >{k.toUpperCase()}</button>
                       ))}
                     </div>
@@ -524,10 +524,10 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
                       <strong className="text-accent-text">SPR format:</strong> The student types their answer. Accept decimals (e.g. <code>1.5</code>), fractions (e.g. <code>3/4</code>), or whole numbers. The system matches numeric equivalents automatically.
                     </p>
                   </div>
-                  {isMath && <MathToolbar onInsert={handleSymbolInsert} />}
-                  <Input
+                  {isMath && <MathPalette onInsert={handleSymbolInsert} />}
+                  <Field
                     label="Correct Answer"
-                    value={(qForm as SPRForm).correctAnswerText}
+                    value={(qForm as SPRSheet).correctAnswerText}
                     onChange={(e) => updateQ('correctAnswerText', e.target.value)}
                     error={qErrors.correctAnswerText}
                     placeholder="e.g. 3/4 or 0.75 or 12"
@@ -536,7 +536,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
               )}
 
               {/* Explanation */}
-              <Textarea label="Explanation (optional)" value={qForm.explanation} onChange={(e) => updateQ('explanation', e.target.value)} placeholder="Why is the correct answer correct?" rows={2} />
+              <TextField label="Explanation (optional)" value={qForm.explanation} onChange={(e) => updateQ('explanation', e.target.value)} placeholder="Why is the correct answer correct?" rows={2} />
 
               {/* Image attachment */}
               <div>
@@ -562,7 +562,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
               </div>
 
               {showImagePicker && (
-                <ImagePickerModal
+                <ImageChooserDialog
                   selectedUrl={qForm.imageUrl}
                   onPick={(url) => { updateQ('imageUrl', url); setShowImagePicker(false); }}
                   onClose={() => setShowImagePicker(false)}
@@ -570,11 +570,11 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
               )}
 
               {qError && <p className="text-danger text-[13px]">{qError}</p>}
-              <Button onClick={validateAndSubmit} loading={addQuestionMutation.isPending || updateQuestionMutation.isPending} className="self-start">
+              <Control onClick={validateAndSubmit} loading={addQuestionMutation.isPending || updateQuestionMutation.isPending} className="self-start">
                 {editingQuestion
                   ? <><Pencil size={15} className="mr-1.5" />Save Changes</>
                   : <><Plus size={15} className="mr-1.5" />Add Question</>}
-              </Button>
+              </Control>
             </div>
           </div>
 
@@ -583,7 +583,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
             <div className="flex justify-center pt-1 pb-2">
               <button
                 onClick={saveSet}
-                className={cn(
+                className={classes(
                   'flex items-center gap-2 h-12 px-9 rounded-full cursor-pointer text-[15px] font-bold tracking-[-0.01em] text-white transition-[background-color,box-shadow] duration-200',
                   doneSaving ? 'bg-green-sat shadow-[0_4px_20px_rgba(46,125,90,0.35)]' : 'bg-ink shadow-[0_4px_16px_rgba(11,11,14,0.18)]',
                 )}
@@ -595,7 +595,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
           )}
 
           {questions.length > 0 && (
-            <QuestionList
+            <ItemRoll
               questions={questions}
               passages={passages}
               subject={isMath ? 'math' : 'english'}
@@ -609,7 +609,7 @@ export function SetEditor({ activeSet, onActiveSetChange, onExit }: {
         </div>
       )}
 
-      <ConfirmModal
+      <AcknowledgeDialog
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => {

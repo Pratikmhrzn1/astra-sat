@@ -1,16 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
-import { getLibraryItems, type LibraryItem } from '@/features/library';
-import { cn } from '@/shared/lib/utils';
+import { fetchResourceItems, type ResourceItem } from '@/features/library';
+import { classes } from '@/shared/lib/utils';
 
 /** Choose a question diagram from the images already uploaded to the Library. */
-export function ImagePickerModal({ selectedUrl, onPick, onClose }: {
+export function ImageChooserDialog({ selectedUrl, onPick, onClose }: {
   selectedUrl: string | null;
   onPick: (url: string) => void;
   onClose: () => void;
 }) {
   const { data: libraryImages, isLoading } = useQuery({
     queryKey: ['library-items'],
-    queryFn: () => getLibraryItems().then((items) => items.filter((i) => i.fileType === 'image' && i.fileUrl)),
+    queryFn: () => fetchResourceItems().then((items) => items.filter((i) => i.fileType === 'image' && i.fileUrl)),
   });
 
   return (
@@ -35,12 +35,12 @@ export function ImagePickerModal({ selectedUrl, onPick, onClose }: {
             </div>
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
-              {(libraryImages as LibraryItem[]).map((img) => (
+              {(libraryImages as ResourceItem[]).map((img) => (
                 <button
                   key={img.id}
                   type="button"
                   onClick={() => onPick(img.fileUrl!)}
-                  className={cn(
+                  className={classes(
                     'rounded-[10px] overflow-hidden cursor-pointer bg-[#F8F7F4] p-0 flex flex-col',
                     selectedUrl === img.fileUrl ? 'border-[2.5px] border-ember' : 'border-[1.5px] border-border',
                   )}

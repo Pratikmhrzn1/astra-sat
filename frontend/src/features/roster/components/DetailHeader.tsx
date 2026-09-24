@@ -1,7 +1,7 @@
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 
 /** "← Back" pill at the top of the teacher's drill-down pages. */
-export function BackPill({ onClick }: { onClick: () => void }) {
+export function ReturnPill({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -13,7 +13,7 @@ export function BackPill({ onClick }: { onClick: () => void }) {
 }
 
 /** The accent "Send Feedback" action beside a student's name. */
-export function SendFeedbackPill({ onClick }: { onClick: () => void }) {
+export function SendNotePill({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}

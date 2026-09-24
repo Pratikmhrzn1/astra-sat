@@ -1,14 +1,14 @@
 import type { RefObject } from 'react';
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
-export type ChatMessage = { role: 'user' | 'assistant'; content: string };
+export type TutorNoteView = { role: 'user' | 'assistant'; content: string };
 
 /** The tutor chat docked to the bottom of the report, scoped to one question. */
-export function TutorChat({
+export function TutorTutor({
   questionNumber, messages, loading, error, input, onInput, onSend, onClose, messagesRef,
 }: {
   questionNumber: number | '';
-  messages: ChatMessage[];
+  messages: TutorNoteView[];
   loading: boolean;
   error: string | null;
   input: string;
@@ -37,9 +37,9 @@ export function TutorChat({
           </p>
         )}
         {messages.map((msg, mi) => (
-          <div key={mi} className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
+          <div key={mi} className={classes('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
             <div
-              className={cn(
+              className={classes(
                 'max-w-[82%] px-3.5 py-[9px] text-[13.5px] leading-[1.55]',
                 msg.role === 'user' ? 'rounded-[14px_14px_4px_14px] bg-ink text-white' : 'rounded-[14px_14px_14px_4px] bg-sunken text-ink',
               )}
@@ -52,7 +52,7 @@ export function TutorChat({
           <div className="flex justify-start">
             <div className="px-4 py-2.5 rounded-[14px_14px_14px_4px] bg-sunken flex gap-[5px] items-center">
               {['[animation-delay:0s]', '[animation-delay:0.2s]', '[animation-delay:0.4s]'].map((delay) => (
-                <div key={delay} className={cn('w-[7px] h-[7px] rounded-full bg-ink/45 animate-chat-dot', delay)} />
+                <div key={delay} className={classes('w-[7px] h-[7px] rounded-full bg-ink/45 animate-chat-dot', delay)} />
               ))}
             </div>
           </div>
@@ -73,7 +73,7 @@ export function TutorChat({
         <button
           onClick={onSend}
           disabled={loading || !input.trim()}
-          className={cn('h-[38px] px-[18px] rounded-full text-white text-[13px] font-semibold shrink-0', canSend ? 'bg-ink cursor-pointer' : 'bg-field cursor-default')}
+          className={classes('h-[38px] px-[18px] rounded-full text-white text-[13px] font-semibold shrink-0', canSend ? 'bg-ink cursor-pointer' : 'bg-field cursor-default')}
         >Send</button>
       </div>
     </div>

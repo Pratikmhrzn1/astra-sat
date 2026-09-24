@@ -1,13 +1,13 @@
-import { apiClient } from '@/shared/api/http';
+import { apiTransport } from '@/shared/api/http';
 
-export type FileType = 'audio' | 'video' | 'image' | 'document' | 'other' | 'note';
+export type AssetKind = 'audio' | 'video' | 'image' | 'document' | 'other' | 'note';
 
-export interface LibraryItem {
+export interface ResourceItem {
   id: string;
   title: string;
   description: string | null;
   fileUrl: string | null;
-  fileType: FileType;
+  fileType: AssetKind;
   fileName: string | null;
   noteContent: string | null;
   hidden: boolean;
@@ -16,40 +16,40 @@ export interface LibraryItem {
   createdAt: string;
 }
 
-export async function getLibraryItems(): Promise<LibraryItem[]> {
-  const { data } = await apiClient.get<LibraryItem[]>('/library');
+export async function fetchResourceItems(): Promise<ResourceItem[]> {
+  const { data } = await apiTransport.get<ResourceItem[]>('/library');
   return data;
 }
 
-export async function uploadFile(file: File): Promise<{ url: string; fileName: string }> {
+export async function uploadAsset(file: File): Promise<{ url: string; fileName: string }> {
   const formData = new FormData();
   formData.append('file', file);
-  const { data } = await apiClient.post<{ url: string; fileName: string }>('/library/upload', formData, {
+  const { data } = await apiTransport.post<{ url: string; fileName: string }>('/library/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return data;
 }
 
-export async function createLibraryItem(payload: {
+export async function addResourceItem(payload: {
   title: string;
   description?: string;
-  fileType: FileType;
+  fileType: AssetKind;
   fileUrl?: string;
   fileName?: string;
   noteContent?: string;
-}): Promise<LibraryItem> {
-  const { data } = await apiClient.post<LibraryItem>('/library', payload);
+}): Promise<ResourceItem> {
+  const { data } = await apiTransport.post<ResourceItem>('/library', payload);
   return data;
 }
 
-export async function updateLibraryItem(
+export async function editResourceItem(
   id: string,
   payload: { title?: string; description?: string | null; noteContent?: string | null; hidden?: boolean }
-): Promise<LibraryItem> {
-  const { data } = await apiClient.patch<LibraryItem>(`/library/${id}`, payload);
+): Promise<ResourceItem> {
+  const { data } = await apiTransport.patch<ResourceItem>(`/library/${id}`, payload);
   return data;
 }
 
-export async function deleteLibraryItem(id: string): Promise<void> {
-  await apiClient.delete(`/library/${id}`);
+export async function removeResourceItem(id: string): Promise<void> {
+  await apiTransport.delete(`/library/${id}`);
 }

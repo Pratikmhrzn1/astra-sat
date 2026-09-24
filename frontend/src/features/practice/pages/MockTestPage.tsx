@@ -1,11 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { startMockTest } from '@/entities/exam';
-import { getApiError } from '@/shared/api/http';
-import { surfaceClass, pageClass } from '@/shared/ui';
-import { ExamBlurb, ExamKicker, ExamTitle, MetaStats, RulesCard } from '@/features/practice/components/ExamIntro';
-import { cn } from '@/shared/lib/utils';
-import { getSkills, skillsQueryKey } from '@/entities/skill';
+import { openMockTest } from '@/entities/exam';
+import { fetchApiError } from '@/shared/api/http';
+import { surfaceStyle, screenStyle } from '@/shared/ui';
+import { AssessmentBlurb, AssessmentKicker, AssessmentTitle, MetaMetrics, RulesPanel } from '@/features/practice/components/ExamIntro';
+import { classes } from '@/shared/lib/utils';
+import { fetchCompetencys, competencyQueryKey } from '@/entities/skill';
 
 /**
  * The two sections of the test. The domain list under each is filled in from
@@ -26,11 +26,11 @@ const RULES = [
   'You\'ll get a full scored report the moment you submit.',
 ];
 
-export default function MockTest() {
+export default function TrialRunView() {
   const navigate = useNavigate();
   const { data: skillTree = [] } = useQuery({
-    queryKey: skillsQueryKey(),
-    queryFn: () => getSkills(),
+    queryKey: competencyQueryKey(),
+    queryFn: () => fetchCompetencys(),
     staleTime: 60 * 60 * 1000,
   });
 
@@ -45,7 +45,7 @@ export default function MockTest() {
   }));
 
   const startMutation = useMutation({
-    mutationFn: startMockTest,
+    mutationFn: openMockTest,
     onError: () => {}, // shown inline on the page, not as a toast
     onSuccess: (data) => navigate(`/student/exams/${data.englishExam.id}`, {
       state: {
@@ -59,24 +59,24 @@ export default function MockTest() {
   });
 
   return (
-    <div className={cn(pageClass, 'sm:pt-10')}>
-      <ExamKicker>Full length · scored out of 1600</ExamKicker>
-      <ExamTitle className="mt-2">Mock SAT</ExamTitle>
-      <ExamBlurb className="mt-3 mb-6">
+    <div className={classes(screenStyle, 'sm:pt-10')}>
+      <AssessmentKicker>Full length · scored out of 1600</AssessmentKicker>
+      <AssessmentTitle className="mt-2">Mock SAT</AssessmentTitle>
+      <AssessmentBlurb className="mt-3 mb-6">
         A complete, timed simulation of the Digital SAT. Reading & Writing comes first, then a short break, then Math. Your scaled section scores combine into a total out of 1600.
-      </ExamBlurb>
+      </AssessmentBlurb>
 
       {/* 4 modules: Reading & Writing 2 × 32 min, Math 2 × 35 min — the limits the server enforces. */}
-      <MetaStats stats={[['2', 'Sections'], ['2h 14m', 'Total time'], ['1600', 'Score scale']]} />
+      <MetaMetrics stats={[['2', 'Sections'], ['2h 14m', 'Total time'], ['1600', 'Score scale']]} />
 
       <div className="grid grid-cols-1 sm:grid-cols-[1.5fr_1fr] gap-3.5 sm:gap-5 mb-5 sm:mb-7">
         <div>
           <h3 className="text-[15px] mt-0 mb-3">What's inside</h3>
           <div className="flex flex-col gap-2.5">
             {sections.map((m) => (
-              <div key={m.subject} className={cn(surfaceClass, 'px-4 py-3.5 sm:px-5 sm:py-[18px]')}>
+              <div key={m.subject} className={classes(surfaceStyle, 'px-4 py-3.5 sm:px-5 sm:py-[18px]')}>
                 <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
-                  <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', m.dot)} />
+                  <span className={classes('w-2.5 h-2.5 rounded-full shrink-0', m.dot)} />
                   <span className="text-sm sm:text-[15.5px] font-semibold">{m.name}</span>
                   <span className="hidden sm:inline ml-auto text-[12.5px] text-muted font-mono">{m.detail}</span>
                 </div>
@@ -86,17 +86,17 @@ export default function MockTest() {
           </div>
         </div>
 
-        <RulesCard rules={RULES} />
+        <RulesPanel rules={RULES} />
       </div>
 
       {startMutation.isError && (
-        <p className="text-danger text-[13px] mb-4">{getApiError(startMutation.error)}</p>
+        <p className="text-danger text-[13px] mb-4">{fetchApiError(startMutation.error)}</p>
       )}
 
       <button
         onClick={() => startMutation.mutate()}
         disabled={startMutation.isPending}
-        className={cn(
+        className={classes(
           'h-12 sm:h-[52px] px-8 w-full sm:w-auto text-white rounded-full text-[15px] sm:text-[15.5px] font-semibold shadow-[0_4px_14px_rgba(226,86,43,0.3)] transition-[background-color,transform] duration-150',
           startMutation.isPending ? 'bg-accent-disabled cursor-default' : 'bg-accent-text cursor-pointer hover:bg-ember-dark hover:-translate-y-px',
         )}

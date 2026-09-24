@@ -1,8 +1,8 @@
-import { Button } from '@/shared/ui/Button';
-import { Modal } from '@/shared/ui/Modal';
+import { Control } from '@/shared/ui/Button';
+import { Dialog } from '@/shared/ui/Modal';
 
 /** Ending a section cannot be undone, so it asks first and says what is left. */
-export function FinishConfirmModal({
+export function CompleteAcknowledgeDialog({
   open, onClose, title, finishLabel, onFinish, loading, movesOn,
   total, answeredCount, unansweredCount, flaggedCount, onReview,
 }: {
@@ -22,15 +22,15 @@ export function FinishConfirmModal({
 }) {
   const chip = 'px-2.5 py-[5px] rounded-full';
   return (
-    <Modal
+    <Dialog
       isOpen={open}
       onClose={onClose}
       title={title}
       size="sm"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>Keep working</Button>
-          <Button onClick={onFinish} loading={loading}>{finishLabel}</Button>
+          <Control variant="secondary" onClick={onClose}>Keep working</Control>
+          <Control onClick={onFinish} loading={loading}>{finishLabel}</Control>
         </>
       }
     >
@@ -49,6 +49,6 @@ export function FinishConfirmModal({
           Review {unansweredCount > 0 ? 'unanswered' : 'flagged'} questions →
         </button>
       )}
-    </Modal>
+    </Dialog>
   );
 }

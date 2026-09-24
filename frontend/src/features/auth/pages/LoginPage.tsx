@@ -3,11 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { login } from '@/features/auth/api';
-import { useAuthStore } from '@/features/auth/store';
-import { getApiError } from '@/shared/api/http';
-import { fieldClass, labelClass, errorTextClass, alertClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { signIn } from '@/features/auth/api';
+import { useSessionVault } from '@/features/auth/store';
+import { fetchApiError } from '@/shared/api/http';
+import { fieldStyle, fieldCaptionStyle, errorTextStyle, alertStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 const schema = z.object({
   email: z.string().email('Invalid email address'),
@@ -20,9 +20,9 @@ const ROLE_ROUTES = { student: '/student/dashboard', teacher: '/teacher/dashboar
 
 const toggleBtn = 'px-[26px] py-2 rounded-full text-[13px] font-bold tracking-[0.05em] uppercase';
 
-export default function Login() {
+export default function SignIn() {
   const navigate = useNavigate();
-  const { login: storeLogin, user } = useAuthStore();
+  const { login: storeLogin, user } = useSessionVault();
   const [apiError, setApiError] = useState('');
 
   React.useEffect(() => {
@@ -34,11 +34,11 @@ export default function Login() {
   const onSubmit = async (data: FormData) => {
     setApiError('');
     try {
-      const result = await login(data.email, data.password);
+      const result = await signIn(data.email, data.password);
       storeLogin(result.user, result.accessToken);
       navigate(ROLE_ROUTES[result.user.role], { replace: true });
     } catch (err) {
-      setApiError(getApiError(err));
+      setApiError(fetchApiError(err));
     }
   };
 
@@ -46,8 +46,8 @@ export default function Login() {
     <div className="grid grid-cols-1 sm:grid-cols-[1.05fr_1fr] min-h-screen relative">
       {/* IELTS ↔ SAT toggle */}
       <div className="absolute top-5 right-6 z-[100] bg-white/85 backdrop-blur-[10px] rounded-full p-1 shadow-[0_2px_20px_rgba(0,0,0,0.14)] flex">
-        <button onClick={() => { window.location.href = '/'; }} className={cn(toggleBtn, 'text-black/40 cursor-pointer bg-transparent')}>IELTS</button>
-        <button className={cn(toggleBtn, 'text-white cursor-default bg-accent-text shadow-[0_2px_8px_rgba(226,86,43,0.35)]')}>SAT</button>
+        <button onClick={() => { window.location.href = '/'; }} className={classes(toggleBtn, 'text-black/40 cursor-pointer bg-transparent')}>IELTS</button>
+        <button className={classes(toggleBtn, 'text-white cursor-default bg-accent-text shadow-[0_2px_8px_rgba(226,86,43,0.35)]')}>SAT</button>
       </div>
       {/* Left — dark panel (desktop only) */}
       <div className="hidden sm:flex bg-ink text-white px-[72px] py-16 flex-col justify-between relative overflow-hidden">
@@ -97,31 +97,31 @@ export default function Login() {
 
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="mb-[18px]">
-              <label className={labelClass}>Email</label>
+              <label className={fieldCaptionStyle}>Email</label>
               <input
                 type="email"
                 autoComplete="email"
                 placeholder="you@email.com"
                 {...register('email')}
-                className={fieldClass(!!errors.email)}
+                className={fieldStyle(!!errors.email)}
               />
-              {errors.email && <p className={errorTextClass}>{errors.email.message}</p>}
+              {errors.email && <p className={errorTextStyle}>{errors.email.message}</p>}
             </div>
 
             <div className="mb-2.5">
-              <label className={labelClass}>Password</label>
+              <label className={fieldCaptionStyle}>Password</label>
               <input
                 type="password"
                 autoComplete="current-password"
                 placeholder="••••••••"
                 {...register('password')}
-                className={fieldClass(!!errors.password)}
+                className={fieldStyle(!!errors.password)}
               />
-              {errors.password && <p className={errorTextClass}>{errors.password.message}</p>}
+              {errors.password && <p className={errorTextStyle}>{errors.password.message}</p>}
             </div>
 
             {apiError && (
-              <div className={cn(alertClass, 'mb-4')}>
+              <div className={classes(alertStyle, 'mb-4')}>
                 {apiError}
               </div>
             )}
@@ -129,7 +129,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={cn(
+              className={classes(
                 'w-full h-12 mt-[22px] text-white rounded-full text-[15px] font-semibold shadow-accent',
                 isSubmitting ? 'bg-accent-disabled cursor-default' : 'bg-accent-text cursor-pointer',
               )}

@@ -1,10 +1,10 @@
-import { useAuthStore } from '@/features/auth';
-import { LibraryManager } from '@/features/library/components/LibraryManager';
+import { useSessionVault } from '@/features/auth';
+import { ResourceManager } from '@/features/library/components/LibraryManager';
 
-export default function TeacherLibrary() {
-  const { user } = useAuthStore();
+export default function TeacherResource() {
+  const { user } = useSessionVault();
   return (
-    <LibraryManager
+    <ResourceManager
       subtitle="Guides, lessons and resources for your students."
       emptyHint="Add your first resource using the button above."
       hideLabel="Hide from students"

@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import axios from 'axios';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { getApiError } from '@/shared/api/http';
-import { ErrorToasts, showErrorToast } from '@/shared/ui/toast/ErrorToasts';
+import { fetchApiError } from '@/shared/api/http';
+import { FailureToasts, raiseFailureToast } from '@/shared/ui/toast/ErrorToasts';
 
 /**
  * Server state lives entirely in React Query — there is no global store for it.
@@ -20,7 +20,7 @@ import { ErrorToasts, showErrorToast } from '@/shared/ui/toast/ErrorToasts';
  * toasts too. A background refetch failing over data already on screen stays
  * quiet, and a query whose page shows its own error sets `meta.handlesError`.
  */
-export const queryClient = new QueryClient({
+export const queryTransport = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
@@ -31,24 +31,24 @@ export const queryClient = new QueryClient({
     onError: (error, query) => {
       if (query.state.data !== undefined || query.meta?.handlesError) return;
       if (axios.isAxiosError(error) && error.response?.status === 401) return;
-      showErrorToast(`Couldn't load this page: ${getApiError(error)}`);
+      raiseFailureToast(`Couldn't load this page: ${fetchApiError(error)}`);
     },
   }),
   mutationCache: new MutationCache({
     onError: (error, _variables, _context, mutation) => {
       if (mutation.options.onError) return;
       if (axios.isAxiosError(error) && error.response?.status === 401) return;
-      showErrorToast(getApiError(error));
+      raiseFailureToast(fetchApiError(error));
     },
   }),
 });
 
 /** Every cross-cutting provider the app needs, in one place. */
-export function AppProviders({ children }: { children: ReactNode }) {
+export function RootScopes({ children }: { children: ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryTransport}>
       {children}
-      <ErrorToasts />
+      <FailureToasts />
     </QueryClientProvider>
   );
 }

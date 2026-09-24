@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '@/features/auth';
-import { Sheet } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { useSessionVault } from '@/features/auth';
+import { Tray } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * The navigation chrome shared by all three roles.
@@ -18,7 +18,7 @@ import { cn } from '@/shared/lib/utils';
  * bar) lives in index.css under "App shell"; everything else is utilities.
  */
 
-export interface ShellNavItem {
+export interface FrameMenuItem {
   path: string;
   label: string;
   icon: React.ReactNode;
@@ -26,14 +26,14 @@ export interface ShellNavItem {
   tabLabel?: string;
 }
 
-export interface ShellAction {
+export interface FrameAction {
   label: string;
   icon?: React.ReactNode;
   onClick: () => void;
 }
 
 interface AppShellProps {
-  nav: ShellNavItem[];
+  nav: FrameMenuItem[];
   /** Paths from `nav` shown directly in the phone tab bar (up to four). */
   tabPaths: string[];
   roleLabel?: string;
@@ -41,9 +41,9 @@ interface AppShellProps {
   status?: React.ReactNode;
   profileSubtitle: string;
   /** Profile-menu entries above "Sign out". */
-  menuActions?: ShellAction[];
+  menuActions?: FrameAction[];
   /** A secondary action pinned above the profile, also listed in the More sheet. */
-  utilityAction?: ShellAction;
+  utilityAction?: FrameAction;
   /** Overlays owned by the role layout: modals, toasts. */
   children?: React.ReactNode;
 }
@@ -53,19 +53,19 @@ const ITEM_PITCH = 42; // item height 40 + gap 2 — keeps the indicator aligned
 const shellIcon = 'flex shrink-0 w-6 justify-center [&_svg]:w-[21px] [&_svg]:h-[21px]';
 const avatar = 'flex items-center justify-center shrink-0 rounded-full bg-ink text-white font-semibold tracking-[0.02em]';
 
-const menuItem = (destructive: boolean) => cn(
+const menuItem = (destructive: boolean) => classes(
   'flex items-center gap-2.5 w-full px-2.5 py-[9px] rounded-[9px] bg-transparent text-sm text-left cursor-pointer',
   destructive ? 'text-danger hover:bg-danger/[.08]' : 'text-ink hover:bg-ink/5',
 );
 
-const tab = (open: boolean) => cn(
+const tab = (open: boolean) => classes(
   'flex flex-1 flex-col items-center justify-center gap-[3px] min-w-0 bg-transparent cursor-pointer',
   'text-[10.5px] font-medium tracking-[0.01em] leading-none text-ink/[.62] [&_svg]:w-[23px] [&_svg]:h-[23px]',
   'aria-[current=page]:text-accent-text aria-[current=page]:font-semibold',
   open && 'text-accent-text font-semibold',
 );
 
-const sheetRow = (destructive: boolean) => cn(
+const sheetRow = (destructive: boolean) => classes(
   'group flex items-center gap-3.5 w-full min-h-12 px-5 bg-transparent text-base font-medium tracking-[-0.012em] text-left cursor-pointer',
   '[&_svg]:w-5 [&_svg]:h-5 active:bg-ink/5 active:transform-none',
   'aria-[current=page]:text-accent-text aria-[current=page]:font-semibold aria-[current=page]:bg-ember/[.06]',
@@ -87,7 +87,7 @@ const MoreIcon = (
   </svg>
 );
 
-export function BrandMark() {
+export function LogoGlyph() {
   return (
     <div className="w-6 h-6 rounded-[7px] bg-ember shrink-0 flex items-center justify-center shadow-brand">
       <div className="w-[9px] h-[9px] rounded-[2.5px] bg-white" />
@@ -95,10 +95,10 @@ export function BrandMark() {
   );
 }
 
-export default function AppShell({
+export default function RootFrame({
   nav, tabPaths, roleLabel, status, profileSubtitle, menuActions = [], utilityAction, children,
 }: AppShellProps) {
-  const { user, logout } = useAuthStore();
+  const { user, logout } = useSessionVault();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -110,7 +110,7 @@ export default function AppShell({
   const isActive = (p: string) => location.pathname === p || location.pathname.startsWith(p + '/');
   const activeIndex = nav.findIndex((item) => isActive(item.path));
 
-  const tabs = tabPaths.map((p) => nav.find((n) => n.path === p)).filter(Boolean) as ShellNavItem[];
+  const tabs = tabPaths.map((p) => nav.find((n) => n.path === p)).filter(Boolean) as FrameMenuItem[];
   const overflow = nav.filter((n) => !tabPaths.includes(n.path));
   const overflowActive = overflow.some((n) => isActive(n.path));
 
@@ -143,7 +143,7 @@ export default function AppShell({
       {/* ── Sidebar / rail ─────────────────────────────────────────────── */}
       <nav className="shell-sidebar" aria-label="Main">
         <div className="flex items-center gap-3.5 h-16 px-[26px] shrink-0">
-          <BrandMark />
+          <LogoGlyph />
           <span className="shell-label font-display text-[19px] font-bold tracking-[-0.03em] text-ink">Score Studio</span>
         </div>
 
@@ -215,7 +215,7 @@ export default function AppShell({
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
           >
-            <span className={cn(avatar, 'w-8 h-8 text-[12.5px]')}>{initials}</span>
+            <span className={classes(avatar, 'w-8 h-8 text-[12.5px]')}>{initials}</span>
             <span className="shell-label flex flex-col leading-[1.25]">
               <span className="text-[13.5px] font-semibold text-ink tracking-[-0.01em]">{user?.name}</span>
               <span className="text-xs font-normal text-muted">{profileSubtitle}</span>
@@ -255,9 +255,9 @@ export default function AppShell({
         )}
       </nav>
 
-      <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} label="More">
+      <Tray open={moreOpen} onClose={() => setMoreOpen(false)} label="More">
         <div className="flex items-center gap-3 px-5 pt-1.5 pb-3.5">
-          <span className={cn(avatar, 'w-10 h-10 text-sm')}>{initials}</span>
+          <span className={classes(avatar, 'w-10 h-10 text-sm')}>{initials}</span>
           <div className="min-w-0">
             <div className="text-base font-semibold tracking-[-0.015em] truncate">{user?.name}</div>
             <div className="text-[13px] text-subtle truncate">{user?.email}</div>
@@ -290,7 +290,7 @@ export default function AppShell({
             Sign out
           </button>
         </div>
-      </Sheet>
+      </Tray>
 
       {children}
     </div>

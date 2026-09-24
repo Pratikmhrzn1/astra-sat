@@ -1,14 +1,14 @@
 import { lazy, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { RouteBoundary } from '@/app/RouteBoundary';
-import { useAuthStore } from '@/features/auth';
-import { ProtectedRoute } from '@/app/ProtectedRoute';
+import { RouteFence } from '@/app/RouteBoundary';
+import { useSessionVault } from '@/features/auth';
+import { GuardedRoute } from '@/app/ProtectedRoute';
 
-import StudentLayout from '@/app/layouts/StudentLayout';
-import TeacherLayout from '@/app/layouts/TeacherLayout';
-import AdminLayout from '@/app/layouts/AdminLayout';
+import LearnerLayout from '@/app/layouts/StudentLayout';
+import CoachChrome from '@/app/layouts/TeacherLayout';
+import ConsoleChrome from '@/app/layouts/AdminLayout';
 
-import Login from '@/features/auth/pages/LoginPage';
+import SignIn from '@/features/auth/pages/LoginPage';
 const Register = lazy(() => import('@/features/auth/pages/RegisterPage'));
 const ForgotPassword = lazy(() => import('@/features/auth/pages/ForgotPasswordPage'));
 const ResetPassword = lazy(() => import('@/features/auth/pages/ResetPasswordPage'));
@@ -58,12 +58,12 @@ const AdminFeedback = lazy(() => import('@/features/platform-feedback/pages/Admi
  * loading state and catches render crashes instead of blanking the app.
  */
 function page(node: ReactNode) {
-  return <RouteBoundary>{node}</RouteBoundary>;
+  return <RouteFence>{node}</RouteFence>;
 }
 
 /** Sends a signed-in user to their own dashboard, and everyone else to login. */
 function RootRedirect() {
-  const { user } = useAuthStore();
+  const { user } = useSessionVault();
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'student') return <Navigate to="/student/dashboard" replace />;
   if (user.role === 'teacher') return <Navigate to="/teacher/dashboard" replace />;
@@ -82,12 +82,12 @@ function RootRedirect() {
  *
  * The app is served under /sat, which is why the router carries a basename.
  */
-export function AppRouter() {
+export function RootRoutes() {
   return (
     <BrowserRouter basename="/sat" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route path="/" element={<RootRedirect />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/login" element={<SignIn />} />
         <Route path="/register" element={page(<Register />)} />
         <Route path="/forgot-password" element={page(<ForgotPassword />)} />
         <Route path="/reset-password" element={page(<ResetPassword />)} />
@@ -95,9 +95,9 @@ export function AppRouter() {
         <Route
           path="/student"
           element={
-            <ProtectedRoute role="student">
-              <StudentLayout />
-            </ProtectedRoute>
+            <GuardedRoute role="student">
+              <LearnerLayout />
+            </GuardedRoute>
           }
         >
           <Route index element={<Navigate to="dashboard" replace />} />
@@ -118,9 +118,9 @@ export function AppRouter() {
         <Route
           path="/teacher"
           element={
-            <ProtectedRoute role="teacher">
-              <TeacherLayout />
-            </ProtectedRoute>
+            <GuardedRoute role="teacher">
+              <CoachChrome />
+            </GuardedRoute>
           }
         >
           <Route index element={<Navigate to="dashboard" replace />} />
@@ -139,9 +139,9 @@ export function AppRouter() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute role="admin">
-              <AdminLayout />
-            </ProtectedRoute>
+            <GuardedRoute role="admin">
+              <ConsoleChrome />
+            </GuardedRoute>
           }
         >
           <Route index element={<Navigate to="dashboard" replace />} />
@@ -157,9 +157,9 @@ export function AppRouter() {
         <Route
           path="/student/exams/:examId"
           element={
-            <ProtectedRoute role="student">
+            <GuardedRoute role="student">
               {page(<TakeExam />)}
-            </ProtectedRoute>
+            </GuardedRoute>
           }
         />
         {/* Outside the student layout, like the exam player: a new student has
@@ -167,9 +167,9 @@ export function AppRouter() {
         <Route
           path="/onboarding/survey"
           element={
-            <ProtectedRoute role="student" allowIncompleteSurvey>
+            <GuardedRoute role="student" allowIncompleteSurvey>
               {page(<OnboardingSurvey />)}
-            </ProtectedRoute>
+            </GuardedRoute>
           }
         />
         <Route path="/live/:joinCode" element={page(<LiveExamLobby />)} />

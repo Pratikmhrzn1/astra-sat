@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
 interface BadgeProps {
   children: React.ReactNode;
@@ -7,10 +7,10 @@ interface BadgeProps {
   className?: string;
 }
 
-export function Badge({ children, variant = 'neutral', className }: BadgeProps) {
+export function Tag({ children, variant = 'neutral', className }: BadgeProps) {
   return (
     <span
-      className={cn(
+      className={classes(
         'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-[0.01em] leading-5',
         {
           'bg-blue-50 text-blue-700 border border-blue-200': variant === 'english' || variant === 'student',
@@ -29,18 +29,18 @@ export function Badge({ children, variant = 'neutral', className }: BadgeProps) 
   );
 }
 
-export function SubjectBadge({ subject }: { subject: 'english' | 'math' }) {
+export function SubjectTag({ subject }: { subject: 'english' | 'math' }) {
   return (
-    <Badge variant={subject}>
+    <Tag variant={subject}>
       {subject === 'english' ? 'English' : 'Math'}
-    </Badge>
+    </Tag>
   );
 }
 
-export function RoleBadge({ role }: { role: 'student' | 'teacher' | 'admin' }) {
+export function RoleTag({ role }: { role: 'student' | 'teacher' | 'admin' }) {
   return (
-    <Badge variant={role}>
+    <Tag variant={role}>
       {role.charAt(0).toUpperCase() + role.slice(1)}
-    </Badge>
+    </Tag>
   );
 }

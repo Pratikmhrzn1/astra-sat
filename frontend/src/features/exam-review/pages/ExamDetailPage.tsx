@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueries, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getExamResults, type QuestionWithAnswer } from '@/entities/exam';
-import { getMockNarrative, retryNarrative, confirmAnswer, sendChatMessage } from '@/features/exam-review/api';
-import { chipClass, pageClass, surfaceClass } from '@/shared/ui';
+import { fetchAssessmentResults, type ItemWithAnswer } from '@/entities/exam';
+import { fetchMockNarrative, retrySummary, acknowledgeAnswer, dispatchChatMessage } from '@/features/exam-review/api';
+import { chipStyle, screenStyle, surfaceStyle } from '@/shared/ui';
 import {
-  ESTIMATED_LABEL, SECTION_MAX, TOTAL_MAX,
-  formatExamScore, formatScore, scoreColor,
+  ESTIMATED_CAPTION, SEGMENT_MAX, COMPOSITE_CEILING,
+  renderAssessmentScore, renderScore, scoreHue,
 } from '@/entities/score';
-import { cn } from '@/shared/lib/utils';
-import { NarrativePanel } from '@/features/exam-review/components/NarrativePanel';
-import { ReviewItem, type AiPending, type AiResult } from '@/features/exam-review/components/ReviewItem';
-import { TutorChat, type ChatMessage } from '@/features/exam-review/components/TutorChat';
+import { classes } from '@/shared/lib/utils';
+import { SummaryPane } from '@/features/exam-review/components/NarrativePanel';
+import { AppraisalItem, type TutorPending, type AiOutcome } from '@/features/exam-review/components/ReviewItem';
+import { TutorTutor, type TutorNoteView } from '@/features/exam-review/components/TutorChat';
 
 const heroLabel = 'text-[11px] font-bold tracking-[0.12em] uppercase text-white/50';
 const heroScore = 'font-display font-semibold text-[60px] sm:text-[88px] leading-[0.95] tracking-[-0.03em]';
@@ -28,8 +28,8 @@ function HeroStat({ label, value }: { label: string; value: string }) {
 
 function SectionDivider({ dot, title, detail, className }: { dot: string; title: string; detail: string; className?: string }) {
   return (
-    <div className={cn('flex items-center gap-3 pb-1', className)}>
-      <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', dot)} />
+    <div className={classes('flex items-center gap-3 pb-1', className)}>
+      <span className={classes('w-2.5 h-2.5 rounded-full shrink-0', dot)} />
       <span className="text-[13px] font-bold tracking-[0.06em] uppercase text-subtle">{title}</span>
       <span className="text-xs text-muted font-mono">{detail}</span>
     </div>
@@ -38,7 +38,7 @@ function SectionDivider({ dot, title, detail, className }: { dot: string; title:
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function ExamDetail() {
+export default function AssessmentDetail() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const [reviewOpen, setReviewOpen] = useState<Record<number, boolean>>({});
@@ -46,8 +46,8 @@ export default function ExamDetail() {
 
   // AI guidance state (keyed by questionId)
   const [aiPanelOpen, setAiPanelOpen] = useState<Record<string, boolean>>({});
-  const [aiPending, setAiPending] = useState<Record<string, AiPending>>({});
-  const [aiResults, setAiResults] = useState<Record<string, AiResult>>({});
+  const [aiPending, setAiPending] = useState<Record<string, TutorPending>>({});
+  const [aiResults, setAiResults] = useState<Record<string, AiOutcome>>({});
   const [aiLoading, setAiLoading] = useState<Record<string, boolean>>({});
   const [vocabPick, setVocabPick] = useState<Record<string, string>>({});
   const [vocabSubmitted, setVocabSubmitted] = useState<Record<string, boolean>>({});
@@ -55,7 +55,7 @@ export default function ExamDetail() {
   // Chat state
   const [chatQuestionId, setChatQuestionId] = useState<string | null>(null);
   const [chatSessionId, setChatSessionId] = useState<string | null>(null);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<TutorNoteView[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -65,7 +65,7 @@ export default function ExamDetail() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'exam-results', examId],
-    queryFn: () => getExamResults(examId!),
+    queryFn: () => fetchAssessmentResults(examId!),
     enabled: !!examId,
   });
 
@@ -86,7 +86,7 @@ export default function ExamDetail() {
   const siblingQueries = useQueries({
     queries: siblingIds.map((id) => ({
       queryKey: ['student', 'exam-results', id],
-      queryFn: () => getExamResults(id),
+      queryFn: () => fetchAssessmentResults(id),
     })),
   });
 
@@ -106,7 +106,7 @@ export default function ExamDetail() {
   const queryClient = useQueryClient();
 
   const retryMutation = useMutation({
-    mutationFn: () => retryNarrative(examId!),
+    mutationFn: () => retrySummary(examId!),
     onSuccess: () => {
       pollCountRef.current = 0;
       queryClient.invalidateQueries({ queryKey: ['student', 'narrative', examId] });
@@ -116,7 +116,7 @@ export default function ExamDetail() {
   const { data: narrativeData, isError: narrativeError } = useQuery({
     queryKey: ['student', 'narrative', examId],
     meta: { handlesError: true },
-    queryFn: async () => { pollCountRef.current++; return getMockNarrative(examId!); },
+    queryFn: async () => { pollCountRef.current++; return fetchMockNarrative(examId!); },
     enabled: !!examId && (isMockExam || isPractice),
     refetchInterval: (query) => {
       if (query.state.data?.status !== 'pending') return false;
@@ -149,7 +149,7 @@ export default function ExamDetail() {
     if (!pending?.confidence || aiLoading[questionId]) return;
     setAiLoading((l) => ({ ...l, [questionId]: true }));
     try {
-      const result = await confirmAnswer(getExamIdForQuestion(questionId), questionId, {
+      const result = await acknowledgeAnswer(getExamIdForQuestion(questionId), questionId, {
         confidence: pending.confidence,
         reasoning: pending.reasoning || undefined,
       });
@@ -170,7 +170,7 @@ export default function ExamDetail() {
     setChatMessages((prev) => [...prev, { role: 'user', content: msg }]);
     setChatLoading(true);
     try {
-      const result = await sendChatMessage({ sessionId: chatSessionId ?? undefined, userMessage: msg, examId: activeExamId, questionId: chatQuestionId });
+      const result = await dispatchChatMessage({ sessionId: chatSessionId ?? undefined, userMessage: msg, examId: activeExamId, questionId: chatQuestionId });
       if (!chatSessionId) setChatSessionId(result.sessionId);
       setChatMessages((prev) => [...prev, { role: 'assistant', content: result.assistantMessage }]);
     } catch {
@@ -226,7 +226,7 @@ export default function ExamDetail() {
   const correct = mathReview.filter((r) => r.isCorrect).length;
   const wrong = mathReview.filter((r) => r.isCorrect === false).length;
   const skipped = mathReview.filter((r) => r.isCorrect === null).length;
-  const headlineColor = scoreColor(exam.scaledScore, SECTION_MAX);
+  const headlineColor = scoreHue(exam.scaledScore, SEGMENT_MAX);
 
   // Review-list controls. Counts span both sections, because the filter does.
   const allReview = [...englishReview, ...mathReview];
@@ -240,7 +240,7 @@ export default function ExamDetail() {
    * has to stay 04 when you filter to what you got wrong, or the list stops
    * matching the paper the student actually sat.
    */
-  const visibleRows = (rows: QuestionWithAnswer[], offset: number) =>
+  const visibleRows = (rows: ItemWithAnswer[], offset: number) =>
     rows
       .map((r, i) => ({ r, number: i + 1, listIdx: offset + i }))
       .filter(({ r }) =>
@@ -263,10 +263,10 @@ export default function ExamDetail() {
   const aiEnabled = isPractice || isMockExam;
 
   /** One question row, with its AI and chat state pulled from the page. */
-  const renderItem = (r: QuestionWithAnswer, number: number, listIdx: number) => {
+  const renderItem = (r: ItemWithAnswer, number: number, listIdx: number) => {
     const qId = r.id;
     return (
-      <ReviewItem
+      <AppraisalItem
         key={qId}
         r={r}
         number={number}
@@ -291,7 +291,7 @@ export default function ExamDetail() {
   };
 
   return (
-    <div className={pageClass}>
+    <div className={screenStyle}>
       <div className="text-[11px] font-bold tracking-[0.12em] uppercase text-accent-text mb-1.5">
         {isMockCombined ? 'Full mock SAT · score report' : `Score report · ${set?.subject === 'math' ? 'Math' : 'Reading & Writing'}`}
         {isPractice && <span className="ml-2.5 text-blue-sat">· Practice</span>}
@@ -304,22 +304,22 @@ export default function ExamDetail() {
         <div className="relative">
           {isMockCombined ? (
             <>
-              <div className={heroLabel}>{ESTIMATED_LABEL} total score</div>
+              <div className={heroLabel}>{ESTIMATED_CAPTION} total score</div>
               <div className="flex items-end gap-3.5 mt-1 whitespace-nowrap">
-                <div className={heroScore} style={{ color: scoreColor(totalScore1600, TOTAL_MAX) }}>{formatScore(totalScore1600)}</div>
+                <div className={heroScore} style={{ color: scoreHue(totalScore1600, COMPOSITE_CEILING) }}>{renderScore(totalScore1600)}</div>
                 <div className={heroOutOf}>/ 1600</div>
               </div>
               <div className="flex gap-3 mt-2 flex-wrap text-[13px] text-white/50">
-                <span>R&W: <strong className="text-white">{formatScore(rwScore)}</strong></span>
+                <span>R&W: <strong className="text-white">{renderScore(rwScore)}</strong></span>
                 <span>·</span>
-                <span>Math: <strong className="text-white">{formatScore(mathSectionScore)}</strong></span>
+                <span>Math: <strong className="text-white">{renderScore(mathSectionScore)}</strong></span>
               </div>
             </>
           ) : (
             <>
-              <div className={heroLabel}>{ESTIMATED_LABEL} section score</div>
+              <div className={heroLabel}>{ESTIMATED_CAPTION} section score</div>
               <div className="flex items-end gap-3.5 mt-1 whitespace-nowrap">
-                <div className={heroScore} style={{ color: headlineColor }}>{formatExamScore(exam.scaledScore, exam.score, exam.totalQuestions)}</div>
+                <div className={heroScore} style={{ color: headlineColor }}>{renderAssessmentScore(exam.scaledScore, exam.score, exam.totalQuestions)}</div>
                 <div className={heroOutOf}>{exam.scaledScore === null ? '' : '/ 800'}</div>
               </div>
               <div className="text-[13px] mt-2 text-white/50">{correct} of {results.length} correct</div>
@@ -353,7 +353,7 @@ export default function ExamDetail() {
 
       {/* Performance narrative */}
       {aiEnabled && (
-        <NarrativePanel
+        <SummaryPane
           narrative={narrativeData}
           failed={narrativeError || (pollCountRef.current >= 10 && narrativeData?.status === 'pending')}
           onRetry={() => retryMutation.mutate()}
@@ -367,14 +367,14 @@ export default function ExamDetail() {
         {Object.entries(topics).map(([t, v]) => {
           const pct = Math.round((v.ok / v.n) * 100);
           return (
-            <div key={t} className={cn(surfaceClass, 'px-[18px] py-4')}>
+            <div key={t} className={classes(surfaceStyle, 'px-[18px] py-4')}>
               <div className="flex justify-between items-baseline mb-[9px]">
                 <span className="text-sm font-semibold">{t}</span>
                 <span className="text-[12.5px] text-subtle font-mono">{v.ok}/{v.n}</span>
               </div>
               <div className="h-1.5 bg-sunken-2 rounded-full overflow-hidden">
                 <div
-                  className={cn('h-1.5 rounded-full', pct >= 67 ? 'bg-green-sat' : pct >= 34 ? 'bg-gold' : 'bg-danger')}
+                  className={classes('h-1.5 rounded-full', pct >= 67 ? 'bg-green-sat' : pct >= 34 ? 'bg-gold' : 'bg-danger')}
                   style={{ width: pct + '%' }}
                 />
               </div>
@@ -401,13 +401,13 @@ export default function ExamDetail() {
         "Incorrect 0" says the filter is empty before you press it.
       */}
       <div className="flex items-center gap-2 mb-3.5 flex-wrap">
-        <button onClick={() => setReviewFilter('all')} className={chipClass(reviewFilter === 'all')}>
+        <button onClick={() => setReviewFilter('all')} className={chipStyle(reviewFilter === 'all')}>
           All {allReview.length}
         </button>
-        <button onClick={() => setReviewFilter('incorrect')} className={chipClass(reviewFilter === 'incorrect')}>
+        <button onClick={() => setReviewFilter('incorrect')} className={chipStyle(reviewFilter === 'incorrect')}>
           Incorrect {wrongTotal}
         </button>
-        <button onClick={() => setReviewFilter('skipped')} className={chipClass(reviewFilter === 'skipped')}>
+        <button onClick={() => setReviewFilter('skipped')} className={chipStyle(reviewFilter === 'skipped')}>
           Skipped {skippedTotal}
         </button>
         <button
@@ -425,7 +425,7 @@ export default function ExamDetail() {
           <SectionDivider
             dot="bg-green-sat"
             title="Section 1 · Reading & Writing"
-            detail={`(${englishReview.filter((r) => r.isCorrect).length}/${englishReview.length} correct · ${formatScore(rwScore)}/800)`}
+            detail={`(${englishReview.filter((r) => r.isCorrect).length}/${englishReview.length} correct · ${renderScore(rwScore)}/800)`}
             className="pt-2.5"
           />
         )}
@@ -435,7 +435,7 @@ export default function ExamDetail() {
           <SectionDivider
             dot="bg-blue-sat"
             title="Section 2 · Math"
-            detail={`(${correct}/${mathReview.length} correct · ${formatScore(mathSectionScore)}/800)`}
+            detail={`(${correct}/${mathReview.length} correct · ${renderScore(mathSectionScore)}/800)`}
             className="pt-[18px]"
           />
         )}
@@ -458,7 +458,7 @@ export default function ExamDetail() {
 
       {/* Chat panel — fixed bottom, practice and mock exams */}
       {aiEnabled && chatQuestionId && (
-        <TutorChat
+        <TutorTutor
           questionNumber={(results.findIndex((r) => r.id === chatQuestionId) + 1) || ''}
           messages={chatMessages}
           loading={chatLoading}

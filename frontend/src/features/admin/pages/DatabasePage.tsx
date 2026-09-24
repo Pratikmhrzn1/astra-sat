@@ -1,15 +1,15 @@
 import { useState, useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Download, Upload, Play, AlertTriangle, Terminal } from 'lucide-react';
-import { backfillScores, downloadBackup, restoreBackup, runMigrations, runSql } from '@/features/admin/api';
-import { Button, ConfirmModal, pageClass, surfaceClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
-import { getApiError } from '@/shared/api/http';
+import { backfillResults, downloadSnapshot, restoreSnapshot, runSchema, runQuery } from '@/features/admin/api';
+import { Control, AcknowledgeDialog, screenStyle, surfaceStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
+import { fetchApiError } from '@/shared/api/http';
 
 /** One tool: a titled card with its body stacked beneath. */
 function ToolCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className={cn(surfaceClass, 'overflow-hidden mb-4')}>
+    <div className={classes(surfaceStyle, 'overflow-hidden mb-4')}>
       <div className="px-6 py-[18px] border-b border-border-soft">
         <h3 className="text-base font-semibold text-ink m-0">{title}</h3>
       </div>
@@ -21,7 +21,7 @@ function ToolCard({ title, children }: { title: string; children: React.ReactNod
 const note = 'text-[13.5px] text-subtle m-0';
 const success = 'text-[13px] text-green-sat m-0';
 
-export default function Database() {
+export default function DataConsole() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
@@ -32,26 +32,26 @@ export default function Database() {
   const [sqlResult, setSqlResult] = useState<{ statements: number; rowsAffected: number; rows: Record<string, unknown>[] } | null>(null);
   const [error, setError] = useState('');
 
-  const backupMutation = useMutation({ mutationFn: downloadBackup, onError: (err) => setError(getApiError(err)) });
+  const backupMutation = useMutation({ mutationFn: downloadSnapshot, onError: (err) => setError(fetchApiError(err)) });
 
   const restoreMutation = useMutation({
     mutationFn: async () => {
       if (!restoreFile) throw new Error('No file selected');
       const text = await restoreFile.text();
-      return restoreBackup(JSON.parse(text));
+      return restoreSnapshot(JSON.parse(text));
     },
     onSuccess: (result) => { setRestoreResult(result.message); setRestoreFile(null); setShowRestoreConfirm(false); if (fileInputRef.current) fileInputRef.current.value = ''; },
-    onError: (err) => { setError(getApiError(err)); setShowRestoreConfirm(false); },
+    onError: (err) => { setError(fetchApiError(err)); setShowRestoreConfirm(false); },
   });
 
   const migrateMutation = useMutation({
-    mutationFn: runMigrations,
+    mutationFn: runSchema,
     onSuccess: (result) => setMigrateResult(result.message),
-    onError: (err) => setError(getApiError(err)),
+    onError: (err) => setError(fetchApiError(err)),
   });
 
   const backfillMutation = useMutation({
-    mutationFn: backfillScores,
+    mutationFn: backfillResults,
     onSuccess: (run) =>
       setBackfillResult(
         `Scored ${run.examsScored} of ${run.examsFound} exams ` +
@@ -59,13 +59,13 @@ export default function Database() {
           `and ${run.mocksScored} of ${run.mocksFound} mocks ` +
           `(${run.mocksIncomplete} not finished).`,
       ),
-    onError: (err) => setError(getApiError(err)),
+    onError: (err) => setError(fetchApiError(err)),
   });
 
   const sqlMutation = useMutation({
-    mutationFn: () => runSql(sqlText),
+    mutationFn: () => runQuery(sqlText),
     onSuccess: (result) => { setSqlResult(result); setError(''); },
-    onError: (err) => { setError(getApiError(err)); setSqlResult(null); },
+    onError: (err) => { setError(fetchApiError(err)); setSqlResult(null); },
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,7 +77,7 @@ export default function Database() {
   const triggerFilePicker = () => fileInputRef.current?.click();
 
   return (
-    <div className={cn(pageClass, 'max-w-[820px] mx-auto')}>
+    <div className={classes(screenStyle, 'max-w-[820px] mx-auto')}>
       <div className="mb-7">
         <div className="text-[11px] font-bold tracking-[0.12em] uppercase text-accent-text mb-1.5">System</div>
         <h1 className="font-display font-semibold text-[32px] sm:text-[44px] mt-0 mb-1 tracking-[-0.02em] text-ink">Database Management</h1>
@@ -92,9 +92,9 @@ export default function Database() {
 
       <ToolCard title="Database Backup">
         <p className={note}>Download a complete JSON backup of all database tables. Store this file safely.</p>
-        <Button onClick={() => { setError(''); backupMutation.mutate(); }} loading={backupMutation.isPending} className="self-start">
+        <Control onClick={() => { setError(''); backupMutation.mutate(); }} loading={backupMutation.isPending} className="self-start">
           <Download size={15} className="mr-2" /> Download JSON Backup
-        </Button>
+        </Control>
       </ToolCard>
 
       <ToolCard title="Restore from Backup">
@@ -111,14 +111,14 @@ export default function Database() {
           <label className="block text-[13px] font-semibold text-subtle mb-2">Select backup file (.json)</label>
           <div
             onClick={triggerFilePicker}
-            className={cn(
+            className={classes(
               'flex items-center gap-3 px-4 py-[11px] rounded-[10px] cursor-pointer transition-[border-color,background-color] duration-150',
               restoreFile
                 ? 'border-[1.5px] border-solid border-ink bg-ink/[.03]'
                 : 'border-[1.5px] border-dashed border-field bg-[#FAFAF8] hover:border-[#8C8880] hover:bg-ink/[.02]',
             )}
           >
-            <div className={cn('w-[34px] h-[34px] rounded-lg flex items-center justify-center shrink-0', restoreFile ? 'bg-ink text-white' : 'bg-sunken-2 text-[#8C8880]')}>
+            <div className={classes('w-[34px] h-[34px] rounded-lg flex items-center justify-center shrink-0', restoreFile ? 'bg-ink text-white' : 'bg-sunken-2 text-[#8C8880]')}>
               <Upload size={15} />
             </div>
             <div className="flex-1 min-w-0">
@@ -138,27 +138,27 @@ export default function Database() {
         </div>
 
         {restoreResult && <p className={success}>{restoreResult}</p>}
-        <Button variant="danger" onClick={() => { setError(''); setShowRestoreConfirm(true); }} disabled={!restoreFile} className="self-start">
+        <Control variant="danger" onClick={() => { setError(''); setShowRestoreConfirm(true); }} disabled={!restoreFile} className="self-start">
           <Upload size={15} className="mr-2" /> Restore from Backup
-        </Button>
+        </Control>
       </ToolCard>
 
       <ToolCard title="Run Migrations">
         <p className={note}>Creates or updates tables and enums. Safe to run on a live database — uses <code className="text-xs bg-sunken-2 px-[5px] py-px rounded">CREATE TABLE IF NOT EXISTS</code> throughout.</p>
         {migrateResult && <p className={success}>{migrateResult}</p>}
-        <Button variant="secondary" onClick={() => { setError(''); setMigrateResult(''); migrateMutation.mutate(); }} loading={migrateMutation.isPending} className="self-start">
+        <Control variant="secondary" onClick={() => { setError(''); setMigrateResult(''); migrateMutation.mutate(); }} loading={migrateMutation.isPending} className="self-start">
           <Play size={15} className="mr-2" /> Run Migrations
-        </Button>
+        </Control>
       </ToolCard>
 
       <ToolCard title="Backfill Scaled Scores">
-        <p className={cn(note, 'leading-[1.55]')}>
+        <p className={classes(note, 'leading-[1.55]')}>
           Exams and mocks completed before scaled scoring existed have no 200-800 score, so students see a dash on their History page and no trend line. This computes them from the stored answers using the same functions the live submit path uses. Safe to run more than once — it only fills scores that are still empty, and never overwrites one. Mock modules are skipped on purpose: a module is half a section, and the score belongs to the mock.
         </p>
         {backfillResult && <p className={success}>{backfillResult}</p>}
-        <Button variant="secondary" onClick={() => { setError(''); setBackfillResult(''); backfillMutation.mutate(); }} loading={backfillMutation.isPending} className="self-start">
+        <Control variant="secondary" onClick={() => { setError(''); setBackfillResult(''); backfillMutation.mutate(); }} loading={backfillMutation.isPending} className="self-start">
           <Play size={15} className="mr-2" /> Backfill Scores
-        </Button>
+        </Control>
       </ToolCard>
 
       <ToolCard title="SQL Runner">
@@ -171,7 +171,7 @@ export default function Database() {
           className="w-full min-h-[160px] px-3.5 py-3 border-[1.5px] border-field focus:border-ink rounded-[10px] text-[13px] font-mono bg-[#FAFAF8] text-ink outline-none resize-y leading-[1.6]"
         />
         <div className="flex items-center gap-3">
-          <Button
+          <Control
             variant="secondary"
             onClick={() => { setError(''); setSqlResult(null); sqlMutation.mutate(); }}
             loading={sqlMutation.isPending}
@@ -179,7 +179,7 @@ export default function Database() {
             className="self-start"
           >
             <Terminal size={15} className="mr-2" /> Run SQL
-          </Button>
+          </Control>
           {sqlText && (
             <button
               onClick={() => { setSqlText(''); setSqlResult(null); setError(''); }}
@@ -190,7 +190,7 @@ export default function Database() {
 
         {sqlResult && (
           <div className="bg-[#F5F3EF] border border-border rounded-[10px] px-3.5 py-3">
-            <div className={cn('text-xs font-bold text-green-sat', sqlResult.rows.length > 0 && 'mb-2.5')}>
+            <div className={classes('text-xs font-bold text-green-sat', sqlResult.rows.length > 0 && 'mb-2.5')}>
               ✓ {sqlResult.statements} statement{sqlResult.statements !== 1 ? 's' : ''} · {sqlResult.rowsAffected} row{sqlResult.rowsAffected !== 1 ? 's' : ''} affected
             </div>
             {sqlResult.rows.length > 0 && (
@@ -221,7 +221,7 @@ export default function Database() {
         )}
       </ToolCard>
 
-      <ConfirmModal
+      <AcknowledgeDialog
         isOpen={showRestoreConfirm} onClose={() => setShowRestoreConfirm(false)} onConfirm={() => restoreMutation.mutate()}
         loading={restoreMutation.isPending} title="Restore Database?"
         message={`This will completely overwrite the current database with the data from "${restoreFile?.name}". All current data will be permanently lost. Are you absolutely sure?`}

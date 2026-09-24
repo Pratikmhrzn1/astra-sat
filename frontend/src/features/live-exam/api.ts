@@ -1,6 +1,6 @@
-import { apiClient } from '@/shared/api/http';
+import { apiTransport } from '@/shared/api/http';
 
-export interface LiveExamSession {
+export interface LiveAssessmentSession {
   id: string;
   title: string;
   teacherId: string;
@@ -14,7 +14,7 @@ export interface LiveExamSession {
   createdAt: string;
 }
 
-export interface LiveExamParticipant {
+export interface LiveAssessmentParticipant {
   id: string;
   studentId: string;
   englishExamId: string | null;
@@ -26,18 +26,18 @@ export interface LiveExamParticipant {
   email: string;
 }
 
-export interface SessionDetail extends LiveExamSession {
-  participants: LiveExamParticipant[];
+export interface SessionBreakdown extends LiveAssessmentSession {
+  participants: LiveAssessmentParticipant[];
 }
 
-export interface LiveExamSet {
+export interface LiveAssessmentSet {
   id: string;
   title: string;
   subject: 'english' | 'math';
   isDraft: boolean;
 }
 
-export interface LiveExamResult {
+export interface LiveAssessmentResult {
   sessionId: string;
   sessionTitle: string;
   sessionStatus: string;
@@ -50,7 +50,7 @@ export interface LiveExamResult {
   joinedAt: string;
 }
 
-export interface LiveNotification {
+export interface SessionAlert {
   id: string;
   type: string;
   title: string;
@@ -60,7 +60,7 @@ export interface LiveNotification {
   createdAt: string;
 }
 
-export interface PollResponse {
+export interface PollReply {
   status: 'waiting' | 'active' | 'completed';
   startedAt: string | null;
   englishExamId: string | null;
@@ -69,7 +69,7 @@ export interface PollResponse {
   mathDurationSeconds: number;
 }
 
-export interface JoinResponse {
+export interface JoinReply {
   sessionId: string;
   participantId: string;
   status: 'waiting' | 'active' | 'completed';
@@ -81,7 +81,7 @@ export interface JoinResponse {
 }
 
 /** One question as the teacher marks it. Keyed on `questionId`, like the server sends. */
-export interface MarkableAnswer {
+export interface GlyphableAnswer {
   questionId: string;
   /** Restored alongside the passage: a grid-in used to be marked as if it were multiple choice. */
   questionType: 'multiple_choice' | 'student_produced_response';
@@ -103,58 +103,58 @@ export interface MarkableAnswer {
   orderIndex: number;
 }
 
-export interface MarkableSection {
+export interface GlyphableSegment {
   exam: { id: string; score: number | null; scaledScore: number | null; totalQuestions: number };
-  results: MarkableAnswer[];
+  results: GlyphableAnswer[];
 }
 
-export interface ParticipantDetail extends LiveExamParticipant {
+export interface ParticipantBreakdown extends LiveAssessmentParticipant {
   questionFeedbacks: { id: string; questionId: string; feedback: string }[];
   /**
    * Both papers, served with the participant rather than fetched separately.
    * Authorised by session ownership — a live exam is joined with a code, so the
    * student need not be on this teacher's roster.
    */
-  english: MarkableSection | null;
-  math: MarkableSection | null;
+  english: GlyphableSegment | null;
+  math: GlyphableSegment | null;
 }
 
 // ── Teacher ───────────────────────────────────────────────────────────────────
 
-export async function getLiveSessions(): Promise<LiveExamSession[]> {
-  const { data } = await apiClient.get<LiveExamSession[]>('/teacher/live-exams');
+export async function fetchLiveSessions(): Promise<LiveAssessmentSession[]> {
+  const { data } = await apiTransport.get<LiveAssessmentSession[]>('/teacher/live-exams');
   return data;
 }
 
-export async function getSessionDetail(sessionId: string): Promise<SessionDetail> {
-  const { data } = await apiClient.get<SessionDetail>(`/teacher/live-exams/${sessionId}`);
+export async function fetchSessionDetail(sessionId: string): Promise<SessionBreakdown> {
+  const { data } = await apiTransport.get<SessionBreakdown>(`/teacher/live-exams/${sessionId}`);
   return data;
 }
 
-export async function createSession(body: {
+export async function addSession(body: {
   title: string;
   englishSetId: string;
   mathSetId: string;
-}): Promise<LiveExamSession> {
-  const { data } = await apiClient.post<LiveExamSession>('/teacher/live-exams', body);
+}): Promise<LiveAssessmentSession> {
+  const { data } = await apiTransport.post<LiveAssessmentSession>('/teacher/live-exams', body);
   return data;
 }
 
-export async function startSession(sessionId: string): Promise<void> {
-  await apiClient.post(`/teacher/live-exams/${sessionId}/start`);
+export async function openSession(sessionId: string): Promise<void> {
+  await apiTransport.post(`/teacher/live-exams/${sessionId}/start`);
 }
 
-export async function getParticipantDetail(
+export async function fetchParticipantDetail(
   sessionId: string,
   participantId: string
-): Promise<ParticipantDetail> {
-  const { data } = await apiClient.get<ParticipantDetail>(
+): Promise<ParticipantBreakdown> {
+  const { data } = await apiTransport.get<ParticipantBreakdown>(
     `/teacher/live-exams/${sessionId}/participants/${participantId}`
   );
   return data;
 }
 
-export async function saveFeedback(
+export async function storeFeedback(
   sessionId: string,
   participantId: string,
   body: {
@@ -162,59 +162,59 @@ export async function saveFeedback(
     questionFeedbacks?: { questionId: string; feedback: string }[];
   }
 ): Promise<void> {
-  await apiClient.post(
+  await apiTransport.post(
     `/teacher/live-exams/${sessionId}/participants/${participantId}/feedback`,
     body
   );
 }
 
-export async function releaseOne(sessionId: string, participantId: string): Promise<void> {
-  await apiClient.post(
+export async function publishOne(sessionId: string, participantId: string): Promise<void> {
+  await apiTransport.post(
     `/teacher/live-exams/${sessionId}/participants/${participantId}/release`
   );
 }
 
-export async function releaseAll(sessionId: string): Promise<{ released: number }> {
-  const { data } = await apiClient.post<{ released: number }>(
+export async function publishAll(sessionId: string): Promise<{ released: number }> {
+  const { data } = await apiTransport.post<{ released: number }>(
     `/teacher/live-exams/${sessionId}/release-all`
   );
   return data;
 }
 
-export async function getLiveExamSets(): Promise<LiveExamSet[]> {
-  const { data } = await apiClient.get<LiveExamSet[]>('/teacher/live-exam-sets');
+export async function fetchLiveAssessmentSets(): Promise<LiveAssessmentSet[]> {
+  const { data } = await apiTransport.get<LiveAssessmentSet[]>('/teacher/live-exam-sets');
   return data;
 }
 
 // ── Student / Public ──────────────────────────────────────────────────────────
 
-export async function checkSessionStatus(
+export async function peekSessionStatus(
   joinCode: string
 ): Promise<{ id: string; title: string; status: string }> {
-  const { data } = await apiClient.get(`/live/${joinCode}/status`);
+  const { data } = await apiTransport.get(`/live/${joinCode}/status`);
   return data;
 }
 
-export async function joinSession(joinCode: string): Promise<JoinResponse> {
-  const { data } = await apiClient.post<JoinResponse>(`/live/${joinCode}/join`);
+export async function enterSession(joinCode: string): Promise<JoinReply> {
+  const { data } = await apiTransport.post<JoinReply>(`/live/${joinCode}/join`);
   return data;
 }
 
-export async function pollSession(joinCode: string): Promise<PollResponse> {
-  const { data } = await apiClient.get<PollResponse>(`/live/${joinCode}/poll`);
+export async function checkSession(joinCode: string): Promise<PollReply> {
+  const { data } = await apiTransport.get<PollReply>(`/live/${joinCode}/poll`);
   return data;
 }
 
-export async function getLiveExamResults(): Promise<LiveExamResult[]> {
-  const { data } = await apiClient.get<LiveExamResult[]>('/student/live-exam-results');
+export async function fetchLiveAssessmentResults(): Promise<LiveAssessmentResult[]> {
+  const { data } = await apiTransport.get<LiveAssessmentResult[]>('/student/live-exam-results');
   return data;
 }
 
-export async function getNotifications(): Promise<LiveNotification[]> {
-  const { data } = await apiClient.get<LiveNotification[]>('/student/notifications');
+export async function fetchNotifications(): Promise<SessionAlert[]> {
+  const { data } = await apiTransport.get<SessionAlert[]>('/student/notifications');
   return data;
 }
 
-export async function markNotificationRead(id: string): Promise<void> {
-  await apiClient.post(`/student/notifications/${id}/read`);
+export async function markAlertRead(id: string): Promise<void> {
+  await apiTransport.post(`/student/notifications/${id}/read`);
 }

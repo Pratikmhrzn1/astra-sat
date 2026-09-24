@@ -1,24 +1,24 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuthStore, type Role } from '@/features/auth';
-import { PageLoader } from '@/shared/ui';
+import { useSessionVault, type AccountRole } from '@/features/auth';
+import { ScreenLoader } from '@/shared/ui';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  role: Role;
+  role: AccountRole;
   /** Set on the survey route itself, which would otherwise redirect to itself. */
   allowIncompleteSurvey?: boolean;
 }
 
-export function ProtectedRoute({ children, role, allowIncompleteSurvey = false }: ProtectedRouteProps) {
-  const { user, accessToken } = useAuthStore();
+export function GuardedRoute({ children, role, allowIncompleteSurvey = false }: ProtectedRouteProps) {
+  const { user, accessToken } = useSessionVault();
 
   if (!user || !accessToken) {
     return <Navigate to="/login" replace />;
   }
 
   if (user.role !== role) {
-    const redirectMap: Record<Role, string> = {
+    const redirectMap: Record<AccountRole, string> = {
       student: '/student/dashboard',
       teacher: '/teacher/dashboard',
       admin: '/admin/dashboard',

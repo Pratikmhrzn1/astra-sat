@@ -20,23 +20,23 @@
  */
 
 /** SAT section scores run 200-800; totals run 400-1600. */
-export const SECTION_MIN = 200;
-export const SECTION_MAX = 800;
-export const TOTAL_MIN = 400;
-export const TOTAL_MAX = 1600;
+export const SEGMENT_MIN = 200;
+export const SEGMENT_MAX = 800;
+export const COMPOSITE_FLOOR = 400;
+export const COMPOSITE_CEILING = 1600;
 
 /** Shown wherever a score does not exist. */
-export const NO_SCORE = '—';
+export const NO_RESULT = '—';
 
 /**
  * Every score this platform reports is an estimate, never an official College
  * Board result. Use this to label them.
  */
-export const ESTIMATED_LABEL = 'Estimated';
+export const ESTIMATED_CAPTION = 'Estimated';
 
 /** A score, or `—` when there isn't one. */
-export function formatScore(score: number | null | undefined): string {
-  return score === null || score === undefined ? NO_SCORE : String(score);
+export function renderScore(score: number | null | undefined): string {
+  return score === null || score === undefined ? NO_RESULT : String(score);
 }
 
 /**
@@ -45,8 +45,8 @@ export function formatScore(score: number | null | undefined): string {
  * This is the honest fallback: a 5-question set gets `4 / 5 · 80%`, not a
  * 200-800 number that looks like an SAT result.
  */
-export function formatRaw(score: number | null | undefined, total: number): string {
-  if (score === null || score === undefined || total <= 0) return NO_SCORE;
+export function renderRaw(score: number | null | undefined, total: number): string {
+  if (score === null || score === undefined || total <= 0) return NO_RESULT;
   return `${score} / ${total} · ${Math.round((score / total) * 100)}%`;
 }
 
@@ -56,13 +56,13 @@ export function formatRaw(score: number | null | undefined, total: number): stri
  * Callers that need to know which they got should check `scaledScore` directly;
  * this is for the common case of "show me something true about this exam".
  */
-export function formatExamScore(
+export function renderAssessmentScore(
   scaledScore: number | null | undefined,
   score: number | null | undefined,
   total: number,
 ): string {
   return scaledScore === null || scaledScore === undefined
-    ? formatRaw(score, total)
+    ? renderRaw(score, total)
     : String(scaledScore);
 }
 
@@ -74,7 +74,7 @@ export function formatExamScore(
  * fraction of the maximum, so the three previous variants collapse into this
  * without any of them changing meaning.
  */
-export function scoreColor(score: number | null | undefined, max: number = SECTION_MAX): string {
+export function scoreHue(score: number | null | undefined, max: number = SEGMENT_MAX): string {
   if (score === null || score === undefined) return 'rgba(11,11,14,0.4)';
   const fraction = score / max;
   if (fraction >= 0.85) return '#1A6B3C';
@@ -84,8 +84,8 @@ export function scoreColor(score: number | null | undefined, max: number = SECTI
 }
 
 /** Colour for a plain 0-100 accuracy percentage. */
-export function accuracyColor(percentage: number): string {
-  return scoreColor(percentage, 100);
+export function accuracyHue(percentage: number): string {
+  return scoreHue(percentage, 100);
 }
 
 /**
@@ -94,7 +94,7 @@ export function accuracyColor(percentage: number): string {
  * Negative once the date has passed, which the caller should render as "test
  * has passed" rather than a negative countdown.
  */
-export function daysUntil(date: string | null | undefined): number | null {
+export function daysRemaining(date: string | null | undefined): number | null {
   if (!date) return null;
   const target = new Date(`${date}T00:00:00`);
   if (Number.isNaN(target.getTime())) return null;

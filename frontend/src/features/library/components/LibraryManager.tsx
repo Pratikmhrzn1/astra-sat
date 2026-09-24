@@ -1,48 +1,48 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { deleteLibraryItem, getLibraryItems, type LibraryItem } from '@/features/library/api';
-import { ConfirmModal, Spinner, pageClass, pillClass, surfaceClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
-import { AddLibraryItemModal } from './AddLibraryItemModal';
-import { EditLibraryItemModal } from './EditLibraryItemModal';
-import { LibraryItemCard } from './LibraryItemCard';
-import { LIBRARY_FILTERS } from './libraryMeta';
-import { NoteReadModal } from './NoteReadModal';
+import { removeResourceItem, fetchResourceItems, type ResourceItem } from '@/features/library/api';
+import { AcknowledgeDialog, Loader, screenStyle, pillStyle, surfaceStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
+import { AddResourceItemModal } from './AddLibraryItemModal';
+import { EditResourceItemModal } from './EditLibraryItemModal';
+import { ResourceItemCard } from './LibraryItemCard';
+import { RESOURCE_FILTERS } from './libraryMeta';
+import { NoteReadDialog } from './NoteReadModal';
 
 /**
  * The library as teachers and admins manage it: filter, add, edit, hide, delete.
  * The two role pages differ only in the copy and who may edit what, so they pass
  * that in and share everything else.
  */
-export function LibraryManager({
+export function ResourceManager({
   subtitle, emptyHint, hideLabel, noteExample, canEdit, showUploader,
 }: {
   subtitle: string;
   emptyHint: string;
   hideLabel: string;
   noteExample: string;
-  canEdit: (item: LibraryItem) => boolean;
+  canEdit: (item: ResourceItem) => boolean;
   showUploader?: boolean;
 }) {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState('All');
   const [showCreate, setShowCreate] = useState(false);
-  const [editItem, setEditItem] = useState<LibraryItem | null>(null);
-  const [readNote, setReadNote] = useState<LibraryItem | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<LibraryItem | null>(null);
+  const [editItem, setEditItem] = useState<ResourceItem | null>(null);
+  const [readNote, setReadNote] = useState<ResourceItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ResourceItem | null>(null);
 
-  const { data: items = [], isLoading } = useQuery({ queryKey: ['library'], queryFn: getLibraryItems });
+  const { data: items = [], isLoading } = useQuery({ queryKey: ['library'], queryFn: fetchResourceItems });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteLibraryItem(deleteTarget!.id),
+    mutationFn: () => removeResourceItem(deleteTarget!.id),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['library'] }); setDeleteTarget(null); },
   });
 
   const shown = items.filter((i) => filter === 'All' || i.fileType.toLowerCase() === filter.toLowerCase());
 
   return (
-    <div className={pageClass}>
+    <div className={screenStyle}>
       <div className="flex items-start justify-between gap-3 flex-wrap mb-6">
         <div>
           <h1 className="font-display font-semibold text-[32px] sm:text-[44px] m-0 tracking-[-0.02em]">Library</h1>
@@ -57,15 +57,15 @@ export function LibraryManager({
       </div>
 
       <div className="flex gap-2 mb-6 flex-wrap">
-        {LIBRARY_FILTERS.map((t) => (
-          <button key={t} onClick={() => setFilter(t)} className={pillClass(filter === t, 'px-4 py-[7px] text-[13px]')}>{t}</button>
+        {RESOURCE_FILTERS.map((t) => (
+          <button key={t} onClick={() => setFilter(t)} className={pillStyle(filter === t, 'px-4 py-[7px] text-[13px]')}>{t}</button>
         ))}
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center p-12"><Spinner /></div>
+        <div className="flex justify-center p-12"><Loader /></div>
       ) : shown.length === 0 ? (
-        <div className={cn(surfaceClass, 'px-6 py-12 text-center')}>
+        <div className={classes(surfaceStyle, 'px-6 py-12 text-center')}>
           <div className="text-[32px] mb-3">📚</div>
           <div className="text-[15px] font-semibold mb-1.5">No items yet</div>
           <div className="text-[13.5px] text-subtle">{emptyHint}</div>
@@ -73,7 +73,7 @@ export function LibraryManager({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {shown.map((item) => (
-            <LibraryItemCard
+            <ResourceItemCard
               key={item.id}
               item={item}
               canEdit={canEdit(item)}
@@ -86,11 +86,11 @@ export function LibraryManager({
         </div>
       )}
 
-      <AddLibraryItemModal open={showCreate} onClose={() => setShowCreate(false)} noteExample={noteExample} />
-      <EditLibraryItemModal item={editItem} onClose={() => setEditItem(null)} hideLabel={hideLabel} />
-      {readNote && <NoteReadModal item={readNote} onClose={() => setReadNote(null)} />}
+      <AddResourceItemModal open={showCreate} onClose={() => setShowCreate(false)} noteExample={noteExample} />
+      <EditResourceItemModal item={editItem} onClose={() => setEditItem(null)} hideLabel={hideLabel} />
+      {readNote && <NoteReadDialog item={readNote} onClose={() => setReadNote(null)} />}
 
-      <ConfirmModal
+      <AcknowledgeDialog
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteMutation.mutate()}

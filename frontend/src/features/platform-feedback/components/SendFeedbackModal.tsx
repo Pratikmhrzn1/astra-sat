@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Modal, Button, inputClass, segmentGroupClass, segmentClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
-import { submitFeedback } from '../api';
+import { Dialog, Control, fieldInputStyle, segmentClusterClass, segmentStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
+import { commitFeedback } from '../api';
 
 type FeedbackCategory = 'bug' | 'suggestion' | 'other';
 
 /** The in-app bug report / suggestion form. Owns its state; closing resets it. */
-export function SendFeedbackModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function SendNoteDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [category, setCategory] = useState<FeedbackCategory>('other');
   const [message, setMessage] = useState('');
   const [sent, setSent] = useState(false);
 
   const feedbackMutation = useMutation({
-    mutationFn: () => submitFeedback({ category, message }),
+    mutationFn: () => commitFeedback({ category, message }),
     onSuccess: () => setSent(true),
     onError: () => {}, // shown inline in the modal, not as a toast
   });
@@ -27,23 +27,23 @@ export function SendFeedbackModal({ open, onClose }: { open: boolean; onClose: (
   };
 
   return (
-    <Modal
+    <Dialog
       isOpen={open}
       onClose={close}
       title="Send Feedback"
       size="sm"
       footer={
         sent ? (
-          <Button variant="secondary" onClick={close}>Close</Button>
+          <Control variant="secondary" onClick={close}>Close</Control>
         ) : (
           <>
-            <Button variant="secondary" onClick={close}>Cancel</Button>
-            <Button
+            <Control variant="secondary" onClick={close}>Cancel</Control>
+            <Control
               variant="primary"
               onClick={() => feedbackMutation.mutate()}
               loading={feedbackMutation.isPending}
               disabled={message.trim().length < 10}
-            >Send</Button>
+            >Send</Control>
           </>
         )
       }
@@ -63,14 +63,14 @@ export function SendFeedbackModal({ open, onClose }: { open: boolean; onClose: (
           )}
           <div>
             <label className="block text-[13px] font-medium mb-2 text-ink/[.62]">Category</label>
-            <div role="radiogroup" aria-label="Category" className={segmentGroupClass}>
+            <div role="radiogroup" aria-label="Category" className={segmentClusterClass}>
               {(['bug', 'suggestion', 'other'] as FeedbackCategory[]).map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setCategory(cat)}
                   role="radio"
                   aria-checked={category === cat}
-                  className={cn(segmentClass(category === cat), 'capitalize')}
+                  className={classes(segmentStyle(category === cat), 'capitalize')}
                 >{cat === 'bug' ? 'Bug Report' : cat === 'suggestion' ? 'Suggestion' : 'Other'}</button>
               ))}
             </div>
@@ -80,7 +80,7 @@ export function SendFeedbackModal({ open, onClose }: { open: boolean; onClose: (
               Message <span className="text-muted font-normal">({message.length}/2000)</span>
             </label>
             <textarea
-              className={inputClass(false, 'h-[110px] resize-y')}
+              className={fieldInputStyle(false, 'h-[110px] resize-y')}
               placeholder="Describe the bug or share your suggestion… (min 10 characters)"
               value={message}
               onChange={(e) => setMessage(e.target.value.slice(0, 2000))}
@@ -88,6 +88,6 @@ export function SendFeedbackModal({ open, onClose }: { open: boolean; onClose: (
           </div>
         </div>
       )}
-    </Modal>
+    </Dialog>
   );
 }

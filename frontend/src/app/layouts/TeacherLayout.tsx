@@ -1,7 +1,7 @@
-import { useOnlineStatus } from '@/shared/hooks/useOnlineStatus';
-import AppShell, { type ShellNavItem } from './AppShell';
+import { useConnectivity } from '@/shared/hooks/useOnlineStatus';
+import RootFrame, { type FrameMenuItem } from './AppShell';
 
-const NAV: ShellNavItem[] = [
+const NAV: FrameMenuItem[] = [
   { path: '/teacher/dashboard', label: 'Dashboard', tabLabel: 'Home', icon: (
     <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/>
@@ -43,11 +43,11 @@ const NAV: ShellNavItem[] = [
   )},
 ];
 
-export default function TeacherLayout() {
-  const online = useOnlineStatus();
+export default function CoachChrome() {
+  const online = useConnectivity();
 
   return (
-    <AppShell
+    <RootFrame
       nav={NAV}
       tabPaths={['/teacher/dashboard', '/teacher/students', '/teacher/content', '/teacher/live-exams']}
       roleLabel="Teacher"

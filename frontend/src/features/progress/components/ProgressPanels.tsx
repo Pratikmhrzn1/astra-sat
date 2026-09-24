@@ -1,9 +1,9 @@
 import {
-  AccuracyBars, TrendChart, TREND_COLORS, surfaceClass, type TrendSeries,
+  AccuracyColumns, SeriesGraph, SERIES_HUES, surfaceStyle, type SeriesSeries,
 } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
-import { formatScore, TOTAL_MAX, scoreColor } from '@/entities/score';
-import type { AnalyticsOverview } from '@/features/progress/api';
+import { classes } from '@/shared/lib/utils';
+import { renderScore, COMPOSITE_CEILING, scoreHue } from '@/entities/score';
+import type { InsightsOverview } from '@/features/progress/api';
 
 /**
  * The progress panels, shared between the student's own view and the teacher's
@@ -18,18 +18,18 @@ const panelTitle = 'text-[15px] font-semibold mt-0 mb-0.5';
 const panelNote = 'text-[12.5px] text-muted mt-0';
 
 /** Latest score against the student's own target. Arithmetic, not a prediction. */
-export function ReadinessCard({ readiness }: { readiness: AnalyticsOverview['readiness']; isMobile?: boolean }) {
+export function PreparednessPanel({ readiness }: { readiness: InsightsOverview['readiness']; isMobile?: boolean }) {
   const { rollingAverage, mocksTaken, targetScore, gap, daysToTest, confidence, estimate } = readiness;
   // Same estimate as the Dashboard hero, with its source named.
   const estimateLabel = estimate.source === 'practice' ? 'Estimated, from practice tests' : 'Latest mock';
 
   return (
-    <div className={cn(surfaceClass, 'px-[18px] py-5 sm:px-[26px] sm:py-6')}>
+    <div className={classes(surfaceStyle, 'px-[18px] py-5 sm:px-[26px] sm:py-6')}>
       <div className="flex items-end gap-7 flex-wrap">
         <div>
           <div className="text-[12.5px] text-subtle mb-1">{estimateLabel}</div>
-          <div className="font-display font-semibold text-[46px] leading-none" style={{ color: scoreColor(estimate.total, TOTAL_MAX) }}>
-            {formatScore(estimate.total)}
+          <div className="font-display font-semibold text-[46px] leading-none" style={{ color: scoreHue(estimate.total, COMPOSITE_CEILING) }}>
+            {renderScore(estimate.total)}
           </div>
           {estimate.total === null && (estimate.rw !== null || estimate.math !== null) && (
             <div className="text-[12.5px] text-subtle mt-1.5">
@@ -44,7 +44,7 @@ export function ReadinessCard({ readiness }: { readiness: AnalyticsOverview['rea
               Average of last {Math.min(mocksTaken, 3)}
             </div>
             <div className="font-display font-semibold text-[28px] leading-[1.4] text-ink">
-              {formatScore(rollingAverage)}
+              {renderScore(rollingAverage)}
             </div>
           </div>
         )}
@@ -82,42 +82,42 @@ export function ReadinessCard({ readiness }: { readiness: AnalyticsOverview['rea
   );
 }
 
-export function TrendPanel({ trend, isMobile }: { trend: AnalyticsOverview['trend']; isMobile?: boolean }) {
+export function SeriesPane({ trend, isMobile }: { trend: InsightsOverview['trend']; isMobile?: boolean }) {
   // Both sections on one chart: same 200-800 scale, so one axis is honest.
   // Total is deliberately not plotted alongside them — it runs 400-1600 and
   // sharing an axis with the sections would need a second scale.
-  const series: TrendSeries[] = [
-    { label: 'Reading & Writing', color: TREND_COLORS.english, points: trend.map((p) => ({ at: p.at, value: p.rw })) },
-    { label: 'Math', color: TREND_COLORS.math, points: trend.map((p) => ({ at: p.at, value: p.math })) },
+  const series: SeriesSeries[] = [
+    { label: 'Reading & Writing', color: SERIES_HUES.english, points: trend.map((p) => ({ at: p.at, value: p.rw })) },
+    { label: 'Math', color: SERIES_HUES.math, points: trend.map((p) => ({ at: p.at, value: p.math })) },
   ];
 
   return (
-    <div className={cn(surfaceClass, 'px-3.5 py-[18px] sm:px-6 sm:py-[22px]')}>
+    <div className={classes(surfaceStyle, 'px-3.5 py-[18px] sm:px-6 sm:py-[22px]')}>
       <h2 className={panelTitle}>Section scores over time</h2>
-      <p className={cn(panelNote, 'mb-3.5')}>
+      <p className={classes(panelNote, 'mb-3.5')}>
         Estimated, on the 200–800 scale. Mocks and single sections both count.
       </p>
-      <TrendChart series={series} min={200} max={800} height={isMobile ? 170 : 200} />
+      <SeriesGraph series={series} min={200} max={800} height={isMobile ? 170 : 200} />
     </div>
   );
 }
 
-export function DomainPanel({
+export function DomainPane({
   overview, onPractise,
 }: {
-  overview: AnalyticsOverview;
+  overview: InsightsOverview;
   onPractise?: (domainCode: string, subject: 'english' | 'math') => void;
   isMobile?: boolean;
 }) {
   const groups = [
-    { subject: 'english' as const, label: 'Reading & Writing', color: TREND_COLORS.english },
-    { subject: 'math' as const, label: 'Math', color: TREND_COLORS.math },
+    { subject: 'english' as const, label: 'Reading & Writing', color: SERIES_HUES.english },
+    { subject: 'math' as const, label: 'Math', color: SERIES_HUES.math },
   ];
 
   return (
-    <div className={cn(surfaceClass, 'px-4 py-[18px] sm:px-6 sm:py-[22px]')}>
+    <div className={classes(surfaceStyle, 'px-4 py-[18px] sm:px-6 sm:py-[22px]')}>
       <h2 className={panelTitle}>Accuracy by topic</h2>
-      <p className={cn(panelNote, 'mb-[18px]')}>
+      <p className={classes(panelNote, 'mb-[18px]')}>
         Weakest first. A topic needs {overview.minAttempts} answered questions before it shows a percentage.
       </p>
 
@@ -128,7 +128,7 @@ export function DomainPanel({
               <span className="w-[9px] h-[9px] rounded-full" style={{ background: group.color }} />
               <span className="text-[13.5px] font-semibold">{group.label}</span>
             </div>
-            <AccuracyBars
+            <AccuracyColumns
               rows={overview.domains
                 .filter((d) => d.subject === group.subject)
                 .map((d) => ({ code: d.domainCode, label: d.domainLabel, attempted: d.attempted, correct: d.correct, accuracy: d.accuracy }))}
@@ -149,7 +149,7 @@ export function DomainPanel({
  * Returns null rather than guessing when nothing qualifies, so the dashboard can
  * leave the slot out entirely instead of showing a card that says "unknown".
  */
-export function weakestDomain(overview: AnalyticsOverview | undefined) {
+export function lowestDomain(overview: InsightsOverview | undefined) {
   if (!overview) return null;
   return overview.domains.find((d) => d.attempted >= overview.minAttempts) ?? null;
 }

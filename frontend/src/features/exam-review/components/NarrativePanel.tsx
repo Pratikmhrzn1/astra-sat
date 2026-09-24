@@ -1,5 +1,5 @@
-import type { NarrativeContent } from '@/features/exam-review/api';
-import { cn } from '@/shared/lib/utils';
+import type { SummaryAuthoring } from '@/features/exam-review/api';
+import { classes } from '@/shared/lib/utils';
 
 type Narrative = { status: string; content?: unknown } | undefined;
 
@@ -19,7 +19,7 @@ function Unavailable({ onRetry, retrying }: { onRetry: () => void; retrying: boo
 }
 
 /** The AI's read of the attempt: pending, failed, or the pattern diagnosis itself. */
-export function NarrativePanel({ narrative, failed, onRetry, retrying }: {
+export function SummaryPane({ narrative, failed, onRetry, retrying }: {
   narrative: Narrative;
   /** The query errored, or polling gave up while it was still pending. */
   failed: boolean;
@@ -40,7 +40,7 @@ export function NarrativePanel({ narrative, failed, onRetry, retrying }: {
     );
   }
 
-  const nc = narrative.content as NarrativeContent;
+  const nc = narrative.content as SummaryAuthoring;
   if (!nc) return null;
 
   return (
@@ -66,13 +66,13 @@ export function NarrativePanel({ narrative, failed, onRetry, retrying }: {
               const bar = s.flag ? 'bg-danger' : pct > 40 ? 'bg-gold' : 'bg-green-sat';
               return (
                 <div key={s.subSkill} className="flex items-center gap-3">
-                  <div className={cn('w-2 h-2 rounded-full shrink-0', bar)} />
-                  <span className={cn('text-[13px] min-w-[110px] sm:min-w-[170px] flex-none sm:flex-initial', s.flag ? 'font-bold text-ink' : 'font-medium text-body')}>
+                  <div className={classes('w-2 h-2 rounded-full shrink-0', bar)} />
+                  <span className={classes('text-[13px] min-w-[110px] sm:min-w-[170px] flex-none sm:flex-initial', s.flag ? 'font-bold text-ink' : 'font-medium text-body')}>
                     {s.subSkill.replace(/_/g, ' ')}
                     {s.flag && <span className="ml-1.5 text-[10px] font-bold text-danger tracking-[0.06em] uppercase">pattern</span>}
                   </span>
                   <div className="flex-1 h-1.5 bg-sunken-2 rounded-full overflow-hidden">
-                    <div className={cn('h-1.5 rounded-full', bar)} style={{ width: `${pct}%` }} />
+                    <div className={classes('h-1.5 rounded-full', bar)} style={{ width: `${pct}%` }} />
                   </div>
                   <span className="text-xs text-subtle font-mono w-14 text-right">{s.wrong}/{s.total}</span>
                 </div>

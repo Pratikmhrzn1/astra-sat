@@ -1,22 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
 import { Users, MessageSquare, BookOpen } from 'lucide-react';
-import { getStudents } from '@/features/roster';
-import { getSentFeedback } from '@/features/messages';
-import { getQuestionSets } from '@/features/content';
-import { useAuthStore } from '@/features/auth';
-import { InlineLoader, pageClass, surfaceClass, tableRowClass } from '@/shared/ui';
+import { fetchLearners } from '@/features/roster';
+import { fetchSentFeedback } from '@/features/messages';
+import { fetchAuthoringBundles } from '@/features/content';
+import { useSessionVault } from '@/features/auth';
+import { InlineSpinner, screenStyle, surfaceStyle, tableRowStyle } from '@/shared/ui';
 import { useNavigate } from 'react-router-dom';
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
-export default function TeacherDashboard() {
-  const { user } = useAuthStore();
+export default function CoachDashboard() {
+  const { user } = useSessionVault();
   const navigate = useNavigate();
 
-  const { data: students = [], isLoading } = useQuery({ queryKey: ['teacher', 'students'], queryFn: getStudents });
-  const { data: sentFeedback = [] } = useQuery({ queryKey: ['teacher', 'feedback'], queryFn: getSentFeedback });
-  const { data: sets = [] } = useQuery({ queryKey: ['teacher', 'question-sets'], queryFn: getQuestionSets });
+  const { data: students = [], isLoading } = useQuery({ queryKey: ['teacher', 'students'], queryFn: fetchLearners });
+  const { data: sentFeedback = [] } = useQuery({ queryKey: ['teacher', 'feedback'], queryFn: fetchSentFeedback });
+  const { data: sets = [] } = useQuery({ queryKey: ['teacher', 'question-sets'], queryFn: fetchAuthoringBundles });
 
-  if (isLoading) return <InlineLoader />;
+  if (isLoading) return <InlineSpinner />;
 
   const statCards = [
     { label: 'Assigned Students', value: students.length, icon: Users, tile: 'bg-green-sat/[.08] text-green-sat' },
@@ -25,7 +25,7 @@ export default function TeacherDashboard() {
   ];
 
   return (
-    <div className={pageClass}>
+    <div className={screenStyle}>
       <div className="mb-7">
         <div className="text-[13px] text-muted mb-1">Teacher Portal</div>
         <h1 className="font-display font-semibold text-[32px] sm:text-[44px] m-0 tracking-[-0.02em] text-ink">Welcome, {user?.name}</h1>
@@ -33,8 +33,8 @@ export default function TeacherDashboard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-7">
         {statCards.map(({ label, value, icon: Icon, tile }) => (
-          <div key={label} className={cn(surfaceClass, 'px-[22px] py-5 flex items-center gap-4')}>
-            <div className={cn('w-[42px] h-[42px] rounded-xl flex items-center justify-center shrink-0', tile)}>
+          <div key={label} className={classes(surfaceStyle, 'px-[22px] py-5 flex items-center gap-4')}>
+            <div className={classes('w-[42px] h-[42px] rounded-xl flex items-center justify-center shrink-0', tile)}>
               <Icon size={20} />
             </div>
             <div>
@@ -45,7 +45,7 @@ export default function TeacherDashboard() {
         ))}
       </div>
 
-      <div className={cn(surfaceClass, 'overflow-hidden')}>
+      <div className={classes(surfaceStyle, 'overflow-hidden')}>
         <div className="px-[22px] py-4 border-b border-border-soft flex items-center justify-between">
           <h2 className="text-base font-semibold text-ink m-0">My Students</h2>
           {students.length > 0 && (
@@ -57,7 +57,7 @@ export default function TeacherDashboard() {
         ) : (
           <div>
             {students.slice(0, 5).map((s) => (
-              <div key={s.id} onClick={() => navigate(`/teacher/students/${s.id}`)} className={cn(tableRowClass, 'flex items-center gap-3.5 px-[22px] py-3.5')}>
+              <div key={s.id} onClick={() => navigate(`/teacher/students/${s.id}`)} className={classes(tableRowStyle, 'flex items-center gap-3.5 px-[22px] py-3.5')}>
                 <div className="w-[34px] h-[34px] rounded-full bg-sunken text-ink flex items-center justify-center text-sm font-bold shrink-0">{s.name.charAt(0).toUpperCase()}</div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[14.5px] font-semibold text-ink">{s.name}</div>

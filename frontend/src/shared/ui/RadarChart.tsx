@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * A value per category, as a closed polygon on N spokes.
@@ -21,7 +21,7 @@ import { cn } from '@/shared/lib/utils';
  * one wraps instead of running off the side.
  */
 
-export interface RadarAxis {
+export interface RadarSpoke {
   code: string;
   label: string;
   /** 0..max, or null when there is not enough data to report. */
@@ -41,14 +41,14 @@ const PAD_Y = 38;
 /** Four rings: enough to read a level off, not a dartboard. */
 const RINGS = [0.25, 0.5, 0.75, 1];
 
-export function RadarChart({
+export function RadarGraph({
   axes,
   color,
   max = 100,
   size = 240,
   valueSuffix = '%',
 }: {
-  axes: RadarAxis[];
+  axes: RadarSpoke[];
   color: string;
   max?: number;
   size?: number;
@@ -173,7 +173,7 @@ export function RadarChart({
           <div
             key={axis.code}
             aria-hidden
-            className={cn(
+            className={classes(
               'absolute leading-tight',
               // Capped so a long name wraps into the padding instead of running
               // out of the card.

@@ -2,13 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import {
-  getSessionDetail, startSession, releaseOne, releaseAll,
-  type SessionDetail, type LiveExamParticipant,
+  fetchSessionDetail, openSession, publishOne, publishAll,
+  type SessionBreakdown, type LiveAssessmentParticipant,
 } from '@/features/live-exam/api';
-import { getApiError } from '@/shared/api/http';
-import { Modal, EmptyState, Button, surfaceClass, kickerClass } from '@/shared/ui';
-import { BackLink, CopyButton, ErrorNote, JoinCodePlate, LivePage, LoadingRows, StatTile, StatusPill, liveTitleClass } from '@/features/live-exam/components/ui';
-import { cn } from '@/shared/lib/utils';
+import { fetchApiError } from '@/shared/api/http';
+import { Dialog, BlankStatus, Control, surfaceStyle, kickerStyle } from '@/shared/ui';
+import { ReturnLink, CopyControl, FailureNote, EntryCodePlate, SessionScreen, SkeletonRows, MetricTile, StatusBadgePill, sessionTitleStyle } from '@/features/live-exam/components/ui';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * What a teacher runs the lesson from: read out the code, watch the room fill,
@@ -29,10 +29,10 @@ function joinedAgo(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-export default function LiveExamSession() {
+export default function LiveSessionDetail() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const [session, setSession] = useState<SessionDetail | null>(null);
+  const [session, setSession] = useState<SessionBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
@@ -46,14 +46,14 @@ export default function LiveExamSession() {
   const load = useCallback(async () => {
     if (!sessionId) return;
     try {
-      const next = await getSessionDetail(sessionId);
+      const next = await fetchSessionDetail(sessionId);
       statusRef.current = next.status;
       setSession(next);
       setLoadError('');
     } catch (err) {
       // A transient failure between polls is not worth interrupting the lesson
       // for — but a first load that fails must say so, not claim the session is gone.
-      setLoadError(getApiError(err));
+      setLoadError(fetchApiError(err));
     } finally {
       setLoading(false);
     }
@@ -77,7 +77,7 @@ export default function LiveExamSession() {
       await action();
       await load();
     } catch (err) {
-      setActionError(getApiError(err));
+      setActionError(fetchApiError(err));
     } finally {
       setBusy(false);
     }
@@ -86,26 +86,26 @@ export default function LiveExamSession() {
   async function releaseParticipant(id: string) {
     if (!session || releasingIds.has(id)) return;
     setReleasingIds((prev) => new Set(prev).add(id));
-    await run(() => releaseOne(session.id, id), () => {});
+    await run(() => publishOne(session.id, id), () => {});
     setReleasingIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
   }
 
   if (loading) {
     return (
-      <LivePage>
+      <SessionScreen>
         <div className="h-10 w-[260px] rounded-[10px] bg-sunken mb-6" />
-        <LoadingRows rows={3} height={72} />
-      </LivePage>
+        <SkeletonRows rows={3} height={72} />
+      </SessionScreen>
     );
   }
   if (!session) {
     return (
-      <LivePage>
-        <BackLink onClick={() => navigate('/teacher/live-exams')}>Live exams</BackLink>
-        <ErrorNote action={loadError ? <Button type="button" variant="secondary" onClick={() => { setLoading(true); load(); }} className="h-8 text-[13px]">Try again</Button> : undefined}>
+      <SessionScreen>
+        <ReturnLink onClick={() => navigate('/teacher/live-exams')}>Live exams</ReturnLink>
+        <FailureNote action={loadError ? <Control type="button" variant="secondary" onClick={() => { setLoading(true); load(); }} className="h-8 text-[13px]">Try again</Control> : undefined}>
           {loadError ? `Couldn't load this session: ${loadError}` : 'This session no longer exists. It may have been deleted.'}
-        </ErrorNote>
-      </LivePage>
+        </FailureNote>
+      </SessionScreen>
     );
   }
 
@@ -118,28 +118,28 @@ export default function LiveExamSession() {
 
   const primaryClass = 'h-11 text-[15px] px-6 w-full sm:w-auto';
   const primaryAction = notStarted ? (
-    <Button type="button"
+    <Control type="button"
       onClick={() => setConfirm('start')}
       disabled={starting || participants.length === 0}
       className={primaryClass}
-    >{starting ? 'Starting…' : 'Start exam'}</Button>
+    >{starting ? 'Starting…' : 'Start exam'}</Control>
   ) : pending > 0 && participants.length > 0 ? (
-    <Button type="button"
+    <Control type="button"
       onClick={() => setConfirm('releaseAll')}
       disabled={releasing}
       className={primaryClass}
-    >{releasing ? 'Releasing…' : `Release all results (${pending})`}</Button>
+    >{releasing ? 'Releasing…' : `Release all results (${pending})`}</Control>
   ) : null;
 
   return (
-    <LivePage>
-      <BackLink onClick={() => navigate('/teacher/live-exams')}>Live exams</BackLink>
+    <SessionScreen>
+      <ReturnLink onClick={() => navigate('/teacher/live-exams')}>Live exams</ReturnLink>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-start justify-between gap-4 mb-[22px]">
         <div className="min-w-0">
-          <h1 className={cn(liveTitleClass, 'text-[30px] sm:text-[40px] leading-[1.12] mb-2.5 [overflow-wrap:anywhere]')}>{session.title}</h1>
+          <h1 className={classes(sessionTitleStyle, 'text-[30px] sm:text-[40px] leading-[1.12] mb-2.5 [overflow-wrap:anywhere]')}>{session.title}</h1>
           <div className="flex items-center gap-3 flex-wrap">
-            <StatusPill status={status} />
+            <StatusBadgePill status={status} />
             {live && (
               <span className="inline-flex items-center gap-1.5 text-[12.5px] text-muted">
                 <span aria-hidden className="w-[7px] h-[7px] rounded-full bg-green-dark animate-live-beat motion-reduce:animate-none" />Updates live
@@ -162,28 +162,28 @@ export default function LiveExamSession() {
         )}
       </div>
 
-      {actionError && <div className="mb-[18px]"><ErrorNote>{actionError}</ErrorNote></div>}
+      {actionError && <div className="mb-[18px]"><FailureNote>{actionError}</FailureNote></div>}
 
       {/* The code, sized to be read across a room. Only shown while it can still
           be used — once everyone is sitting the paper it is just noise. */}
       {notStarted ? (
-        <div className={cn(surfaceClass, 'px-4 py-5 sm:px-7 sm:py-6 mb-[22px]')}>
-          <div className={cn(kickerClass, 'mb-1.5')}>Join code</div>
+        <div className={classes(surfaceStyle, 'px-4 py-5 sm:px-7 sm:py-6 mb-[22px]')}>
+          <div className={classes(kickerStyle, 'mb-1.5')}>Join code</div>
           <p className="text-sm text-subtle mt-0 mb-4 leading-[1.55]">
             Read this out. Students enter it under <strong className="text-ink font-semibold">Live Exam</strong>, or open the link.
           </p>
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <JoinCodePlate code={session.joinCode} />
+            <EntryCodePlate code={session.joinCode} />
             <div className="flex gap-2">
-              <CopyButton value={session.joinCode} label="Copy code" />
-              <CopyButton value={joinUrl} label="Copy link" />
+              <CopyControl value={session.joinCode} label="Copy code" />
+              <CopyControl value={joinUrl} label="Copy link" />
             </div>
           </div>
         </div>
       ) : participants.length > 0 && (
         <div className="grid grid-cols-2 gap-2.5 mb-[22px]">
-          <StatTile label="Students" value={participants.length} sub={status === 'completed' ? 'sat this exam' : 'sitting the exam'} />
-          <StatTile
+          <MetricTile label="Students" value={participants.length} sub={status === 'completed' ? 'sat this exam' : 'sitting the exam'} />
+          <MetricTile
             label="Results released"
             value={<>{released}<span className="text-lg text-muted"> / {participants.length}</span></>}
             valueClassName={pending === 0 ? 'text-green-dark' : 'text-ink'}
@@ -210,13 +210,13 @@ export default function LiveExamSession() {
       </div>
 
       {participants.length === 0 ? (
-        <EmptyState className="py-11" titleClassName="text-2xl text-ink/[.72]" title={notStarted ? 'Waiting for students' : 'Nobody joined'}>
+        <BlankStatus className="py-11" titleClassName="text-2xl text-ink/[.72]" title={notStarted ? 'Waiting for students' : 'Nobody joined'}>
           {notStarted
             ? 'Read out the code above. Names appear here as students arrive.'
             : 'No students joined this session before it started.'}
-        </EmptyState>
+        </BlankStatus>
       ) : (
-        <div className={cn(surfaceClass, 'overflow-hidden')}>
+        <div className={classes(surfaceStyle, 'overflow-hidden')}>
           {participants.map((p) => (
             <ParticipantRow
               key={p.id}
@@ -230,22 +230,22 @@ export default function LiveExamSession() {
         </div>
       )}
 
-      <Modal
+      <Dialog
         isOpen={confirm !== null}
         onClose={() => setConfirm(null)}
         size="sm"
         title={confirm === 'start' ? 'Start the exam?' : 'Release all results?'}
         footer={
           <>
-            <Button type="button" variant="secondary" onClick={() => setConfirm(null)}>Cancel</Button>
-            <Button type="button"
+            <Control type="button" variant="secondary" onClick={() => setConfirm(null)}>Cancel</Control>
+            <Control type="button"
               onClick={() => {
                 const action = confirm;
                 setConfirm(null);
-                if (action === 'start') run(() => startSession(session.id), setStarting);
-                else run(() => releaseAll(session.id), setReleasing);
+                if (action === 'start') run(() => openSession(session.id), setStarting);
+                else run(() => publishAll(session.id), setReleasing);
               }}
-            >{confirm === 'start' ? `Start for ${participants.length}` : `Release ${pending}`}</Button>
+            >{confirm === 'start' ? `Start for ${participants.length}` : `Release ${pending}`}</Control>
           </>
         }
       >
@@ -254,15 +254,15 @@ export default function LiveExamSession() {
             ? `The paper opens for the ${participants.length} student${participants.length === 1 ? '' : 's'} in the lobby and the clock starts. Students who join later start late.`
             : `${pending} student${pending === 1 ? '' : 's'} will see their scores, answers and any notes you have saved. This can't be undone.`}
         </p>
-      </Modal>
-    </LivePage>
+      </Dialog>
+    </SessionScreen>
   );
 }
 
 function ParticipantRow({
   participant, sessionStatus, releasing, onRelease, onView,
 }: {
-  participant: LiveExamParticipant;
+  participant: LiveAssessmentParticipant;
   sessionStatus: string;
   releasing: boolean;
   onRelease: () => void;
@@ -287,7 +287,7 @@ function ParticipantRow({
 
   return (
     <div
-      className={cn(
+      className={classes(
         'flex px-3.5 py-3 sm:pl-5 sm:pr-4 border-b border-sunken last:border-b-0',
         started ? 'flex-col items-stretch gap-2.5 sm:flex-row sm:items-center sm:gap-3.5' : 'flex-row items-center gap-3.5',
       )}
@@ -307,13 +307,13 @@ function ParticipantRow({
               <span aria-hidden>✓</span>Released
             </span>
           ) : (
-            <Button type="button" variant="secondary" onClick={onRelease} disabled={releasing} className={smallBtn}>
+            <Control type="button" variant="secondary" onClick={onRelease} disabled={releasing} className={smallBtn}>
               {releasing ? 'Releasing…' : 'Release'}
-            </Button>
+            </Control>
           )}
-          <Button type="button" variant="quiet" onClick={onView} className={cn(smallBtn, 'text-ink pr-2.5')} aria-label={`Open ${participant.name}'s paper`}>
+          <Control type="button" variant="quiet" onClick={onView} className={classes(smallBtn, 'text-ink pr-2.5')} aria-label={`Open ${participant.name}'s paper`}>
             Open paper<ChevronRight size={15} aria-hidden className="-ml-[3px]" />
-          </Button>
+          </Control>
         </div>
       )}
     </div>

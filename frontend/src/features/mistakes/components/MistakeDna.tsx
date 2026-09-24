@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { getMistakes, getMistakeSummary, type Mistake } from '@/features/mistakes/api';
-import { getAnalytics, type DomainAccuracy } from '@/features/progress';
-import { getSkills, skillsQueryKey, type SkillNode } from '@/entities/skill';
+import { fetchMissteps, fetchMisstepSummary, type Misstep } from '@/features/mistakes/api';
+import { fetchAnalytics, type DomainHitRate } from '@/features/progress';
+import { fetchCompetencys, competencyQueryKey, type CompetencyNode } from '@/entities/skill';
 import {
-  InlineLoader, PieChart, RadarChart, surfaceClass, type PieSlice, type RadarAxis,
+  InlineSpinner, PieGraph, RadarGraph, surfaceStyle, type PieWedge, type RadarSpoke,
 } from '@/shared/ui';
-import { cn, formatDate } from '@/shared/lib/utils';
+import { classes, renderDate } from '@/shared/lib/utils';
 
 /**
  * The diagnostic half of the mistake bank: not "what should I redo" — the list
@@ -49,7 +49,7 @@ const UNTAGGED_SHADE = '#B5B1A9';
 const SECTION_LABEL = { english: 'Reading & Writing', math: 'Math' } as const;
 
 /** Stable per domain, so a domain keeps its colour however the slices reorder. */
-function domainColors(tree: SkillNode[]): Map<string, string> {
+function domainColors(tree: CompetencyNode[]): Map<string, string> {
   const colors = new Map<string, string>();
   for (const subject of ['english', 'math'] as const) {
     const shades = subject === 'english' ? ENGLISH_SHADES : MATH_SHADES;
@@ -60,7 +60,7 @@ function domainColors(tree: SkillNode[]): Map<string, string> {
   return colors;
 }
 
-function toAxes(domains: SkillNode[], accuracy: Map<string, DomainAccuracy>, minAttempts: number): RadarAxis[] {
+function toAxes(domains: CompetencyNode[], accuracy: Map<string, DomainHitRate>, minAttempts: number): RadarSpoke[] {
   return domains.map((domain) => {
     const row = accuracy.get(domain.code);
     // Below the server's threshold a percentage swings too far on one question,
@@ -87,19 +87,19 @@ function RadarCard({
   hasData,
 }: {
   title: string;
-  axes: RadarAxis[];
+  axes: RadarSpoke[];
   color: string;
   hasData: boolean;
 }) {
   return (
-    <div className={cn(surfaceClass, 'px-5 py-[18px] sm:px-6 sm:py-5')}>
+    <div className={classes(surfaceStyle, 'px-5 py-[18px] sm:px-6 sm:py-5')}>
       <div className="flex items-center gap-2 mb-1">
         <span aria-hidden className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
         <h2 className="text-[15px] font-semibold text-ink m-0">{title}</h2>
       </div>
       <p className="text-[12.5px] text-muted mt-0 mb-2">Accuracy by domain — a fuller shape is better.</p>
       {hasData ? (
-        <RadarChart axes={axes} color={color} />
+        <RadarGraph axes={axes} color={color} />
       ) : (
         /*
           Deliberately does not say "take an exam and this fills in". A section
@@ -119,7 +119,7 @@ function RadarCard({
 }
 
 /** One recent miss: what was asked, what was picked, what was right. */
-function RecentMistake({ mistake, color }: { mistake: Mistake; color: string }) {
+function RecentMistake({ mistake, color }: { mistake: Misstep; color: string }) {
   const optionText = (key: 'a' | 'b' | 'c' | 'd' | null) =>
     key ? (mistake[`option${key.toUpperCase()}` as 'optionA'] ?? '') : '';
 
@@ -148,7 +148,7 @@ function RecentMistake({ mistake, color }: { mistake: Mistake; color: string }) 
         {mistake.missCount > 1 && (
           <span className="text-[11px] font-bold text-danger">missed ×{mistake.missCount}</span>
         )}
-        <span className="text-[11.5px] text-muted ml-auto">{formatDate(mistake.lastMissedAt)}</span>
+        <span className="text-[11.5px] text-muted ml-auto">{renderDate(mistake.lastMissedAt)}</span>
       </div>
 
       <p className="text-[13.5px] text-ink leading-[1.55] mt-0 mb-2.5 line-clamp-2">{mistake.questionText}</p>
@@ -172,26 +172,26 @@ function RecentMistake({ mistake, color }: { mistake: Mistake; color: string }) 
   );
 }
 
-export function MistakeDna() {
+export function MisstepDna() {
   const { data: overview, isLoading: analyticsLoading } = useQuery({
     queryKey: ['student', 'analytics'],
-    queryFn: getAnalytics,
+    queryFn: fetchAnalytics,
   });
   const { data: summary = [], isLoading: summaryLoading } = useQuery({
     queryKey: ['student', 'mistakes', 'summary'],
-    queryFn: getMistakeSummary,
+    queryFn: fetchMisstepSummary,
   });
   const { data: openMistakes = [], isLoading: mistakesLoading } = useQuery({
     queryKey: ['student', 'mistakes', { status: 'open' }],
-    queryFn: () => getMistakes({ status: 'open' }),
+    queryFn: () => fetchMissteps({ status: 'open' }),
   });
   const { data: skillTree = [] } = useQuery({
-    queryKey: skillsQueryKey(),
-    queryFn: () => getSkills(),
+    queryKey: competencyQueryKey(),
+    queryFn: () => fetchCompetencys(),
     staleTime: 60 * 60 * 1000,
   });
 
-  if (analyticsLoading || summaryLoading || mistakesLoading) return <InlineLoader />;
+  if (analyticsLoading || summaryLoading || mistakesLoading) return <InlineSpinner />;
 
   const colors = domainColors(skillTree);
   const accuracy = new Map((overview?.domains ?? []).map((row) => [row.domainCode, row]));
@@ -199,10 +199,10 @@ export function MistakeDna() {
 
   const englishDomains = skillTree.filter((node) => node.subject === 'english');
   const mathDomains = skillTree.filter((node) => node.subject === 'math');
-  const attempted = (domains: SkillNode[]) => domains.some((d) => accuracy.has(d.code));
+  const attempted = (domains: CompetencyNode[]) => domains.some((d) => accuracy.has(d.code));
 
   // Biggest slice first, but each domain keeps its own colour.
-  const slices: PieSlice[] = [...summary]
+  const slices: PieWedge[] = [...summary]
     .sort((a, b) => b.openCount - a.openCount)
     .map((row) => ({
       code: row.domainCode ?? 'untagged',
@@ -235,11 +235,11 @@ export function MistakeDna() {
         />
       </div>
 
-      <div className={cn(surfaceClass, 'px-5 py-[18px] sm:px-6 sm:py-5')}>
+      <div className={classes(surfaceStyle, 'px-5 py-[18px] sm:px-6 sm:py-5')}>
         <h2 className="text-[15px] font-semibold text-ink mt-0 mb-1">Mistakes by domain</h2>
         <p className="text-[12.5px] text-muted mt-0 mb-4">Where your open mistakes are sitting right now.</p>
         {slices.length > 0 ? (
-          <PieChart slices={slices} />
+          <PieGraph slices={slices} />
         ) : (
           <p className="text-[13px] text-muted py-6 text-center m-0">
             No open mistakes. Nothing to chart — nice.
@@ -247,7 +247,7 @@ export function MistakeDna() {
         )}
       </div>
 
-      <div className={cn(surfaceClass, 'px-5 py-[18px] sm:px-6 sm:py-5')}>
+      <div className={classes(surfaceStyle, 'px-5 py-[18px] sm:px-6 sm:py-5')}>
         <h2 className="text-[15px] font-semibold text-ink mt-0 mb-1">Recent mistakes</h2>
         <p className="text-[12.5px] text-muted mt-0 mb-4">The last eight you missed, and what you picked instead.</p>
         {recent.length > 0 ? (

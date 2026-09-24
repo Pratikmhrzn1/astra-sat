@@ -1,12 +1,12 @@
-import { apiClient } from '@/shared/api/http';
-import type { AuthUser } from '@/features/auth';
+import { apiTransport } from '@/shared/api/http';
+import type { SessionAccount } from '@/features/auth';
 
-export interface AdminUser extends AuthUser {
+export interface ConsoleAccount extends SessionAccount {
   createdAt: string;
   teacherId: string | null;
 }
 
-export interface AccessCode {
+export interface EnrolmentCode {
   id: string;
   code: string;
   role: 'student' | 'teacher' | 'admin';
@@ -18,14 +18,14 @@ export interface AccessCode {
   createdBy: string | null;
 }
 
-export interface TaggingCoverage {
+export interface TaggingSpread {
   subject: 'english' | 'math';
   tagged: number;
   total: number;
   percentage: number;
 }
 
-export interface AdminStats {
+export interface ConsoleMetrics {
   students: number;
   teachers: number;
   admins: number;
@@ -37,24 +37,24 @@ export interface AdminStats {
    * per-skill analytic is bounded by this, so it is worth watching: Math sat at
    * 0% for as long as the taxonomy could not express a Math tag.
    */
-  taggingCoverage: TaggingCoverage[];
+  taggingCoverage: TaggingSpread[];
 }
 
-export async function getStats(): Promise<AdminStats> {
-  const { data } = await apiClient.get<AdminStats>('/admin/stats');
+export async function fetchStats(): Promise<ConsoleMetrics> {
+  const { data } = await apiTransport.get<ConsoleMetrics>('/admin/stats');
   return data;
 }
 
-export async function getUsers(): Promise<AdminUser[]> {
-  const { data } = await apiClient.get<AdminUser[]>('/admin/users');
+export async function fetchUsers(): Promise<ConsoleAccount[]> {
+  const { data } = await apiTransport.get<ConsoleAccount[]>('/admin/users');
   return data;
 }
 
-export async function updateUser(
+export async function editAccount(
   userId: string,
   payload: { name?: string; password?: string; teacherId?: string | null }
-): Promise<AdminUser> {
-  const { data } = await apiClient.put<AdminUser>(`/admin/users/${userId}`, payload);
+): Promise<ConsoleAccount> {
+  const { data } = await apiTransport.put<ConsoleAccount>(`/admin/users/${userId}`, payload);
   return data;
 }
 
@@ -65,39 +65,39 @@ export async function updateUser(
  * that at signup — so without this an admin has to edit every student one at a
  * time, and a teacher's dashboard stays empty until they do.
  */
-export async function assignStudentsToTeacher(payload: {
+export async function assignLearnersToTeacher(payload: {
   studentIds: string[];
   teacherId: string | null;
 }): Promise<{ ok: boolean; assigned: number }> {
-  const { data } = await apiClient.put('/admin/users/assign-teacher', payload);
+  const { data } = await apiTransport.put('/admin/users/assign-teacher', payload);
   return data;
 }
 
-export async function deleteUser(userId: string): Promise<void> {
-  await apiClient.delete(`/admin/users/${userId}`);
+export async function removeUser(userId: string): Promise<void> {
+  await apiTransport.delete(`/admin/users/${userId}`);
 }
 
-export async function getAccessCodes(): Promise<AccessCode[]> {
-  const { data } = await apiClient.get<AccessCode[]>('/admin/access-codes');
+export async function fetchAccessCodes(): Promise<EnrolmentCode[]> {
+  const { data } = await apiTransport.get<EnrolmentCode[]>('/admin/access-codes');
   return data;
 }
 
-export async function createAccessCode(payload: {
+export async function addAccessCode(payload: {
   code: string;
   role: 'student' | 'teacher' | 'admin';
   description: string;
   maxUses?: number | null;
-}): Promise<AccessCode> {
-  const { data } = await apiClient.post<AccessCode>('/admin/access-codes', payload);
+}): Promise<EnrolmentCode> {
+  const { data } = await apiTransport.post<EnrolmentCode>('/admin/access-codes', payload);
   return data;
 }
 
-export async function deleteAccessCode(codeId: string): Promise<void> {
-  await apiClient.delete(`/admin/access-codes/${codeId}`);
+export async function removeAccessCode(codeId: string): Promise<void> {
+  await apiTransport.delete(`/admin/access-codes/${codeId}`);
 }
 
-export async function downloadBackup(): Promise<void> {
-  const { data } = await apiClient.get('/admin/backup', { responseType: 'blob' });
+export async function downloadSnapshot(): Promise<void> {
+  const { data } = await apiTransport.get('/admin/backup', { responseType: 'blob' });
   const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
   const a = document.createElement('a');
   a.href = url;
@@ -106,12 +106,12 @@ export async function downloadBackup(): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
-export async function restoreBackup(jsonData: unknown): Promise<{ ok: boolean; message: string }> {
-  const { data } = await apiClient.post('/admin/restore', jsonData);
+export async function restoreSnapshot(jsonData: unknown): Promise<{ ok: boolean; message: string }> {
+  const { data } = await apiTransport.post('/admin/restore', jsonData);
   return data;
 }
 
-export interface BackfillRun {
+export interface FillPass {
   examsFound: number;
   examsScored: number;
   examsTooShort: number;
@@ -128,23 +128,23 @@ export interface BackfillRun {
  * has run once, historical attempts have no scaled score and the student's
  * History page has nothing to plot.
  */
-export async function backfillScores(): Promise<BackfillRun> {
-  const { data } = await apiClient.post<BackfillRun>('/admin/scoring/backfill');
+export async function backfillResults(): Promise<FillPass> {
+  const { data } = await apiTransport.post<FillPass>('/admin/scoring/backfill');
   return data;
 }
 
-export async function runMigrations(): Promise<{ ok: boolean; message: string }> {
-  const { data } = await apiClient.post('/admin/migrate');
+export async function runSchema(): Promise<{ ok: boolean; message: string }> {
+  const { data } = await apiTransport.post('/admin/migrate');
   return data;
 }
 
-export async function runSql(sqlText: string): Promise<{ ok: boolean; statements: number; rowsAffected: number; rows: Record<string, unknown>[] }> {
-  const { data } = await apiClient.post('/admin/run-sql', { sql: sqlText });
+export async function runQuery(sqlText: string): Promise<{ ok: boolean; statements: number; rowsAffected: number; rows: Record<string, unknown>[] }> {
+  const { data } = await apiTransport.post('/admin/run-sql', { sql: sqlText });
   return data;
 }
 
 /** One recorded admin action. Read-only; nothing in the app edits these. */
-export interface AuditEntry {
+export interface TrailRecord {
   id: string;
   action: string;
   targetType: string | null;
@@ -156,7 +156,7 @@ export interface AuditEntry {
   actorEmail: string | null;
 }
 
-export async function getAuditLog(limit = 50): Promise<AuditEntry[]> {
-  const { data } = await apiClient.get<AuditEntry[]>('/admin/audit-log', { params: { limit } });
+export async function fetchAuditLog(limit = 50): Promise<TrailRecord[]> {
+  const { data } = await apiTransport.get<TrailRecord[]>('/admin/audit-log', { params: { limit } });
   return data;
 }

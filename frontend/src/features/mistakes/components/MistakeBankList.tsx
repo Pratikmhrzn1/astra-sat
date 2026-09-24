@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { getMistakes, getMistakeSummary, startMistakePractice, type Mistake } from '@/features/mistakes/api';
-import { getSkills, skillLabel, skillsQueryKey } from '@/entities/skill';
-import { getApiError } from '@/shared/api/http';
-import { ErrorBanner, NoteCard, EmptyState, chipClass, surfaceClass, kickerClass } from '@/shared/ui';
-import { cn, formatDate } from '@/shared/lib/utils';
+import { fetchMissteps, fetchMisstepSummary, openMisstepPractice, type Misstep } from '@/features/mistakes/api';
+import { fetchCompetencys, skillCaption, competencyQueryKey } from '@/entities/skill';
+import { fetchApiError } from '@/shared/api/http';
+import { ErrorNotice, NotePanel, BlankStatus, chipStyle, surfaceStyle, kickerStyle } from '@/shared/ui';
+import { classes, renderDate } from '@/shared/lib/utils';
 
 /**
  * The worklist half of the mistake bank: every question this student has got
@@ -23,7 +23,7 @@ import { cn, formatDate } from '@/shared/lib/utils';
 type SubjectFilter = 'all' | 'english' | 'math';
 type StatusFilter = 'open' | 'resolved';
 
-export function MistakeBankList() {
+export function MisstepBankList() {
   const navigate = useNavigate();
   const [subject, setSubject] = useState<SubjectFilter>('all');
   const [status, setStatus] = useState<StatusFilter>('open');
@@ -37,32 +37,32 @@ export function MistakeBankList() {
 
   const { data: mistakes = [], isLoading } = useQuery({
     queryKey: ['student', 'mistakes', filters],
-    queryFn: () => getMistakes(filters),
+    queryFn: () => fetchMissteps(filters),
   });
   const { data: summary = [] } = useQuery({
     queryKey: ['student', 'mistakes', 'summary'],
-    queryFn: getMistakeSummary,
+    queryFn: fetchMisstepSummary,
   });
   const { data: skillTree = [] } = useQuery({
-    queryKey: skillsQueryKey(),
-    queryFn: () => getSkills(),
+    queryKey: competencyQueryKey(),
+    queryFn: () => fetchCompetencys(),
     staleTime: 60 * 60 * 1000,
   });
 
   const practiceMutation = useMutation({
     mutationFn: (payload: { subject?: 'english' | 'math'; skillCode?: string }) =>
-      startMistakePractice({ ...payload, limit: 20 }),
+      openMisstepPractice({ ...payload, limit: 20 }),
     // Straight into the player. Resolution happens through the normal submit
     // path, so nothing here has to know about resolving.
     onSuccess: (data) =>
       navigate(`/student/exams/${data.exam.id}`, {
         state: { timerEnabled: false, examTitle: 'Mistake review' },
       }),
-    onError: (err) => setError(getApiError(err)),
+    onError: (err) => setError(fetchApiError(err)),
   });
 
   // Grouped by domain, biggest group first — where the practice is worth most.
-  const groups = new Map<string, Mistake[]>();
+  const groups = new Map<string, Misstep[]>();
   for (const mistake of mistakes) {
     const key = mistake.domainCode ?? 'untagged';
     groups.set(key, [...(groups.get(key) ?? []), mistake]);
@@ -72,18 +72,18 @@ export function MistakeBankList() {
   const totalOpen = summary.reduce((sum, row) => sum + row.openCount, 0);
 
   const chip = (label: string, active: boolean, onClick: () => void) => (
-    <button key={label} onClick={onClick} className={chipClass(active)}>{label}</button>
+    <button key={label} onClick={onClick} className={chipStyle(active)}>{label}</button>
   );
 
   return (
     <>
-      {error && <ErrorBanner className="rounded-[10px]">{error}</ErrorBanner>}
+      {error && <ErrorNotice className="rounded-[10px]">{error}</ErrorNotice>}
 
       {/* Headline + practise-everything */}
-      <div className={cn(surfaceClass, 'px-5 py-[18px] sm:px-6 sm:py-[22px] mb-[18px] flex items-center justify-between gap-4 flex-wrap')}>
+      <div className={classes(surfaceStyle, 'px-5 py-[18px] sm:px-6 sm:py-[22px] mb-[18px] flex items-center justify-between gap-4 flex-wrap')}>
         <div>
-          <div className={cn(kickerClass, 'tracking-[0.1em]')}>Still open</div>
-          <div className={cn('font-display font-semibold text-[40px] sm:text-[50px] leading-none', totalOpen > 0 ? 'text-amber-sat' : 'text-green-dark')}>{totalOpen}</div>
+          <div className={classes(kickerStyle, 'tracking-[0.1em]')}>Still open</div>
+          <div className={classes('font-display font-semibold text-[40px] sm:text-[50px] leading-none', totalOpen > 0 ? 'text-amber-sat' : 'text-green-dark')}>{totalOpen}</div>
         </div>
         {totalOpen > 0 && (
           <button
@@ -107,20 +107,20 @@ export function MistakeBankList() {
       </div>
 
       {isLoading ? (
-        <NoteCard>Loading…</NoteCard>
+        <NotePanel>Loading…</NotePanel>
       ) : ordered.length === 0 ? (
-        <EmptyState title={status === 'open' ? 'Nothing to review' : 'Nothing resolved yet'}>
+        <BlankStatus title={status === 'open' ? 'Nothing to review' : 'Nothing resolved yet'}>
           {status === 'open'
             ? 'Questions you miss on an exam land here automatically.'
             : 'Clear an open mistake by answering it correctly in a review.'}
-        </EmptyState>
+        </BlankStatus>
       ) : (
         <div className="flex flex-col gap-3.5">
           {ordered.map(([domainCode, rows]) => (
-            <div key={domainCode} className={cn(surfaceClass, 'overflow-hidden')}>
+            <div key={domainCode} className={classes(surfaceStyle, 'overflow-hidden')}>
               <div className="px-5 py-3.5 border-b border-border-soft flex items-center gap-3 flex-wrap">
                 <span className="text-[15px] font-semibold">
-                  {domainCode === 'untagged' ? 'Untagged' : skillLabel(skillTree, domainCode)}
+                  {domainCode === 'untagged' ? 'Untagged' : skillCaption(skillTree, domainCode)}
                 </span>
                 <span className="text-[12.5px] text-muted font-mono">
                   {rows.length} question{rows.length === 1 ? '' : 's'}
@@ -142,7 +142,7 @@ export function MistakeBankList() {
                       onClick={() => setExpanded((prev) => ({ ...prev, [mistake.questionId]: !prev[mistake.questionId] }))}
                       className="w-full flex items-center gap-3 px-5 py-[13px] bg-transparent cursor-pointer text-left"
                     >
-                      <span className={cn('text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0', mistake.missCount > 1 ? 'bg-danger/10 text-danger' : 'bg-sunken text-stone')}>
+                      <span className={classes('text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0', mistake.missCount > 1 ? 'bg-danger/10 text-danger' : 'bg-sunken text-stone')}>
                         ×{mistake.missCount}
                       </span>
                       <span className="flex-1 min-w-0 text-[13.5px] truncate">
@@ -166,7 +166,7 @@ export function MistakeBankList() {
                               if (!text) return null;
                               const isAnswer = mistake.correctAnswer === key;
                               return (
-                                <div key={key} className={cn('px-2.5 py-[5px] rounded-lg', isAnswer ? 'bg-green-sat/[.08] text-green-dark font-semibold' : 'bg-transparent text-ink/60')}>
+                                <div key={key} className={classes('px-2.5 py-[5px] rounded-lg', isAnswer ? 'bg-green-sat/[.08] text-green-dark font-semibold' : 'bg-transparent text-ink/60')}>
                                   {key.toUpperCase()}. {text}{isAnswer && ' ✓'}
                                 </div>
                               );
@@ -179,8 +179,8 @@ export function MistakeBankList() {
                           <p className="mt-0 mb-2 text-subtle">{mistake.explanation}</p>
                         )}
                         <p className="m-0 text-xs text-muted">
-                          First missed {formatDate(mistake.firstMissedAt)} · last {formatDate(mistake.lastMissedAt)}
-                          {mistake.resolvedAt && ` · resolved ${formatDate(mistake.resolvedAt)}`}
+                          First missed {renderDate(mistake.firstMissedAt)} · last {renderDate(mistake.lastMissedAt)}
+                          {mistake.resolvedAt && ` · resolved ${renderDate(mistake.resolvedAt)}`}
                         </p>
                       </div>
                     )}

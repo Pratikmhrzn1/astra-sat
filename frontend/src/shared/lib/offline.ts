@@ -37,7 +37,7 @@ function getDB() {
   return dbPromise;
 }
 
-export async function saveExamProgress(
+export async function storeAssessmentProgress(
   examId: string,
   answers: Record<string, string | null>,
   timeSpentSeconds: number,
@@ -59,7 +59,7 @@ export async function saveExamProgress(
   }
 }
 
-export async function loadExamProgress(
+export async function loadAssessmentProgress(
   examId: string
 ): Promise<{ answers: Record<string, string | null>; timeSpentSeconds: number; timerEnabled: boolean } | null> {
   try {
@@ -72,7 +72,7 @@ export async function loadExamProgress(
   }
 }
 
-export async function getAllExamProgress(): Promise<Array<{ examId: string; timerEnabled: boolean; examTitle?: string; lastSaved: string }>> {
+export async function fetchAllAssessmentProgress(): Promise<Array<{ examId: string; timerEnabled: boolean; examTitle?: string; lastSaved: string }>> {
   try {
     const db = await getDB();
     const records = await db.getAll('exam-progress');
@@ -82,7 +82,7 @@ export async function getAllExamProgress(): Promise<Array<{ examId: string; time
   }
 }
 
-export async function clearExamProgress(examId: string): Promise<void> {
+export async function clearAssessmentProgress(examId: string): Promise<void> {
   try {
     const db = await getDB();
     await db.delete('exam-progress', examId);
@@ -91,7 +91,7 @@ export async function clearExamProgress(examId: string): Promise<void> {
   }
 }
 
-export async function saveTeacherDraft(
+export async function storeTeacherDraft(
   draftId: string,
   setId: string,
   questionForm: Record<string, unknown>
@@ -109,7 +109,7 @@ export async function saveTeacherDraft(
   }
 }
 
-export async function loadTeacherDraft(
+export async function loadCoachDraft(
   draftId: string
 ): Promise<{ setId: string; questionForm: Record<string, unknown> } | null> {
   try {
@@ -122,7 +122,7 @@ export async function loadTeacherDraft(
   }
 }
 
-export async function clearTeacherDraft(draftId: string): Promise<void> {
+export async function clearCoachDraft(draftId: string): Promise<void> {
   try {
     const db = await getDB();
     await db.delete('teacher-drafts', draftId);

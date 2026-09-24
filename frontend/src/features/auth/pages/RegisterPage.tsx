@@ -3,11 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { register as apiRegister } from '@/features/auth/api';
-import { useAuthStore } from '@/features/auth/store';
-import { getApiError } from '@/shared/api/http';
-import { fieldClass, labelClass, errorTextClass, alertClass, hintTextClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { signUp as apiRegister } from '@/features/auth/api';
+import { useSessionVault } from '@/features/auth/store';
+import { fetchApiError } from '@/shared/api/http';
+import { fieldStyle, fieldCaptionStyle, errorTextStyle, alertStyle, hintTextStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 const schema = z
   .object({
@@ -26,9 +26,9 @@ const ROLE_ROUTES = { student: '/student/dashboard', teacher: '/teacher/dashboar
 
 const toggleBtn = 'px-[26px] py-2 rounded-full text-[13px] font-bold tracking-[0.05em] uppercase';
 
-export default function Register() {
+export default function SignUp() {
   const navigate = useNavigate();
-  const { login: storeLogin } = useAuthStore();
+  const { login: storeLogin } = useSessionVault();
   const [apiError, setApiError] = useState('');
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
@@ -40,21 +40,21 @@ export default function Register() {
       storeLogin(result.user, result.accessToken);
       navigate(ROLE_ROUTES[result.user.role], { replace: true });
     } catch (err) {
-      setApiError(getApiError(err));
+      setApiError(fetchApiError(err));
     }
   };
 
   const label = (text: string) => (
-    <label className={labelClass}>{text}</label>
+    <label className={fieldCaptionStyle}>{text}</label>
   );
-  const err = (msg?: string) => msg ? <p className={errorTextClass}>{msg}</p> : null;
+  const err = (msg?: string) => msg ? <p className={errorTextStyle}>{msg}</p> : null;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-[1.05fr_1fr] min-h-screen relative">
       {/* IELTS ↔ SAT toggle */}
       <div className="absolute top-5 left-1/2 -translate-x-1/2 z-[100] bg-white/85 backdrop-blur-[10px] rounded-full p-1 shadow-[0_2px_20px_rgba(0,0,0,0.14)] flex">
-        <button onClick={() => { window.location.href = '/'; }} className={cn(toggleBtn, 'text-black/40 cursor-pointer bg-transparent')}>IELTS</button>
-        <button className={cn(toggleBtn, 'text-white cursor-default bg-accent-text shadow-[0_2px_8px_rgba(226,86,43,0.35)]')}>SAT</button>
+        <button onClick={() => { window.location.href = '/'; }} className={classes(toggleBtn, 'text-black/40 cursor-pointer bg-transparent')}>IELTS</button>
+        <button className={classes(toggleBtn, 'text-white cursor-default bg-accent-text shadow-[0_2px_8px_rgba(226,86,43,0.35)]')}>SAT</button>
       </div>
       {/* Left — dark panel (desktop only) */}
       <div className="hidden sm:flex bg-ink text-white px-[72px] py-16 flex-col justify-between relative overflow-hidden">
@@ -102,46 +102,46 @@ export default function Register() {
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="mb-4">
               {label('Full name')}
-              <input type="text" autoComplete="name" placeholder="Aarav Sharma" {...register('name')} className={fieldClass(!!errors.name)} />
+              <input type="text" autoComplete="name" placeholder="Aarav Sharma" {...register('name')} className={fieldStyle(!!errors.name)} />
               {err(errors.name?.message)}
             </div>
 
             <div className="mb-4">
               {label('Email')}
-              <input type="email" autoComplete="email" placeholder="you@email.com" {...register('email')} className={fieldClass(!!errors.email)} />
+              <input type="email" autoComplete="email" placeholder="you@email.com" {...register('email')} className={fieldStyle(!!errors.email)} />
               {err(errors.email?.message)}
             </div>
 
             <div className="mb-4">
               {label('Phone number')}
-              <input type="tel" autoComplete="tel" placeholder="+977 98XXXXXXXX" {...register('phone')} className={fieldClass(!!errors.phone)} />
+              <input type="tel" autoComplete="tel" placeholder="+977 98XXXXXXXX" {...register('phone')} className={fieldStyle(!!errors.phone)} />
               {err(errors.phone?.message)}
-              {!errors.phone && <p className={hintTextClass}>Required for student accounts.</p>}
+              {!errors.phone && <p className={hintTextStyle}>Required for student accounts.</p>}
             </div>
 
             {/* Password fields — side by side on desktop, stacked on mobile */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               <div>
                 {label('Password')}
-                <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('password')} className={fieldClass(!!errors.password)} />
+                <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('password')} className={fieldStyle(!!errors.password)} />
                 {err(errors.password?.message)}
               </div>
               <div>
                 {label('Confirm')}
-                <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('confirmPassword')} className={fieldClass(!!errors.confirmPassword)} />
+                <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('confirmPassword')} className={fieldStyle(!!errors.confirmPassword)} />
                 {err(errors.confirmPassword?.message)}
               </div>
             </div>
 
             <div className="mb-2.5">
               {label('Access code')}
-              <input type="text" placeholder="Enter your access code" {...register('accessCode')} className={fieldClass(!!errors.accessCode)} />
+              <input type="text" placeholder="Enter your access code" {...register('accessCode')} className={fieldStyle(!!errors.accessCode)} />
               {err(errors.accessCode?.message)}
-              {!errors.accessCode && <p className={hintTextClass}>Determines your role — student, teacher, or admin.</p>}
+              {!errors.accessCode && <p className={hintTextStyle}>Determines your role — student, teacher, or admin.</p>}
             </div>
 
             {apiError && (
-              <div className={cn(alertClass, 'mt-2')}>
+              <div className={classes(alertStyle, 'mt-2')}>
                 {apiError}
               </div>
             )}
@@ -149,7 +149,7 @@ export default function Register() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={cn(
+              className={classes(
                 'w-full h-12 mt-5 text-white rounded-full text-[15px] font-semibold shadow-accent',
                 isSubmitting ? 'bg-accent-disabled cursor-default' : 'bg-accent-text cursor-pointer',
               )}

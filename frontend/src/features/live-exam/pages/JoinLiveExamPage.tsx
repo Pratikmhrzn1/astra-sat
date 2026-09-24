@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { checkSessionStatus } from '@/features/live-exam/api';
-import { liveTitleClass } from '@/features/live-exam/components/ui';
-import { Button, surfaceClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { peekSessionStatus } from '@/features/live-exam/api';
+import { sessionTitleStyle } from '@/features/live-exam/components/ui';
+import { Control, surfaceStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * Where a student enters the code their teacher reads out.
@@ -31,7 +31,7 @@ function normalise(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LENGTH);
 }
 
-export default function JoinLiveExam() {
+export default function JoinLiveAssessment() {
   const navigate = useNavigate();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -56,7 +56,7 @@ export default function JoinLiveExam() {
     setChecking(true);
     setError('');
     try {
-      const session = await checkSessionStatus(code);
+      const session = await peekSessionStatus(code);
       if (session.status === 'completed') {
         setError(`"${session.title}" has already finished. Your result appears in History once your teacher releases it.`);
         setShakeKey((k) => k + 1);
@@ -80,7 +80,7 @@ export default function JoinLiveExam() {
     <div className="screen-fade flex items-center justify-center min-h-[calc(100dvh-var(--tabbar-h)-var(--safe-bottom)-8px)] sm:min-h-[100dvh] px-4 pt-7 pb-8 sm:px-8 sm:py-12">
       <div className="w-full max-w-[468px]">
         <header className="text-center mb-[22px] sm:mb-7">
-          <h1 className={cn(liveTitleClass, 'text-[30px] sm:text-[40px] leading-[1.1] mb-2.5 [text-wrap:balance]')}>
+          <h1 className={classes(sessionTitleStyle, 'text-[30px] sm:text-[40px] leading-[1.1] mb-2.5 [text-wrap:balance]')}>
             Join your class's live exam
           </h1>
           <p className="text-[14.5px] sm:text-[15.5px] text-subtle mx-auto my-0 max-w-[440px] leading-[1.55] [text-wrap:balance]">
@@ -91,7 +91,7 @@ export default function JoinLiveExam() {
         {/* Notches are cut from the page colour, so the slip must not clip them. */}
         <form
           onSubmit={handleJoin}
-          className={cn(surfaceClass, 'rounded-[22px] overflow-visible shadow-[0_1px_2px_rgba(11,11,14,0.04),0_12px_32px_rgba(11,11,14,0.06)]')}
+          className={classes(surfaceStyle, 'rounded-[22px] overflow-visible shadow-[0_1px_2px_rgba(11,11,14,0.04),0_12px_32px_rgba(11,11,14,0.06)]')}
           aria-describedby="join-steps"
         >
           <div className="px-[18px] pt-[22px] pb-5 sm:px-8 sm:pt-7 sm:pb-6">
@@ -105,7 +105,7 @@ export default function JoinLiveExam() {
                 cells shrink together on a narrow phone. */}
             <div
               key={shakeKey}
-              className={cn('relative grid grid-cols-6 gap-2 sm:gap-2.5 w-full max-w-[384px] mx-auto', shakeKey && 'animate-join-shake motion-reduce:animate-none')}
+              className={classes('relative grid grid-cols-6 gap-2 sm:gap-2.5 w-full max-w-[384px] mx-auto', shakeKey && 'animate-join-shake motion-reduce:animate-none')}
             >
               {slots.map((char, i) => {
                 const active = i === activeIndex;
@@ -113,7 +113,7 @@ export default function JoinLiveExam() {
                   <span
                     key={i}
                     aria-hidden
-                    className={cn(
+                    className={classes(
                       'relative w-full aspect-[5/6] flex items-center justify-center rounded-xl font-mono font-semibold text-[clamp(20px,6.5vw,30px)] leading-none text-ink',
                       'border-[1.5px] transition-[border-color,box-shadow,background-color] duration-150 ease-[cubic-bezier(0.2,0,0,1)]',
                       error ? 'border-danger/60' : ready ? 'border-green-dark' : active ? 'border-ember' : char ? 'border-[#BDB8AE]' : 'border-border',
@@ -147,7 +147,7 @@ export default function JoinLiveExam() {
             <p
               id="join-code-hint"
               role={error ? 'alert' : undefined}
-              className={cn(
+              className={classes(
                 'min-h-5 mx-auto mt-3 mb-[18px] max-w-[340px] text-center text-[13px] leading-normal tnum',
                 error ? 'text-danger' : ready ? 'text-green-dark' : 'text-muted',
               )}
@@ -155,10 +155,10 @@ export default function JoinLiveExam() {
               {error || (ready ? 'Code complete' : code.length === 0 ? 'Letters and numbers, no spaces needed' : `${code.length} of ${CODE_LENGTH} characters`)}
             </p>
 
-            <Button
+            <Control
               type="submit"
               disabled={!ready || checking}
-              className={cn(
+              className={classes(
                 'w-full h-[50px] text-[15.5px]',
                 // Until the code is complete the button is a quiet placeholder,
                 // not a faded version of the action — it lights up when usable.
@@ -170,7 +170,7 @@ export default function JoinLiveExam() {
                 <span aria-hidden className="w-[15px] h-[15px] rounded-full border-2 border-white/40 border-t-white animate-spin-fast motion-reduce:animate-spin-slow" />
               )}
               {checking ? 'Checking the code' : 'Join exam'}
-            </Button>
+            </Control>
           </div>
 
           {/* Perforation: the slip tears into what you do now and what happens next. */}
@@ -186,7 +186,7 @@ export default function JoinLiveExam() {
               return (
                 <li
                   key={step}
-                  className={cn(
+                  className={classes(
                     'relative flex flex-col items-center gap-[7px] text-center text-[12.5px] sm:text-[13px] leading-[1.35]',
                     i === 0 ? 'text-ink' : 'text-subtle',
                   )}
@@ -196,7 +196,7 @@ export default function JoinLiveExam() {
                     <span aria-hidden className="absolute top-[11px] h-px bg-border left-[calc(50%+19px)] right-[calc(-50%-12px+19px)]" />
                   )}
                   <span
-                    className={cn(
+                    className={classes(
                       'relative w-[22px] h-[22px] rounded-full shrink-0 inline-flex items-center justify-center text-[11.5px] font-bold tnum',
                       done ? 'bg-green-dark' : i === 0 ? 'bg-ink' : 'bg-white',
                       i === 0 ? 'text-white' : 'text-subtle border border-border',

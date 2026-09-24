@@ -1,10 +1,10 @@
-import type { MockSection } from '@/entities/exam';
+import type { TrialSegment } from '@/entities/exam';
 
 const bar = 'shrink-0 flex items-center justify-between px-3.5 sm:px-6 py-2.5';
 const dismiss = 'bg-transparent cursor-pointer text-[#6B7280] text-lg leading-none px-1';
 
 /** "Module 1 complete" note at the top of the next module or section. */
-export function SectionBanner({ mockSection, onDismiss }: { mockSection: MockSection | undefined; onDismiss: () => void }) {
+export function SegmentNotice({ mockSection, onDismiss }: { mockSection: TrialSegment | undefined; onDismiss: () => void }) {
   const [short, long] = mockSection === 'english_m2'
     ? ['R&W Module 1 done — Module 2 starts', 'Reading & Writing Module 1 complete — now on Module 2']
     : mockSection === 'math_m2'
@@ -26,7 +26,7 @@ export function SectionBanner({ mockSection, onDismiss }: { mockSection: MockSec
 }
 
 /** A failed submit or transition, with a retry, so the student is never stuck. */
-export function ActionErrorBanner({ message, onRetry, onDismiss }: { message: string; onRetry: () => void; onDismiss: () => void }) {
+export function ActionErrorNotice({ message, onRetry, onDismiss }: { message: string; onRetry: () => void; onDismiss: () => void }) {
   return (
     <div role="alert" className={`${bar} gap-3 bg-danger/[.07] border-b border-danger/25`}>
       <span className="text-[13px] font-semibold text-[#A93226]">{message}</span>

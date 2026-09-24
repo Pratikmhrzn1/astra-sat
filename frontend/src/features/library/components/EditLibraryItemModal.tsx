@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { updateLibraryItem, type LibraryItem } from '@/features/library/api';
-import { getApiError } from '@/shared/api/http';
-import { Button, Modal } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
-import { libraryErrorClass, libraryInputClass, libraryLabelClass, libraryTextareaClass } from './libraryMeta';
+import { editResourceItem, type ResourceItem } from '@/features/library/api';
+import { fetchApiError } from '@/shared/api/http';
+import { Control, Dialog } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
+import { resourceErrorStyle, libraryFieldClass, libraryCaptionClass, resourceTextareaStyle } from './libraryMeta';
 
-export function EditLibraryItemModal({ item, onClose, hideLabel }: {
-  item: LibraryItem | null;
+export function EditResourceItemModal({ item, onClose, hideLabel }: {
+  item: ResourceItem | null;
   onClose: () => void;
   /** Who "hidden" hides the item from, in this role's words. */
   hideLabel: string;
@@ -23,38 +23,38 @@ export function EditLibraryItemModal({ item, onClose, hideLabel }: {
   }, [item]);
 
   const editMutation = useMutation({
-    mutationFn: () => updateLibraryItem(item!.id, {
+    mutationFn: () => editResourceItem(item!.id, {
       title: form.title,
       description: form.description || null,
       noteContent: item?.fileType === 'note' ? (form.noteContent || null) : undefined,
       hidden: form.hidden,
     }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['library'] }); onClose(); setFormError(''); },
-    onError: (err) => setFormError(getApiError(err)),
+    onError: (err) => setFormError(fetchApiError(err)),
   });
 
   return (
-    <Modal
+    <Dialog
       isOpen={!!item}
       onClose={onClose}
       title="Edit Item"
       size="sm"
-      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button variant="primary" onClick={() => editMutation.mutate()} loading={editMutation.isPending} disabled={!form.title}>Save</Button></>}
+      footer={<><Control variant="secondary" onClick={onClose}>Cancel</Control><Control variant="primary" onClick={() => editMutation.mutate()} loading={editMutation.isPending} disabled={!form.title}>Save</Control></>}
     >
       <div className="flex flex-col gap-3.5">
-        {formError && <div className={libraryErrorClass}>{formError}</div>}
+        {formError && <div className={resourceErrorStyle}>{formError}</div>}
         <div>
-          <label className={libraryLabelClass}>Title</label>
-          <input className={libraryInputClass} value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
+          <label className={libraryCaptionClass}>Title</label>
+          <input className={libraryFieldClass} value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
         </div>
         <div>
-          <label className={libraryLabelClass}>Description</label>
-          <textarea className={cn(libraryTextareaClass, 'h-[72px] py-2')} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
+          <label className={libraryCaptionClass}>Description</label>
+          <textarea className={classes(resourceTextareaStyle, 'h-[72px] py-2')} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
         </div>
         {item?.fileType === 'note' && (
           <div>
-            <label className={libraryLabelClass}>Content</label>
-            <textarea className={cn(libraryTextareaClass, 'h-[140px] py-2.5 leading-[1.6]')} value={form.noteContent} onChange={(e) => setForm((p) => ({ ...p, noteContent: e.target.value }))} />
+            <label className={libraryCaptionClass}>Content</label>
+            <textarea className={classes(resourceTextareaStyle, 'h-[140px] py-2.5 leading-[1.6]')} value={form.noteContent} onChange={(e) => setForm((p) => ({ ...p, noteContent: e.target.value }))} />
           </div>
         )}
         <label className="flex items-center gap-2.5 text-[13.5px] cursor-pointer">
@@ -62,6 +62,6 @@ export function EditLibraryItemModal({ item, onClose, hideLabel }: {
           {hideLabel}
         </label>
       </div>
-    </Modal>
+    </Dialog>
   );
 }

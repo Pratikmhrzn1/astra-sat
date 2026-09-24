@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
  * when it returns. `navigator.onLine` only reports whether an interface is up,
  * not whether the server is reachable, so treat it as a hint rather than proof.
  */
-export function useOnlineStatus(): boolean {
+export function useConnectivity(): boolean {
   const [online, setOnline] = useState(navigator.onLine);
   useEffect(() => {
     const on = () => setOnline(true); const off = () => setOnline(false);

@@ -2,18 +2,18 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
-import { getExam, saveAnswers, submitExamIfOpen, nextModule, type MockSection } from '@/entities/exam';
-import { getApiError } from '@/shared/api/http';
-import { saveExamProgress, loadExamProgress, clearExamProgress } from '@/shared/lib/offline';
-import { FinishConfirmModal } from '@/features/exam-player/components/FinishConfirmModal';
-import { NavigatorPopup } from '@/features/exam-player/components/NavigatorPopup';
-import { ActionErrorBanner, SectionBanner } from '@/features/exam-player/components/PlayerBanners';
-import { PlayerBottomBar, type BottomAction } from '@/features/exam-player/components/PlayerBottomBar';
-import { PlayerEmpty, PlayerLoadError, PlayerLoading, TransitionOverlay } from '@/features/exam-player/components/PlayerStates';
-import { PlayerTopBar } from '@/features/exam-player/components/PlayerTopBar';
-import { QuestionPane } from '@/features/exam-player/components/QuestionPane';
+import { fetchAssessment, storeAnswers, commitAssessmentIfOpen, nextSlot, type TrialSegment } from '@/entities/exam';
+import { fetchApiError } from '@/shared/api/http';
+import { storeAssessmentProgress, loadAssessmentProgress, clearAssessmentProgress } from '@/shared/lib/offline';
+import { CompleteAcknowledgeDialog } from '@/features/exam-player/components/FinishConfirmModal';
+import { CompassOverlay } from '@/features/exam-player/components/NavigatorPopup';
+import { ActionErrorNotice, SegmentNotice } from '@/features/exam-player/components/PlayerBanners';
+import { PlayerFooter, type FooterAction } from '@/features/exam-player/components/PlayerBottomBar';
+import { PlayerBlank, PlayerFailure, PlayerBusy, HandoffOverlay } from '@/features/exam-player/components/PlayerStates';
+import { PlayerHeader } from '@/features/exam-player/components/PlayerTopBar';
+import { ItemPane } from '@/features/exam-player/components/QuestionPane';
 
-export default function TakeExam() {
+export default function TakeAssessment() {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -62,10 +62,10 @@ export default function TakeExam() {
   // Where this exam sits in an adaptive mock. Router state supplies these on a
   // normal start; the server fills them in when the module was reopened without
   // it (resume banner, reload in a new tab).
-  const mockSectionRef = useRef<MockSection | undefined>(locationState?.mockSection);
+  const mockSectionRef = useRef<TrialSegment | undefined>(locationState?.mockSection);
   const mockTestIdRef = useRef<string | undefined>(locationState?.mockTestId);
   const mathM1ExamIdRef = useRef<string | undefined>(locationState?.mathM1ExamId);
-  const [mockSection, setMockSection] = useState<MockSection | undefined>(locationState?.mockSection);
+  const [mockSection, setMockSection] = useState<TrialSegment | undefined>(locationState?.mockSection);
   // Server deadline (epoch ms) and device-clock correction. When a deadline is
   // known the countdown is recomputed from it every tick, so a reload, a
   // throttled background tab or a changed device clock cannot stretch it.
@@ -81,7 +81,7 @@ export default function TakeExam() {
   const closedHandledRef = useRef<string | null>(null);
   // Always-current answers for use inside timer/IDB closures
   const answersRef = useRef<Record<string, string | null>>({});
-  const dataRef = useRef<{ exam: import('@/entities/exam').Exam; questions: import('@/entities/exam').Question[]; answers: { questionId: string; selectedAnswer: string | null; selectedAnswerText: string | null }[]; mockTestId: string | null; mathExamId: string | null } | undefined>(undefined);
+  const dataRef = useRef<{ exam: import('@/entities/exam').Assessment; questions: import('@/entities/exam').Item[]; answers: { questionId: string; selectedAnswer: string | null; selectedAnswerText: string | null }[]; mockTestId: string | null; mathExamId: string | null } | undefined>(undefined);
   // Each question opens at its top; otherwise "Next" lands mid-passage on phones.
   const contentRef = useRef<HTMLDivElement>(null);
   useEffect(() => { contentRef.current?.scrollTo({ top: 0 }); }, [index]);
@@ -117,7 +117,7 @@ export default function TakeExam() {
   const { data, isLoading, isError, error: loadError, refetch } = useQuery({
     queryKey: ['student', 'exam', examId],
     // The player opening the exam is what starts a timed module's clock.
-    queryFn: () => getExam(examId!, { open: true }),
+    queryFn: () => fetchAssessment(examId!, { open: true }),
     enabled: !!examId,
     meta: { handlesError: true },
   });
@@ -148,7 +148,7 @@ export default function TakeExam() {
     if (data.mathExamId && data.mathExamId !== examId) {
       queryClient.prefetchQuery({
         queryKey: ['student', 'exam', data.mathExamId],
-        queryFn: () => getExam(data.mathExamId!),
+        queryFn: () => fetchAssessment(data.mathExamId!),
         // A failed warm-up is harmless: the section loads normally when opened.
         meta: { handlesError: true },
       });
@@ -201,7 +201,7 @@ export default function TakeExam() {
       return init;
     };
     const markRestored = () => { answersRestoredForRef.current = examId ?? null; };
-    loadExamProgress(examId!).then((saved) => {
+    loadAssessmentProgress(examId!).then((saved) => {
       markRestored();
       if (saved) {
         // Merged, local picks first: this device's copy is the freshest for what
@@ -251,7 +251,7 @@ export default function TakeExam() {
   }, []);
 
   const saveMutation = useMutation({
-    mutationFn: ({ time }: { time: number }) => saveAnswers(examId!, formatAnswers(), time),
+    mutationFn: ({ time }: { time: number }) => storeAnswers(examId!, formatAnswers(), time),
     onError: (err) => {
       // 409: the server closed this section because its time ran out (e.g. the
       // tab slept through the deadline). Refetch so the closed-exam handler below
@@ -266,14 +266,14 @@ export default function TakeExam() {
   const submitMutation = useMutation({
     // Final picks travel with the submit. Without them the server graded only what
     // the last 30-second autosave had stored, so recent picks were lost.
-    mutationFn: () => submitExamIfOpen(examId!, getTimeSpent(), formatAnswers()),
+    mutationFn: () => commitAssessmentIfOpen(examId!, getTimeSpent(), formatAnswers()),
     onError: (err) => {
       transitioningRef.current = false;
       setTransitioning(false);
-      setActionError(`Couldn't submit: ${getApiError(err)}. Your answers are saved on this device — try again.`);
+      setActionError(`Couldn't submit: ${fetchApiError(err)}. Your answers are saved on this device — try again.`);
     },
     onSuccess: async () => {
-      if (examId) await clearExamProgress(examId).catch(() => {});
+      if (examId) await clearAssessmentProgress(examId).catch(() => {});
       // Stale lists would otherwise still show this exam as in progress.
       queryClient.invalidateQueries({ queryKey: ['student'] });
       transitioningRef.current = false;
@@ -324,8 +324,8 @@ export default function TakeExam() {
       : { fromMockSection1: true };
     navigate(`/student/exams/${mathId}`, { replace: true, state: nextState });
     // Submit (carrying the final answers) → clear IDB, in the background.
-    submitExamIfOpen(currentExamId, timeSpent, formattedAnswers)
-      .then(() => clearExamProgress(currentExamId))
+    commitAssessmentIfOpen(currentExamId, timeSpent, formattedAnswers)
+      .then(() => clearAssessmentProgress(currentExamId))
       .catch(() => {});
   }, [examId, navigate, getTimeSpent, formatAnswers, isLiveExam, locationState]);
 
@@ -344,9 +344,9 @@ export default function TakeExam() {
     try {
       // The submit saves the final answers first; past the deadline the server
       // grades its own copy and reports the exam as done.
-      await submitExamIfOpen(currentExamId, getTimeSpent(), formatAnswers());
-      await clearExamProgress(currentExamId).catch(() => {});
-      const { m2ExamId } = await nextModule(mt, currentExamId);
+      await commitAssessmentIfOpen(currentExamId, getTimeSpent(), formatAnswers());
+      await clearAssessmentProgress(currentExamId).catch(() => {});
+      const { m2ExamId } = await nextSlot(mt, currentExamId);
 
       const isMathM1 = ms === 'math_m1';
       navigate(`/student/exams/${m2ExamId}`, {
@@ -363,7 +363,7 @@ export default function TakeExam() {
     } catch (err) {
       transitioningRef.current = false;
       setTransitioning(false);
-      setActionError(`Couldn't start the next module: ${getApiError(err)}. Try again.`);
+      setActionError(`Couldn't start the next module: ${fetchApiError(err)}. Try again.`);
     }
   }, [examId, navigate, getTimeSpent, formatAnswers]);
 
@@ -397,7 +397,7 @@ export default function TakeExam() {
   useEffect(() => {
     if (!data || data.exam.status !== 'completed' || closedHandledRef.current === examId) return;
     closedHandledRef.current = examId ?? null;
-    if (examId) clearExamProgress(examId).catch(() => {});
+    if (examId) clearAssessmentProgress(examId).catch(() => {});
 
     const ms = mockSectionRef.current;
     if (isLiveExam) {
@@ -482,7 +482,7 @@ export default function TakeExam() {
   // phone) left the empty record as the durable one.
   useEffect(() => {
     if (!examId || answersRestoredForRef.current !== examId) return;
-    saveExamProgress(examId, answers, getTimeSpent(), timerEnabledRef.current, examTitle);
+    storeAssessmentProgress(examId, answers, getTimeSpent(), timerEnabledRef.current, examTitle);
   }, [answers, timerEnabled]);
 
   useEffect(() => {
@@ -522,8 +522,8 @@ export default function TakeExam() {
 
   if (isError && !data) {
     return (
-      <PlayerLoadError
-        message={getApiError(loadError)}
+      <PlayerFailure
+        message={fetchApiError(loadError)}
         onBack={() => navigate('/student/dashboard', { replace: true })}
         onRetry={() => refetch()}
       />
@@ -531,12 +531,12 @@ export default function TakeExam() {
   }
 
   if (isLoading || !data || data.exam.id !== examId) {
-    return <PlayerLoading />;
+    return <PlayerBusy />;
   }
 
   const { exam, questions } = data;
   if (questions.length === 0) {
-    return <PlayerEmpty onBack={() => navigate('/student/dashboard', { replace: true })} />;
+    return <PlayerBlank onBack={() => navigate('/student/dashboard', { replace: true })} />;
   }
   const isPractice = exam.type === 'individual';
   const isActuallyMath = exam.type === 'mock_math';
@@ -569,7 +569,7 @@ export default function TakeExam() {
   const requestFinish = () => { if (!transitioningRef.current) setConfirmOpen(true); };
 
   // On the last question the primary button finishes the section; before it, it advances.
-  const bottomAction: BottomAction = !isLast
+  const bottomAction: FooterAction = !isLast
     ? { kind: 'next', answered: !!selected, onClick: () => setIndex((i) => Math.min(total - 1, i + 1)) }
     : isModuleOne
       // Adaptive: M1 sections go to M2
@@ -585,7 +585,7 @@ export default function TakeExam() {
 
   return (
     <div className="fixed inset-0 flex flex-col bg-paper z-50">
-      <PlayerTopBar
+      <PlayerHeader
         isMath={isActuallyMath}
         isPractice={isPractice}
         index={index}
@@ -602,13 +602,13 @@ export default function TakeExam() {
         transitioning={transitioning}
       />
 
-      {sectionBanner && <SectionBanner mockSection={mockSection} onDismiss={() => setSectionBanner(false)} />}
+      {sectionBanner && <SegmentNotice mockSection={mockSection} onDismiss={() => setSectionBanner(false)} />}
 
       {actionError && (
-        <ActionErrorBanner message={actionError} onRetry={finishSection} onDismiss={() => setActionError(null)} />
+        <ActionErrorNotice message={actionError} onRetry={finishSection} onDismiss={() => setActionError(null)} />
       )}
 
-      <QuestionPane
+      <ItemPane
         ref={contentRef}
         q={q}
         index={index}
@@ -620,7 +620,7 @@ export default function TakeExam() {
       />
 
       {navOpen && (
-        <NavigatorPopup
+        <CompassOverlay
           questions={questions}
           answers={answers}
           flags={flags}
@@ -632,7 +632,7 @@ export default function TakeExam() {
         />
       )}
 
-      <PlayerBottomBar
+      <PlayerFooter
         index={index}
         total={total}
         navOpen={navOpen}
@@ -641,7 +641,7 @@ export default function TakeExam() {
         action={bottomAction}
       />
 
-      <FinishConfirmModal
+      <CompleteAcknowledgeDialog
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         title={isModuleOne ? 'Finish this module?' : isNextSection ? 'Finish this section?' : 'Submit your test?'}
@@ -660,7 +660,7 @@ export default function TakeExam() {
         }}
       />
 
-      {transitioning && <TransitionOverlay />}
+      {transitioning && <HandoffOverlay />}
     </div>
   );
 }

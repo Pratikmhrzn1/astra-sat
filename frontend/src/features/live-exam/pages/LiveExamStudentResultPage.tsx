@@ -1,14 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  getParticipantDetail, saveFeedback, releaseOne,
-  type ParticipantDetail, type MarkableSection, type MarkableAnswer,
+  fetchParticipantDetail, storeFeedback, publishOne,
+  type ParticipantBreakdown, type GlyphableSegment, type GlyphableAnswer,
 } from '@/features/live-exam/api';
-import { getApiError } from '@/shared/api/http';
-import { formatExamScore, scoreColor, SECTION_MAX } from '@/entities/score';
-import { BackLink, ErrorNote, LivePage, LoadingRows, plainText, liveTitleClass } from '@/features/live-exam/components/ui';
-import { EmptyState, Button, surfaceClass, kickerClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { fetchApiError } from '@/shared/api/http';
+import { renderAssessmentScore, scoreHue, SEGMENT_MAX } from '@/entities/score';
+import { ReturnLink, FailureNote, SessionScreen, SkeletonRows, stripMarkup, sessionTitleStyle } from '@/features/live-exam/components/ui';
+import { BlankStatus, Control, surfaceStyle, kickerStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * Marking one student's live-exam paper: both sections, a note per question, a
@@ -21,10 +21,10 @@ import { cn } from '@/shared/lib/utils';
 
 type Filter = 'all' | 'wrong';
 
-export default function LiveExamStudentResult() {
+export default function LiveAssessmentLearnerResult() {
   const { sessionId, participantId } = useParams<{ sessionId: string; participantId: string }>();
   const navigate = useNavigate();
-  const [participant, setParticipant] = useState<ParticipantDetail | null>(null);
+  const [participant, setParticipant] = useState<ParticipantBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
   const [globalFeedback, setGlobalFeedback] = useState('');
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -47,14 +47,14 @@ export default function LiveExamStudentResult() {
         // — and even corrected, that endpoint authorises on roster assignment,
         // which a live exam does not use. Every failure was swallowed by a bare
         // catch, so the page simply showed nothing.
-        const p = await getParticipantDetail(sessionId, participantId);
+        const p = await fetchParticipantDetail(sessionId, participantId);
         const initialNotes = Object.fromEntries(p.questionFeedbacks.map((f) => [f.questionId, f.feedback]));
         setParticipant(p);
         setGlobalFeedback(p.globalFeedback ?? '');
         setNotes(initialNotes);
         setSavedSnapshot(snapshot(p.globalFeedback ?? '', initialNotes));
       } catch (err) {
-        setError(getApiError(err));
+        setError(fetchApiError(err));
       } finally {
         setLoading(false);
       }
@@ -83,11 +83,11 @@ export default function LiveExamStudentResult() {
     setSaveMsg('');
     setError('');
     try {
-      await saveFeedback(sessionId, participantId, { globalFeedback, questionFeedbacks: collectNotes() });
+      await storeFeedback(sessionId, participantId, { globalFeedback, questionFeedbacks: collectNotes() });
       setSavedSnapshot(snapshot(globalFeedback, notes));
       setSaveMsg(participant?.resultReleased ? 'Saved. The student sees the updated notes.' : 'Saved. The student sees none of this until you release.');
     } catch (err) {
-      setError(getApiError(err));
+      setError(fetchApiError(err));
     } finally {
       setSaving(false);
     }
@@ -98,16 +98,16 @@ export default function LiveExamStudentResult() {
     setReleasing(true);
     setError('');
     try {
-      await saveFeedback(sessionId, participantId, { globalFeedback, questionFeedbacks: collectNotes() });
-      await releaseOne(sessionId, participantId);
+      await storeFeedback(sessionId, participantId, { globalFeedback, questionFeedbacks: collectNotes() });
+      await publishOne(sessionId, participantId);
       navigate(`/teacher/live-exams/${sessionId}`);
     } catch (err) {
-      setError(getApiError(err));
+      setError(fetchApiError(err));
       setReleasing(false);
     }
   }
 
-  type Section = { label: string; accent: string; data: MarkableSection };
+  type Section = { label: string; accent: string; data: GlyphableSegment };
   const sections: Section[] = useMemo(() => participant ? [
     { label: 'Reading & Writing', accent: 'bg-green-sat', data: participant.english },
     { label: 'Math', accent: 'bg-blue-sat', data: participant.math },
@@ -120,18 +120,18 @@ export default function LiveExamStudentResult() {
 
   if (loading) {
     return (
-      <LivePage>
+      <SessionScreen>
         <div className="h-10 w-60 rounded-[10px] bg-sunken mb-6" />
-        <LoadingRows rows={4} height={84} />
-      </LivePage>
+        <SkeletonRows rows={4} height={84} />
+      </SessionScreen>
     );
   }
   if (!participant) {
     return (
-      <LivePage>
-        <BackLink onClick={() => navigate(`/teacher/live-exams/${sessionId}`)}>Back to session</BackLink>
-        <ErrorNote>{error || 'Student not found in this session.'}</ErrorNote>
-      </LivePage>
+      <SessionScreen>
+        <ReturnLink onClick={() => navigate(`/teacher/live-exams/${sessionId}`)}>Back to session</ReturnLink>
+        <FailureNote>{error || 'Student not found in this session.'}</FailureNote>
+      </SessionScreen>
     );
   }
 
@@ -139,16 +139,16 @@ export default function LiveExamStudentResult() {
   const wrongTotal = sections.reduce((n, s) => n + s.data.results.filter((r) => r.isCorrect !== true).length, 0);
 
   return (
-    <LivePage>
-      <BackLink onClick={back}>Back to session</BackLink>
+    <SessionScreen>
+      <ReturnLink onClick={back}>Back to session</ReturnLink>
 
       <div className="flex items-start justify-between gap-3 flex-wrap mb-[22px]">
         <div className="min-w-0">
-          <h1 className={cn(liveTitleClass, 'text-[30px] sm:text-[38px] leading-[1.12] mb-1 [overflow-wrap:anywhere]')}>{participant.name}</h1>
+          <h1 className={classes(sessionTitleStyle, 'text-[30px] sm:text-[38px] leading-[1.12] mb-1 [overflow-wrap:anywhere]')}>{participant.name}</h1>
           <p className="text-[13.5px] text-subtle m-0 [overflow-wrap:anywhere]">{participant.email}</p>
         </div>
         <span
-          className={cn(
+          className={classes(
             'inline-flex items-center gap-1.5 h-[26px] px-3 rounded-full text-[12.5px] font-semibold',
             participant.resultReleased ? 'bg-green-dark/10 text-green-dark' : 'bg-gold/[.12] text-gold-dark',
           )}
@@ -158,36 +158,36 @@ export default function LiveExamStudentResult() {
         </span>
       </div>
 
-      {error && <div className="mb-[18px]"><ErrorNote>{error}</ErrorNote></div>}
+      {error && <div className="mb-[18px]"><FailureNote>{error}</FailureNote></div>}
 
       {sections.length === 0 ? (
         <div className="mb-[22px]">
-          <EmptyState className="py-11" titleClassName="text-2xl text-ink/[.72]" title="Nothing to mark yet">
+          <BlankStatus className="py-11" titleClassName="text-2xl text-ink/[.72]" title="Nothing to mark yet">
             This student hasn't submitted either paper. You can still leave a note below.
-          </EmptyState>
+          </BlankStatus>
         </div>
       ) : (
-        <div className={cn('grid grid-cols-1 gap-3 mb-[26px]', sections.length > 1 && 'sm:grid-cols-2')}>
+        <div className={classes('grid grid-cols-1 gap-3 mb-[26px]', sections.length > 1 && 'sm:grid-cols-2')}>
           {sections.map(({ label, accent, data }) => {
             const { exam } = data;
             const correct = data.results.filter((r) => r.isCorrect).length;
             const pct = data.results.length ? (correct / data.results.length) * 100 : 0;
             return (
-              <div key={label} className={cn(surfaceClass, 'px-5 py-4')}>
+              <div key={label} className={classes(surfaceStyle, 'px-5 py-4')}>
                 <div className="flex items-center gap-2 mb-2.5">
-                  <span aria-hidden className={cn('w-2 h-2 rounded-full', accent)} />
-                  <span className={cn(kickerClass, 'text-subtle')}>{label}</span>
+                  <span aria-hidden className={classes('w-2 h-2 rounded-full', accent)} />
+                  <span className={classes(kickerStyle, 'text-subtle')}>{label}</span>
                 </div>
                 <div className="flex items-baseline justify-between gap-2.5 flex-wrap">
-                  <span className={cn(liveTitleClass, 'text-4xl leading-none tnum')} style={{ color: scoreColor(exam.scaledScore, SECTION_MAX) }}>
-                    {formatExamScore(exam.scaledScore, exam.score, exam.totalQuestions)}
+                  <span className={classes(sessionTitleStyle, 'text-4xl leading-none tnum')} style={{ color: scoreHue(exam.scaledScore, SEGMENT_MAX) }}>
+                    {renderAssessmentScore(exam.scaledScore, exam.score, exam.totalQuestions)}
                   </span>
                   <span className="text-[13px] text-subtle tnum">
                     {correct} of {data.results.length} correct
                   </span>
                 </div>
                 <div className="h-1 rounded-full bg-sunken overflow-hidden mt-3">
-                  <div className={cn('h-full rounded-full', accent)} style={{ width: `${pct}%` }} />
+                  <div className={classes('h-full rounded-full', accent)} style={{ width: `${pct}%` }} />
                 </div>
               </div>
             );
@@ -203,7 +203,7 @@ export default function LiveExamStudentResult() {
               role="tab"
               aria-selected={filter === value}
               onClick={() => setFilter(value)}
-              className={cn(
+              className={classes(
                 'h-8 px-3.5 rounded-lg text-[13px] font-semibold cursor-pointer',
                 filter === value ? 'bg-white text-ink shadow-[0_1px_2px_rgba(11,11,14,0.08)]' : 'bg-transparent text-subtle',
               )}
@@ -219,15 +219,15 @@ export default function LiveExamStudentResult() {
         return (
           <section key={label} className="mb-6">
             <div className="flex items-baseline gap-2.5 mb-2.5 flex-wrap">
-              <span aria-hidden className={cn('w-2 h-2 rounded-full self-center', accent)} />
+              <span aria-hidden className={classes('w-2 h-2 rounded-full self-center', accent)} />
               <h2 className="text-[15px] font-semibold m-0">{label}</h2>
               <span className="text-[12.5px] text-muted">Add a note to any question</span>
             </div>
 
             {rows.length === 0 ? (
-              <div className={cn(surfaceClass, 'px-5 py-[18px] text-[13.5px] text-subtle')}>No missed questions in this section.</div>
+              <div className={classes(surfaceStyle, 'px-5 py-[18px] text-[13.5px] text-subtle')}>No missed questions in this section.</div>
             ) : (
-              <div className={cn(surfaceClass, 'overflow-hidden')}>
+              <div className={classes(surfaceStyle, 'overflow-hidden')}>
                 {rows.map(({ row, number }) => (
                   <QuestionRow
                     key={row.questionId}
@@ -244,7 +244,7 @@ export default function LiveExamStudentResult() {
         );
       })}
 
-      <div className={cn(surfaceClass, 'p-4 sm:px-[22px] sm:py-5')}>
+      <div className={classes(surfaceStyle, 'p-4 sm:px-[22px] sm:py-5')}>
         <label htmlFor="global-feedback" className="block text-sm font-semibold mb-1">
           Note on the whole paper
         </label>
@@ -263,25 +263,25 @@ export default function LiveExamStudentResult() {
 
       {/* Sticky, so Save and Release are reachable from question 40 without scrolling back down. */}
       <div
-        className={cn(
-          surfaceClass,
+        className={classes(
+          surfaceStyle,
           'sticky z-[5] mt-4 shadow-md flex items-center gap-2.5 flex-wrap px-3 py-2.5 sm:pl-5',
           'bottom-[calc(var(--tabbar-h,64px)+var(--safe-bottom,0px)+10px)] sm:bottom-4',
         )}
       >
-        <span aria-live="polite" className={cn('flex-1 min-w-[160px] text-[13px]', saveMsg ? 'text-green-dark' : dirty ? 'text-gold-dark' : 'text-subtle')}>
+        <span aria-live="polite" className={classes('flex-1 min-w-[160px] text-[13px]', saveMsg ? 'text-green-dark' : dirty ? 'text-gold-dark' : 'text-subtle')}>
           {saveMsg || (dirty ? 'Unsaved changes' : `${noteCount} question note${noteCount === 1 ? '' : 's'}${globalFeedback.trim() ? ' · paper note added' : ''}`)}
         </span>
         <div className="flex gap-2 basis-full sm:basis-auto">
-          <Button type="button" variant="secondary" onClick={handleSave} disabled={saving || releasing || !dirty} className="flex-1 sm:flex-none">
+          <Control type="button" variant="secondary" onClick={handleSave} disabled={saving || releasing || !dirty} className="flex-1 sm:flex-none">
             {saving ? 'Saving…' : 'Save notes'}
-          </Button>
-          <Button type="button" onClick={handleRelease} disabled={releasing || saving} className="flex-1 sm:flex-none">
+          </Control>
+          <Control type="button" onClick={handleRelease} disabled={releasing || saving} className="flex-1 sm:flex-none">
             {releasing ? 'Releasing…' : participant.resultReleased ? 'Save & re-release' : 'Release to student'}
-          </Button>
+          </Control>
         </div>
       </div>
-    </LivePage>
+    </SessionScreen>
   );
 }
 
@@ -291,7 +291,7 @@ function snapshot(global: string, notes: Record<string, string>): string {
 }
 
 function QuestionRow({ row, number, section, note, onNote }: {
-  row: MarkableAnswer;
+  row: GlyphableAnswer;
   number: number;
   section: string;
   note: string;
@@ -311,7 +311,7 @@ function QuestionRow({ row, number, section, note, onNote }: {
     wrong: { badge: 'bg-danger/10 text-danger', fg: 'text-danger', mark: '✕', label: 'Incorrect' },
     skipped: { badge: 'bg-sunken text-stone', fg: 'text-stone', mark: '–', label: 'Not answered' },
   }[outcome];
-  const text = plainText(row.questionText);
+  const text = stripMarkup(row.questionText);
 
   return (
     <div className="px-[18px] py-3.5 border-b border-sunken last:border-b-0">
@@ -319,7 +319,7 @@ function QuestionRow({ row, number, section, note, onNote }: {
         <span
           role="img"
           aria-label={tone.label}
-          className={cn('w-[26px] h-[26px] rounded-full shrink-0 flex items-center justify-center text-[13px] font-bold', tone.badge)}
+          className={classes('w-[26px] h-[26px] rounded-full shrink-0 flex items-center justify-center text-[13px] font-bold', tone.badge)}
         >{tone.mark}</span>
 
         <div className="flex-1 min-w-0">
@@ -344,7 +344,7 @@ function QuestionRow({ row, number, section, note, onNote }: {
               </button>
               {showPassage && (
                 <p className="font-serif text-[14px] leading-[1.65] text-ink bg-[#FBFAF8] border border-border-soft rounded-[10px] px-3.5 py-3 mt-1.5 mb-0 whitespace-pre-wrap">
-                  {plainText(row.passageText)}
+                  {stripMarkup(row.passageText)}
                 </p>
               )}
             </div>
@@ -359,7 +359,7 @@ function QuestionRow({ row, number, section, note, onNote }: {
             placeholder="Note for this question…"
             aria-label={`${section} question ${number} note`}
             maxLength={1000}
-            className={cn(
+            className={classes(
               'w-full h-9 px-3 text-[13.5px] border rounded-lg text-ink',
               note ? 'border-border-strong bg-white' : 'border-border bg-[#FBFAF8]',
             )}

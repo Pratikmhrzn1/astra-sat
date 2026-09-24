@@ -1,17 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
 import { Users, BookOpen, BarChart2, GraduationCap, UserCog, HelpCircle } from 'lucide-react';
-import { getAuditLog, getStats, type AuditEntry } from '@/features/admin';
-import { cn, formatDateTime } from '@/shared/lib/utils';
-import { InlineLoader, pageClass, surfaceClass } from '@/shared/ui';
+import { fetchAuditLog, fetchStats, type TrailRecord } from '@/features/admin';
+import { classes, renderDateTime } from '@/shared/lib/utils';
+import { InlineSpinner, screenStyle, surfaceStyle } from '@/shared/ui';
 
-export default function AdminDashboard() {
+export default function ConsoleDashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ['admin', 'stats'],
-    queryFn: getStats,
+    queryFn: fetchStats,
   });
-  const { data: audit = [] } = useQuery({ queryKey: ['admin', 'audit-log'], queryFn: () => getAuditLog(50) });
+  const { data: audit = [] } = useQuery({ queryKey: ['admin', 'audit-log'], queryFn: () => fetchAuditLog(50) });
 
-  if (isLoading) return <InlineLoader />;
+  if (isLoading) return <InlineSpinner />;
 
   const statCards = [
     { label: 'Total Students', value: stats?.students ?? 0, icon: GraduationCap, tile: 'bg-blue-sat/[.08] text-blue-sat' },
@@ -23,13 +23,13 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className={cn(pageClass, 'pb-8')}>
+    <div className={classes(screenStyle, 'pb-8')}>
       <div className="mb-7">
         <div className="text-[11px] font-bold tracking-[0.12em] uppercase text-accent-text mb-1.5">System overview</div>
         <h1 className="font-display font-semibold text-[32px] sm:text-[44px] m-0 tracking-[-0.02em] text-ink">Admin Dashboard</h1>
       </div>
 
-      <div className={cn(surfaceClass, 'px-[22px] py-5 mb-4')}>
+      <div className={classes(surfaceStyle, 'px-[22px] py-5 mb-4')}>
         <div className="flex items-baseline justify-between gap-3 mb-1">
           <h2 className="text-sm font-semibold m-0 text-ink">Question tagging coverage</h2>
           <span className="text-xs text-muted">Published questions with a topic</span>
@@ -51,7 +51,7 @@ export default function AdminDashboard() {
                   </span>
                 </div>
                 <div className="h-1.5 bg-sunken rounded-full overflow-hidden">
-                  <div className={cn('h-1.5 rounded-full', bar)} style={{ width: `${percentage}%` }} />
+                  <div className={classes('h-1.5 rounded-full', bar)} style={{ width: `${percentage}%` }} />
                 </div>
               </div>
             );
@@ -61,8 +61,8 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4 mb-4">
         {statCards.map(({ label, value, icon: Icon, tile }) => (
-          <div key={label} className={cn(surfaceClass, 'px-[22px] py-5 flex items-center gap-4')}>
-            <div className={cn('w-[42px] h-[42px] rounded-xl flex items-center justify-center shrink-0', tile)}>
+          <div key={label} className={classes(surfaceStyle, 'px-[22px] py-5 flex items-center gap-4')}>
+            <div className={classes('w-[42px] h-[42px] rounded-xl flex items-center justify-center shrink-0', tile)}>
               <Icon size={20} />
             </div>
             <div>
@@ -94,7 +94,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 /** The one line of detail worth showing for an action, if any. */
-function detail(entry: AuditEntry): string | null {
+function detail(entry: TrailRecord): string | null {
   const p = entry.payload ?? {};
   if (entry.action === 'db.sql_run' && typeof p.sql === 'string') return p.sql;
   if (entry.action === 'users.assigned_teacher' && typeof p.assigned === 'number') return `${p.assigned} ${p.assigned === 1 ? 'student' : 'students'}`;
@@ -108,9 +108,9 @@ function detail(entry: AuditEntry): string | null {
  * Irreversible admin and content actions, newest first. Read-only on purpose:
  * an audit trail an admin could edit would not be one.
  */
-function AuditPanel({ entries }: { entries: AuditEntry[] }) {
+function AuditPanel({ entries }: { entries: TrailRecord[] }) {
   return (
-    <div className={cn(surfaceClass, 'px-[22px] py-5')}>
+    <div className={classes(surfaceStyle, 'px-[22px] py-5')}>
       <h2 className="text-sm font-semibold mt-0 mb-0.5 text-ink">Recent admin actions</h2>
       <p className="text-[12.5px] text-muted mt-0 mb-3">
         User and access-code changes, database operations, and archived or deleted question sets.
@@ -130,11 +130,11 @@ function AuditPanel({ entries }: { entries: AuditEntry[] }) {
                     {failed && <span className="ml-2 text-xs font-semibold text-danger">failed</span>}
                   </div>
                   {line && (
-                    <div className={cn('text-[12.5px] text-subtle truncate', entry.action === 'db.sql_run' && 'font-mono')}>{line}</div>
+                    <div className={classes('text-[12.5px] text-subtle truncate', entry.action === 'db.sql_run' && 'font-mono')}>{line}</div>
                   )}
                 </div>
                 <div className="text-[12.5px] text-subtle text-right">
-                  {entry.actorName ?? entry.actorEmail ?? 'Deleted user'} · {formatDateTime(entry.createdAt)}
+                  {entry.actorName ?? entry.actorEmail ?? 'Deleted user'} · {renderDateTime(entry.createdAt)}
                 </div>
               </div>
             );

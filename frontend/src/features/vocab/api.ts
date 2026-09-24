@@ -1,8 +1,8 @@
-import { apiClient } from '@/shared/api/http';
+import { apiTransport } from '@/shared/api/http';
 
 /** Vocabulary: the student's spaced-repetition deck and the teachers' word bank. */
 
-export interface VocabDrillContent {
+export interface LexiconDrillContent {
   word: string;
   sentenceContext: string;
   followUpQuestion: string;
@@ -11,7 +11,7 @@ export interface VocabDrillContent {
   explanation: string;
 }
 
-export interface VocabDueItemQuestion {
+export interface LexiconDueItemQuestion {
   source: 'question';
   vocabId: string;
   word: string;
@@ -20,10 +20,10 @@ export interface VocabDueItemQuestion {
   easeFactor: string;
   reviewCount: number;
   generatedContentId: string;
-  content: VocabDrillContent;
+  content: LexiconDrillContent;
 }
 
-export interface VocabDueItemTeacher {
+export interface LexiconDueItemTeacher {
   source: 'teacher';
   vocabId: string;
   word: string;
@@ -34,26 +34,26 @@ export interface VocabDueItemTeacher {
   reviewCount: number;
 }
 
-export type VocabDueItem = VocabDueItemQuestion | VocabDueItemTeacher;
+export type LexiconDueItem = LexiconDueItemQuestion | LexiconDueItemTeacher;
 
-export async function getDueVocab(): Promise<VocabDueItem[]> {
-  const { data } = await apiClient.get<VocabDueItem[]>('/student/vocab/due');
+export async function fetchDueLexicon(): Promise<LexiconDueItem[]> {
+  const { data } = await apiTransport.get<LexiconDueItem[]>('/student/vocab/due');
   return data;
 }
 
-export async function reviewVocab(
+export async function reviewLexicon(
   vocabId: string,
   isCorrect: boolean,
 ): Promise<{ ok: boolean; nextReviewAt: string; intervalDays: number }> {
-  const { data } = await apiClient.post(`/student/vocab/${vocabId}/review`, { isCorrect });
+  const { data } = await apiTransport.post(`/student/vocab/${vocabId}/review`, { isCorrect });
   return data;
 }
 
-export async function reviewTeacherVocab(wordId: string, isCorrect: boolean): Promise<void> {
-  await apiClient.post(`/student/vocab/teacher/${wordId}/review`, { isCorrect });
+export async function reviewTeacherLexicon(wordId: string, isCorrect: boolean): Promise<void> {
+  await apiTransport.post(`/student/vocab/teacher/${wordId}/review`, { isCorrect });
 }
 
-export interface TeacherVocabWord {
+export interface TeacherLexiconWord {
   id: string;
   word: string;
   definition: string;
@@ -61,16 +61,16 @@ export interface TeacherVocabWord {
   createdAt: string;
 }
 
-export async function getTeacherVocabWords(): Promise<TeacherVocabWord[]> {
-  const { data } = await apiClient.get<TeacherVocabWord[]>('/teacher/vocab-words');
+export async function fetchTeacherLexiconWords(): Promise<TeacherLexiconWord[]> {
+  const { data } = await apiTransport.get<TeacherLexiconWord[]>('/teacher/vocab-words');
   return data;
 }
 
-export async function createTeacherVocabWord(payload: { word: string; definition: string; exampleSentence?: string }): Promise<TeacherVocabWord> {
-  const { data } = await apiClient.post<TeacherVocabWord>('/teacher/vocab-words', payload);
+export async function addTeacherLexiconWord(payload: { word: string; definition: string; exampleSentence?: string }): Promise<TeacherLexiconWord> {
+  const { data } = await apiTransport.post<TeacherLexiconWord>('/teacher/vocab-words', payload);
   return data;
 }
 
-export async function deleteTeacherVocabWord(wordId: string): Promise<void> {
-  await apiClient.delete(`/teacher/vocab-words/${wordId}`);
+export async function removeTeacherLexiconWord(wordId: string): Promise<void> {
+  await apiTransport.delete(`/teacher/vocab-words/${wordId}`);
 }

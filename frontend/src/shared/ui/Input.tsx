@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -7,7 +7,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   hint?: string;
 }
 
-export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+export const Field = React.forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, hint, className, id, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
     return (
@@ -21,7 +21,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           id={inputId}
           {...props}
-          className={cn(
+          className={classes(
             'w-full h-11 px-3.5 border rounded-xl text-[15px] bg-white text-ink placeholder-ink/30 outline-none transition-[border-color,box-shadow] duration-150 focus:ring-4 focus:ring-ember/15',
             error ? 'border-red-400 focus:ring-red-300' : 'border-border focus:border-ember',
             className
@@ -33,14 +33,14 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     );
   }
 );
-Input.displayName = 'Input';
+Field.displayName = 'Input';
 
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
   error?: string;
 }
 
-export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
+export const TextField = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ label, error, className, id, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
     return (
@@ -54,7 +54,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           id={inputId}
           {...props}
-          className={cn(
+          className={classes(
             'w-full px-3.5 py-3 border rounded-xl text-[15px] bg-white text-ink placeholder-ink/30 outline-none transition-[border-color,box-shadow] duration-150 focus:ring-4 focus:ring-ember/15 resize-vertical min-h-[80px]',
             error ? 'border-red-400' : 'border-border focus:border-ember',
             className
@@ -65,7 +65,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     );
   }
 );
-Textarea.displayName = 'Textarea';
+TextField.displayName = 'Textarea';
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
@@ -74,7 +74,7 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   children?: React.ReactNode;
 }
 
-export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
+export const Chooser = React.forwardRef<HTMLSelectElement, SelectProps>(
   ({ label, error, options, className, id, children, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
     return (
@@ -88,7 +88,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           id={inputId}
           {...props}
-          className={cn(
+          className={classes(
             'w-full h-11 px-3.5 border rounded-xl text-[15px] bg-white text-ink outline-none transition-[border-color,box-shadow] duration-150 focus:ring-4 focus:ring-ember/15 cursor-pointer',
             error ? 'border-red-400' : 'border-border focus:border-ember',
             className
@@ -103,4 +103,4 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     );
   }
 );
-Select.displayName = 'Select';
+Chooser.displayName = 'Select';

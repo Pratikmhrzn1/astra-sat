@@ -3,22 +3,22 @@ import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { forgotPassword } from '@/features/auth/api';
-import { getApiError } from '@/shared/api/http';
-import { fieldClass, labelClass, errorTextClass, alertClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { forgotPassphrase } from '@/features/auth/api';
+import { fetchApiError } from '@/shared/api/http';
+import { fieldStyle, fieldCaptionStyle, errorTextStyle, alertStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 const schema = z.object({
   email: z.string().email('Invalid email address'),
 });
 type FormData = z.infer<typeof schema>;
 
-const submitClass = (busy: boolean) => cn(
+const submitClass = (busy: boolean) => classes(
   'w-full h-12 text-white rounded-full text-[15px] font-semibold shadow-accent',
   busy ? 'bg-accent-disabled cursor-default' : 'bg-accent-text cursor-pointer',
 );
 
-export default function ForgotPassword() {
+export default function RecoverPassphrase() {
   const [sent, setSent] = useState(false);
   const [apiError, setApiError] = useState('');
 
@@ -27,10 +27,10 @@ export default function ForgotPassword() {
   const onSubmit = async (data: FormData) => {
     setApiError('');
     try {
-      await forgotPassword(data.email);
+      await forgotPassphrase(data.email);
       setSent(true);
     } catch (err) {
-      setApiError(getApiError(err));
+      setApiError(fetchApiError(err));
     }
   };
 
@@ -55,12 +55,12 @@ export default function ForgotPassword() {
         ) : (
           <form onSubmit={handleSubmit(onSubmit)}>
             <div className="mb-4">
-              <label className={labelClass}>Email</label>
-              <input type="email" autoComplete="email" placeholder="you@email.com" {...register('email')} className={fieldClass(!!errors.email)} />
-              {errors.email && <p className={errorTextClass}>{errors.email.message}</p>}
+              <label className={fieldCaptionStyle}>Email</label>
+              <input type="email" autoComplete="email" placeholder="you@email.com" {...register('email')} className={fieldStyle(!!errors.email)} />
+              {errors.email && <p className={errorTextStyle}>{errors.email.message}</p>}
             </div>
 
-            {apiError && <div className={cn(alertClass, 'mb-3')}>{apiError}</div>}
+            {apiError && <div className={classes(alertStyle, 'mb-3')}>{apiError}</div>}
 
             <button
               type="submit"

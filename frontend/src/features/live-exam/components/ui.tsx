@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
-import { cn } from '@/shared/lib/utils';
-import { Button, kickerClass, surfaceClass } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
+import { Control, kickerStyle, surfaceStyle } from '@/shared/ui';
 
 /**
  * Shared surface for the live-exam screens.
@@ -15,17 +15,17 @@ import { Button, kickerClass, surfaceClass } from '@/shared/ui';
  */
 
 /** Display-face heading, sized by the caller. */
-export const liveTitleClass = 'font-display font-semibold tracking-[-0.02em] m-0';
+export const sessionTitleStyle = 'font-display font-semibold tracking-[-0.02em] m-0';
 
 /** Clickable row: lifts under a pointer. */
-export const liveRowClass = 'transition-[box-shadow,border-color,transform] duration-150 ease-[cubic-bezier(0.2,0,0,1)] hover:border-border-strong hover:shadow-md';
+export const sessionRowStyle = 'transition-[box-shadow,border-color,transform] duration-150 ease-[cubic-bezier(0.2,0,0,1)] hover:border-border-strong hover:shadow-md';
 
 /**
  * Page frame shared by every live-exam screen: the same gutters as the rest of
  * the product (48px desktop, 16px phone) and one content width, so moving
  * between the list, the room and a marking sheet never shifts the left edge.
  */
-export function LivePage({ children, width = 880 }: { children: React.ReactNode; width?: number }) {
+export function SessionScreen({ children, width = 880 }: { children: React.ReactNode; width?: number }) {
   return (
     <div
       className="screen-fade px-4 pt-5 pb-24 sm:px-12 sm:pt-9 sm:pb-16 max-w-[var(--live-w-sm)] sm:max-w-[var(--live-w)]"
@@ -38,7 +38,7 @@ export function LivePage({ children, width = 880 }: { children: React.ReactNode;
 }
 
 /** The "← Back" link at the top of a sub-page. */
-export function BackLink({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+export function ReturnLink({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       onClick={onClick}
@@ -54,7 +54,7 @@ export function BackLink({ onClick, children }: { onClick: () => void; children:
  * Named for what a teacher sees in the room rather than for the database value:
  * a session is not "active", the class is sitting it.
  */
-export function StatusPill({ status }: { status: string }) {
+export function StatusBadgePill({ status }: { status: string }) {
   const spec: Record<string, { label: string; tone: string; dot: string }> = {
     waiting: { label: 'Lobby open', tone: 'text-gold-dark bg-gold/[.12]', dot: 'bg-gold-dark' },
     active: { label: 'In progress', tone: 'text-green-dark bg-green-dark/10', dot: 'bg-green-dark' },
@@ -63,8 +63,8 @@ export function StatusPill({ status }: { status: string }) {
   const { label, tone, dot } = spec[status] ?? spec.completed;
 
   return (
-    <span className={cn('inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-semibold whitespace-nowrap', tone)}>
-      <span aria-hidden className={cn('w-1.5 h-1.5 rounded-full', dot)} />
+    <span className={classes('inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-semibold whitespace-nowrap', tone)}>
+      <span aria-hidden className={classes('w-1.5 h-1.5 rounded-full', dot)} />
       {label}
     </span>
   );
@@ -82,20 +82,20 @@ export function StatusPill({ status }: { status: string }) {
  *
  * The large plate scales with the viewport so six cells always fit a phone.
  */
-export function JoinCodePlate({ code, size = 'large' }: { code: string; size?: 'large' | 'small' }) {
+export function EntryCodePlate({ code, size = 'large' }: { code: string; size?: 'large' | 'small' }) {
   const large = size === 'large';
 
   return (
     <div
       role="img"
-      className={cn('flex', large ? 'gap-[clamp(5px,1.6vw,8px)]' : 'gap-1')}
+      className={classes('flex', large ? 'gap-[clamp(5px,1.6vw,8px)]' : 'gap-1')}
       aria-label={`Join code ${code.split('').join(' ')}`}
     >
       {code.split('').map((char, i) => (
         <span
           key={i}
           aria-hidden
-          className={cn(
+          className={classes(
             'flex items-center justify-center bg-[#FBFAF8] border border-border font-mono font-semibold text-ink leading-none',
             large
               ? 'w-[clamp(36px,11vw,48px)] h-[clamp(46px,14vw,60px)] rounded-[10px] text-[clamp(22px,7vw,30px)]'
@@ -108,11 +108,11 @@ export function JoinCodePlate({ code, size = 'large' }: { code: string; size?: '
 }
 
 /** Copies text and says so in place, rather than firing a toast the room won't see. */
-export function CopyButton({ value, label }: { value: string; label: string }) {
+export function CopyControl({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
 
   return (
-    <Button
+    <Control
       type="button"
       variant="secondary"
       onClick={async () => {
@@ -124,26 +124,26 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
           // Clipboard access can be refused; the code is on screen either way.
         }
       }}
-      className={cn('h-9 px-3.5 text-[13px] min-w-[96px]', copied ? 'text-green-dark' : 'text-ink')}
+      className={classes('h-9 px-3.5 text-[13px] min-w-[96px]', copied ? 'text-green-dark' : 'text-ink')}
     >
       <span aria-live="polite">{copied ? 'Copied ✓' : label}</span>
-    </Button>
+    </Control>
   );
 }
 
 /** A figure with its label, for the at-a-glance rows. */
-export function StatTile({ label, value, sub, valueClassName }: { label: string; value: React.ReactNode; sub?: React.ReactNode; valueClassName?: string }) {
+export function MetricTile({ label, value, sub, valueClassName }: { label: string; value: React.ReactNode; sub?: React.ReactNode; valueClassName?: string }) {
   return (
-    <div className={cn(surfaceClass, 'px-[18px] py-3.5 min-w-0')}>
-      <div className={cn(kickerClass, 'mb-1.5')}>{label}</div>
-      <div className={cn(liveTitleClass, 'text-[30px] leading-none tnum text-ink', valueClassName)}>{value}</div>
+    <div className={classes(surfaceStyle, 'px-[18px] py-3.5 min-w-0')}>
+      <div className={classes(kickerStyle, 'mb-1.5')}>{label}</div>
+      <div className={classes(sessionTitleStyle, 'text-[30px] leading-none tnum text-ink', valueClassName)}>{value}</div>
       {sub && <div className="text-[12.5px] text-subtle mt-1.5">{sub}</div>}
     </div>
   );
 }
 
 /** Skeleton rows while a list loads, so the page keeps its shape instead of jumping. */
-export function LoadingRows({ rows = 3, height = 68 }: { rows?: number; height?: number }) {
+export function SkeletonRows({ rows = 3, height = 68 }: { rows?: number; height?: number }) {
   return (
     <div role="status" aria-label="Loading" className="flex flex-col gap-2.5">
       {Array.from({ length: rows }, (_, i) => (
@@ -157,7 +157,7 @@ export function LoadingRows({ rows = 3, height = 68 }: { rows?: number; height?:
   );
 }
 
-export function ErrorNote({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+export function FailureNote({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div role="alert" className="flex items-center gap-3 flex-wrap bg-danger/[.06] border border-danger/20 rounded-xl px-4 py-2.5 text-[13.5px] text-danger leading-normal">
       <span className="flex-1 min-w-[180px]">{children}</span>
@@ -170,7 +170,7 @@ export function ErrorNote({ children, action }: { children: React.ReactNode; act
  * Question text arrives as authored HTML (the player renders it). Anywhere it is
  * shown as a one-line summary it has to be flattened, or the tags print.
  */
-export function plainText(html: string): string {
+export function stripMarkup(html: string): string {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   return (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim();
 }

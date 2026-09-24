@@ -1,10 +1,10 @@
-import { surfaceClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { surfaceStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 /** The bulk-import file format, shown from the "?" beside Upload JSON. */
-export function JsonImportHelp() {
+export function JsonIngestHelp() {
   return (
-    <div className={cn(surfaceClass, 'px-[22px] py-[18px] mb-4')}>
+    <div className={classes(surfaceStyle, 'px-[22px] py-[18px] mb-4')}>
       <h3 className="text-sm font-semibold mt-0 mb-2">Bulk import format</h3>
       <p className="text-[13px] text-subtle mt-0 mb-3 leading-[1.55]">
         An imported set arrives as a <strong>draft</strong> unless you pass <code>"isDraft": false</code>,

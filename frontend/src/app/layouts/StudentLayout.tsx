@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LiveNotifications } from '@/features/live-exam';
-import { SendFeedbackModal } from '@/features/platform-feedback';
-import AppShell, { type ShellNavItem } from './AppShell';
+import { SessionAlerts } from '@/features/live-exam';
+import { SendNoteDialog } from '@/features/platform-feedback';
+import RootFrame, { type FrameMenuItem } from './AppShell';
 
-const NAV: ShellNavItem[] = [
+const NAV: FrameMenuItem[] = [
   { path: '/student/dashboard', label: 'Dashboard', tabLabel: 'Home', icon: (
     <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/>
@@ -86,20 +86,20 @@ const SettingsIcon = (
   </svg>
 );
 
-export default function StudentLayout() {
+export default function LearnerLayout() {
   const navigate = useNavigate();
   const [showFeedback, setShowFeedback] = useState(false);
 
   return (
-    <AppShell
+    <RootFrame
       nav={NAV}
       tabPaths={['/student/dashboard', '/student/exams', '/student/mock-test', '/student/results']}
       profileSubtitle="View profile"
       menuActions={[{ label: 'Account settings', icon: SettingsIcon, onClick: () => navigate('/student/settings') }]}
       utilityAction={{ label: 'Send Feedback', icon: FeedbackIcon, onClick: () => setShowFeedback(true) }}
     >
-      <LiveNotifications />
-      <SendFeedbackModal open={showFeedback} onClose={() => setShowFeedback(false)} />
-    </AppShell>
+      <SessionAlerts />
+      <SendNoteDialog open={showFeedback} onClose={() => setShowFeedback(false)} />
+    </RootFrame>
   );
 }

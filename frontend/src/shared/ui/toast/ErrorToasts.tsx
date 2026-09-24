@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 import { useEffect } from 'react';
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * Dark translucent toast surface, shared with the live-exam notifications.
  * `.toast` (index.css) carries the entrance and the reduced-transparency fallback.
  */
-export const toastClass = 'toast material bg-[rgba(22,22,26,0.86)] text-white flex items-center gap-3 shadow-toast';
+export const toastStyle = 'toast material bg-[rgba(22,22,26,0.86)] text-white flex items-center gap-3 shadow-toast';
 
 /**
  * App-wide error toasts.
@@ -30,7 +30,7 @@ let nextId = 1;
 const MAX_VISIBLE = 3;
 const LIFETIME_MS = 6000;
 
-export const useErrorToasts = create<ToastState>((set) => ({
+export const useFailureToasts = create<ToastState>((set) => ({
   toasts: [],
   push: (message) =>
     set((s) => {
@@ -41,12 +41,12 @@ export const useErrorToasts = create<ToastState>((set) => ({
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
 
-export function showErrorToast(message: string) {
-  useErrorToasts.getState().push(message);
+export function raiseFailureToast(message: string) {
+  useFailureToasts.getState().push(message);
 }
 
 function ToastItem({ toast }: { toast: Toast }) {
-  const dismiss = useErrorToasts((s) => s.dismiss);
+  const dismiss = useFailureToasts((s) => s.dismiss);
   useEffect(() => {
     const timer = setTimeout(() => dismiss(toast.id), LIFETIME_MS);
     return () => clearTimeout(timer);
@@ -55,7 +55,7 @@ function ToastItem({ toast }: { toast: Toast }) {
   return (
     <div
       role="alert"
-      className={cn(toastClass, 'pointer-events-auto rounded-[14px] py-2.5 pr-2.5 pl-4 max-w-[min(460px,calc(100vw-32px))] text-sm')}
+      className={classes(toastStyle, 'pointer-events-auto rounded-[14px] py-2.5 pr-2.5 pl-4 max-w-[min(460px,calc(100vw-32px))] text-sm')}
     >
       <span className="w-2 h-2 rounded-full bg-[#E5584A] shrink-0" />
       <span className="flex-1 leading-[1.4]">{toast.message}</span>
@@ -68,8 +68,8 @@ function ToastItem({ toast }: { toast: Toast }) {
   );
 }
 
-export function ErrorToasts() {
-  const toasts = useErrorToasts((s) => s.toasts);
+export function FailureToasts() {
+  const toasts = useFailureToasts((s) => s.toasts);
   if (toasts.length === 0) return null;
   return (
     <div

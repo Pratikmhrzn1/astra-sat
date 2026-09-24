@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuthStore } from '@/features/auth';
-import { getSurvey, submitSurvey, type SurveyAnswer } from '@/features/survey/api';
-import { QuestionField, isAnswered } from '@/features/survey/components/QuestionField';
-import { Button, PageLoader, labelClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
-import { getApiError } from '@/shared/api/http';
+import { useSessionVault } from '@/features/auth';
+import { fetchIntake, commitIntake, type IntakeAnswer } from '@/features/survey/api';
+import { ItemField, hasResponse } from '@/features/survey/components/QuestionField';
+import { Control, ScreenLoader, fieldCaptionStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
+import { fetchApiError } from '@/shared/api/http';
 
 /**
  * The one-time survey a new student answers before the app opens up.
@@ -52,11 +52,11 @@ function SurveyNotice({
   );
 }
 
-export default function OnboardingSurvey() {
+export default function OnboardingIntake() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, setUser, logout } = useAuthStore();
-  const [answers, setAnswers] = useState<Record<string, SurveyAnswer>>({});
+  const { user, setUser, logout } = useSessionVault();
+  const [answers, setAnswers] = useState<Record<string, IntakeAnswer>>({});
   const [error, setError] = useState('');
   /** The question a failed "Continue" jumped to, outlined until it is answered. */
   const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -65,7 +65,7 @@ export default function OnboardingSurvey() {
   // a spinner behind it with nothing to press.
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: SURVEY_KEY,
-    queryFn: getSurvey,
+    queryFn: fetchIntake,
     meta: { handlesError: true },
   });
 
@@ -88,9 +88,9 @@ export default function OnboardingSurvey() {
   }, [navigate, queryClient, setUser, user]);
 
   const submitMutation = useMutation({
-    mutationFn: () => submitSurvey(Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer }))),
+    mutationFn: () => commitIntake(Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer }))),
     onSuccess: finish,
-    onError: (err) => setError(getApiError(err)),
+    onError: (err) => setError(fetchApiError(err)),
   });
 
   // An already-complete account, or a survey with no questions, must not be
@@ -110,13 +110,13 @@ export default function OnboardingSurvey() {
     }
   }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const answer = (questionId: string, next: SurveyAnswer) => {
+  const answer = (questionId: string, next: IntakeAnswer) => {
     setError('');
     setHighlightId((current) => (current === questionId ? null : current));
     setAnswers((prev) => ({ ...prev, [questionId]: next }));
   };
 
-  const unanswered = questions.filter((q) => q.isRequired && !isAnswered(answers[q.id]));
+  const unanswered = questions.filter((q) => q.isRequired && !hasResponse(answers[q.id]));
   const requiredCount = questions.filter((q) => q.isRequired).length;
   const answeredCount = requiredCount - unanswered.length;
 
@@ -141,8 +141,8 @@ export default function OnboardingSurvey() {
         title="We couldn't load your questions"
         message="Something went wrong reaching the server. Try again, or sign out and come back later."
       >
-        <Button onClick={() => refetch()} loading={isFetching}>Try again</Button>
-        <Button variant="secondary" onClick={signOut}>Sign out</Button>
+        <Control onClick={() => refetch()} loading={isFetching}>Try again</Control>
+        <Control variant="secondary" onClick={signOut}>Sign out</Control>
       </SurveyNotice>
     );
   }
@@ -155,13 +155,13 @@ export default function OnboardingSurvey() {
         title="We couldn't finish setting up"
         message={error || 'Something went wrong. Try again, or sign out and come back later.'}
       >
-        <Button onClick={() => submitMutation.mutate()} loading={submitMutation.isPending}>Try again</Button>
-        <Button variant="secondary" onClick={signOut}>Sign out</Button>
+        <Control onClick={() => submitMutation.mutate()} loading={submitMutation.isPending}>Try again</Control>
+        <Control variant="secondary" onClick={signOut}>Sign out</Control>
       </SurveyNotice>
     );
   }
 
-  if (isLoading || !data || data.completed || questions.length === 0) return <PageLoader />;
+  if (isLoading || !data || data.completed || questions.length === 0) return <ScreenLoader />;
 
   return (
     <div className="min-h-screen bg-paper px-6 py-10 sm:py-14">
@@ -218,19 +218,19 @@ export default function OnboardingSurvey() {
                   else cardRefs.current.delete(question.id);
                 }}
                 // scroll-mt keeps the jumped-to card clear of the viewport edge.
-                className={cn(
+                className={classes(
                   'scroll-mt-8 bg-white rounded-2xl p-5 border transition-[border-color,box-shadow] duration-quick ease-ui',
                   flagged ? 'border-ember shadow-[0_0_0_3px_rgba(226,86,43,0.12)]' : 'border-border-soft',
                 )}
               >
-                <div className={cn(labelClass, 'flex gap-2 mb-3.5')}>
+                <div className={classes(fieldCaptionStyle, 'flex gap-2 mb-3.5')}>
                   <span className="text-muted font-bold">{index + 1}.</span>
                   <span className="flex-1">
                     {question.prompt}
                     {!question.isRequired && <span className="ml-2 font-normal text-muted">(optional)</span>}
                   </span>
                 </div>
-                <QuestionField
+                <ItemField
                   question={question}
                   value={answers[question.id]}
                   onChange={(next) => answer(question.id, next)}
@@ -264,7 +264,7 @@ export default function OnboardingSurvey() {
             type="button"
             onClick={handleContinue}
             disabled={submitMutation.isPending}
-            className={cn(
+            className={classes(
               'w-full h-12 mt-6 bg-accent-text text-white rounded-full text-[15px] font-semibold cursor-pointer',
               'disabled:opacity-60 disabled:cursor-not-allowed',
               unanswered.length === 0 && 'shadow-accent',

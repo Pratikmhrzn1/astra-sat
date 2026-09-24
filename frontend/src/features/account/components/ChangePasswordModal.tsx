@@ -1,16 +1,16 @@
 import { useState } from 'react';
-import { changePassword } from '@/features/auth';
-import { getApiError } from '@/shared/api/http';
-import { alertClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { changePassphrase } from '@/features/auth';
+import { fetchApiError } from '@/shared/api/http';
+import { alertStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
-const fieldClass = (err: boolean) => cn(
+const fieldClass = (err: boolean) => classes(
   'w-full h-11 px-3.5 border rounded-[10px] text-sm bg-white outline-none',
   err ? 'border-error-field' : 'border-field',
 );
 const labelClass = 'block text-[13px] font-semibold text-subtle mb-1.5';
 
-export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+export function ChangePassphraseDialog({ onClose }: { onClose: () => void }) {
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -25,10 +25,10 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
     if (next !== confirm) { setError('Passwords do not match.'); return; }
     setLoading(true);
     try {
-      await changePassword(current, next);
+      await changePassphrase(current, next);
       setDone(true);
     } catch (err) {
-      setError(getApiError(err));
+      setError(fetchApiError(err));
     } finally {
       setLoading(false);
     }
@@ -69,14 +69,14 @@ export function ChangePasswordModal({ onClose }: { onClose: () => void }) {
               </div>
             </div>
 
-            {error && <div className={cn(alertClass, 'mt-3.5')}>{error}</div>}
+            {error && <div className={classes(alertStyle, 'mt-3.5')}>{error}</div>}
 
             <div className="flex gap-2.5 mt-[22px]">
               <button type="button" onClick={onClose} className="flex-1 h-11 bg-white text-ink border border-field rounded-full text-sm font-semibold cursor-pointer">Cancel</button>
               <button
                 type="submit"
                 disabled={incomplete}
-                className={cn('flex-1 h-11 text-white rounded-full text-sm font-semibold transition-colors duration-150', incomplete ? 'bg-field cursor-default' : 'bg-ink cursor-pointer')}
+                className={classes('flex-1 h-11 text-white rounded-full text-sm font-semibold transition-colors duration-150', incomplete ? 'bg-field cursor-default' : 'bg-ink cursor-pointer')}
               >
                 {loading ? 'Updating…' : 'Update password'}
               </button>

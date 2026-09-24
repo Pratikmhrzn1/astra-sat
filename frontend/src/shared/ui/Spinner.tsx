@@ -1,10 +1,10 @@
 import React from 'react';
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
-export function Spinner({ className }: { className?: string }) {
+export function Loader({ className }: { className?: string }) {
   return (
     <svg
-      className={cn('animate-spin w-8 h-8', className)}
+      className={classes('animate-spin w-8 h-8', className)}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -20,19 +20,19 @@ export function Spinner({ className }: { className?: string }) {
 }
 
 /** A spinner inside a page's content area, while its first query loads. */
-export function InlineLoader() {
+export function InlineSpinner() {
   return (
     <div className="flex justify-center pt-16">
-      <Spinner className="w-8 h-8 text-accent-text" />
+      <Loader className="w-8 h-8 text-accent-text" />
     </div>
   );
 }
 
-export function PageLoader() {
+export function ScreenLoader() {
   return (
     <div className="min-h-screen bg-paper flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
-        <Spinner className="w-10 h-10 text-accent-text" />
+        <Loader className="w-10 h-10 text-accent-text" />
         <p className="text-muted text-sm">Loading…</p>
       </div>
     </div>

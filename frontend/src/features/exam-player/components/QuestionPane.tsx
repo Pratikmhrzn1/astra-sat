@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
-import type { Question } from '@/entities/exam';
-import { cn } from '@/shared/lib/utils';
+import type { Item } from '@/entities/exam';
+import { classes } from '@/shared/lib/utils';
 
 const LETTER = ['A', 'B', 'C', 'D'];
 const OPT_KEYS = ['a', 'b', 'c', 'd'];
@@ -9,8 +9,8 @@ const OPT_KEYS = ['a', 'b', 'c', 'd'];
  * The scrolling content area: the passage (beside the question on wide screens,
  * above it on phones), the question, and its answer input.
  */
-export const QuestionPane = forwardRef<HTMLDivElement, {
-  q: Question;
+export const ItemPane = forwardRef<HTMLDivElement, {
+  q: Item;
   index: number;
   selected: string | null | undefined;
   eliminated: Record<string, boolean>;
@@ -25,7 +25,7 @@ export const QuestionPane = forwardRef<HTMLDivElement, {
   return (
     <div ref={ref} className="scrollarea flex-1 overflow-y-auto bg-paper">
       <div
-        className={cn(
+        className={classes(
           'mx-auto px-4 pt-5 pb-[60px] sm:px-10 sm:pt-10',
           hasPassage ? 'max-w-full sm:max-w-[1100px] sm:grid sm:grid-cols-2 sm:gap-12' : 'max-w-[760px]',
         )}
@@ -45,7 +45,7 @@ export const QuestionPane = forwardRef<HTMLDivElement, {
             {isSPR && <span className="text-[11px] font-bold tracking-[0.07em] uppercase px-2 py-[3px] rounded-md bg-ember/[.08] text-accent-text">Grid-in</span>}
           </div>
           <p
-            className={cn('leading-[1.55] font-medium text-ink mt-0 mb-[22px]', largeFont ? 'text-xl' : 'text-[16.5px]')}
+            className={classes('leading-[1.55] font-medium text-ink mt-0 mb-[22px]', largeFont ? 'text-xl' : 'text-[16.5px]')}
             dangerouslySetInnerHTML={{ __html: q.questionText }}
           />
           {q.imageUrl && (
@@ -62,7 +62,7 @@ export const QuestionPane = forwardRef<HTMLDivElement, {
                 value={selected ?? ''}
                 onChange={(e) => onSelect(e.target.value)}
                 placeholder="Enter your answer…"
-                className={cn(
+                className={classes(
                   'w-full max-w-[280px] h-[52px] px-4 rounded-xl text-lg font-mono bg-white text-ink outline-none',
                   selected ? 'border-[1.5px] border-ember' : 'border border-field',
                 )}
@@ -84,7 +84,7 @@ export const QuestionPane = forwardRef<HTMLDivElement, {
                       onClick={() => onSelect(key)}
                       data-press="soft"
                       aria-pressed={isSelected}
-                      className={cn(
+                      className={classes(
                         'flex-1 flex items-center gap-3.5 text-left px-[18px] py-[15px] rounded-xl cursor-pointer',
                         'transition-[background-color,border-color,opacity,transform] duration-150 ease-in-out',
                         isSelected ? 'bg-ember/[.06] border-[1.5px] border-ember' : 'bg-white border border-field',
@@ -92,19 +92,19 @@ export const QuestionPane = forwardRef<HTMLDivElement, {
                       )}
                     >
                       <span
-                        className={cn(
+                        className={classes(
                           'w-7 h-7 shrink-0 rounded-full border-[1.5px] flex items-center justify-center text-[13px] font-bold',
                           isSelected ? 'border-ember bg-accent-text text-white' : 'border-field bg-transparent text-stone',
                         )}
                       >{LETTER[oi]}</span>
-                      <span className={cn('text-ink leading-normal', largeFont ? 'text-lg' : 'text-[15px]', isElim && 'line-through')}>{optTexts[oi]}</span>
+                      <span className={classes('text-ink leading-normal', largeFont ? 'text-lg' : 'text-[15px]', isElim && 'line-through')}>{optTexts[oi]}</span>
                     </button>
                     <button
                       title="Cross out"
                       aria-label={`Cross out ${LETTER[oi]}`}
                       aria-pressed={isElim}
                       onClick={() => onToggleElim(key)}
-                      className={cn(
+                      className={classes(
                         'w-11 shrink-0 rounded-[10px] border border-border cursor-pointer text-[11px] font-bold tracking-[0.02em] line-through',
                         isElim ? 'bg-ink/[.04] text-accent-text' : 'bg-white text-stone',
                       )}
@@ -119,4 +119,4 @@ export const QuestionPane = forwardRef<HTMLDivElement, {
     </div>
   );
 });
-QuestionPane.displayName = 'QuestionPane';
+ItemPane.displayName = 'QuestionPane';

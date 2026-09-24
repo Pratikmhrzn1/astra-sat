@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * Symbol palette for authoring math questions.
@@ -19,7 +19,7 @@ const SYMBOL_GROUPS = [
   { label: '…', tip: 'Other symbols', symbols: ['°', '∠', '△', '∑', '∫'] },
 ];
 
-export function MathToolbar({ onInsert }: { onInsert: (s: string) => void }) {
+export function MathPalette({ onInsert }: { onInsert: (s: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
   return (
     <div className="flex gap-1 flex-wrap mb-1.5">
@@ -30,7 +30,7 @@ export function MathToolbar({ onInsert }: { onInsert: (s: string) => void }) {
             type="button"
             title={g.tip}
             onClick={() => setOpen(open === g.label ? null : g.label)}
-            className={cn('px-2 py-[3px] text-[11px] font-semibold border border-border rounded-md cursor-pointer', open === g.label ? 'bg-ink text-white' : 'bg-sunken text-ink')}
+            className={classes('px-2 py-[3px] text-[11px] font-semibold border border-border rounded-md cursor-pointer', open === g.label ? 'bg-ink text-white' : 'bg-sunken text-ink')}
           >{g.label} ▾</button>
           {open === g.label && (
             <div className="absolute top-full left-0 mt-1 bg-white border border-border rounded-[10px] p-2 z-50 flex flex-wrap gap-1 w-[200px] shadow-[0_8px_24px_rgba(11,11,14,0.12)]">

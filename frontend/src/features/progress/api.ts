@@ -1,9 +1,9 @@
-import { apiClient } from '@/shared/api/http';
+import { apiTransport } from '@/shared/api/http';
 
 /** A student's analytics and goal. Teachers read the same shapes through the roster. */
 
 /** The goal a student is working towards. Null until they set one. */
-export interface StudentProfile {
+export interface LearnerProfile {
   id: string;
   studentId: string;
   targetScore: number | null;
@@ -15,22 +15,22 @@ export interface StudentProfile {
 // ── Profile ──────────────────────────────────────────────────────────────────
 
 /** Null when the student has not set a goal — callers must prompt, not guess. */
-export async function getProfile(): Promise<StudentProfile | null> {
-  const { data } = await apiClient.get<StudentProfile | null>('/student/profile');
+export async function fetchProfile(): Promise<LearnerProfile | null> {
+  const { data } = await apiTransport.get<LearnerProfile | null>('/student/profile');
   return data;
 }
 
-export async function updateProfile(payload: {
+export async function editLearnerDossier(payload: {
   targetScore?: number | null;
   testDate?: string | null;
-}): Promise<StudentProfile> {
-  const { data } = await apiClient.put<StudentProfile>('/student/profile', payload);
+}): Promise<LearnerProfile> {
+  const { data } = await apiTransport.put<LearnerProfile>('/student/profile', payload);
   return data;
 }
 
 // ── Analytics ────────────────────────────────────────────────────────────────
 
-export interface DomainAccuracy {
+export interface DomainHitRate {
   domainCode: string;
   domainLabel: string;
   subject: 'english' | 'math';
@@ -39,12 +39,12 @@ export interface DomainAccuracy {
   accuracy: number;
 }
 
-export interface SkillAccuracy extends DomainAccuracy {
+export interface CompetencyAccuracy extends DomainHitRate {
   skillCode: string | null;
   skillLabel: string | null;
 }
 
-export interface TrendPoint {
+export interface SeriesPoint {
   at: string;
   kind: 'mock' | 'practice';
   label: string;
@@ -53,7 +53,7 @@ export interface TrendPoint {
   math: number | null;
 }
 
-export interface Readiness {
+export interface Preparedness {
   latestTotal: number | null;
   rollingAverage: number | null;
   mocksTaken: number;
@@ -75,16 +75,16 @@ export interface Readiness {
   };
 }
 
-export interface AnalyticsOverview {
-  domains: DomainAccuracy[];
-  skills: SkillAccuracy[];
-  trend: TrendPoint[];
-  readiness: Readiness;
+export interface InsightsOverview {
+  domains: DomainHitRate[];
+  skills: CompetencyAccuracy[];
+  trend: SeriesPoint[];
+  readiness: Preparedness;
   /** Below this many attempts the server considers an accuracy unreportable. */
   minAttempts: number;
 }
 
-export async function getAnalytics(): Promise<AnalyticsOverview> {
-  const { data } = await apiClient.get<AnalyticsOverview>('/student/analytics/overview');
+export async function fetchAnalytics(): Promise<InsightsOverview> {
+  const { data } = await apiTransport.get<InsightsOverview>('/student/analytics/overview');
   return data;
 }

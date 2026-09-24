@@ -13,7 +13,7 @@ import React, { useId, useState } from 'react';
  * carry a legend swatch *and* a labelled end point.
  */
 
-export interface TrendSeries {
+export interface SeriesSeries {
   label: string;
   color: string;
   /** Oldest first. Gaps are allowed — a null is simply not plotted. */
@@ -21,14 +21,14 @@ export interface TrendSeries {
 }
 
 /** Validated against the light chart surface; see the palette check in dataviz. */
-export const TREND_COLORS = { english: '#1A6B3C', math: '#2563A8' } as const;
+export const SERIES_HUES = { english: '#1A6B3C', math: '#2563A8' } as const;
 
 const PAD = { top: 14, right: 16, bottom: 22, left: 34 };
 
-export function TrendChart({
+export function SeriesGraph({
   series, height = 190, min, max, valueSuffix = '',
 }: {
-  series: TrendSeries[];
+  series: SeriesSeries[];
   height?: number;
   min?: number;
   max?: number;

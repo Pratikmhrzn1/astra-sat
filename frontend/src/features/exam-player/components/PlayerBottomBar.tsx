@@ -1,14 +1,14 @@
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
 const pill = 'h-10 sm:h-[42px] px-3.5 sm:px-[22px] rounded-full text-[13px] sm:text-sm font-semibold whitespace-nowrap';
 
 /** What the primary bottom button does next, decided by the page. */
-export type BottomAction =
+export type FooterAction =
   | { kind: 'next'; answered: boolean; onClick: () => void }
   | { kind: 'finish'; label: string; tone: 'blue' | 'accent'; onClick: () => void; disabled: boolean };
 
 /** Navigator toggle on the left; Back and Next / finish on the right. */
-export function PlayerBottomBar({
+export function PlayerFooter({
   index, total, navOpen, onToggleNav, onBack, action,
 }: {
   index: number;
@@ -16,7 +16,7 @@ export function PlayerBottomBar({
   navOpen: boolean;
   onToggleNav: () => void;
   onBack: () => void;
-  action: BottomAction;
+  action: FooterAction;
 }) {
   const first = index === 0;
 
@@ -25,7 +25,7 @@ export function PlayerBottomBar({
       <button
         onClick={onToggleNav}
         aria-expanded={navOpen}
-        className={cn(
+        className={classes(
           'flex items-center gap-1.5 border border-field rounded-[10px] px-2.5 sm:px-4 text-xs sm:text-[13.5px] font-semibold cursor-pointer text-ink whitespace-nowrap h-10 sm:h-[42px] shrink-0',
           navOpen ? 'bg-sunken' : 'bg-white',
         )}
@@ -42,7 +42,7 @@ export function PlayerBottomBar({
         <button
           onClick={onBack}
           disabled={first}
-          className={cn(pill, 'border border-field', first ? 'bg-[#EDEAE4] text-[#B0ACA4] cursor-default' : 'bg-white text-ink cursor-pointer')}
+          className={classes(pill, 'border border-field', first ? 'bg-[#EDEAE4] text-[#B0ACA4] cursor-default' : 'bg-white text-ink cursor-pointer')}
         >
           <span className="sm:hidden">←</span>
           <span className="hidden sm:inline">← Back</span>
@@ -50,13 +50,13 @@ export function PlayerBottomBar({
         {action.kind === 'next' ? (
           <button
             onClick={action.onClick}
-            className={cn(pill, 'cursor-pointer', action.answered ? 'bg-accent-text text-white' : 'border border-field bg-white text-stone')}
+            className={classes(pill, 'cursor-pointer', action.answered ? 'bg-accent-text text-white' : 'border border-field bg-white text-stone')}
           >{action.answered ? 'Next →' : 'Skip →'}</button>
         ) : (
           <button
             onClick={action.onClick}
             disabled={action.disabled}
-            className={cn(pill, 'text-white', action.tone === 'blue' ? 'bg-blue-sat' : 'bg-accent-text', action.disabled ? 'cursor-default' : 'cursor-pointer')}
+            className={classes(pill, 'text-white', action.tone === 'blue' ? 'bg-blue-sat' : 'bg-accent-text', action.disabled ? 'cursor-default' : 'cursor-pointer')}
           >{action.label}</button>
         )}
       </div>

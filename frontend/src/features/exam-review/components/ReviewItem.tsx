@@ -1,22 +1,22 @@
-import type { ConfirmFeedbacks } from '@/features/exam-review/api';
-import type { QuestionWithAnswer } from '@/entities/exam';
-import { AiFeedbackPanel } from '@/features/exam-review/components/AiFeedbackPanel';
-import { PassageBlock, QuestionImage } from '@/features/exam-review/components/PassageBlock';
-import { surfaceClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
-import { AnswerReview } from './AnswerReview';
+import type { AcknowledgeNotes } from '@/features/exam-review/api';
+import type { ItemWithAnswer } from '@/entities/exam';
+import { AiNotePane } from '@/features/exam-review/components/AiFeedbackPanel';
+import { ExtractBlock, ItemImage } from '@/features/exam-review/components/PassageBlock';
+import { surfaceStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
+import { AnswerAppraisal } from './AnswerReview';
 
-export type Confidence = 'sure' | 'eliminated' | 'guessed';
-export type AiPending = { confidence: Confidence | null; reasoning: string };
-export type AiResult = { isCorrect: boolean; feedbacks: ConfirmFeedbacks; vocabTrackingId: string | null };
+export type Certainty = 'sure' | 'eliminated' | 'guessed';
+export type TutorPending = { confidence: Certainty | null; reasoning: string };
+export type AiOutcome = { isCorrect: boolean; feedbacks: AcknowledgeNotes; vocabTrackingId: string | null };
 
-const CONFIDENCE_CHIPS: { value: Confidence; label: string }[] = [
+const CONFIDENCE_CHIPS: { value: Certainty; label: string }[] = [
   { value: 'sure',       label: 'I was sure' },
   { value: 'eliminated', label: 'Eliminated the wrong ones' },
   { value: 'guessed',    label: 'Guessed' },
 ];
 
-const toggleBtn = (active: boolean, tone: 'ember' | 'teal') => cn(
+const toggleBtn = (active: boolean, tone: 'ember' | 'teal') => classes(
   'flex items-center gap-1.5 h-9 px-3.5 rounded-full text-[13px] font-semibold cursor-pointer border',
   !active && 'border-field bg-white text-ink',
   active && tone === 'ember' && 'border-ember bg-ember/[.06] text-accent-text',
@@ -29,22 +29,22 @@ const toggleBtn = (active: boolean, tone: 'ember' | 'teal') => cn(
  * State lives in the page, so opening the chat on one question closes it on
  * another and AI results survive collapsing a row.
  */
-export function ReviewItem({
+export function AppraisalItem({
   r, number, open, onToggle, aiEnabled,
   aiOpen, onToggleAi, aiResult, aiPending, onPending, aiLoading, onGetGuidance,
   chatActive, onToggleChat,
   vocabPick, vocabSubmitted, setVocabPick, setVocabSubmitted,
 }: {
-  r: QuestionWithAnswer;
+  r: ItemWithAnswer;
   number: number;
   open: boolean;
   onToggle: () => void;
   aiEnabled: boolean;
   aiOpen: boolean;
   onToggleAi: () => void;
-  aiResult: AiResult | undefined;
-  aiPending: AiPending;
-  onPending: (next: AiPending) => void;
+  aiResult: AiOutcome | undefined;
+  aiPending: TutorPending;
+  onPending: (next: TutorPending) => void;
   aiLoading: boolean;
   onGetGuidance: () => void;
   chatActive: boolean;
@@ -58,10 +58,10 @@ export function ReviewItem({
   const canGuide = !!aiPending.confidence && !aiLoading;
 
   return (
-    <div className={cn(surfaceClass, 'overflow-hidden')}>
+    <div className={classes(surfaceStyle, 'overflow-hidden')}>
       <button onClick={onToggle} className="w-full flex items-center gap-3.5 px-[18px] py-3.5 bg-transparent cursor-pointer text-left">
         <span
-          className={cn(
+          className={classes(
             'w-[26px] h-[26px] rounded-full shrink-0 flex items-center justify-center text-sm font-bold',
             ok ? 'bg-green-sat/[.12] text-green-sat' : r.isCorrect === false ? 'bg-danger/10 text-danger' : 'bg-ink/[.06] text-stone',
           )}
@@ -71,7 +71,7 @@ export function ReviewItem({
         <span className="text-[13px] font-bold text-muted w-[26px]">{String(number).padStart(2, '0')}</span>
         <span className="text-[14.5px] font-semibold flex-1">Question {number}</span>
         <span
-          className={cn(
+          className={classes(
             'text-base inline-block shrink-0 transition-[transform,color] duration-200',
             open ? 'text-accent-text rotate-90' : 'text-gold/75',
           )}
@@ -86,10 +86,10 @@ export function ReviewItem({
             sharing one never repeat it on screen and no deduplication is
             needed.
           */}
-          <PassageBlock passageTitle={r.passageTitle} passageText={r.passageText} />
+          <ExtractBlock passageTitle={r.passageTitle} passageText={r.passageText} />
           <p className="text-[14.5px] font-medium leading-normal mt-0 mb-3.5" dangerouslySetInnerHTML={{ __html: r.questionText }} />
-          <QuestionImage imageUrl={r.imageUrl} />
-          <AnswerReview r={r} />
+          <ItemImage imageUrl={r.imageUrl} />
+          <AnswerAppraisal r={r} />
           {r.explanation && (
             <div className="bg-sunken rounded-[10px] px-3.5 py-3 text-[13.5px] leading-[1.55] text-body mb-3.5">
               <strong className="text-ink">Why: </strong>{r.explanation}
@@ -116,7 +116,7 @@ export function ReviewItem({
           {aiEnabled && aiOpen && (
             <div className="mt-3.5 px-5 py-[18px] rounded-[14px] bg-[#F8F6F2] border border-border">
               {aiResult ? (
-                <AiFeedbackPanel
+                <AiNotePane
                   feedbacks={aiResult.feedbacks}
                   vocabTrackingId={aiResult.vocabTrackingId}
                   questionId={r.id}
@@ -137,7 +137,7 @@ export function ReviewItem({
                         <button
                           key={chip.value}
                           onClick={() => onPending({ ...aiPending, confidence: chip.value })}
-                          className={cn(
+                          className={classes(
                             'px-4 py-2 rounded-full text-[13px] font-semibold cursor-pointer transition-all duration-150',
                             active ? 'border-[1.5px] border-ink bg-ink text-white' : 'border border-field bg-white text-stone',
                           )}
@@ -157,7 +157,7 @@ export function ReviewItem({
                   <button
                     onClick={onGetGuidance}
                     disabled={!aiPending.confidence || aiLoading}
-                    className={cn('h-[38px] px-5 rounded-full text-white text-[13px] font-semibold', canGuide ? 'bg-accent-text cursor-pointer' : 'bg-field cursor-default')}
+                    className={classes('h-[38px] px-5 rounded-full text-white text-[13px] font-semibold', canGuide ? 'bg-accent-text cursor-pointer' : 'bg-field cursor-default')}
                   >
                     {aiLoading ? 'Analysing…' : 'Get AI Guidance →'}
                   </button>

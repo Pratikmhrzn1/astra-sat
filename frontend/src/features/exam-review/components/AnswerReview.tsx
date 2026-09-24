@@ -1,5 +1,5 @@
-import type { QuestionWithAnswer } from '@/entities/exam';
-import { cn } from '@/shared/lib/utils';
+import type { ItemWithAnswer } from '@/entities/exam';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * What the student picked against what was right, for one reviewed question.
@@ -9,7 +9,7 @@ import { cn } from '@/shared/lib/utils';
  * answered. The options below repeat it in place: the correct row in green, a
  * wrong pick in red, and the student's own choice labelled either way.
  */
-export function AnswerReview({ r }: { r: QuestionWithAnswer }) {
+export function AnswerAppraisal({ r }: { r: ItemWithAnswer }) {
   const isSPR = r.questionType === 'student_produced_response';
   const picked = isSPR ? (r.selectedAnswerText?.trim() || null) : r.selectedAnswer;
   const correct = isSPR ? r.correctAnswerText : r.correctAnswer;
@@ -20,7 +20,7 @@ export function AnswerReview({ r }: { r: QuestionWithAnswer }) {
   return (
     <div className="mb-3.5">
       <div
-        className={cn(
+        className={classes(
           'flex flex-wrap items-baseline gap-x-3.5 gap-y-1 px-3.5 py-2.5 rounded-[10px] text-sm',
           outcome === 'right' ? 'bg-green-sat/[.07]' : outcome === 'wrong' ? 'bg-danger/[.06]' : 'bg-sunken',
           isSPR ? 'mb-0' : 'mb-2',
@@ -49,7 +49,7 @@ export function AnswerReview({ r }: { r: QuestionWithAnswer }) {
             return (
               <div
                 key={key}
-                className={cn(
+                className={classes(
                   'flex items-center gap-2.5 px-3.5 py-2.5 rounded-[10px]',
                   isCorrect ? 'bg-green-sat/[.08] border border-green-sat/40'
                     : isYour ? 'bg-danger/[.06] border-[1.5px] border-danger/45'
@@ -57,15 +57,15 @@ export function AnswerReview({ r }: { r: QuestionWithAnswer }) {
                 )}
               >
                 <span
-                  className={cn(
+                  className={classes(
                     'w-[22px] h-[22px] shrink-0 rounded-full flex items-center justify-center text-xs font-bold',
                     // The student's own pick gets a filled letter, whichever way it went.
-                    isYour ? cn('text-white', isCorrect ? 'bg-green-dark' : 'bg-danger') : 'bg-transparent text-stone border border-border-strong',
+                    isYour ? classes('text-white', isCorrect ? 'bg-green-dark' : 'bg-danger') : 'bg-transparent text-stone border border-border-strong',
                   )}
                 >{key.toUpperCase()}</span>
                 <span className="text-sm flex-1">{text}</span>
                 <span className="flex gap-2 shrink-0">
-                  {isYour && <span className={cn('text-[11.5px] font-bold', isCorrect ? 'text-green-dark' : 'text-danger')}>Your answer</span>}
+                  {isYour && <span className={classes('text-[11.5px] font-bold', isCorrect ? 'text-green-dark' : 'text-danger')}>Your answer</span>}
                   {isCorrect && <span className="text-[11.5px] font-bold text-green-dark">Correct</span>}
                 </span>
               </div>

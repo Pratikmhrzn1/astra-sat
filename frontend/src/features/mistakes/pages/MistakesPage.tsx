@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { MistakeBankList } from '@/features/mistakes/components/MistakeBankList';
-import { MistakeDna } from '@/features/mistakes/components/MistakeDna';
-import { PageHeader, pageClass, segmentClass, segmentGroupClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { MisstepBankList } from '@/features/mistakes/components/MistakeBankList';
+import { MisstepDna } from '@/features/mistakes/components/MistakeDna';
+import { ScreenMasthead, screenStyle, segmentStyle, segmentClusterClass } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * The mistake bank, under two readings of the same data.
@@ -23,17 +23,17 @@ const TABS = [
 
 type Tab = (typeof TABS)[number]['key'];
 
-export default function Mistakes() {
+export default function Missteps() {
   const [tab, setTab] = useState<Tab>('bank');
 
   return (
-    <div className={pageClass}>
-      <PageHeader
+    <div className={screenStyle}>
+      <ScreenMasthead
         title="Mistake Bank"
         subtitle="Every question you've missed, worst first. Answer one correctly and it clears itself."
       />
 
-      <div role="tablist" aria-label="Mistake bank view" className={cn(segmentGroupClass, 'max-w-[240px] mb-[18px]')}>
+      <div role="tablist" aria-label="Mistake bank view" className={classes(segmentClusterClass, 'max-w-[240px] mb-[18px]')}>
         {TABS.map(({ key, label }) => (
           <button
             key={key}
@@ -42,7 +42,7 @@ export default function Mistakes() {
             aria-selected={tab === key}
             aria-controls={`mistakes-panel-${key}`}
             onClick={() => setTab(key)}
-            className={segmentClass(tab === key)}
+            className={segmentStyle(tab === key)}
           >
             {label}
           </button>
@@ -50,7 +50,7 @@ export default function Mistakes() {
       </div>
 
       <div id={`mistakes-panel-${tab}`} role="tabpanel" aria-labelledby={`mistakes-tab-${tab}`}>
-        {tab === 'bank' ? <MistakeBankList /> : <MistakeDna />}
+        {tab === 'bank' ? <MisstepBankList /> : <MisstepDna />}
       </div>
     </div>
   );

@@ -1,24 +1,24 @@
-import { apiClient } from '@/shared/api/http';
-import type { AuthUser } from '@/features/auth/store';
+import { apiTransport } from '@/shared/api/http';
+import type { SessionAccount } from '@/features/auth/store';
 
-export interface LoginResponse {
+export interface SignInReply {
   accessToken: string;
-  user: AuthUser;
+  user: SessionAccount;
 }
 
-export async function login(email: string, password: string): Promise<LoginResponse> {
-  const { data } = await apiClient.post<LoginResponse>('/auth/login', { email, password });
+export async function signIn(email: string, password: string): Promise<SignInReply> {
+  const { data } = await apiTransport.post<SignInReply>('/auth/login', { email, password });
   return data;
 }
 
-export async function register(
+export async function signUp(
   email: string,
   name: string,
   password: string,
   accessCode: string,
   phone?: string,
-): Promise<LoginResponse> {
-  const { data } = await apiClient.post<LoginResponse>('/auth/register', {
+): Promise<SignInReply> {
+  const { data } = await apiTransport.post<SignInReply>('/auth/register', {
     email,
     name,
     phone: phone || undefined,
@@ -28,28 +28,28 @@ export async function register(
   return data;
 }
 
-export async function getMe(): Promise<AuthUser> {
-  const { data } = await apiClient.get<AuthUser>('/auth/me');
+export async function fetchMe(): Promise<SessionAccount> {
+  const { data } = await apiTransport.get<SessionAccount>('/auth/me');
   return data;
 }
 
-export async function logout(): Promise<void> {
-  await apiClient.post('/auth/logout');
+export async function signOut(): Promise<void> {
+  await apiTransport.post('/auth/logout');
 }
 
-export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
-  await apiClient.post('/auth/change-password', { currentPassword, newPassword });
+export async function changePassphrase(currentPassword: string, newPassword: string): Promise<void> {
+  await apiTransport.post('/auth/change-password', { currentPassword, newPassword });
 }
 
-export async function updateProfile(name: string): Promise<AuthUser> {
-  const { data } = await apiClient.patch<AuthUser>('/auth/profile', { name });
+export async function editAccountDossier(name: string): Promise<SessionAccount> {
+  const { data } = await apiTransport.patch<SessionAccount>('/auth/profile', { name });
   return data;
 }
 
-export async function forgotPassword(email: string): Promise<void> {
-  await apiClient.post('/auth/forgot-password', { email });
+export async function forgotPassphrase(email: string): Promise<void> {
+  await apiTransport.post('/auth/forgot-password', { email });
 }
 
-export async function resetPassword(token: string, password: string): Promise<void> {
-  await apiClient.post('/auth/reset-password', { token, password });
+export async function resetPassphrase(token: string, password: string): Promise<void> {
+  await apiTransport.post('/auth/reset-password', { token, password });
 }

@@ -13,7 +13,7 @@
  * heading, never from the fill.
  */
 
-export interface AccuracyRow {
+export interface AccuracyLine {
   code: string;
   label: string;
   attempted: number;
@@ -21,10 +21,10 @@ export interface AccuracyRow {
   accuracy: number;
 }
 
-export function AccuracyBars({
+export function AccuracyColumns({
   rows, color, minAttempts, onPractise,
 }: {
-  rows: AccuracyRow[];
+  rows: AccuracyLine[];
   color: string;
   /** Below this, a percentage swings too far on one question to be worth showing. */
   minAttempts: number;

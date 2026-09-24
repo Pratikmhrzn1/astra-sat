@@ -1,9 +1,9 @@
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
-export type MainView = 'sets' | 'vocab';
+export type PrimaryPane = 'sets' | 'vocab';
 
 /** "Content Manager" title with the Question Sets / Vocab Bank switch. */
-export function ContentHeader({ view, onView, actions }: { view: MainView; onView: (v: MainView) => void; actions?: React.ReactNode }) {
+export function AuthoringMasthead({ view, onView, actions }: { view: PrimaryPane; onView: (v: PrimaryPane) => void; actions?: React.ReactNode }) {
   return (
     <>
       <div className="flex items-end justify-between gap-3 flex-wrap mb-7">
@@ -19,7 +19,7 @@ export function ContentHeader({ view, onView, actions }: { view: MainView; onVie
           <button
             key={value}
             onClick={() => onView(value)}
-            className={cn(
+            className={classes(
               'px-[18px] py-2 rounded-full text-[13.5px] font-semibold cursor-pointer transition-all duration-150',
               view === value ? 'bg-ink text-white' : 'border border-border bg-sunken text-subtle',
             )}

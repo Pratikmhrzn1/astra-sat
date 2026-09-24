@@ -2,20 +2,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Plus } from 'lucide-react';
 import {
-  getLiveSessions, createSession, getLiveExamSets,
-  type LiveExamSession, type LiveExamSet,
+  fetchLiveSessions, addSession, fetchLiveAssessmentSets,
+  type LiveAssessmentSession, type LiveAssessmentSet,
 } from '@/features/live-exam/api';
-import { getApiError } from '@/shared/api/http';
-import { Modal, EmptyState, Button, surfaceClass } from '@/shared/ui';
-import { ErrorNote, JoinCodePlate, LivePage, LoadingRows, StatusPill, liveRowClass, liveTitleClass } from '@/features/live-exam/components/ui';
-import { cn } from '@/shared/lib/utils';
+import { fetchApiError } from '@/shared/api/http';
+import { Dialog, BlankStatus, Control, surfaceStyle } from '@/shared/ui';
+import { FailureNote, EntryCodePlate, SessionScreen, SkeletonRows, StatusBadgePill, sessionRowStyle, sessionTitleStyle } from '@/features/live-exam/components/ui';
+import { classes } from '@/shared/lib/utils';
 
 /** Every live exam this teacher has run, newest first, and the form to start another. */
-export default function LiveExams() {
+export default function LiveAssessments() {
   const navigate = useNavigate();
   const [loadError, setLoadError] = useState('');
-  const [sessions, setSessions] = useState<LiveExamSession[]>([]);
-  const [sets, setSets] = useState<LiveExamSet[]>([]);
+  const [sessions, setSessions] = useState<LiveAssessmentSession[]>([]);
+  const [sets, setSets] = useState<LiveAssessmentSet[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -27,9 +27,9 @@ export default function LiveExams() {
   const loadAll = useCallback(() => {
     setLoading(true);
     setLoadError('');
-    Promise.all([getLiveSessions(), getLiveExamSets()])
+    Promise.all([fetchLiveSessions(), fetchLiveAssessmentSets()])
       .then(([s, availableSets]) => { setSessions(s); setSets(availableSets); })
-      .catch((err) => setLoadError(getApiError(err)))
+      .catch((err) => setLoadError(fetchApiError(err)))
       .finally(() => setLoading(false));
   }, []);
   useEffect(loadAll, [loadAll]);
@@ -54,14 +54,14 @@ export default function LiveExams() {
     setCreating(true);
     setError('');
     try {
-      const session = await createSession({ ...form, title: form.title.trim() });
+      const session = await addSession({ ...form, title: form.title.trim() });
       setSessions((prev) => [session, ...prev]);
       setShowCreate(false);
       setForm({ title: '', englishSetId: '', mathSetId: '' });
       // Straight to the room: the next thing a teacher does is read out the code.
       navigate(`/teacher/live-exams/${session.id}`);
     } catch (err) {
-      setError(getApiError(err));
+      setError(fetchApiError(err));
     } finally {
       setCreating(false);
     }
@@ -71,27 +71,27 @@ export default function LiveExams() {
   const labelClass = 'block text-[13px] font-semibold text-subtle mb-1.5';
 
   return (
-    <LivePage>
+    <SessionScreen>
       <div className="flex items-start sm:items-center justify-between gap-4 flex-wrap mb-2">
-        <h1 className={cn(liveTitleClass, 'text-[32px] sm:text-[44px] leading-[1.1]')}>Live Exams</h1>
-        <Button type="button" onClick={openCreate} className="h-[42px] pl-4">
+        <h1 className={classes(sessionTitleStyle, 'text-[32px] sm:text-[44px] leading-[1.1]')}>Live Exams</h1>
+        <Control type="button" onClick={openCreate} className="h-[42px] pl-4">
           <Plus size={16} strokeWidth={2.25} aria-hidden />New session
-        </Button>
+        </Control>
       </div>
       <p className="text-sm sm:text-[15px] text-subtle mt-0 mb-6 max-w-[620px] leading-[1.6]">
         Sit a whole class at once. You control when it starts and when each student sees their result.
       </p>
 
       {loading ? (
-        <LoadingRows />
+        <SkeletonRows />
       ) : loadError ? (
-        <ErrorNote action={<Button type="button" variant="secondary" onClick={loadAll} className="h-8 text-[13px]">Try again</Button>}>
+        <FailureNote action={<Control type="button" variant="secondary" onClick={loadAll} className="h-8 text-[13px]">Try again</Control>}>
           Couldn't load your sessions: {loadError}
-        </ErrorNote>
+        </FailureNote>
       ) : sessions.length === 0 ? (
-        <EmptyState className="py-11" titleClassName="text-2xl text-ink/[.72]" title="No sessions yet" action={<Button type="button" onClick={openCreate}><Plus size={16} strokeWidth={2.25} aria-hidden />Create your first session</Button>}>
+        <BlankStatus className="py-11" titleClassName="text-2xl text-ink/[.72]" title="No sessions yet" action={<Control type="button" onClick={openCreate}><Plus size={16} strokeWidth={2.25} aria-hidden />Create your first session</Control>}>
           Create one, read the join code out to your class, and start when everyone is in the lobby.
-        </EmptyState>
+        </BlankStatus>
       ) : (
         <div className="flex flex-col gap-2.5">
           {sessions.map((s) => {
@@ -101,15 +101,15 @@ export default function LiveExams() {
                 key={s.id}
                 onClick={() => navigate(`/teacher/live-exams/${s.id}`)}
                 data-press="soft"
-                className={cn(
-                  surfaceClass, liveRowClass,
+                className={classes(
+                  surfaceStyle, sessionRowStyle,
                   'py-3.5 pl-4 pr-3.5 sm:py-4 sm:pl-5 sm:pr-[18px] flex items-center gap-2.5 sm:gap-4 cursor-pointer text-left text-inherit w-full',
                 )}
               >
                 <div className="flex-1 min-w-0">
                   <div className="text-[15.5px] font-semibold text-ink mb-[7px] truncate">{s.title}</div>
                   <div className="flex items-center gap-2.5 flex-wrap">
-                    <StatusPill status={s.status} />
+                    <StatusBadgePill status={s.status} />
                     {when && (
                       <span className="text-[12.5px] text-subtle">
                         {s.startedAt ? 'Started' : 'Created'} {new Date(when).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -121,7 +121,7 @@ export default function LiveExams() {
                   </div>
                 </div>
                 {/* Reference size here; it is the hero only inside the session. */}
-                {s.status === 'waiting' && <div className="hidden sm:block"><JoinCodePlate code={s.joinCode} size="small" /></div>}
+                {s.status === 'waiting' && <div className="hidden sm:block"><EntryCodePlate code={s.joinCode} size="small" /></div>}
                 <ChevronRight size={18} className="text-muted shrink-0" aria-hidden />
               </button>
             );
@@ -129,16 +129,16 @@ export default function LiveExams() {
         </div>
       )}
 
-      <Modal
+      <Dialog
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
         title="New live exam"
         footer={
           <>
-            <Button type="button" variant="secondary" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button type="button" onClick={submit} disabled={creating || noSets}>
+            <Control type="button" variant="secondary" onClick={() => setShowCreate(false)}>Cancel</Control>
+            <Control type="button" onClick={submit} disabled={creating || noSets}>
               {creating ? 'Creating…' : 'Create session'}
-            </Button>
+            </Control>
           </>
         }
       >
@@ -182,7 +182,7 @@ export default function LiveExams() {
                   id={field}
                   value={form[field]}
                   onChange={(e) => { setForm((f) => ({ ...f, [field]: e.target.value })); setError(''); }}
-                  className={cn(fieldClass, 'cursor-pointer')}
+                  className={classes(fieldClass, 'cursor-pointer')}
                 >
                   <option value="">Choose a paper…</option>
                   {options.map((s) => (
@@ -193,9 +193,9 @@ export default function LiveExams() {
             </div>
           ))}
 
-          {error && <ErrorNote>{error}</ErrorNote>}
+          {error && <FailureNote>{error}</FailureNote>}
         </div>
-      </Modal>
-    </LivePage>
+      </Dialog>
+    </SessionScreen>
   );
 }

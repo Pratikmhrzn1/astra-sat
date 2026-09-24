@@ -42,7 +42,7 @@ interface SheetProps {
   children: React.ReactNode;
 }
 
-export function Sheet({ open, onClose, label, children }: SheetProps) {
+export function Tray({ open, onClose, label, children }: SheetProps) {
   const [mounted, setMounted] = useState(open);
   const sheetRef = useRef<HTMLDivElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);

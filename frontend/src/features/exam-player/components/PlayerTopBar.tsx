@@ -1,4 +1,4 @@
-import { cn } from '@/shared/lib/utils';
+import { classes } from '@/shared/lib/utils';
 
 const OfflineIcon = ({ size }: { size: number }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -18,7 +18,7 @@ const outlined = 'border bg-white rounded-full cursor-pointer text-ink';
  * The player's top bar: exit, where you are, the clock, flag and finish.
  * Phones get a compact three-column bar; wider screens the full one.
  */
-export function PlayerTopBar({
+export function PlayerHeader({
   isMath, isPractice, index, total, timerEnabled, clock, lowTime, isOnline,
   flagged, onToggleFlag, onExit, finishLabel, onFinish, transitioning,
 }: {
@@ -37,14 +37,14 @@ export function PlayerTopBar({
   onFinish: () => void;
   transitioning: boolean;
 }) {
-  const clockClass = cn('font-display font-semibold leading-none tracking-[-0.02em] tnum', lowTime ? 'text-danger' : 'text-ink');
+  const clockClass = classes('font-display font-semibold leading-none tracking-[-0.02em] tnum', lowTime ? 'text-danger' : 'text-ink');
   const flagTone = flagged ? 'border-ember bg-ember/[.07]' : 'border-field';
 
   return (
     <>
       {/* Phones */}
       <div className="sm:hidden h-14 shrink-0 bg-white border-b border-border flex items-center justify-between px-3.5 gap-2">
-        <button onClick={onExit} aria-label="Exit test" className={cn(outlined, 'border-field px-3 py-[7px] text-sm font-bold shrink-0 leading-none')}>←</button>
+        <button onClick={onExit} aria-label="Exit test" className={classes(outlined, 'border-field px-3 py-[7px] text-sm font-bold shrink-0 leading-none')}>←</button>
         <div className="text-center flex-1 min-w-0">
           <div className="text-[10px] font-bold tracking-[0.08em] uppercase text-muted">
             {isMath ? 'Math' : 'R&W'}{isPractice && ' · Practice'}
@@ -53,7 +53,7 @@ export function PlayerTopBar({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {timerEnabled ? (
-            <div className={cn(clockClass, 'text-[22px]')}>{clock}</div>
+            <div className={classes(clockClass, 'text-[22px]')}>{clock}</div>
           ) : isPractice ? (
             <span className="text-[11px] font-semibold text-muted tracking-[0.04em]">Untimed</span>
           ) : null}
@@ -62,7 +62,7 @@ export function PlayerTopBar({
             onClick={onToggleFlag}
             aria-label={flagged ? 'Remove flag' : 'Flag for review'}
             aria-pressed={flagged}
-            className={cn('w-[38px] h-[38px] flex items-center justify-center border rounded-full cursor-pointer p-0', flagTone, flagged ? '' : 'bg-white')}
+            className={classes('w-[38px] h-[38px] flex items-center justify-center border rounded-full cursor-pointer p-0', flagTone, flagged ? '' : 'bg-white')}
           >
             <FlagIcon flagged={flagged} />
           </button>
@@ -72,7 +72,7 @@ export function PlayerTopBar({
       {/* Wider screens */}
       <div className="hidden sm:flex h-[62px] shrink-0 bg-white border-b border-border items-center justify-between px-6">
         <div className="flex items-center gap-[18px]">
-          <button onClick={onExit} className={cn(outlined, 'border-field flex items-center gap-[7px] px-3.5 py-[7px] text-[13px] font-semibold')}>← Exit</button>
+          <button onClick={onExit} className={classes(outlined, 'border-field flex items-center gap-[7px] px-3.5 py-[7px] text-[13px] font-semibold')}>← Exit</button>
           <div>
             <div className="text-[11px] font-bold tracking-[0.08em] uppercase text-muted">
               {isMath ? 'Math' : 'Reading & Writing'}
@@ -84,7 +84,7 @@ export function PlayerTopBar({
 
         {timerEnabled ? (
           <div className="text-center">
-            <div className={cn(clockClass, 'text-[30px]')}>{clock}</div>
+            <div className={classes(clockClass, 'text-[30px]')}>{clock}</div>
             <div className="text-[10px] font-bold tracking-[0.1em] uppercase text-muted">Time left</div>
           </div>
         ) : isPractice ? (
@@ -104,7 +104,7 @@ export function PlayerTopBar({
             onClick={onToggleFlag}
             aria-label={flagged ? 'Remove flag' : 'Flag for review'}
             aria-pressed={flagged}
-            className={cn('flex items-center gap-[7px] border rounded-full px-3.5 py-[7px] text-[13px] font-semibold cursor-pointer', flagTone, flagged ? 'text-accent-text' : 'bg-white text-ink')}
+            className={classes('flex items-center gap-[7px] border rounded-full px-3.5 py-[7px] text-[13px] font-semibold cursor-pointer', flagTone, flagged ? 'text-accent-text' : 'bg-white text-ink')}
           >
             <FlagIcon flagged={flagged} />
             {flagged ? 'Flagged' : 'Flag'}
@@ -112,7 +112,7 @@ export function PlayerTopBar({
           <button
             onClick={onFinish}
             disabled={transitioning}
-            className={cn('border border-ink bg-ink text-white rounded-full px-[18px] py-2 text-[13px] font-semibold', transitioning ? 'cursor-default' : 'cursor-pointer')}
+            className={classes('border border-ink bg-ink text-white rounded-full px-[18px] py-2 text-[13px] font-semibold', transitioning ? 'cursor-default' : 'cursor-pointer')}
           >{finishLabel}</button>
         </div>
       </div>

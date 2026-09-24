@@ -10,7 +10,7 @@ import { useLocation } from 'react-router-dom';
  * on the path: the exam player moves between sections by changing its URL and
  * relies on staying mounted across that move.
  */
-export function RouteBoundary({ children }: { children: ReactNode }) {
+export function RouteFence({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   return (
     <PageErrorBoundary pathname={pathname}>

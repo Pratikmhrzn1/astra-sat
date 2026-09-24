@@ -1,4 +1,4 @@
-import { apiClient } from '@/shared/api/http';
+import { apiTransport } from '@/shared/api/http';
 
 /**
  * The SAT domain/skill tree, served to every signed-in role.
@@ -9,7 +9,7 @@ import { apiClient } from '@/shared/api/http';
  * parallel copies of the domain names that had to be edited in step.
  */
 
-export interface SkillNode {
+export interface CompetencyNode {
   code: string;
   label: string;
   subject: 'english' | 'math';
@@ -17,21 +17,21 @@ export interface SkillNode {
   questionCount?: number;
   /** Published questions on this node or anything beneath it. Only with `withCounts`. */
   totalQuestionCount?: number;
-  skills: SkillNode[];
+  skills: CompetencyNode[];
 }
 
-export async function getSkills(withCounts = false): Promise<SkillNode[]> {
-  const { data } = await apiClient.get<SkillNode[]>('/skills', {
+export async function fetchCompetencys(withCounts = false): Promise<CompetencyNode[]> {
+  const { data } = await apiTransport.get<CompetencyNode[]>('/skills', {
     params: withCounts ? { withCounts: 'true' } : undefined,
   });
   return data;
 }
 
 /** Query key for the tree. Counts change as content is authored, so they key separately. */
-export const skillsQueryKey = (withCounts = false) => ['skills', { withCounts }] as const;
+export const competencyQueryKey = (withCounts = false) => ['skills', { withCounts }] as const;
 
 /** Flattens the tree to `code -> label`, for rendering a tag someone already saved. */
-export function skillLabels(tree: SkillNode[]): Map<string, string> {
+export function skillCaptions(tree: CompetencyNode[]): Map<string, string> {
   const labels = new Map<string, string>();
   for (const domain of tree) {
     labels.set(domain.code, domain.label);
@@ -44,7 +44,7 @@ export function skillLabels(tree: SkillNode[]): Map<string, string> {
  * A code the taxonomy no longer contains still has to render as something. Falls
  * back to de-snake-casing the code rather than showing a blank.
  */
-export function skillLabel(tree: SkillNode[], code: string | null | undefined): string {
+export function skillCaption(tree: CompetencyNode[], code: string | null | undefined): string {
   if (!code) return 'Untagged';
-  return skillLabels(tree).get(code) ?? code.replace(/_/g, ' ');
+  return skillCaptions(tree).get(code) ?? code.replace(/_/g, ' ');
 }

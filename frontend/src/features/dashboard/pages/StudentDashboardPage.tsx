@@ -1,35 +1,35 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useAuthStore } from '@/features/auth';
-import { getExams, startExam } from '@/entities/exam';
-import { getFeedback } from '@/features/messages';
-import { getAvailableSkillPassages, startTopicExam } from '@/features/practice';
-import { getAnalytics, getProfile, weakestDomain } from '@/features/progress';
-import { getMistakeSummary } from '@/features/mistakes';
-import { cardClass, pageClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { useSessionVault } from '@/features/auth';
+import { fetchAssessments, openAssessment } from '@/entities/exam';
+import { fetchFeedback } from '@/features/messages';
+import { fetchAvailableCompetencyPassages, openTopicAssessment } from '@/features/practice';
+import { fetchAnalytics, fetchProfile, lowestDomain } from '@/features/progress';
+import { fetchMisstepSummary } from '@/features/mistakes';
+import { panelStyle, screenStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 import {
-  NO_SCORE, SECTION_MAX,
-  daysUntil, formatExamScore, formatScore, scoreColor,
+  NO_RESULT, SEGMENT_MAX,
+  daysRemaining, renderAssessmentScore, renderScore, scoreHue,
 } from '@/entities/score';
 
-export default function Dashboard() {
-  const { user } = useAuthStore();
+export default function LearnerHome() {
+  const { user } = useSessionVault();
   const navigate = useNavigate();
 
-  const { data: exams = [] } = useQuery({ queryKey: ['student', 'exams'], queryFn: getExams });
-  const { data: feedback = [] } = useQuery({ queryKey: ['student', 'feedback'], queryFn: getFeedback });
-  const { data: weakAreaPassages = [] } = useQuery({ queryKey: ['student', 'skill-passages'], queryFn: getAvailableSkillPassages });
-  const { data: profile } = useQuery({ queryKey: ['student', 'profile'], queryFn: getProfile });
-  const { data: mistakeSummary = [] } = useQuery({ queryKey: ['student', 'mistakes', 'summary'], queryFn: getMistakeSummary });
-  const { data: analytics } = useQuery({ queryKey: ['student', 'analytics'], queryFn: getAnalytics });
+  const { data: exams = [] } = useQuery({ queryKey: ['student', 'exams'], queryFn: fetchAssessments });
+  const { data: feedback = [] } = useQuery({ queryKey: ['student', 'feedback'], queryFn: fetchFeedback });
+  const { data: weakAreaPassages = [] } = useQuery({ queryKey: ['student', 'skill-passages'], queryFn: fetchAvailableCompetencyPassages });
+  const { data: profile } = useQuery({ queryKey: ['student', 'profile'], queryFn: fetchProfile });
+  const { data: mistakeSummary = [] } = useQuery({ queryKey: ['student', 'mistakes', 'summary'], queryFn: fetchMisstepSummary });
+  const { data: analytics } = useQuery({ queryKey: ['student', 'analytics'], queryFn: fetchAnalytics });
 
   // The diagnose-then-practise loop in one card: the weakest topic with enough
   // data behind it, and a button that builds an exam from exactly that topic.
-  const weakest = weakestDomain(analytics);
+  const weakest = lowestDomain(analytics);
   const topicMutation = useMutation({
-    mutationFn: startTopicExam,
+    mutationFn: openTopicAssessment,
     onSuccess: (result) => navigate(`/student/exams/${result.exam.id}`, {
       state: { timerEnabled: false, examTitle: `Topic: ${result.skill.label}` },
     }),
@@ -59,13 +59,13 @@ export default function Dashboard() {
   // one rather than measuring them against a number they never chose.
   const target = profile?.targetScore ?? null;
   const targetGap = target !== null && estTotal !== null ? Math.max(0, target - estTotal) : null;
-  const daysToTest = daysUntil(profile?.testDate);
+  const daysToTest = daysRemaining(profile?.testDate);
 
   const recentTests = completedExams.slice(0, 4).map((e) => {
     const isMock = e.type !== 'individual';
     const isMathExam = e.subject === 'math';
-    const score = formatExamScore(e.scaledScore, e.score, e.totalQuestions);
-    const color = scoreColor(e.scaledScore, SECTION_MAX);
+    const score = renderAssessmentScore(e.scaledScore, e.score, e.totalQuestions);
+    const color = scoreHue(e.scaledScore, SEGMENT_MAX);
     const iconBg = isMock ? 'rgba(226,86,43,0.10)' : isMathExam ? 'rgba(37,99,168,0.10)' : 'rgba(46,125,90,0.10)';
     const iconColor = isMock ? '#E2562B' : isMathExam ? '#2563A8' : '#2E7D5A';
     const iconChar = isMock ? 'M' : isMathExam ? '∑' : 'A';
@@ -79,7 +79,7 @@ export default function Dashboard() {
   const btn = (label: string, className: string, onClick: () => void) => (
     <button
       onClick={onClick}
-      className={cn('h-10 px-[18px] rounded-full text-[13.5px] font-semibold cursor-pointer whitespace-nowrap hover:opacity-[.85]', className)}
+      className={classes('h-10 px-[18px] rounded-full text-[13.5px] font-semibold cursor-pointer whitespace-nowrap hover:opacity-[.85]', className)}
     >
       {label}
     </button>
@@ -89,7 +89,7 @@ export default function Dashboard() {
   const sectionTitleClass = 'text-[17px] m-0 font-sans';
 
   return (
-    <div className={pageClass}>
+    <div className={screenStyle}>
       {/* Header */}
       <div className="mb-5 sm:mb-7">
         <div className="hidden sm:block text-xs font-bold tracking-[0.1em] uppercase text-muted mb-1">{todayStr}</div>
@@ -114,10 +114,10 @@ export default function Dashboard() {
         {/* Score */}
         <div className="relative mb-5 sm:mb-0">
           <div className="text-[11px] font-bold tracking-[0.12em] uppercase text-white/50">Estimated SAT score</div>
-          <div className={cn(
+          <div className={classes(
             'font-display font-semibold text-[68px] sm:text-[88px] leading-none tracking-[-0.03em] mt-1',
             estTotal === null ? 'text-white/50' : 'text-white',
-          )}>{formatScore(estTotal)}</div>
+          )}>{renderScore(estTotal)}</div>
           <div className="text-[13px] text-white/50 mt-1.5">
             {estTotal === null ? (
               estRW !== null
@@ -162,11 +162,11 @@ export default function Dashboard() {
             <div key={label}>
               <div className="flex justify-between items-baseline mb-[7px]">
                 <span className="text-[13px] font-semibold text-white/70">{label}</span>
-                <span className="font-display font-semibold text-[22px] text-white">{value ?? NO_SCORE}</span>
+                <span className="font-display font-semibold text-[22px] text-white">{value ?? NO_RESULT}</span>
               </div>
               <div className="h-[5px] bg-white/10 rounded-full">
                 {/* width is data-driven, so it stays inline */}
-                <div className={cn('h-[5px] rounded-full', bar)} style={{ width: `${((value ?? 0) / SECTION_MAX) * 100}%` }} />
+                <div className={classes('h-[5px] rounded-full', bar)} style={{ width: `${((value ?? 0) / SEGMENT_MAX) * 100}%` }} />
               </div>
             </div>
           ))}
@@ -187,7 +187,7 @@ export default function Dashboard() {
           { value: unreadFeedback, suffix: '', label: 'Unread feedback', color: 'text-gold' },
         ].map(({ value, suffix, label, color }) => (
           <div key={label} className="bg-white border border-border rounded-[14px] px-3.5 py-4 sm:px-6 sm:py-[22px] shadow-stat">
-            <div className={cn('font-display font-semibold text-[34px] sm:text-[46px] leading-none', color)}>{value}{suffix}</div>
+            <div className={classes('font-display font-semibold text-[34px] sm:text-[46px] leading-none', color)}>{value}{suffix}</div>
             <div className="text-[10px] sm:text-[11px] font-bold tracking-[0.08em] uppercase text-muted mt-1.5">{label}</div>
           </div>
         ))}
@@ -211,7 +211,7 @@ export default function Dashboard() {
                 <div
                   key={e.id}
                   onClick={() => navigate(`/student/results/${e.id}`)}
-                  className={cn(cardClass, 'px-4 py-3.5 flex items-center gap-3.5')}
+                  className={classes(panelStyle, 'px-4 py-3.5 flex items-center gap-3.5')}
                 >
                   <div
                     className="w-10 h-10 rounded-[11px] flex items-center justify-center font-display font-semibold text-xl shrink-0"
@@ -235,7 +235,7 @@ export default function Dashboard() {
 
         {/* Quick start */}
         <div>
-          <h3 className={cn(sectionTitleClass, 'mb-3.5')}>Jump back in</h3>
+          <h3 className={classes(sectionTitleClass, 'mb-3.5')}>Jump back in</h3>
           <div className="flex flex-col gap-2.5">
             {[
               { label: 'Full length', sub: 'R&W + Math · scored /1600', title: 'Take a mock SAT', color: 'text-accent-text', path: '/student/mock-test' },
@@ -273,9 +273,9 @@ export default function Dashboard() {
                   if (path !== '__topic__') { navigate(path); return; }
                   if (weakest) topicMutation.mutate({ subject: weakest.subject, skillCode: weakest.domainCode, count: 10 });
                 }}
-                className={cn(cardClass, 'px-[18px] py-4')}
+                className={classes(panelStyle, 'px-[18px] py-4')}
               >
-                <div className={cn(eyebrowClass, color)}>{label}</div>
+                <div className={classes(eyebrowClass, color)}>{label}</div>
                 <div className="text-[14.5px] font-semibold">{title}</div>
                 <div className="text-xs text-muted mt-0.5">{sub}</div>
               </div>
@@ -287,7 +287,7 @@ export default function Dashboard() {
       {/* Weak-area practice */}
       {weakAreaPassages.length > 0 && (
         <div className="mt-5 sm:mt-7">
-          <h3 className={cn(sectionTitleClass, 'mb-3.5')}>Practice your weak areas</h3>
+          <h3 className={classes(sectionTitleClass, 'mb-3.5')}>Practice your weak areas</h3>
           {weakAreaError && (
             <div className="bg-danger/[.06] border border-danger/20 rounded-[10px] px-4 py-2.5 mb-3 text-[13px] text-danger">
               {weakAreaError}
@@ -300,15 +300,15 @@ export default function Dashboard() {
                 onClick={async () => {
                   setWeakAreaError(null);
                   try {
-                    const { exam } = await startExam(p.setId);
+                    const { exam } = await openAssessment(p.setId);
                     navigate(`/student/exam/${exam.id}`);
                   } catch {
                     setWeakAreaError('Could not start practice session. Please try again.');
                   }
                 }}
-                className={cn(cardClass, 'px-4 py-[18px]')}
+                className={classes(panelStyle, 'px-4 py-[18px]')}
               >
-                <div className={cn(eyebrowClass, 'text-accent-text')}>Targeted</div>
+                <div className={classes(eyebrowClass, 'text-accent-text')}>Targeted</div>
                 <div className="text-sm font-semibold capitalize">{p.subSkill.replace(/_/g, ' ')}</div>
                 <div className="text-[11.5px] text-muted mt-0.5">AI-generated · module 2</div>
               </div>

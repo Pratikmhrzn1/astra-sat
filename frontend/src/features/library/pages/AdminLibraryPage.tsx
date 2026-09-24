@@ -1,8 +1,8 @@
-import { LibraryManager } from '@/features/library/components/LibraryManager';
+import { ResourceManager } from '@/features/library/components/LibraryManager';
 
-export default function AdminLibrary() {
+export default function AdminResource() {
   return (
-    <LibraryManager
+    <ResourceManager
       subtitle="Manage resources for students and teachers."
       emptyHint="Add your first library item using the button above."
       hideLabel="Hide from students and teachers"

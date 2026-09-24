@@ -1,5 +1,5 @@
-import { kickerClass } from '@/shared/ui';
-import { cn } from '@/shared/lib/utils';
+import { kickerStyle } from '@/shared/ui';
+import { classes } from '@/shared/lib/utils';
 
 /**
  * The passage a question refers to, and the diagram it carries, shown in review.
@@ -20,7 +20,7 @@ import { cn } from '@/shared/lib/utils';
  * narrower than a full-screen passage column.
  */
 
-export function PassageBlock({
+export function ExtractBlock({
   passageTitle,
   passageText,
   className,
@@ -32,13 +32,13 @@ export function PassageBlock({
   if (!passageText) return null;
 
   return (
-    <div className={cn('rounded-xl bg-[#FBFAF8] border border-border-soft px-4 py-3.5 mb-3.5', className)}>
+    <div className={classes('rounded-xl bg-[#FBFAF8] border border-border-soft px-4 py-3.5 mb-3.5', className)}>
       {/*
         A label, not just the title: every passage in the database has an empty
         title, and without something here the passage runs straight into the
         question with nothing to say which is which.
       */}
-      <div className={cn(kickerClass, 'mb-2')}>{passageTitle || 'Passage'}</div>
+      <div className={classes(kickerStyle, 'mb-2')}>{passageTitle || 'Passage'}</div>
       <p
         className="font-serif text-[15px] sm:text-[16.5px] leading-[1.7] text-ink m-0 whitespace-pre-wrap"
         dangerouslySetInnerHTML={{ __html: passageText }}
@@ -48,10 +48,10 @@ export function PassageBlock({
 }
 
 /** A question's diagram. Sits under the question text, as it does in the player. */
-export function QuestionImage({ imageUrl, className }: { imageUrl: string | null; className?: string }) {
+export function ItemImage({ imageUrl, className }: { imageUrl: string | null; className?: string }) {
   if (!imageUrl) return null;
   return (
-    <div className={cn('mb-3.5', className)}>
+    <div className={classes('mb-3.5', className)}>
       <img
         src={imageUrl}
         alt="Question diagram"

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
-import { cn } from '@/shared/lib/utils';
-import { Button } from '@/shared/ui/Button';
+import { classes } from '@/shared/lib/utils';
+import { Control } from '@/shared/ui/Button';
 
 interface ModalProps {
   isOpen: boolean;
@@ -12,7 +12,7 @@ interface ModalProps {
   footer?: React.ReactNode;
 }
 
-export function Modal({ isOpen, onClose, title, children, size = 'md', footer }: ModalProps) {
+export function Dialog({ isOpen, onClose, title, children, size = 'md', footer }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -41,7 +41,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer }:
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={cn(
+        className={classes(
           'modal-panel relative bg-white rounded-[20px] shadow-[0_4px_12px_rgba(11,11,14,0.06),0_24px_64px_rgba(11,11,14,0.18)] w-full flex flex-col max-h-[90vh]',
           {
             'max-w-sm': size === 'sm',
@@ -82,7 +82,7 @@ interface ConfirmModalProps {
   loading?: boolean;
 }
 
-export function ConfirmModal({
+export function AcknowledgeDialog({
   isOpen,
   onClose,
   onConfirm,
@@ -93,23 +93,23 @@ export function ConfirmModal({
   loading = false,
 }: ConfirmModalProps) {
   return (
-    <Modal
+    <Dialog
       isOpen={isOpen}
       onClose={onClose}
       title={title}
       size="sm"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>
+          <Control variant="secondary" onClick={onClose}>
             Cancel
-          </Button>
-          <Button variant={confirmVariant} onClick={onConfirm} loading={loading}>
+          </Control>
+          <Control variant={confirmVariant} onClick={onConfirm} loading={loading}>
             {confirmLabel}
-          </Button>
+          </Control>
         </>
       }
     >
       <p className="text-body">{message}</p>
-    </Modal>
+    </Dialog>
   );
 }
