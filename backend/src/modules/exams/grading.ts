@@ -5,7 +5,7 @@
  */
 
 /** Parses a grid-in answer, accepting `3/4` and `0.75` alike. */
-export function parseNumericAnswer(value: string): number | null {
+export function readNumericAnswer(value: string): number | null {
   const trimmed = value.trim();
 
   const fraction = trimmed.match(/^(-?\d+)\/(\d+)$/);
@@ -26,17 +26,17 @@ export function parseNumericAnswer(value: string): number | null {
  * `0.75` and `.75` are all accepted for the same question — the SAT scores the
  * value, not the notation.
  */
-export function sprIsCorrect(studentAnswer: string, correctAnswer: string): boolean {
+export function sprMatches(studentAnswer: string, correctAnswer: string): boolean {
   if (studentAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase()) return true;
 
-  const student = parseNumericAnswer(studentAnswer);
-  const correct = parseNumericAnswer(correctAnswer);
+  const student = readNumericAnswer(studentAnswer);
+  const correct = readNumericAnswer(correctAnswer);
   if (student === null || correct === null) return false;
 
   return Math.abs(student - correct) < 0.001;
 }
 
-export interface GradableAnswer {
+export interface MarkableAnswer {
   questionType: 'multiple_choice' | 'student_produced_response';
   selectedAnswer: string | null;
   selectedAnswerText: string | null;
@@ -45,22 +45,22 @@ export interface GradableAnswer {
 }
 
 /** The single definition of "did they get it right". Unanswered is always wrong. */
-export function gradeAnswer(answer: GradableAnswer): boolean {
+export function markAnswer(answer: MarkableAnswer): boolean {
   if (answer.questionType === 'student_produced_response') {
     return answer.selectedAnswerText
-      ? sprIsCorrect(answer.selectedAnswerText, answer.correctAnswerText ?? '')
+      ? sprMatches(answer.selectedAnswerText, answer.correctAnswerText ?? '')
       : false;
   }
   return answer.selectedAnswer !== null && answer.selectedAnswer === answer.correctAnswer;
 }
 
 /** Whether a saved response counts as answered, for stamping `answered_at`. */
-export function hasAnswer(selectedAnswer: unknown, selectedAnswerText: unknown): boolean {
+export function isAnswered(selectedAnswer: unknown, selectedAnswerText: unknown): boolean {
   if (selectedAnswer != null) return true;
   return typeof selectedAnswerText === 'string' && selectedAnswerText.trim() !== '';
 }
 
 /** Percentage correct, guarding the empty-exam case that would divide by zero. */
-export function percentage(score: number, total: number): number {
+export function toPercentage(score: number, total: number): number {
   return total > 0 ? Math.round((score / total) * 100) : 0;
 }

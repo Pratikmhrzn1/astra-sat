@@ -28,16 +28,16 @@ import { parseDbTimestamp } from '../../core/lib/db-time';
  * exams.service).
  */
 
-export const MOCK_MODULE_LIMIT_SECONDS = { english: 32 * 60, math: 35 * 60 } as const;
+export const MOCK_MODULE_CAP_SECONDS = { english: 32 * 60, math: 35 * 60 } as const;
 
 /** Writes arriving this long after the deadline still count — a slow network is not cheating. */
-export const DEADLINE_GRACE_SECONDS = 30;
+export const DEADLINE_LENIENCY_SECONDS = 30;
 
 type ExamRow = typeof exams.$inferSelect;
 
-export function mockModuleLimitFor(type: ExamRow['type']): number | null {
-  if (type === 'mock_english') return MOCK_MODULE_LIMIT_SECONDS.english;
-  if (type === 'mock_math') return MOCK_MODULE_LIMIT_SECONDS.math;
+export function moduleCapFor(type: ExamRow['type']): number | null {
+  if (type === 'mock_english') return MOCK_MODULE_CAP_SECONDS.english;
+  if (type === 'mock_math') return MOCK_MODULE_CAP_SECONDS.math;
   return null;
 }
 
@@ -76,7 +76,7 @@ async function isMockModule(examId: string): Promise<boolean> {
  * sitting down to the exam — the player pre-fetches the next section, and that
  * must not start its clock.
  */
-export async function resolveDeadline(exam: ExamRow, { open }: { open: boolean }): Promise<Date | null> {
+export async function settleDeadline(exam: ExamRow, { open }: { open: boolean }): Promise<Date | null> {
   if (exam.deadlineAt) return exam.deadlineAt;
   if (exam.status !== 'in_progress') return null;
 
@@ -88,8 +88,8 @@ export async function resolveDeadline(exam: ExamRow, { open }: { open: boolean }
 
   let limit = exam.timeLimitSeconds;
   // Mock modules created before limits were stored.
-  if (limit === null && mockModuleLimitFor(exam.type) !== null && (await isMockModule(exam.id))) {
-    limit = mockModuleLimitFor(exam.type);
+  if (limit === null && moduleCapFor(exam.type) !== null && (await isMockModule(exam.id))) {
+    limit = moduleCapFor(exam.type);
     await db.update(exams).set({ timeLimitSeconds: limit }).where(eq(exams.id, exam.id));
   }
   if (limit === null || !open) return null;
@@ -102,8 +102,8 @@ export async function resolveDeadline(exam: ExamRow, { open }: { open: boolean }
   return row?.deadlineAt ?? null;
 }
 
-export function isPastGrace(deadline: Date | null, now = Date.now()): boolean {
-  return !!deadline && now > deadline.getTime() + DEADLINE_GRACE_SECONDS * 1000;
+export function isBeyondLeniency(deadline: Date | null, now = Date.now()): boolean {
+  return !!deadline && now > deadline.getTime() + DEADLINE_LENIENCY_SECONDS * 1000;
 }
 
 /**
@@ -111,7 +111,7 @@ export function isPastGrace(deadline: Date | null, now = Date.now()): boolean {
  * rather than taken from the client. Null where the server has no basis for one
  * (untimed practice, and live sections, whose clock started with the session).
  */
-export function serverTimeSpent(exam: ExamRow, deadline: Date | null, now = Date.now()): number | null {
+export function serverElapsedSeconds(exam: ExamRow, deadline: Date | null, now = Date.now()): number | null {
   if (!deadline || exam.timeLimitSeconds === null) return null;
   const openedAt = deadline.getTime() - exam.timeLimitSeconds * 1000;
   const endedAt = Math.min(now, deadline.getTime());

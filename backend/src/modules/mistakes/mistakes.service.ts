@@ -8,7 +8,7 @@ import {
   skills,
 } from '../../core/db/schema';
 import { badRequest } from '../../core/errors';
-import { createExamWithAnswerSheet } from '../exams';
+import { buildAssessmentWithSheet } from '../exams';
 import type { MistakePracticeInput } from './mistakes.schemas';
 
 /**
@@ -26,7 +26,7 @@ import type { MistakePracticeInput } from './mistakes.schemas';
  * exactly this for words.
  */
 
-/** A blank counts as a miss — `gradeAnswer` already treats unanswered as wrong. */
+/** A blank counts as a miss — `markAnswer` already treats unanswered as wrong. */
 type GradedAnswer = { answerId: string; questionId: string; isCorrect: boolean | null };
 
 /**
@@ -149,7 +149,7 @@ export async function listMistakes(studentId: string, filters: MistakeFilters) {
        * got it wrong. Null in two different ways, and the caller must tell them
        * apart: the join misses when `exam_answer_id` was cleared (ON DELETE SET
        * NULL), and `selectedAnswer` is itself null when the question was left
-       * blank — `gradeAnswer` counts a blank as wrong, so skipped questions are
+       * blank — `markAnswer` counts a blank as wrong, so skipped questions are
        * in the bank too.
        */
       selectedAnswer: examAnswers.selectedAnswer,
@@ -220,7 +220,7 @@ export async function startMistakePractice(studentId: string, input: MistakePrac
     throw badRequest('No open mistakes to practise yet — take an exam first.');
   }
 
-  const exam = await createExamWithAnswerSheet({
+  const exam = await buildAssessmentWithSheet({
     studentId,
     setId: null,
     label: 'Mistake review',

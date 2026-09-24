@@ -2,7 +2,7 @@ import { and, eq, isNull, or } from 'drizzle-orm';
 import { db } from '../../core/db';
 import { exams, mockTests } from '../../core/db/schema';
 import { finalizeMockIfComplete, findMockContextForExam } from './mock.service';
-import { toSectionScore } from '../exams';
+import { toSectionResult } from '../exams';
 
 /**
  * Fills in scaled scores for exams and mocks completed before scoring existed.
@@ -70,7 +70,7 @@ export async function backfillScores(): Promise<BackfillRun> {
       continue;
     }
 
-    const scaledScore = toSectionScore(exam.score ?? 0, exam.totalQuestions, 'none');
+    const scaledScore = toSectionResult(exam.score ?? 0, exam.totalQuestions, 'none');
     if (scaledScore === null) {
       run.examsTooShort++;
       continue;

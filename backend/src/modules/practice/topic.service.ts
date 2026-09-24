@@ -2,7 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import { db } from '../../core/db';
 import { skills } from '../../core/db/schema';
 import { badRequest, notFound } from '../../core/errors';
-import { createExamWithAnswerSheet } from '../exams';
+import { buildAssessmentWithSheet } from '../exams';
 import type { TopicExamInput } from './practice.schemas';
 
 /**
@@ -45,7 +45,7 @@ export async function startTopicExam(studentId: string, input: TopicExamInput) {
     );
   }
 
-  const exam = await createExamWithAnswerSheet({
+  const exam = await buildAssessmentWithSheet({
     studentId,
     setId: null,
     label: `Topic: ${skill.label}`,

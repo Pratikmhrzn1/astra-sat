@@ -19,7 +19,7 @@ import {
   type FeedbackContext,
   type FeedbackType,
 } from '../ai';
-import { examRepository as repo, gradeAnswer, hasAnswer } from '../exams';
+import { examRepository as repo, markAnswer, isAnswered } from '../exams';
 import type { ConfirmAnswerInput } from './practice.schemas';
 
 /**
@@ -55,7 +55,7 @@ export async function confirmAnswer(
   questionId: string,
   input: ConfirmAnswerInput,
 ): Promise<ConfirmResult> {
-  const exam = await repo.findOwnedExam(examId, studentId);
+  const exam = await repo.loadOwnedAssessment(examId, studentId);
   if (!exam) throw notFound('Exam not found');
   // Mock and live attempts are assessments — feedback there would amount to
   // telling a student mid-test which answers are wrong.
@@ -110,7 +110,7 @@ export async function confirmAnswer(
   } else {
     selectedAnswer = input.selectedAnswer ?? null;
     selectedAnswerText = input.selectedAnswerText ?? null;
-    isCorrect = gradeAnswer({
+    isCorrect = markAnswer({
       questionType: question.questionType,
       selectedAnswer,
       selectedAnswerText,
@@ -124,7 +124,7 @@ export async function confirmAnswer(
         selectedAnswer: input.selectedAnswer ?? null,
         selectedAnswerText: input.selectedAnswerText ?? null,
         isCorrect,
-        answeredAt: hasAnswer(selectedAnswer, selectedAnswerText) ? new Date() : null,
+        answeredAt: isAnswered(selectedAnswer, selectedAnswerText) ? new Date() : null,
       })
       .where(eq(examAnswers.id, answerRow.id));
   }

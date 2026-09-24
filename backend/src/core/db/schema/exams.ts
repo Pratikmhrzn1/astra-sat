@@ -9,7 +9,7 @@ export const exams = pgTable('exams', {
   // Nullable: an exam assembled from a single set records it here, but topic
   // practice draws questions from across many sets and belongs to none. The
   // authoritative list of questions in an exam is its `exam_answers` rows, not
-  // this column — see `findQuestionsForExam`.
+  // this column — see `loadQuestionsForAssessment`.
   setId: uuid('set_id').references(() => questionSets.id, { onDelete: 'cascade' }),
   // Display name for an exam that has no owning set to borrow a title from —
   // "Topic: Algebra", "Mistake review". Null for set-backed exams, which show

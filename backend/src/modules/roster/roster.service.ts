@@ -137,7 +137,7 @@ export async function getStudentExamResults(teacherId: string, studentId: string
     // `questionId` rather than `id` because this response always has been —
     // the teacher client reads that name.
     examRepository
-      .findReviewRowsForExam(exam.id)
+      .loadReviewRowsForAssessment(exam.id)
       .then((rows) => rows.map(({ id, ...rest }) => ({ questionId: id, ...rest }))),
     // An exam assembled across sets has no owning set to describe.
     exam.setId

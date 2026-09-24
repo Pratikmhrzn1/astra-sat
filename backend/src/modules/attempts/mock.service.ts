@@ -3,12 +3,12 @@ import { db } from '../../core/db';
 import { exams, mockTests, questionSets } from '../../core/db/schema';
 import { badRequest, notFound } from '../../core/errors';
 import {
-  MOCK_MODULE_LIMIT_SECONDS,
-  createExamWithAnswerSheet,
+  MOCK_MODULE_CAP_SECONDS,
+  buildAssessmentWithSheet,
   examRepository as repo,
-  pathFromModuleDifficulty,
-  toSectionScore,
-  toTotalScore,
+  trackForModuleDifficulty,
+  toSectionResult,
+  toCompositeResult,
 } from '../exams';
 
 /**
@@ -69,21 +69,21 @@ async function pickModule1Set(subject: Subject): Promise<string> {
 }
 
 async function createSectionExam(studentId: string, setId: string, subject: Subject) {
-  const questionRows = await repo.findQuestionsForSet(setId);
+  const questionRows = await repo.loadQuestionsForSet(setId);
   if (questionRows.length === 0) {
     const label = subject === 'english' ? 'English Module 1' : 'Math Module 1';
     throw badRequest(`${label} set has no questions`);
   }
 
-  const exam = await createExamWithAnswerSheet({
+  const exam = await buildAssessmentWithSheet({
     studentId,
     setId,
     type: subject === 'english' ? 'mock_english' : 'mock_math',
     questionIds: questionRows.map((q) => q.id),
-    timeLimitSeconds: MOCK_MODULE_LIMIT_SECONDS[subject],
+    timeLimitSeconds: MOCK_MODULE_CAP_SECONDS[subject],
   });
 
-  return { exam, questions: repo.withPublicImageUrls(questionRows) };
+  return { exam, questions: repo.withPublicImageLinks(questionRows) };
 }
 
 export async function startMockTest(studentId: string) {
@@ -132,12 +132,12 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
   if (existingM2Id) {
     const [existing] = await db.select().from(exams).where(eq(exams.id, existingM2Id)).limit(1);
     if (existing) {
-      const questionRows = await repo.findQuestionsForExam(existing.id);
-      return { m2ExamId: existingM2Id, m2Questions: repo.withPublicImageUrls(questionRows) };
+      const questionRows = await repo.loadQuestionsForAssessment(existing.id);
+      return { m2ExamId: existingM2Id, m2Questions: repo.withPublicImageLinks(questionRows) };
     }
   }
 
-  const module1 = await repo.findOwnedExam(submittedExamId, studentId);
+  const module1 = await repo.loadOwnedAssessment(submittedExamId, studentId);
   if (!module1) throw notFound('M1 exam not found');
   // The score is the whole input to the adaptive decision, so Module 1 has to
   // be graded before Module 2 can be chosen.
@@ -157,15 +157,15 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
     throw badRequest(`No ${subject} Module 2 question set available`);
   }
 
-  const questionRows = await repo.findQuestionsForSet(setId);
+  const questionRows = await repo.loadQuestionsForSet(setId);
   if (questionRows.length === 0) throw badRequest('Module 2 set has no questions');
 
-  const module2 = await createExamWithAnswerSheet({
+  const module2 = await buildAssessmentWithSheet({
     studentId,
     setId,
     type: isEnglish ? 'mock_english' : 'mock_math',
     questionIds: questionRows.map((q) => q.id),
-    timeLimitSeconds: MOCK_MODULE_LIMIT_SECONDS[subject],
+    timeLimitSeconds: MOCK_MODULE_CAP_SECONDS[subject],
   });
 
   // Issuing a module only records which exam it is. Completion belongs to the
@@ -179,7 +179,7 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
   // slot as null above, so without this guard both would write and the last
   // writer would win — leaving the student answering a Module 2 the mock row no
   // longer points at, which then never finalises. Same guard as
-  // `resolveDeadline` in exams/exam-timing.ts.
+  // `settleDeadline` in exams/exam-timing.ts.
   const claimedSlot = await db
     .update(mockTests)
     .set(isEnglish ? { englishM2ExamId: module2.id } : { mathM2ExamId: module2.id })
@@ -200,10 +200,10 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
     const [current] = await db.select().from(mockTests).where(eq(mockTests.id, mockTestId)).limit(1);
     const winningM2Id = current && (isEnglish ? current.englishM2ExamId : current.mathM2ExamId);
     if (winningM2Id) {
-      const winningQuestions = await repo.findQuestionsForExam(winningM2Id);
+      const winningQuestions = await repo.loadQuestionsForAssessment(winningM2Id);
       return {
         m2ExamId: winningM2Id,
-        m2Questions: repo.withPublicImageUrls(winningQuestions),
+        m2Questions: repo.withPublicImageLinks(winningQuestions),
         m2Difficulty: difficulty,
         percentage: Math.round(ratio * 100),
       };
@@ -212,7 +212,7 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
 
   return {
     m2ExamId: module2.id,
-    m2Questions: repo.withPublicImageUrls(questionRows),
+    m2Questions: repo.withPublicImageLinks(questionRows),
     m2Difficulty: difficulty,
     percentage: Math.round(ratio * 100),
   };
@@ -376,7 +376,7 @@ export async function finalizeMockIfComplete(examId: string): Promise<void> {
     .set({
       rwScore,
       mathScore,
-      totalScore: toTotalScore(rwScore, mathScore),
+      totalScore: toCompositeResult(rwScore, mathScore),
       status: 'completed',
       completedAt: new Date(),
     })
@@ -389,5 +389,5 @@ function scaleSection(sectionModules: MockModule[]): number | null {
   const total = sectionModules.reduce((sum, module) => sum + module.totalQuestions, 0);
   const module2 = sectionModules.find((module) => module.module === 2);
 
-  return toSectionScore(raw, total, pathFromModuleDifficulty(module2?.setDifficulty));
+  return toSectionResult(raw, total, trackForModuleDifficulty(module2?.setDifficulty));
 }

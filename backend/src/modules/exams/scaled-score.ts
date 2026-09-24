@@ -33,7 +33,7 @@
  */
 
 /** Which Module 2 the student earned, which gates the attainable band. */
-export type AdaptivePath =
+export type AdaptiveTrack =
   /** Routed to the harder Module 2 — the full range is reachable. */
   | 'hard'
   /** Routed to the easier Module 2 — the attainable score is capped. */
@@ -42,8 +42,8 @@ export type AdaptivePath =
   | 'none';
 
 /** SAT section scores run 200-800; totals run 400-1600. */
-export const SECTION_MIN = 200;
-export const SECTION_MAX = 800;
+export const SECTION_FLOOR = 200;
+export const SECTION_CEILING = 800;
 
 /**
  * The ceiling for a student routed to the easier Module 2.
@@ -53,18 +53,18 @@ export const SECTION_MAX = 800;
  * questions you answer correctly. 650 is our working figure; it is the single
  * most important number to recalibrate against real results.
  */
-export const LOW_PATH_CEILING = 650;
+export const LOW_TRACK_CEILING = 650;
 
 /**
  * Below this many questions a section score is more noise than signal, so we
  * decline to produce one rather than publish a number that looks authoritative.
  * Short practice sets get a raw score and an accuracy percentage instead.
  */
-export const MIN_QUESTIONS_TO_SCALE = 10;
+export const MIN_ITEMS_TO_SCALE = 10;
 
 /** The attainable [floor, ceiling] band for a given adaptive path. */
-function bandFor(path: AdaptivePath): readonly [number, number] {
-  return path === 'low' ? [SECTION_MIN, LOW_PATH_CEILING] : [SECTION_MIN, SECTION_MAX];
+function bandFor(path: AdaptiveTrack): readonly [number, number] {
+  return path === 'low' ? [SECTION_FLOOR, LOW_TRACK_CEILING] : [SECTION_FLOOR, SECTION_CEILING];
 }
 
 /** SAT scores are reported in multiples of 10. */
@@ -82,12 +82,12 @@ function clamp(value: number, min: number, max: number): number {
  * Returns `null` when the section is too short to scale meaningfully — callers
  * should fall back to reporting raw correct/total rather than inventing a score.
  */
-export function toSectionScore(
+export function toSectionResult(
   rawCorrect: number,
   totalQuestions: number,
-  path: AdaptivePath = 'none',
+  path: AdaptiveTrack = 'none',
 ): number | null {
-  if (totalQuestions < MIN_QUESTIONS_TO_SCALE) return null;
+  if (totalQuestions < MIN_ITEMS_TO_SCALE) return null;
 
   const accuracy = clamp(rawCorrect / totalQuestions, 0, 1);
   const [floor, ceiling] = bandFor(path);
@@ -101,7 +101,7 @@ export function toSectionScore(
  * Returns `null` unless both sections scored — a total built from one section
  * plus a guess is worse than no total at all.
  */
-export function toTotalScore(
+export function toCompositeResult(
   rwScore: number | null,
   mathScore: number | null,
 ): number | null {
@@ -115,7 +115,7 @@ export function toTotalScore(
  * `question_sets.difficulty` is free text and predates this module, so anything
  * unrecognised is treated as a non-adaptive section rather than assumed.
  */
-export function pathFromModuleDifficulty(difficulty: string | null | undefined): AdaptivePath {
+export function trackForModuleDifficulty(difficulty: string | null | undefined): AdaptiveTrack {
   if (difficulty === 'hard') return 'hard';
   if (difficulty === 'low') return 'low';
   return 'none';

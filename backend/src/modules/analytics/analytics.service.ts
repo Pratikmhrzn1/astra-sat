@@ -170,7 +170,7 @@ export async function scoreTrend(studentId: string): Promise<TrendPoint[]> {
       -- A set-less exam (topic practice, mistake review) has no set to name its
       -- subject, and without one both columns above are NULL and the point
       -- silently drops out of the trend. Its first question's set gives the
-      -- subject, the same rule listExamsForStudent uses.
+      -- subject, the same rule loadAssessmentsForStudent uses.
       CROSS JOIN LATERAL (
         SELECT COALESCE(
           qs.subject,

@@ -11,7 +11,7 @@ import {
   users,
 } from '../../core/db/schema';
 import { badRequest, notFound } from '../../core/errors';
-import { createExamForSet, examRepository } from '../exams';
+import { buildAssessmentForSet, examRepository } from '../exams';
 import { recordMistakesOnRelease } from '../mistakes';
 
 /**
@@ -212,13 +212,13 @@ async function provisionParticipantExams(
     session.startedAt ? new Date(session.startedAt.getTime() + seconds * 1000) : null;
 
   const [englishExam, mathExam] = await Promise.all([
-    createExamForSet({
+    buildAssessmentForSet({
       studentId: participant.studentId,
       setId: session.englishSetId,
       type: 'mock_english',
       deadlineAt: deadline(session.englishDurationSeconds),
     }),
-    createExamForSet({
+    buildAssessmentForSet({
       studentId: participant.studentId,
       setId: session.mathSetId,
       type: 'mock_math',
@@ -329,7 +329,7 @@ async function loadSectionForMarking(examId: string | null) {
   // the passage join — so a teacher marked passage questions without the
   // passage. It also restores `questionType`, dropped here, which is what tells
   // a grid-in apart from a multiple-choice question on the marking page.
-  const rows = await examRepository.findReviewRowsForExam(exam.id);
+  const rows = await examRepository.loadReviewRowsForAssessment(exam.id);
   const results = rows.map(({ id, ...rest }) => ({ questionId: id, ...rest }));
 
   return { exam, results };

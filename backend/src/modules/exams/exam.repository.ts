@@ -12,7 +12,7 @@ import { normalizeFileUrl } from '../../core/lib/url';
  * than returning rows and deleting fields — means a new answer-bearing column
  * cannot leak by default.
  */
-export const studentQuestionColumns = {
+export const studentQuestionFields = {
   id: questions.id,
   questionType: questions.questionType,
   questionText: questions.questionText,
@@ -27,8 +27,8 @@ export const studentQuestionColumns = {
   orderIndex: questions.orderIndex,
 } as const;
 
-export type StudentQuestion = {
-  [K in keyof typeof studentQuestionColumns]: unknown;
+export type StudentQuestionView = {
+  [K in keyof typeof studentQuestionFields]: unknown;
 } & { id: string; imageUrl: string | null };
 
 /**
@@ -46,8 +46,8 @@ export type StudentQuestion = {
  * `questions`: an exam assembled across sets (topic practice, mistake review)
  * has questions whose own order indices collide.
  */
-export const reviewQuestionColumns = {
-  ...studentQuestionColumns,
+export const reviewQuestionFields = {
+  ...studentQuestionFields,
   orderIndex: examAnswers.orderIndex,
   correctAnswer: questions.correctAnswer,
   correctAnswerText: questions.correctAnswerText,
@@ -58,7 +58,7 @@ export const reviewQuestionColumns = {
 } as const;
 
 /** Applies `normalizeFileUrl` to every question's image before it leaves the API. */
-export function withPublicImageUrls<T extends { imageUrl: string | null }>(rows: T[]): T[] {
+export function withPublicImageLinks<T extends { imageUrl: string | null }>(rows: T[]): T[] {
   return rows.map((row) => ({ ...row, imageUrl: normalizeFileUrl(row.imageUrl) }));
 }
 
@@ -69,29 +69,29 @@ export function withPublicImageUrls<T extends { imageUrl: string | null }>(rows:
  * the three review paths had already each forgotten one convention, and
  * `normalizeFileUrl` is the other one they were all skipping.
  */
-export async function findReviewRowsForExam(examId: string) {
+export async function loadReviewRowsForAssessment(examId: string) {
   const rows = await db
-    .select(reviewQuestionColumns)
+    .select(reviewQuestionFields)
     .from(examAnswers)
     .innerJoin(questions, eq(examAnswers.questionId, questions.id))
     .leftJoin(passages, eq(questions.passageId, passages.id))
     .where(eq(examAnswers.examId, examId))
     .orderBy(examAnswers.orderIndex);
-  return withPublicImageUrls(rows);
+  return withPublicImageLinks(rows);
 }
 
 /** Questions of one set, in presentation order, with passage text joined in. */
 /**
  * The questions in an exam, in presentation order, read from its answer sheet.
  *
- * Prefer this over `findQuestionsForSet`: the answer sheet is materialised when
+ * Prefer this over `loadQuestionsForSet`: the answer sheet is materialised when
  * the exam is created and is the authoritative record of what the student was
  * asked, so it stays correct for an exam drawn from several sets (topic
  * practice) and is unaffected by later edits to a set.
  */
-export async function findQuestionsForExam(examId: string) {
+export async function loadQuestionsForAssessment(examId: string) {
   return db
-    .select(studentQuestionColumns)
+    .select(studentQuestionFields)
     .from(examAnswers)
     .innerJoin(questions, eq(examAnswers.questionId, questions.id))
     .leftJoin(passages, eq(questions.passageId, passages.id))
@@ -99,9 +99,9 @@ export async function findQuestionsForExam(examId: string) {
     .orderBy(examAnswers.orderIndex);
 }
 
-export async function findQuestionsForSet(setId: string) {
+export async function loadQuestionsForSet(setId: string) {
   return db
-    .select(studentQuestionColumns)
+    .select(studentQuestionFields)
     .from(questions)
     .leftJoin(passages, eq(questions.passageId, passages.id))
     .where(and(eq(questions.setId, setId), isNull(questions.retiredAt)))
@@ -116,7 +116,7 @@ export async function findQuestionsForSet(setId: string) {
  * mock engine, not browsed. Sets with no difficulty predate that split and
  * remain visible.
  */
-export async function findPublishedSets() {
+export async function loadPublishedSets() {
   return db
     .select({
       id: questionSets.id,
@@ -139,7 +139,7 @@ export async function findPublishedSets() {
 }
 
 /** A set a student can start. Archived sets are gone as far as new exams are concerned. */
-export async function findSetById(setId: string) {
+export async function loadSetById(setId: string) {
   const [set] = await db
     .select()
     .from(questionSets)
@@ -155,7 +155,7 @@ export async function findSetById(setId: string) {
  * query is what stops an id in the URL from becoming a way to read — or submit —
  * somebody else's attempt.
  */
-export async function findOwnedExam(examId: string, studentId: string) {
+export async function loadOwnedAssessment(examId: string, studentId: string) {
   const [exam] = await db
     .select()
     .from(exams)
@@ -164,7 +164,7 @@ export async function findOwnedExam(examId: string, studentId: string) {
   return exam ?? null;
 }
 
-export async function listExamsForStudent(studentId: string) {
+export async function loadAssessmentsForStudent(studentId: string) {
   return db
     .select({
       id: exams.id,

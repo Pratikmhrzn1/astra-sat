@@ -16,10 +16,10 @@ import { examAnswers, exams, questions } from '../../core/db/schema';
  * invariant cannot be half-applied by whichever caller forgets a step.
  */
 
-export type ExamType = 'individual' | 'mock_english' | 'mock_math';
+export type AssessmentKind = 'individual' | 'mock_english' | 'mock_math';
 
 /** Question ids of a set in presentation order. */
-export async function findQuestionIdsForSet(setId: string): Promise<string[]> {
+export async function loadQuestionIdsForSet(setId: string): Promise<string[]> {
   const rows = await db
     .select({ id: questions.id })
     .from(questions)
@@ -29,13 +29,13 @@ export async function findQuestionIdsForSet(setId: string): Promise<string[]> {
   return rows.map((row) => row.id);
 }
 
-export async function createExamWithAnswerSheet(input: {
+export async function buildAssessmentWithSheet(input: {
   studentId: string;
   /** Null for an exam assembled across sets, such as topic practice. */
   setId: string | null;
   /** Display name for a set-less exam — "Topic: Algebra", "Mistake review". */
   label?: string | null;
-  type: ExamType;
+  type: AssessmentKind;
   questionIds: string[];
   /** A mock module's limit; the deadline is stamped when the student opens it. */
   timeLimitSeconds?: number | null;
@@ -73,12 +73,12 @@ export async function createExamWithAnswerSheet(input: {
 }
 
 /** Provisions an exam for a set, looking the questions up first. */
-export async function createExamForSet(input: {
+export async function buildAssessmentForSet(input: {
   studentId: string;
   setId: string;
-  type: ExamType;
+  type: AssessmentKind;
   deadlineAt?: Date | null;
 }) {
-  const questionIds = await findQuestionIdsForSet(input.setId);
-  return createExamWithAnswerSheet({ ...input, questionIds });
+  const questionIds = await loadQuestionIdsForSet(input.setId);
+  return buildAssessmentWithSheet({ ...input, questionIds });
 }
