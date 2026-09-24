@@ -1,6 +1,6 @@
 import { desc, eq } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { feedback, users } from '../../core/db/schema';
+import { notesTable, accountsTable } from '../../core/db/schema';
 import { ensureOwnsStudent } from '../roster';
 import type { SendFeedbackPayload } from './messages.schemas';
 
@@ -10,7 +10,7 @@ export async function dispatchFeedback(teacherId: string, input: SendFeedbackPay
   await ensureOwnsStudent(teacherId, input.studentId, 'forbidden');
 
   const [created] = await database
-    .insert(feedback)
+    .insert(notesTable)
     .values({
       teacherId,
       studentId: input.studentId,
@@ -24,16 +24,16 @@ export async function dispatchFeedback(teacherId: string, input: SendFeedbackPay
 export async function collectSentFeedback(teacherId: string) {
   return database
     .select({
-      id: feedback.id,
-      content: feedback.content,
-      isRead: feedback.isRead,
-      createdAt: feedback.createdAt,
-      examId: feedback.examId,
-      studentName: users.name,
-      studentEmail: users.email,
+      id: notesTable.id,
+      content: notesTable.content,
+      isRead: notesTable.isRead,
+      createdAt: notesTable.createdAt,
+      examId: notesTable.examId,
+      studentName: accountsTable.name,
+      studentEmail: accountsTable.email,
     })
-    .from(feedback)
-    .innerJoin(users, eq(feedback.studentId, users.id))
-    .where(eq(feedback.teacherId, teacherId))
-    .orderBy(desc(feedback.createdAt));
+    .from(notesTable)
+    .innerJoin(accountsTable, eq(notesTable.studentId, accountsTable.id))
+    .where(eq(notesTable.teacherId, teacherId))
+    .orderBy(desc(notesTable.createdAt));
 }

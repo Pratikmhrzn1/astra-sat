@@ -1,6 +1,6 @@
 import { and, eq, isNull, or } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { exams, mockTests } from '../../core/db/schema';
+import { assessmentsTable, mockRunsTable } from '../../core/db/schema';
 import { sealMockWhenComplete, loadMockContextForAssessment } from './mock.service';
 import { toSectionResult } from '../exams';
 
@@ -55,9 +55,9 @@ export async function fillMissingScores(): Promise<BackfillTally> {
   };
 
   const pending = await database
-    .select({ id: exams.id, score: exams.score, totalQuestions: exams.totalQuestions })
-    .from(exams)
-    .where(and(eq(exams.status, 'completed'), isNull(exams.scaledScore)));
+    .select({ id: assessmentsTable.id, score: assessmentsTable.score, totalQuestions: assessmentsTable.totalQuestions })
+    .from(assessmentsTable)
+    .where(and(eq(assessmentsTable.status, 'completed'), isNull(assessmentsTable.scaledScore)));
 
   run.examsFound = pending.length;
   console.log(`[scoring-backfill] ${run.examsFound} completed exams without a scaled score`);
@@ -76,7 +76,7 @@ export async function fillMissingScores(): Promise<BackfillTally> {
       continue;
     }
 
-    await database.update(exams).set({ scaledScore }).where(eq(exams.id, exam.id));
+    await database.update(assessmentsTable).set({ scaledScore }).where(eq(assessmentsTable.id, exam.id));
     run.examsScored++;
   }
 
@@ -84,9 +84,9 @@ export async function fillMissingScores(): Promise<BackfillTally> {
   // closed a mock when Math Module 2 was issued rather than submitted. Those
   // only score here if all four modules really were finished.
   const unscored = await database
-    .select({ id: mockTests.id, englishExamId: mockTests.englishExamId, completedAt: mockTests.completedAt })
-    .from(mockTests)
-    .where(or(isNull(mockTests.totalScore), isNull(mockTests.rwScore), isNull(mockTests.mathScore)));
+    .select({ id: mockRunsTable.id, englishExamId: mockRunsTable.englishExamId, completedAt: mockRunsTable.completedAt })
+    .from(mockRunsTable)
+    .where(or(isNull(mockRunsTable.totalScore), isNull(mockRunsTable.rwScore), isNull(mockRunsTable.mathScore)));
 
   run.mocksFound = unscored.length;
   console.log(`[scoring-backfill] ${run.mocksFound} mocks without a total score`);
@@ -106,23 +106,23 @@ export async function fillMissingScores(): Promise<BackfillTally> {
     // is counted as incomplete. That is the truth about it — it was never sat to
     // the end — and leaving it marked completed with no score would be worse.
     await database
-      .update(mockTests)
+      .update(mockRunsTable)
       .set({ status: 'in_progress' })
-      .where(and(eq(mockTests.id, mock.id), eq(mockTests.status, 'completed')));
+      .where(and(eq(mockRunsTable.id, mock.id), eq(mockRunsTable.status, 'completed')));
 
     await sealMockWhenComplete(mock.englishExamId);
 
     const [after] = await database
-      .select({ totalScore: mockTests.totalScore, status: mockTests.status })
-      .from(mockTests)
-      .where(eq(mockTests.id, mock.id))
+      .select({ totalScore: mockRunsTable.totalScore, status: mockRunsTable.status })
+      .from(mockRunsTable)
+      .where(eq(mockRunsTable.id, mock.id))
       .limit(1);
 
     // sealMockWhenComplete stamps completedAt with now(). For history that is
     // wrong — it would re-date a mock sat weeks ago to today on every run, and
     // reorder the student's history and trend lines — so keep the original date.
     if (after?.status === 'completed' && mock.completedAt) {
-      await database.update(mockTests).set({ completedAt: mock.completedAt }).where(eq(mockTests.id, mock.id));
+      await database.update(mockRunsTable).set({ completedAt: mock.completedAt }).where(eq(mockRunsTable.id, mock.id));
     }
 
     if (after?.status === 'completed' && after.totalScore !== null) run.mocksScored++;

@@ -2,13 +2,13 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { database } from '../../core/db';
 import {
-  exams,
-  liveExamParticipants,
-  liveExamQuestionFeedback,
-  liveExamSessions,
-  notifications,
-  questionSets,
-  users,
+  assessmentsTable,
+  liveParticipantsTable,
+  liveItemNotesTable,
+  liveSessionsTable,
+  notificationsTable,
+  questionSetsTable,
+  accountsTable,
 } from '../../core/db/schema';
 import { invalidRequest, missing } from '../../core/errors';
 import { buildAssessmentForSet, examRepository } from '../exams';
@@ -64,9 +64,9 @@ async function generateUniqueJoinCode(): Promise<string> {
   for (let attempt = 0; attempt < 10; attempt++) {
     const code = makeJoinCode();
     const [existing] = await database
-      .select({ id: liveExamSessions.id })
-      .from(liveExamSessions)
-      .where(eq(liveExamSessions.joinCode, code))
+      .select({ id: liveSessionsTable.id })
+      .from(liveSessionsTable)
+      .where(eq(liveSessionsTable.joinCode, code))
       .limit(1);
     if (!existing) return code;
   }
@@ -77,8 +77,8 @@ async function generateUniqueJoinCode(): Promise<string> {
 async function findOwnedSession(sessionId: string, teacherId: string) {
   const [session] = await database
     .select()
-    .from(liveExamSessions)
-    .where(and(eq(liveExamSessions.id, sessionId), eq(liveExamSessions.teacherId, teacherId)))
+    .from(liveSessionsTable)
+    .where(and(eq(liveSessionsTable.id, sessionId), eq(liveSessionsTable.teacherId, teacherId)))
     .limit(1);
   if (!session) throw missing('Session not found');
   return session;
@@ -87,8 +87,8 @@ async function findOwnedSession(sessionId: string, teacherId: string) {
 async function findSessionByCode(joinCode: string) {
   const [session] = await database
     .select()
-    .from(liveExamSessions)
-    .where(eq(liveExamSessions.joinCode, joinCode.toUpperCase()))
+    .from(liveSessionsTable)
+    .where(eq(liveSessionsTable.joinCode, joinCode.toUpperCase()))
     .limit(1);
   return session ?? null;
 }
@@ -98,14 +98,14 @@ async function findSessionByCode(joinCode: string) {
 export async function collectSessions(teacherId: string) {
   return database
     .select()
-    .from(liveExamSessions)
-    .where(eq(liveExamSessions.teacherId, teacherId))
-    .orderBy(liveExamSessions.createdAt);
+    .from(liveSessionsTable)
+    .where(eq(liveSessionsTable.teacherId, teacherId))
+    .orderBy(liveSessionsTable.createdAt);
 }
 
 export async function addSession(teacherId: string, input: CreateSessionPayload) {
   const [session] = await database
-    .insert(liveExamSessions)
+    .insert(liveSessionsTable)
     .values({
       title: input.title,
       teacherId,
@@ -123,19 +123,19 @@ export async function fetchSessionDetail(sessionId: string, teacherId: string) {
 
   const participants = await database
     .select({
-      id: liveExamParticipants.id,
-      studentId: liveExamParticipants.studentId,
-      englishExamId: liveExamParticipants.englishExamId,
-      mathExamId: liveExamParticipants.mathExamId,
-      globalFeedback: liveExamParticipants.globalFeedback,
-      resultReleased: liveExamParticipants.resultReleased,
-      joinedAt: liveExamParticipants.joinedAt,
-      name: users.name,
-      email: users.email,
+      id: liveParticipantsTable.id,
+      studentId: liveParticipantsTable.studentId,
+      englishExamId: liveParticipantsTable.englishExamId,
+      mathExamId: liveParticipantsTable.mathExamId,
+      globalFeedback: liveParticipantsTable.globalFeedback,
+      resultReleased: liveParticipantsTable.resultReleased,
+      joinedAt: liveParticipantsTable.joinedAt,
+      name: accountsTable.name,
+      email: accountsTable.email,
     })
-    .from(liveExamParticipants)
-    .innerJoin(users, eq(liveExamParticipants.studentId, users.id))
-    .where(eq(liveExamParticipants.sessionId, session.id));
+    .from(liveParticipantsTable)
+    .innerJoin(accountsTable, eq(liveParticipantsTable.studentId, accountsTable.id))
+    .where(eq(liveParticipantsTable.sessionId, session.id));
 
   return { ...session, participants };
 }
@@ -158,8 +158,8 @@ export async function openSession(sessionId: string, teacherId: string) {
 
   const participants = await database
     .select()
-    .from(liveExamParticipants)
-    .where(eq(liveExamParticipants.sessionId, session.id));
+    .from(liveParticipantsTable)
+    .where(eq(liveParticipantsTable.sessionId, session.id));
 
   // Fixed before provisioning, so every participant's deadlines come from the
   // same instant the session is recorded as starting.
@@ -169,9 +169,9 @@ export async function openSession(sessionId: string, teacherId: string) {
   }
 
   await database
-    .update(liveExamSessions)
+    .update(liveSessionsTable)
     .set({ status: 'active', startedAt })
-    .where(eq(liveExamSessions.id, session.id));
+    .where(eq(liveSessionsTable.id, session.id));
 
   return { ok: true, startedAt };
 }
@@ -190,7 +190,7 @@ export async function openSession(sessionId: string, teacherId: string) {
  * double start cannot hand someone a second blank attempt.
  */
 async function provisionParticipantExams(
-  participant: typeof liveExamParticipants.$inferSelect,
+  participant: typeof liveParticipantsTable.$inferSelect,
   session: {
     id: string;
     englishSetId: string | null;
@@ -233,10 +233,10 @@ async function provisionParticipantExams(
   // paper the participant row no longer points at — the teacher would then mark
   // and release a blank result for a section the student actually completed.
   const claimedSlots = await database
-    .update(liveExamParticipants)
+    .update(liveParticipantsTable)
     .set({ englishExamId: englishExam.id, mathExamId: mathExam.id })
-    .where(and(eq(liveExamParticipants.id, participant.id), isNull(liveExamParticipants.englishExamId)))
-    .returning({ id: liveExamParticipants.id });
+    .where(and(eq(liveParticipantsTable.id, participant.id), isNull(liveParticipantsTable.englishExamId)))
+    .returning({ id: liveParticipantsTable.id });
 
   if (claimedSlots.length === 0) {
     // Another call provisioned first; its pair is the one of record. The exams
@@ -244,8 +244,8 @@ async function provisionParticipantExams(
     // them, and deleting here would race the winner.
     const [current] = await database
       .select()
-      .from(liveExamParticipants)
-      .where(eq(liveExamParticipants.id, participant.id))
+      .from(liveParticipantsTable)
+      .where(eq(liveParticipantsTable.id, participant.id))
       .limit(1);
     if (current) {
       return { englishExamId: current.englishExamId, mathExamId: current.mathExamId };
@@ -258,9 +258,9 @@ async function provisionParticipantExams(
 async function findParticipantInSession(participantId: string, sessionId: string) {
   const [participant] = await database
     .select()
-    .from(liveExamParticipants)
+    .from(liveParticipantsTable)
     .where(
-      and(eq(liveExamParticipants.id, participantId), eq(liveExamParticipants.sessionId, sessionId)),
+      and(eq(liveParticipantsTable.id, participantId), eq(liveParticipantsTable.sessionId, sessionId)),
     )
     .limit(1);
   if (!participant) throw missing('Participant not found');
@@ -276,18 +276,18 @@ export async function fetchParticipantResult(
 
   const [participant] = await database
     .select({
-      id: liveExamParticipants.id,
-      studentId: liveExamParticipants.studentId,
-      englishExamId: liveExamParticipants.englishExamId,
-      mathExamId: liveExamParticipants.mathExamId,
-      globalFeedback: liveExamParticipants.globalFeedback,
-      resultReleased: liveExamParticipants.resultReleased,
-      name: users.name,
+      id: liveParticipantsTable.id,
+      studentId: liveParticipantsTable.studentId,
+      englishExamId: liveParticipantsTable.englishExamId,
+      mathExamId: liveParticipantsTable.mathExamId,
+      globalFeedback: liveParticipantsTable.globalFeedback,
+      resultReleased: liveParticipantsTable.resultReleased,
+      name: accountsTable.name,
     })
-    .from(liveExamParticipants)
-    .innerJoin(users, eq(liveExamParticipants.studentId, users.id))
+    .from(liveParticipantsTable)
+    .innerJoin(accountsTable, eq(liveParticipantsTable.studentId, accountsTable.id))
     .where(
-      and(eq(liveExamParticipants.id, participantId), eq(liveExamParticipants.sessionId, session.id)),
+      and(eq(liveParticipantsTable.id, participantId), eq(liveParticipantsTable.sessionId, session.id)),
     )
     .limit(1);
   if (!participant) throw missing('Participant not found');
@@ -295,8 +295,8 @@ export async function fetchParticipantResult(
   const [questionFeedbacks, english, math] = await Promise.all([
     database
       .select()
-      .from(liveExamQuestionFeedback)
-      .where(eq(liveExamQuestionFeedback.participantId, participant.id)),
+      .from(liveItemNotesTable)
+      .where(eq(liveItemNotesTable.participantId, participant.id)),
     loadSectionForMarking(participant.englishExamId),
     loadSectionForMarking(participant.mathExamId),
   ]);
@@ -322,7 +322,7 @@ export async function fetchParticipantResult(
 async function loadSectionForMarking(examId: string | null) {
   if (!examId) return null;
 
-  const [exam] = await database.select().from(exams).where(eq(exams.id, examId)).limit(1);
+  const [exam] = await database.select().from(assessmentsTable).where(eq(assessmentsTable.id, examId)).limit(1);
   if (!exam) return null;
 
   // The shared review projection, which this query used to duplicate without
@@ -351,14 +351,14 @@ export async function storeParticipantFeedback(
 
   if (input.globalFeedback !== undefined) {
     await database
-      .update(liveExamParticipants)
+      .update(liveParticipantsTable)
       .set({ globalFeedback: input.globalFeedback })
-      .where(eq(liveExamParticipants.id, participant.id));
+      .where(eq(liveParticipantsTable.id, participant.id));
   }
 
   if (input.questionFeedbacks?.length) {
     await database
-      .insert(liveExamQuestionFeedback)
+      .insert(liveItemNotesTable)
       .values(
         input.questionFeedbacks.map((entry) => ({
           participantId: participant.id,
@@ -367,7 +367,7 @@ export async function storeParticipantFeedback(
         })),
       )
       .onConflictDoUpdate({
-        target: [liveExamQuestionFeedback.participantId, liveExamQuestionFeedback.questionId],
+        target: [liveItemNotesTable.participantId, liveItemNotesTable.questionId],
         // `excluded` is the row this insert tried to add — i.e. the new comment.
         set: { feedback: sql`excluded.feedback` },
       });
@@ -375,7 +375,7 @@ export async function storeParticipantFeedback(
 }
 
 async function notifyResultsReleased(studentId: string, sessionTitle: string) {
-  await database.insert(notifications).values({
+  await database.insert(notificationsTable).values({
     userId: studentId,
     type: 'live_exam_result',
     title: 'Your Live Exam results are ready',
@@ -401,9 +401,9 @@ export async function publishParticipantResult(
   if (participant.resultReleased) return { ok: true, alreadyReleased: true };
 
   await database
-    .update(liveExamParticipants)
+    .update(liveParticipantsTable)
     .set({ resultReleased: true })
-    .where(eq(liveExamParticipants.id, participant.id));
+    .where(eq(liveParticipantsTable.id, participant.id));
 
   // Only now: until this moment the student was not supposed to know which
   // questions they got wrong.
@@ -426,22 +426,22 @@ export async function publishAllResults(sessionId: string, teacherId: string) {
 
   const participants = await database
     .select({
-      id: liveExamParticipants.id,
-      studentId: liveExamParticipants.studentId,
-      englishExamId: liveExamParticipants.englishExamId,
-      mathExamId: liveExamParticipants.mathExamId,
-      resultReleased: liveExamParticipants.resultReleased,
+      id: liveParticipantsTable.id,
+      studentId: liveParticipantsTable.studentId,
+      englishExamId: liveParticipantsTable.englishExamId,
+      mathExamId: liveParticipantsTable.mathExamId,
+      resultReleased: liveParticipantsTable.resultReleased,
     })
-    .from(liveExamParticipants)
-    .where(eq(liveExamParticipants.sessionId, session.id));
+    .from(liveParticipantsTable)
+    .where(eq(liveParticipantsTable.sessionId, session.id));
 
   const unreleased = participants.filter((participant) => !participant.resultReleased);
 
   for (const participant of unreleased) {
     await database
-      .update(liveExamParticipants)
+      .update(liveParticipantsTable)
       .set({ resultReleased: true })
-      .where(eq(liveExamParticipants.id, participant.id));
+      .where(eq(liveParticipantsTable.id, participant.id));
     await registerMisstepsOnRelease(participant.studentId, [
       participant.englishExamId,
       participant.mathExamId,
@@ -450,9 +450,9 @@ export async function publishAllResults(sessionId: string, teacherId: string) {
   }
 
   await database
-    .update(liveExamSessions)
+    .update(liveSessionsTable)
     .set({ status: 'completed' })
-    .where(eq(liveExamSessions.id, session.id));
+    .where(eq(liveSessionsTable.id, session.id));
 
   return { ok: true, released: unreleased.length };
 }
@@ -461,13 +461,13 @@ export async function publishAllResults(sessionId: string, teacherId: string) {
 export async function collectLiveAssessmentSets() {
   return database
     .select({
-      id: questionSets.id,
-      title: questionSets.title,
-      subject: questionSets.subject,
-      isDraft: questionSets.isDraft,
+      id: questionSetsTable.id,
+      title: questionSetsTable.title,
+      subject: questionSetsTable.subject,
+      isDraft: questionSetsTable.isDraft,
     })
-    .from(questionSets)
-    .where(and(eq(questionSets.isLiveExam, true), isNull(questionSets.archivedAt)));
+    .from(questionSetsTable)
+    .where(and(eq(questionSetsTable.isLiveExam, true), isNull(questionSetsTable.archivedAt)));
 }
 
 // ── Student ───────────────────────────────────────────────────────────────────
@@ -495,11 +495,11 @@ export async function enterSession(joinCode: string, studentId: string) {
 
   const [existing] = await database
     .select()
-    .from(liveExamParticipants)
+    .from(liveParticipantsTable)
     .where(
       and(
-        eq(liveExamParticipants.sessionId, session.id),
-        eq(liveExamParticipants.studentId, studentId),
+        eq(liveParticipantsTable.sessionId, session.id),
+        eq(liveParticipantsTable.studentId, studentId),
       ),
     )
     .limit(1);
@@ -508,7 +508,7 @@ export async function enterSession(joinCode: string, studentId: string) {
     existing ??
     (
       await database
-        .insert(liveExamParticipants)
+        .insert(liveParticipantsTable)
         .values({ sessionId: session.id, studentId })
         .returning()
     )[0];
@@ -543,11 +543,11 @@ export async function checkSession(joinCode: string, studentId: string) {
 
   const [participant] = await database
     .select()
-    .from(liveExamParticipants)
+    .from(liveParticipantsTable)
     .where(
       and(
-        eq(liveExamParticipants.sessionId, session.id),
-        eq(liveExamParticipants.studentId, studentId),
+        eq(liveParticipantsTable.sessionId, session.id),
+        eq(liveParticipantsTable.studentId, studentId),
       ),
     )
     .limit(1);
@@ -572,39 +572,39 @@ export async function checkSession(joinCode: string, studentId: string) {
 export async function collectStudentResults(studentId: string) {
   return database
     .select({
-      sessionId: liveExamSessions.id,
-      sessionTitle: liveExamSessions.title,
-      sessionStatus: liveExamSessions.status,
-      startedAt: liveExamSessions.startedAt,
-      participantId: liveExamParticipants.id,
-      englishExamId: liveExamParticipants.englishExamId,
-      mathExamId: liveExamParticipants.mathExamId,
-      globalFeedback: liveExamParticipants.globalFeedback,
-      resultReleased: liveExamParticipants.resultReleased,
-      joinedAt: liveExamParticipants.joinedAt,
+      sessionId: liveSessionsTable.id,
+      sessionTitle: liveSessionsTable.title,
+      sessionStatus: liveSessionsTable.status,
+      startedAt: liveSessionsTable.startedAt,
+      participantId: liveParticipantsTable.id,
+      englishExamId: liveParticipantsTable.englishExamId,
+      mathExamId: liveParticipantsTable.mathExamId,
+      globalFeedback: liveParticipantsTable.globalFeedback,
+      resultReleased: liveParticipantsTable.resultReleased,
+      joinedAt: liveParticipantsTable.joinedAt,
     })
-    .from(liveExamParticipants)
-    .innerJoin(liveExamSessions, eq(liveExamParticipants.sessionId, liveExamSessions.id))
+    .from(liveParticipantsTable)
+    .innerJoin(liveSessionsTable, eq(liveParticipantsTable.sessionId, liveSessionsTable.id))
     .where(
       and(
-        eq(liveExamParticipants.studentId, studentId),
-        eq(liveExamParticipants.resultReleased, true),
+        eq(liveParticipantsTable.studentId, studentId),
+        eq(liveParticipantsTable.resultReleased, true),
       ),
     )
-    .orderBy(liveExamSessions.startedAt);
+    .orderBy(liveSessionsTable.startedAt);
 }
 
 export async function collectUnreadNotifications(userId: string) {
   return database
     .select()
-    .from(notifications)
-    .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)))
-    .orderBy(notifications.createdAt);
+    .from(notificationsTable)
+    .where(and(eq(notificationsTable.userId, userId), eq(notificationsTable.isRead, false)))
+    .orderBy(notificationsTable.createdAt);
 }
 
 export async function flagNotificationSeen(notificationId: string, userId: string): Promise<void> {
   await database
-    .update(notifications)
+    .update(notificationsTable)
     .set({ isRead: true })
-    .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
+    .where(and(eq(notificationsTable.id, notificationId), eq(notificationsTable.userId, userId)));
 }

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { studentProfiles } from '../../core/db/schema';
+import { learnerProfilesTable } from '../../core/db/schema';
 import type { UpdateLearnerProfilePayload } from './analytics.schemas';
 
 /**
@@ -14,14 +14,14 @@ import type { UpdateLearnerProfilePayload } from './analytics.schemas';
  * inventing a number.
  */
 
-export type LearnerProfile = typeof studentProfiles.$inferSelect;
+export type LearnerProfile = typeof learnerProfilesTable.$inferSelect;
 
 /** Null when the student has not set a goal yet — the caller must prompt, not guess. */
 export async function fetchLearnerProfile(studentId: string): Promise<LearnerProfile | null> {
   const [profile] = await database
     .select()
-    .from(studentProfiles)
-    .where(eq(studentProfiles.studentId, studentId))
+    .from(learnerProfilesTable)
+    .where(eq(learnerProfilesTable.studentId, studentId))
     .limit(1);
   return profile ?? null;
 }
@@ -43,9 +43,9 @@ export async function saveLearnerProfile(
   };
 
   const [profile] = await database
-    .insert(studentProfiles)
+    .insert(learnerProfilesTable)
     .values({ studentId, ...values })
-    .onConflictDoUpdate({ target: studentProfiles.studentId, set: values })
+    .onConflictDoUpdate({ target: learnerProfilesTable.studentId, set: values })
     .returning();
 
   return profile;

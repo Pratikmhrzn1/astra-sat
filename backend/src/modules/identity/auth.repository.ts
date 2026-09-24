@@ -1,6 +1,6 @@
 import { and, eq, gt } from 'drizzle-orm';
 import { database, type DbTransaction } from '../../core/db';
-import { accessCodes, passwordResetTokens, refreshTokens, users } from '../../core/db/schema';
+import { enrolmentCodesTable, resetTokensTable, refreshTokensTable, accountsTable } from '../../core/db/schema';
 
 /**
  * All database access for authentication. Keeping queries here means the
@@ -10,10 +10,10 @@ import { accessCodes, passwordResetTokens, refreshTokens, users } from '../../co
 
 /** The user shape safe to return to a client — never includes `passwordHash`. */
 export const publicAccountFields = {
-  id: users.id,
-  email: users.email,
-  name: users.name,
-  role: users.role,
+  id: accountsTable.id,
+  email: accountsTable.email,
+  name: accountsTable.name,
+  role: accountsTable.role,
 } as const;
 
 export interface PublicAccount {
@@ -29,12 +29,12 @@ export interface PublicAccount {
 }
 
 export async function loadUserByEmail(email: string) {
-  const [user] = await database.select().from(users).where(eq(users.email, email)).limit(1);
+  const [user] = await database.select().from(accountsTable).where(eq(accountsTable.email, email)).limit(1);
   return user ?? null;
 }
 
 export async function loadUserById(id: string) {
-  const [user] = await database.select().from(users).where(eq(users.id, id)).limit(1);
+  const [user] = await database.select().from(accountsTable).where(eq(accountsTable.id, id)).limit(1);
   return user ?? null;
 }
 
@@ -42,12 +42,12 @@ export async function loadProfileById(id: string) {
   const [profile] = await database
     .select({
       ...publicAccountFields,
-      teacherId: users.teacherId,
-      createdAt: users.createdAt,
-      surveyCompletedAt: users.surveyCompletedAt,
+      teacherId: accountsTable.teacherId,
+      createdAt: accountsTable.createdAt,
+      surveyCompletedAt: accountsTable.surveyCompletedAt,
     })
-    .from(users)
-    .where(eq(users.id, id))
+    .from(accountsTable)
+    .where(eq(accountsTable.id, id))
     .limit(1);
   if (!profile) return null;
   const { surveyCompletedAt, ...rest } = profile;
@@ -55,7 +55,7 @@ export async function loadProfileById(id: string) {
 }
 
 export async function emailTaken(email: string): Promise<boolean> {
-  const [row] = await database.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  const [row] = await database.select({ id: accountsTable.id }).from(accountsTable).where(eq(accountsTable.email, email)).limit(1);
   return row !== undefined;
 }
 
@@ -66,21 +66,21 @@ export async function addUser(input: {
   passwordHash: string;
   role: 'student' | 'teacher' | 'admin';
 }): Promise<PublicAccount> {
-  const [user] = await database.insert(users).values(input).returning(publicAccountFields);
+  const [user] = await database.insert(accountsTable).values(input).returning(publicAccountFields);
   // A brand-new account has answered nothing, by definition.
   return { ...user, surveyCompleted: false };
 }
 
 export async function editPasswordHash(userId: string, passwordHash: string): Promise<void> {
-  await database.update(users).set({ passwordHash }).where(eq(users.id, userId));
+  await database.update(accountsTable).set({ passwordHash }).where(eq(accountsTable.id, userId));
 }
 
 export async function editName(userId: string, name: string): Promise<PublicAccount | null> {
   const [updated] = await database
-    .update(users)
+    .update(accountsTable)
     .set({ name })
-    .where(eq(users.id, userId))
-    .returning({ ...publicAccountFields, surveyCompletedAt: users.surveyCompletedAt });
+    .where(eq(accountsTable.id, userId))
+    .returning({ ...publicAccountFields, surveyCompletedAt: accountsTable.surveyCompletedAt });
   if (!updated) return null;
   const { surveyCompletedAt, ...rest } = updated;
   return { ...rest, surveyCompleted: surveyCompletedAt !== null };
@@ -91,14 +91,14 @@ export async function editName(userId: string, name: string): Promise<PublicAcco
 export async function loadActiveAccessCode(code: string) {
   const [row] = await database
     .select()
-    .from(accessCodes)
-    .where(and(eq(accessCodes.code, code), eq(accessCodes.isActive, true)))
+    .from(enrolmentCodesTable)
+    .where(and(eq(enrolmentCodesTable.code, code), eq(enrolmentCodesTable.isActive, true)))
     .limit(1);
   return row ?? null;
 }
 
 export async function bumpAccessCodeUse(id: string, currentCount: number): Promise<void> {
-  await database.update(accessCodes).set({ useCount: currentCount + 1 }).where(eq(accessCodes.id, id));
+  await database.update(enrolmentCodesTable).set({ useCount: currentCount + 1 }).where(eq(enrolmentCodesTable.id, id));
 }
 
 // ── Refresh tokens (stored as sha256 hashes, never raw) ───────────────────────
@@ -109,7 +109,7 @@ export async function persistRefreshToken(
   expiresAt: Date,
   tx: DbTransaction | typeof database = database,
 ): Promise<void> {
-  await tx.insert(refreshTokens).values({ userId, tokenHash, expiresAt });
+  await tx.insert(refreshTokensTable).values({ userId, tokenHash, expiresAt });
 }
 
 /**
@@ -122,27 +122,27 @@ export async function removeRefreshToken(
   tx: DbTransaction | typeof database = database,
 ): Promise<boolean> {
   const deleted = await tx
-    .delete(refreshTokens)
-    .where(eq(refreshTokens.tokenHash, tokenHash))
-    .returning({ id: refreshTokens.id });
+    .delete(refreshTokensTable)
+    .where(eq(refreshTokensTable.tokenHash, tokenHash))
+    .returning({ id: refreshTokensTable.id });
   return deleted.length > 0;
 }
 
 // ── Password reset tokens ─────────────────────────────────────────────────────
 
 export async function addPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
-  await database.insert(passwordResetTokens).values({ userId, token, expiresAt });
+  await database.insert(resetTokensTable).values({ userId, token, expiresAt });
 }
 
 export async function loadUnexpiredResetToken(token: string) {
   const [row] = await database
     .select()
-    .from(passwordResetTokens)
-    .where(and(eq(passwordResetTokens.token, token), gt(passwordResetTokens.expiresAt, new Date())))
+    .from(resetTokensTable)
+    .where(and(eq(resetTokensTable.token, token), gt(resetTokensTable.expiresAt, new Date())))
     .limit(1);
   return row ?? null;
 }
 
 export async function consumeResetToken(id: string, usedAt: Date): Promise<void> {
-  await database.update(passwordResetTokens).set({ usedAt }).where(eq(passwordResetTokens.id, id));
+  await database.update(resetTokensTable).set({ usedAt }).where(eq(resetTokensTable.id, id));
 }

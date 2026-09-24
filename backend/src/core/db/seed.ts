@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { settings, type SeedCredentials } from '../config/env';
 import { database, pgPool } from './index';
-import { users } from './schema';
+import { accountsTable } from './schema';
 import { hashSecret } from '../lib/password';
 import { applySchema } from './migrate';
 
@@ -25,20 +25,20 @@ async function upsertAccount(account: SeedCredentials, role: Role): Promise<'cre
   const passwordHash = await hashSecret(account.password);
 
   const [existing] = await database
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, account.email))
+    .select({ id: accountsTable.id })
+    .from(accountsTable)
+    .where(eq(accountsTable.email, account.email))
     .limit(1);
 
   if (existing) {
     await database
-      .update(users)
+      .update(accountsTable)
       .set({ name: account.name, role, passwordHash, updatedAt: new Date() })
-      .where(eq(users.id, existing.id));
+      .where(eq(accountsTable.id, existing.id));
     return 'updated';
   }
 
-  await database.insert(users).values({
+  await database.insert(accountsTable).values({
     email: account.email,
     name: account.name,
     role,

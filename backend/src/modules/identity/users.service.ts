@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { accessCodes, users } from '../../core/db/schema';
+import { enrolmentCodesTable, accountsTable } from '../../core/db/schema';
 import { invalidRequest, stateConflict, missing } from '../../core/errors';
 import { hashSecret } from '../../core/lib/password';
 import type { AssignStudentsPayload, CreateAccessCodePayload, UpdateUserPayload } from './users.schemas';
@@ -10,15 +10,15 @@ import type { AssignStudentsPayload, CreateAccessCodePayload, UpdateUserPayload 
 export async function collectUsers() {
   return database
     .select({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      role: users.role,
-      teacherId: users.teacherId,
-      createdAt: users.createdAt,
+      id: accountsTable.id,
+      email: accountsTable.email,
+      name: accountsTable.name,
+      role: accountsTable.role,
+      teacherId: accountsTable.teacherId,
+      createdAt: accountsTable.createdAt,
     })
-    .from(users)
-    .orderBy(users.role, desc(users.createdAt));
+    .from(accountsTable)
+    .orderBy(accountsTable.role, desc(accountsTable.createdAt));
 }
 
 /**
@@ -28,7 +28,7 @@ export async function collectUsers() {
  * re-authorise or re-identify an existing account.
  */
 export async function editUser(userId: string, input: UpdateUserPayload) {
-  const [existing] = await database.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+  const [existing] = await database.select({ id: accountsTable.id }).from(accountsTable).where(eq(accountsTable.id, userId)).limit(1);
   if (!existing) throw missing('User not found');
 
   const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -37,15 +37,15 @@ export async function editUser(userId: string, input: UpdateUserPayload) {
   if (input.password !== undefined) updates.passwordHash = await hashSecret(input.password);
 
   const [updated] = await database
-    .update(users)
+    .update(accountsTable)
     .set(updates)
-    .where(eq(users.id, userId))
+    .where(eq(accountsTable.id, userId))
     .returning({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      role: users.role,
-      teacherId: users.teacherId,
+      id: accountsTable.id,
+      email: accountsTable.email,
+      name: accountsTable.name,
+      role: accountsTable.role,
+      teacherId: accountsTable.teacherId,
     });
 
   return updated;
@@ -68,27 +68,27 @@ export async function editUser(userId: string, input: UpdateUserPayload) {
 export async function linkLearnersToTeacher(input: AssignStudentsPayload) {
   if (input.teacherId) {
     const [teacher] = await database
-      .select({ id: users.id })
-      .from(users)
-      .where(and(eq(users.id, input.teacherId), eq(users.role, 'teacher')))
+      .select({ id: accountsTable.id })
+      .from(accountsTable)
+      .where(and(eq(accountsTable.id, input.teacherId), eq(accountsTable.role, 'teacher')))
       .limit(1);
     if (!teacher) throw invalidRequest('That teacher does not exist');
   }
 
   const targets = await database
-    .select({ id: users.id })
-    .from(users)
-    .where(and(inArray(users.id, input.studentIds), eq(users.role, 'student')));
+    .select({ id: accountsTable.id })
+    .from(accountsTable)
+    .where(and(inArray(accountsTable.id, input.studentIds), eq(accountsTable.role, 'student')));
 
   if (targets.length !== input.studentIds.length) {
     throw invalidRequest('Every selected user must be a student');
   }
 
   const updated = await database
-    .update(users)
+    .update(accountsTable)
     .set({ teacherId: input.teacherId, updatedAt: new Date() })
-    .where(inArray(users.id, input.studentIds))
-    .returning({ id: users.id });
+    .where(inArray(accountsTable.id, input.studentIds))
+    .returning({ id: accountsTable.id });
 
   return { ok: true as const, assigned: updated.length };
 }
@@ -102,7 +102,7 @@ export async function linkLearnersToTeacher(input: AssignStudentsPayload) {
 export async function removeUser(userId: string, actingAdminId: string): Promise<void> {
   if (userId === actingAdminId) throw invalidRequest('Cannot delete your own account');
 
-  const deleted = await database.delete(users).where(eq(users.id, userId)).returning({ id: users.id });
+  const deleted = await database.delete(accountsTable).where(eq(accountsTable.id, userId)).returning({ id: accountsTable.id });
   if (deleted.length === 0) throw missing('User not found');
 }
 
@@ -111,18 +111,18 @@ export async function removeUser(userId: string, actingAdminId: string): Promise
 export async function collectAccessCodes() {
   return database
     .select({
-      id: accessCodes.id,
-      code: accessCodes.code,
-      role: accessCodes.role,
-      description: accessCodes.description,
-      isActive: accessCodes.isActive,
-      maxUses: accessCodes.maxUses,
-      useCount: accessCodes.useCount,
-      createdAt: accessCodes.createdAt,
-      createdBy: accessCodes.createdBy,
+      id: enrolmentCodesTable.id,
+      code: enrolmentCodesTable.code,
+      role: enrolmentCodesTable.role,
+      description: enrolmentCodesTable.description,
+      isActive: enrolmentCodesTable.isActive,
+      maxUses: enrolmentCodesTable.maxUses,
+      useCount: enrolmentCodesTable.useCount,
+      createdAt: enrolmentCodesTable.createdAt,
+      createdBy: enrolmentCodesTable.createdBy,
     })
-    .from(accessCodes)
-    .orderBy(desc(accessCodes.createdAt));
+    .from(enrolmentCodesTable)
+    .orderBy(desc(enrolmentCodesTable.createdAt));
 }
 
 /**
@@ -131,14 +131,14 @@ export async function collectAccessCodes() {
  */
 export async function addAccessCode(createdBy: string, input: CreateAccessCodePayload) {
   const [existing] = await database
-    .select({ id: accessCodes.id })
-    .from(accessCodes)
-    .where(eq(accessCodes.code, input.code))
+    .select({ id: enrolmentCodesTable.id })
+    .from(enrolmentCodesTable)
+    .where(eq(enrolmentCodesTable.code, input.code))
     .limit(1);
   if (existing) throw stateConflict('An access code with this value already exists');
 
   const [created] = await database
-    .insert(accessCodes)
+    .insert(enrolmentCodesTable)
     .values({
       code: input.code,
       role: input.role,
@@ -152,8 +152,8 @@ export async function addAccessCode(createdBy: string, input: CreateAccessCodePa
 
 export async function removeAccessCode(codeId: string): Promise<void> {
   const deleted = await database
-    .delete(accessCodes)
-    .where(eq(accessCodes.id, codeId))
-    .returning({ id: accessCodes.id });
+    .delete(enrolmentCodesTable)
+    .where(eq(enrolmentCodesTable.id, codeId))
+    .returning({ id: enrolmentCodesTable.id });
   if (deleted.length === 0) throw missing('Access code not found');
 }

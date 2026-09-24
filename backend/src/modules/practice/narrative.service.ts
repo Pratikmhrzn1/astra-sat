@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
 import { competencyAccuracy } from '../analytics';
-import { examAnswers, exams, mockNarratives, questionSets, questions } from '../../core/db/schema';
+import { assessmentAnswersTable, assessmentsTable, mockSummariesTable, questionSetsTable, questionsTable } from '../../core/db/schema';
 import { requestStructuredOutput, isModelReady } from '../ai';
 
 /**
@@ -32,32 +32,32 @@ export function narrativesAvailable(): boolean {
 
 export async function addPendingNarrative(examId: string): Promise<string | null> {
   if (!narrativesAvailable()) return null;
-  const [row] = await database.insert(mockNarratives).values({ examId }).returning({ id: mockNarratives.id });
+  const [row] = await database.insert(mockSummariesTable).values({ examId }).returning({ id: mockSummariesTable.id });
   return row.id;
 }
 
 /** Resets an existing narrative to `pending`, or creates one. Used by retry. */
 export async function clearNarrative(examId: string): Promise<string> {
   const [existing] = await database
-    .select({ id: mockNarratives.id })
-    .from(mockNarratives)
-    .where(eq(mockNarratives.examId, examId))
+    .select({ id: mockSummariesTable.id })
+    .from(mockSummariesTable)
+    .where(eq(mockSummariesTable.examId, examId))
     .limit(1);
 
   if (!existing) {
-    const [row] = await database.insert(mockNarratives).values({ examId }).returning({ id: mockNarratives.id });
+    const [row] = await database.insert(mockSummariesTable).values({ examId }).returning({ id: mockSummariesTable.id });
     return row.id;
   }
 
   await database
-    .update(mockNarratives)
+    .update(mockSummariesTable)
     .set({ status: 'pending', content: {}, modelUsed: '', latencyMs: null, costUsd: null })
-    .where(eq(mockNarratives.id, existing.id));
+    .where(eq(mockSummariesTable.id, existing.id));
   return existing.id;
 }
 
 export async function loadNarrative(examId: string) {
-  const [row] = await database.select().from(mockNarratives).where(eq(mockNarratives.examId, examId)).limit(1);
+  const [row] = await database.select().from(mockSummariesTable).where(eq(mockSummariesTable.examId, examId)).limit(1);
   return row ?? null;
 }
 
@@ -93,9 +93,9 @@ async function resolveSectionLabel(exam: NarrativeAssessment): Promise<string> {
   if (!exam.setId) return 'Practice';
 
   const [set] = await database
-    .select({ subject: questionSets.subject })
-    .from(questionSets)
-    .where(eq(questionSets.id, exam.setId))
+    .select({ subject: questionSetsTable.subject })
+    .from(questionSetsTable)
+    .where(eq(questionSetsTable.id, exam.setId))
     .limit(1);
   return set?.subject === 'math' ? 'Math' : 'English (Reading & Writing)';
 }
@@ -141,7 +141,7 @@ ${breakdown.map((b) => `- ${b.subSkill}: ${b.wrong} wrong of ${b.total}${b.flag 
     const result = await requestStructuredOutput(systemPrompt, userPrompt, 'narrative');
 
     await database
-      .update(mockNarratives)
+      .update(mockSummariesTable)
       .set({
         content: result.parsed as Record<string, unknown>,
         modelUsed: result.modelUsed,
@@ -149,13 +149,13 @@ ${breakdown.map((b) => `- ${b.subSkill}: ${b.wrong} wrong of ${b.total}${b.flag 
         costUsd: String(result.costUsd),
         status: 'complete',
       })
-      .where(eq(mockNarratives.id, narrativeId));
+      .where(eq(mockSummariesTable.id, narrativeId));
   } catch (err) {
     console.error(`[narrative] Generation failed for exam ${examId}:`, err);
     await database
-      .update(mockNarratives)
+      .update(mockSummariesTable)
       .set({ status: 'failed' })
-      .where(eq(mockNarratives.id, narrativeId))
+      .where(eq(mockSummariesTable.id, narrativeId))
       .catch((updateErr) => console.error('[narrative] Could not mark failed:', updateErr));
   }
 }
@@ -171,15 +171,15 @@ export function produceNarrativeInBackground(examId: string, narrativeId: string
 export async function loadAssessmentForNarrative(examId: string): Promise<NarrativeAssessment | null> {
   const [exam] = await database
     .select({
-      studentId: exams.studentId,
-      type: exams.type,
-      score: exams.score,
-      totalQuestions: exams.totalQuestions,
-      timeSpentSeconds: exams.timeSpentSeconds,
-      setId: exams.setId,
+      studentId: assessmentsTable.studentId,
+      type: assessmentsTable.type,
+      score: assessmentsTable.score,
+      totalQuestions: assessmentsTable.totalQuestions,
+      timeSpentSeconds: assessmentsTable.timeSpentSeconds,
+      setId: assessmentsTable.setId,
     })
-    .from(exams)
-    .where(eq(exams.id, examId))
+    .from(assessmentsTable)
+    .where(eq(assessmentsTable.id, examId))
     .limit(1);
   return exam ?? null;
 }

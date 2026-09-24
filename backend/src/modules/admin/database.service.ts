@@ -3,30 +3,30 @@ import { PgTable } from 'drizzle-orm/pg-core';
 import { database, pgPool } from '../../core/db';
 import * as schema from '../../core/db/schema';
 import {
-  accessCodes,
-  auditLog,
-  examAnswers,
-  exams,
-  feedback,
-  libraryItems,
-  liveExamParticipants,
-  liveExamQuestionFeedback,
-  liveExamSessions,
-  mistakes,
-  mockTests,
-  organizations,
-  passages,
-  platformFeedback,
-  questionSets,
-  questions,
-  studentProfiles,
-  surveyQuestions,
-  surveyResponses,
-  studentSkillTriggers,
-  studentTeacherVocabProgress,
-  studentVocab,
-  teacherVocabWords,
-  users,
+  enrolmentCodesTable,
+  trailLogTable,
+  assessmentAnswersTable,
+  assessmentsTable,
+  notesTable,
+  resourceItemsTable,
+  liveParticipantsTable,
+  liveItemNotesTable,
+  liveSessionsTable,
+  misstepsTable,
+  mockRunsTable,
+  orgsTable,
+  passagesTable,
+  reportsTable,
+  questionSetsTable,
+  questionsTable,
+  learnerProfilesTable,
+  intakeQuestionsTable,
+  intakeResponsesTable,
+  competencyTriggersTable,
+  learnerTeacherLexiconTable,
+  learnerLexiconTable,
+  teacherLexiconTable,
+  accountsTable,
 } from '../../core/db/schema';
 import { applySchema } from '../../core/db/migrate';
 import { invalidRequest, internalFailure } from '../../core/errors';
@@ -61,50 +61,50 @@ import type { RestorePayload } from './admin.schemas';
  * vocabulary went missing from every backup taken before this was written.
  */
 const BACKUP_TABLES = [
-  { key: 'organizations', table: organizations, sqlName: 'organizations' },
-  { key: 'users', table: users, sqlName: 'users' },
-  { key: 'accessCodes', table: accessCodes, sqlName: 'access_codes' },
-  { key: 'questionSets', table: questionSets, sqlName: 'question_sets' },
+  { key: 'organizations', table: orgsTable, sqlName: 'organizations' },
+  { key: 'users', table: accountsTable, sqlName: 'users' },
+  { key: 'accessCodes', table: enrolmentCodesTable, sqlName: 'access_codes' },
+  { key: 'questionSets', table: questionSetsTable, sqlName: 'question_sets' },
   // Before questions: questions.passage_id points here.
-  { key: 'passages', table: passages, sqlName: 'passages' },
-  { key: 'questions', table: questions, sqlName: 'questions' },
-  { key: 'exams', table: exams, sqlName: 'exams' },
-  { key: 'examAnswers', table: examAnswers, sqlName: 'exam_answers' },
-  { key: 'mockTests', table: mockTests, sqlName: 'mock_tests' },
-  { key: 'feedback', table: feedback, sqlName: 'feedback' },
+  { key: 'passages', table: passagesTable, sqlName: 'passages' },
+  { key: 'questions', table: questionsTable, sqlName: 'questions' },
+  { key: 'exams', table: assessmentsTable, sqlName: 'exams' },
+  { key: 'examAnswers', table: assessmentAnswersTable, sqlName: 'exam_answers' },
+  { key: 'mockTests', table: mockRunsTable, sqlName: 'mock_tests' },
+  { key: 'feedback', table: notesTable, sqlName: 'feedback' },
   // Teacher-uploaded resources and notes: files the platform cannot reproduce.
-  { key: 'libraryItems', table: libraryItems, sqlName: 'library_items' },
+  { key: 'libraryItems', table: resourceItemsTable, sqlName: 'library_items' },
   // Authored vocabulary, and the spaced-repetition progress earned against it.
-  { key: 'teacherVocabWords', table: teacherVocabWords, sqlName: 'teacher_vocab_words' },
-  { key: 'studentVocab', table: studentVocab, sqlName: 'student_vocab' },
+  { key: 'teacherVocabWords', table: teacherLexiconTable, sqlName: 'teacher_vocab_words' },
+  { key: 'studentVocab', table: learnerLexiconTable, sqlName: 'student_vocab' },
   {
     key: 'studentTeacherVocabProgress',
-    table: studentTeacherVocabProgress,
+    table: learnerTeacherLexiconTable,
     sqlName: 'student_teacher_vocab_progress',
   },
   // Student learning state: targets, mistakes and remediation triggers.
-  { key: 'studentProfiles', table: studentProfiles, sqlName: 'student_profiles' },
-  { key: 'studentSkillTriggers', table: studentSkillTriggers, sqlName: 'student_skill_triggers' },
-  { key: 'mistakes', table: mistakes, sqlName: 'mistakes' },
+  { key: 'studentProfiles', table: learnerProfilesTable, sqlName: 'student_profiles' },
+  { key: 'studentSkillTriggers', table: competencyTriggersTable, sqlName: 'student_skill_triggers' },
+  { key: 'mistakes', table: misstepsTable, sqlName: 'mistakes' },
   // Live exams are real sittings with teacher feedback attached — assessment
   // records, not transient session state.
-  { key: 'liveExamSessions', table: liveExamSessions, sqlName: 'live_exam_sessions' },
-  { key: 'liveExamParticipants', table: liveExamParticipants, sqlName: 'live_exam_participants' },
+  { key: 'liveExamSessions', table: liveSessionsTable, sqlName: 'live_exam_sessions' },
+  { key: 'liveExamParticipants', table: liveParticipantsTable, sqlName: 'live_exam_participants' },
   {
     key: 'liveExamQuestionFeedback',
-    table: liveExamQuestionFeedback,
+    table: liveItemNotesTable,
     sqlName: 'live_exam_question_feedback',
   },
-  { key: 'platformFeedback', table: platformFeedback, sqlName: 'platform_feedback' },
+  { key: 'platformFeedback', table: reportsTable, sqlName: 'platform_feedback' },
   // The onboarding survey: authored questions, and the answers keyed to them.
   // Questions first — survey_responses.question_id points here.
-  { key: 'surveyQuestions', table: surveyQuestions, sqlName: 'survey_questions' },
-  { key: 'surveyResponses', table: surveyResponses, sqlName: 'survey_responses' },
+  { key: 'surveyQuestions', table: intakeQuestionsTable, sqlName: 'survey_questions' },
+  { key: 'surveyResponses', table: intakeResponsesTable, sqlName: 'survey_responses' },
   // Accountability for irreversible admin actions. Backed up rather than
   // excluded because an audit trail that disappears on restore cannot serve its
   // purpose — and the restore is itself one of the actions it records. Depends
   // only on `users`, so it can sit last.
-  { key: 'auditLog', table: auditLog, sqlName: 'audit_log' },
+  { key: 'auditLog', table: trailLogTable, sqlName: 'audit_log' },
 ] as const;
 
 /**

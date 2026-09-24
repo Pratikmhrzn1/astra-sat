@@ -1,6 +1,6 @@
 import { desc, eq, and, inArray, isNull, or, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { exams, mockTests, questionSets } from '../../core/db/schema';
+import { assessmentsTable, mockRunsTable, questionSetsTable } from '../../core/db/schema';
 import { invalidRequest, missing } from '../../core/errors';
 import {
   MOCK_MODULE_CAP_SECONDS,
@@ -96,7 +96,7 @@ export async function openMockTest(studentId: string) {
   const math = await createSectionExam(studentId, mathSetId, 'math');
 
   const [mockTest] = await database
-    .insert(mockTests)
+    .insert(mockRunsTable)
     .values({ studentId, englishExamId: english.exam.id, mathExamId: math.exam.id })
     .returning();
 
@@ -119,8 +119,8 @@ export async function openMockTest(studentId: string) {
 export async function openNextModule(studentId: string, mockTestId: string, submittedExamId: string) {
   const [mockTest] = await database
     .select()
-    .from(mockTests)
-    .where(and(eq(mockTests.id, mockTestId), eq(mockTests.studentId, studentId)))
+    .from(mockRunsTable)
+    .where(and(eq(mockRunsTable.id, mockTestId), eq(mockRunsTable.studentId, studentId)))
     .limit(1);
   if (!mockTest) throw missing('Mock test not found');
 
@@ -130,7 +130,7 @@ export async function openNextModule(studentId: string, mockTestId: string, subm
 
   const existingM2Id = isEnglish ? mockTest.englishM2ExamId : mockTest.mathM2ExamId;
   if (existingM2Id) {
-    const [existing] = await database.select().from(exams).where(eq(exams.id, existingM2Id)).limit(1);
+    const [existing] = await database.select().from(assessmentsTable).where(eq(assessmentsTable.id, existingM2Id)).limit(1);
     if (existing) {
       const questionRows = await repo.loadQuestionsForAssessment(existing.id);
       return { m2ExamId: existingM2Id, m2Questions: repo.withPublicImageLinks(questionRows) };
@@ -181,15 +181,15 @@ export async function openNextModule(studentId: string, mockTestId: string, subm
   // longer points at, which then never finalises. Same guard as
   // `settleDeadline` in exams/exam-timing.ts.
   const claimedSlot = await database
-    .update(mockTests)
+    .update(mockRunsTable)
     .set(isEnglish ? { englishM2ExamId: module2.id } : { mathM2ExamId: module2.id })
     .where(
       and(
-        eq(mockTests.id, mockTestId),
-        isNull(isEnglish ? mockTests.englishM2ExamId : mockTests.mathM2ExamId),
+        eq(mockRunsTable.id, mockTestId),
+        isNull(isEnglish ? mockRunsTable.englishM2ExamId : mockRunsTable.mathM2ExamId),
       ),
     )
-    .returning({ id: mockTests.id });
+    .returning({ id: mockRunsTable.id });
 
   if (claimedSlot.length === 0) {
     // Someone else claimed it first. Their module is the one of record, so hand
@@ -197,7 +197,7 @@ export async function openNextModule(studentId: string, mockTestId: string, subm
     // left unreferenced rather than deleted: nothing reads it, and a delete here
     // would race the winner. Difficulty is unchanged either way — both callers
     // derive it from the same graded Module 1.
-    const [current] = await database.select().from(mockTests).where(eq(mockTests.id, mockTestId)).limit(1);
+    const [current] = await database.select().from(mockRunsTable).where(eq(mockRunsTable.id, mockTestId)).limit(1);
     const winningM2Id = current && (isEnglish ? current.englishM2ExamId : current.mathM2ExamId);
     if (winningM2Id) {
       const winningQuestions = await repo.loadQuestionsForAssessment(winningM2Id);
@@ -221,16 +221,16 @@ export async function openNextModule(studentId: string, mockTestId: string, subm
 export async function collectMockTests(studentId: string) {
   return database
     .select()
-    .from(mockTests)
-    .where(eq(mockTests.studentId, studentId))
-    .orderBy(desc(mockTests.startedAt));
+    .from(mockRunsTable)
+    .where(eq(mockRunsTable.studentId, studentId))
+    .orderBy(desc(mockRunsTable.startedAt));
 }
 
 export async function fetchMockTest(studentId: string, mockTestId: string) {
   const [mockTest] = await database
     .select()
-    .from(mockTests)
-    .where(and(eq(mockTests.id, mockTestId), eq(mockTests.studentId, studentId)))
+    .from(mockRunsTable)
+    .where(and(eq(mockRunsTable.id, mockTestId), eq(mockRunsTable.studentId, studentId)))
     .limit(1);
   if (!mockTest) throw missing('Mock test not found');
 
@@ -244,7 +244,7 @@ export async function fetchMockTest(studentId: string, mockTestId: string) {
 
 async function findExamOrNull(examId: string | null) {
   if (!examId) return null;
-  const [exam] = await database.select().from(exams).where(eq(exams.id, examId)).limit(1);
+  const [exam] = await database.select().from(assessmentsTable).where(eq(assessmentsTable.id, examId)).limit(1);
   return exam ?? null;
 }
 
@@ -264,7 +264,7 @@ export interface MockSlot {
 }
 
 export interface MockChain {
-  mockTest: typeof mockTests.$inferSelect;
+  mockTest: typeof mockRunsTable.$inferSelect;
   /** Present modules in sitting order: English M1, M2, then Math M1, M2. */
   modules: MockSlot[];
 }
@@ -284,13 +284,13 @@ export interface MockChain {
 export async function loadMockContextForAssessment(examId: string): Promise<MockChain | null> {
   const [mockTest] = await database
     .select()
-    .from(mockTests)
+    .from(mockRunsTable)
     .where(
       or(
-        eq(mockTests.englishExamId, examId),
-        eq(mockTests.englishM2ExamId, examId),
-        eq(mockTests.mathExamId, examId),
-        eq(mockTests.mathM2ExamId, examId),
+        eq(mockRunsTable.englishExamId, examId),
+        eq(mockRunsTable.englishM2ExamId, examId),
+        eq(mockRunsTable.mathExamId, examId),
+        eq(mockRunsTable.mathM2ExamId, examId),
       ),
     )
     .limit(1);
@@ -306,7 +306,7 @@ const MODULE_SLOTS = [
   { column: 'mathM2ExamId', subject: 'math', module: 2 },
 ] as const;
 
-async function loadModules(mockTest: typeof mockTests.$inferSelect): Promise<MockSlot[]> {
+async function loadModules(mockTest: typeof mockRunsTable.$inferSelect): Promise<MockSlot[]> {
   const ids = MODULE_SLOTS.map((slot) => mockTest[slot.column]).filter(
     (id): id is string => id !== null,
   );
@@ -314,15 +314,15 @@ async function loadModules(mockTest: typeof mockTests.$inferSelect): Promise<Moc
 
   const rows = await database
     .select({
-      id: exams.id,
-      status: exams.status,
-      score: exams.score,
-      totalQuestions: exams.totalQuestions,
-      setDifficulty: questionSets.difficulty,
+      id: assessmentsTable.id,
+      status: assessmentsTable.status,
+      score: assessmentsTable.score,
+      totalQuestions: assessmentsTable.totalQuestions,
+      setDifficulty: questionSetsTable.difficulty,
     })
-    .from(exams)
-    .leftJoin(questionSets, eq(exams.setId, questionSets.id))
-    .where(inArray(exams.id, ids));
+    .from(assessmentsTable)
+    .leftJoin(questionSetsTable, eq(assessmentsTable.setId, questionSetsTable.id))
+    .where(inArray(assessmentsTable.id, ids));
 
   const byId = new Map(rows.map((row) => [row.id, row]));
 
@@ -372,7 +372,7 @@ export async function sealMockWhenComplete(examId: string): Promise<void> {
   const mathScore = scaleSection(modules.filter((m) => m.subject === 'math'));
 
   await database
-    .update(mockTests)
+    .update(mockRunsTable)
     .set({
       rwScore,
       mathScore,
@@ -380,7 +380,7 @@ export async function sealMockWhenComplete(examId: string): Promise<void> {
       status: 'completed',
       completedAt: new Date(),
     })
-    .where(and(eq(mockTests.id, mockTest.id), eq(mockTests.status, 'in_progress')));
+    .where(and(eq(mockRunsTable.id, mockTest.id), eq(mockRunsTable.status, 'in_progress')));
 }
 
 /** Raw totals across a section's two modules, scaled against its adaptive path. */

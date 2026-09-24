@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { questionSets, questions, skills } from '../../core/db/schema';
+import { questionSetsTable, questionsTable, competenciesTable } from '../../core/db/schema';
 
 /**
  * The SAT domain/skill tree, and how many questions sit under each node.
@@ -43,8 +43,8 @@ export async function fetchSkillTree(withCounts = false): Promise<CompetencyNode
   // Math group without re-sorting; sortOrder is only unique within a subject.
   const rows = await database
     .select()
-    .from(skills)
-    .orderBy(skills.subject, skills.sortOrder, skills.code);
+    .from(competenciesTable)
+    .orderBy(competenciesTable.subject, competenciesTable.sortOrder, competenciesTable.code);
   const counts = withCounts ? await countPublishedBySkill() : null;
 
   const domains = rows.filter((row) => row.parentCode === null);
@@ -66,7 +66,7 @@ export async function fetchSkillTree(withCounts = false): Promise<CompetencyNode
 }
 
 function node(
-  row: typeof skills.$inferSelect,
+  row: typeof competenciesTable.$inferSelect,
   counts: Map<string, number> | null,
 ): CompetencyNode {
   return {
@@ -90,18 +90,18 @@ function node(
  */
 async function countPublishedBySkill(): Promise<Map<string, number>> {
   const rows = await database
-    .select({ skillCode: questions.skillCode, count: sql<number>`count(*)::int` })
-    .from(questions)
-    .innerJoin(questionSets, eq(questions.setId, questionSets.id))
+    .select({ skillCode: questionsTable.skillCode, count: sql<number>`count(*)::int` })
+    .from(questionsTable)
+    .innerJoin(questionSetsTable, eq(questionsTable.setId, questionSetsTable.id))
     .where(
       and(
-        eq(questionSets.isDraft, false),
-        eq(questionSets.isLiveExam, false),
-        isNull(questionSets.archivedAt),
-        isNull(questions.retiredAt),
+        eq(questionSetsTable.isDraft, false),
+        eq(questionSetsTable.isLiveExam, false),
+        isNull(questionSetsTable.archivedAt),
+        isNull(questionsTable.retiredAt),
       ),
     )
-    .groupBy(questions.skillCode);
+    .groupBy(questionsTable.skillCode);
 
   return new Map(
     rows.flatMap(({ skillCode, count }) => (skillCode ? [[skillCode, count] as const] : [])),
@@ -110,7 +110,7 @@ async function countPublishedBySkill(): Promise<Map<string, number>> {
 
 /** Every valid code, for validating a tag before it is written. */
 export async function collectSkillCodes(): Promise<Set<string>> {
-  const rows = await database.select({ code: skills.code }).from(skills);
+  const rows = await database.select({ code: competenciesTable.code }).from(competenciesTable);
   return new Set(rows.map((row) => row.code));
 }
 
@@ -126,14 +126,14 @@ export async function fetchTaggingCoverage(): Promise<
 > {
   const rows = await database
     .select({
-      subject: questionSets.subject,
+      subject: questionSetsTable.subject,
       total: sql<number>`count(*)::int`,
-      tagged: sql<number>`count(${questions.skillCode})::int`,
+      tagged: sql<number>`count(${questionsTable.skillCode})::int`,
     })
-    .from(questions)
-    .innerJoin(questionSets, eq(questions.setId, questionSets.id))
-    .where(and(eq(questionSets.isDraft, false), isNull(questions.retiredAt)))
-    .groupBy(questionSets.subject);
+    .from(questionsTable)
+    .innerJoin(questionSetsTable, eq(questionsTable.setId, questionSetsTable.id))
+    .where(and(eq(questionSetsTable.isDraft, false), isNull(questionsTable.retiredAt)))
+    .groupBy(questionSetsTable.subject);
 
   const bySubject = new Map(rows.map((row) => [row.subject, row]));
 

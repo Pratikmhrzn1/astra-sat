@@ -1,6 +1,6 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { generatedContent, passages, questionSets, questions } from '../../core/db/schema';
+import { generatedContentTable, passagesTable, questionSetsTable, questionsTable } from '../../core/db/schema';
 import { missing, unprocessableInput } from '../../core/errors';
 import type { FlagContentPayload, ContentQuery } from './content.schemas';
 
@@ -28,37 +28,37 @@ interface SkillPassageContent {
 
 export async function collectGeneratedContent(query: ContentQuery) {
   const conditions = [];
-  if (query.type) conditions.push(eq(generatedContent.contentType, query.type));
-  if (query.flag) conditions.push(eq(generatedContent.qualityFlag, query.flag));
+  if (query.type) conditions.push(eq(generatedContentTable.contentType, query.type));
+  if (query.flag) conditions.push(eq(generatedContentTable.qualityFlag, query.flag));
 
   return database
     .select({
-      id: generatedContent.id,
-      contentType: generatedContent.contentType,
-      qualityFlag: generatedContent.qualityFlag,
-      createdAt: generatedContent.createdAt,
-      content: generatedContent.content,
-      studentId: generatedContent.studentId,
-      sourceQuestionId: generatedContent.sourceQuestionId,
+      id: generatedContentTable.id,
+      contentType: generatedContentTable.contentType,
+      qualityFlag: generatedContentTable.qualityFlag,
+      createdAt: generatedContentTable.createdAt,
+      content: generatedContentTable.content,
+      studentId: generatedContentTable.studentId,
+      sourceQuestionId: generatedContentTable.sourceQuestionId,
       // The question that prompted it, so a reviewer can judge relevance.
-      questionText: questions.questionText,
-      optionA: questions.optionA,
-      optionB: questions.optionB,
-      optionC: questions.optionC,
-      optionD: questions.optionD,
-      correctAnswer: questions.correctAnswer,
+      questionText: questionsTable.questionText,
+      optionA: questionsTable.optionA,
+      optionB: questionsTable.optionB,
+      optionC: questionsTable.optionC,
+      optionD: questionsTable.optionD,
+      correctAnswer: questionsTable.correctAnswer,
     })
-    .from(generatedContent)
-    .innerJoin(questions, eq(generatedContent.sourceQuestionId, questions.id))
+    .from(generatedContentTable)
+    .innerJoin(questionsTable, eq(generatedContentTable.sourceQuestionId, questionsTable.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(generatedContent.createdAt));
+    .orderBy(desc(generatedContentTable.createdAt));
 }
 
 export async function markContentQuality(contentId: string, input: FlagContentPayload) {
   const [row] = await database
     .select()
-    .from(generatedContent)
-    .where(eq(generatedContent.id, contentId))
+    .from(generatedContentTable)
+    .where(eq(generatedContentTable.id, contentId))
     .limit(1);
   if (!row) throw missing('Generated content not found');
 
@@ -70,12 +70,12 @@ export async function markContentQuality(contentId: string, input: FlagContentPa
 
   if (input.qualityFlag === 'rejected') {
     const [updated] = await database
-      .update(generatedContent)
+      .update(generatedContentTable)
       .set({
         qualityFlag: 'rejected',
         ...(input.rejectionReason ? { rejectionReason: input.rejectionReason } : {}),
       })
-      .where(eq(generatedContent.id, contentId))
+      .where(eq(generatedContentTable.id, contentId))
       .returning();
     return updated;
   }
@@ -86,9 +86,9 @@ export async function markContentQuality(contentId: string, input: FlagContentPa
 
   // Vocabulary drills need no promotion — approval just makes them servable.
   const [updated] = await database
-    .update(generatedContent)
+    .update(generatedContentTable)
     .set({ qualityFlag: 'approved' })
-    .where(eq(generatedContent.id, contentId))
+    .where(eq(generatedContentTable.id, contentId))
     .returning();
   return updated;
 }
@@ -147,27 +147,27 @@ async function promoteSkillPassage(contentId: string, content: SkillPassageConte
 
   return database.transaction(async (tx) => {
     const [existingSet] = await tx
-      .select({ id: questionSets.id })
-      .from(questionSets)
-      .where(and(eq(questionSets.title, setTitle), eq(questionSets.generated, true)))
+      .select({ id: questionSetsTable.id })
+      .from(questionSetsTable)
+      .where(and(eq(questionSetsTable.title, setTitle), eq(questionSetsTable.generated, true)))
       .limit(1);
 
     const setId =
       existingSet?.id ??
       (
         await tx
-          .insert(questionSets)
+          .insert(questionSetsTable)
           .values({
             title: setTitle,
             subject: 'english',
             description: `AI-generated practice passages for ${readableSkill} (Digital SAT module 2)`,
             generated: true,
           })
-          .returning({ id: questionSets.id })
+          .returning({ id: questionSetsTable.id })
       )[0].id;
 
     const [passage] = await tx
-      .insert(passages)
+      .insert(passagesTable)
       .values({
         setId,
         title: content.passage.title ?? '',
@@ -175,9 +175,9 @@ async function promoteSkillPassage(contentId: string, content: SkillPassageConte
         generated: true,
         orderIndex: 0,
       })
-      .returning({ id: passages.id });
+      .returning({ id: passagesTable.id });
 
-    await tx.insert(questions).values(
+    await tx.insert(questionsTable).values(
       content.questions.map((question, index) => ({
         setId,
         passageId: passage.id,
@@ -201,9 +201,9 @@ async function promoteSkillPassage(contentId: string, content: SkillPassageConte
 
     // live_set_id is how the student-facing lookup finds this passage.
     const [updated] = await tx
-      .update(generatedContent)
+      .update(generatedContentTable)
       .set({ qualityFlag: 'approved', liveSetId: setId })
-      .where(eq(generatedContent.id, contentId))
+      .where(eq(generatedContentTable.id, contentId))
       .returning();
 
     return { ...updated, liveSetId: setId };

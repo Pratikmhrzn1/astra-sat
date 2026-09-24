@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { chatMessages, chatSessions, exams, passages, questionSets, questions } from '../../core/db/schema';
+import { chatMessagesTable, chatSessionsTable, assessmentsTable, passagesTable, questionSetsTable, questionsTable } from '../../core/db/schema';
 import { invalidRequest, missing, rateLimited } from '../../core/errors';
 import { tutorBudget, requestChatReply } from '../ai';
 import type { ChatPayload } from './practice.schemas';
@@ -76,13 +76,13 @@ export async function dispatchMessage(studentId: string, input: ChatPayload): Pr
     buildSystemPrompt(session.examId, session.questionId),
     database
       .select({
-        role: chatMessages.role,
-        content: chatMessages.content,
-        tokenCount: chatMessages.tokenCount,
+        role: chatMessagesTable.role,
+        content: chatMessagesTable.content,
+        tokenCount: chatMessagesTable.tokenCount,
       })
-      .from(chatMessages)
-      .where(eq(chatMessages.sessionId, session.id))
-      .orderBy(chatMessages.createdAt),
+      .from(chatMessagesTable)
+      .where(eq(chatMessagesTable.sessionId, session.id))
+      .orderBy(chatMessagesTable.createdAt),
   ]);
 
   const { content: assistantMessage } = await requestChatReply(systemPrompt, [
@@ -90,7 +90,7 @@ export async function dispatchMessage(studentId: string, input: ChatPayload): Pr
     { role: 'user', content: userMessage },
   ]);
 
-  await database.insert(chatMessages).values([
+  await database.insert(chatMessagesTable).values([
     { sessionId: session.id, role: 'user', content: userMessage, tokenCount: estimateTokens(userMessage) },
     {
       sessionId: session.id,
@@ -118,8 +118,8 @@ async function resolveSession(
   if (sessionId) {
     const [session] = await database
       .select()
-      .from(chatSessions)
-      .where(and(eq(chatSessions.id, sessionId), eq(chatSessions.studentId, studentId)))
+      .from(chatSessionsTable)
+      .where(and(eq(chatSessionsTable.id, sessionId), eq(chatSessionsTable.studentId, studentId)))
       .limit(1);
     if (!session) throw missing('Session not found');
     return retargetQuestion(session, questionId);
@@ -128,32 +128,32 @@ async function resolveSession(
   if (!examId) throw invalidRequest('examId required to start a new chat session');
 
   const [exam] = await database
-    .select({ id: exams.id })
-    .from(exams)
-    .where(and(eq(exams.id, examId), eq(exams.studentId, studentId), eq(exams.type, 'individual')))
+    .select({ id: assessmentsTable.id })
+    .from(assessmentsTable)
+    .where(and(eq(assessmentsTable.id, examId), eq(assessmentsTable.studentId, studentId), eq(assessmentsTable.type, 'individual')))
     .limit(1);
   if (!exam) throw missing('Exam not found or not a practice session');
 
   const [existing] = await database
     .select()
-    .from(chatSessions)
-    .where(and(eq(chatSessions.examId, examId), eq(chatSessions.studentId, studentId)))
+    .from(chatSessionsTable)
+    .where(and(eq(chatSessionsTable.examId, examId), eq(chatSessionsTable.studentId, studentId)))
     .limit(1);
   if (existing) return retargetQuestion(existing, questionId);
 
   const [created] = await database
-    .insert(chatSessions)
+    .insert(chatSessionsTable)
     .values({ examId, studentId, questionId: questionId ?? null })
     .returning();
   return created;
 }
 
-async function retargetQuestion(session: typeof chatSessions.$inferSelect, questionId?: string) {
+async function retargetQuestion(session: typeof chatSessionsTable.$inferSelect, questionId?: string) {
   if (!questionId || questionId === session.questionId) return session;
   const [updated] = await database
-    .update(chatSessions)
+    .update(chatSessionsTable)
     .set({ questionId })
-    .where(eq(chatSessions.id, session.id))
+    .where(eq(chatSessionsTable.id, session.id))
     .returning();
   return updated;
 }
@@ -166,10 +166,10 @@ async function retargetQuestion(session: typeof chatSessions.$inferSelect, quest
  */
 async function buildSystemPrompt(examId: string, questionId: string | null): Promise<string> {
   const [subjectRow] = await database
-    .select({ subject: questionSets.subject })
-    .from(exams)
-    .innerJoin(questionSets, eq(exams.setId, questionSets.id))
-    .where(eq(exams.id, examId))
+    .select({ subject: questionSetsTable.subject })
+    .from(assessmentsTable)
+    .innerJoin(questionSetsTable, eq(assessmentsTable.setId, questionSetsTable.id))
+    .where(eq(assessmentsTable.id, examId))
     .limit(1);
 
   const isMath = subjectRow?.subject === 'math';
@@ -179,10 +179,10 @@ async function buildSystemPrompt(examId: string, questionId: string | null): Pro
 
   if (questionId) {
     const [question] = await database
-      .select({ questionText: questions.questionText, passageText: passages.passageText })
-      .from(questions)
-      .leftJoin(passages, eq(questions.passageId, passages.id))
-      .where(eq(questions.id, questionId))
+      .select({ questionText: questionsTable.questionText, passageText: passagesTable.passageText })
+      .from(questionsTable)
+      .leftJoin(passagesTable, eq(questionsTable.passageId, passagesTable.id))
+      .where(eq(questionsTable.id, questionId))
       .limit(1);
 
     if (question) {
@@ -206,20 +206,20 @@ Answer only questions related to SAT Reading and Writing — grammar, vocabulary
 
 export async function collectMessages(studentId: string, sessionId: string) {
   const [session] = await database
-    .select({ id: chatSessions.id })
-    .from(chatSessions)
-    .where(and(eq(chatSessions.id, sessionId), eq(chatSessions.studentId, studentId)))
+    .select({ id: chatSessionsTable.id })
+    .from(chatSessionsTable)
+    .where(and(eq(chatSessionsTable.id, sessionId), eq(chatSessionsTable.studentId, studentId)))
     .limit(1);
   if (!session) throw missing('Session not found');
 
   return database
     .select({
-      id: chatMessages.id,
-      role: chatMessages.role,
-      content: chatMessages.content,
-      createdAt: chatMessages.createdAt,
+      id: chatMessagesTable.id,
+      role: chatMessagesTable.role,
+      content: chatMessagesTable.content,
+      createdAt: chatMessagesTable.createdAt,
     })
-    .from(chatMessages)
-    .where(eq(chatMessages.sessionId, sessionId))
-    .orderBy(chatMessages.createdAt);
+    .from(chatMessagesTable)
+    .where(eq(chatMessagesTable.sessionId, sessionId))
+    .orderBy(chatMessagesTable.createdAt);
 }

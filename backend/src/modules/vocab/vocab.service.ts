@@ -1,10 +1,10 @@
 import { and, desc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
 import {
-  generatedContent,
-  studentTeacherVocabProgress,
-  studentVocab,
-  teacherVocabWords,
+  generatedContentTable,
+  learnerTeacherLexiconTable,
+  learnerLexiconTable,
+  teacherLexiconTable,
 } from '../../core/db/schema';
 import { missing } from '../../core/errors';
 
@@ -69,17 +69,17 @@ export async function loadDueItems(studentId: string) {
 
   const dueVocab = await database
     .select({
-      vocabId: studentVocab.id,
-      word: studentVocab.word,
-      passageExcerpt: studentVocab.passageExcerpt,
-      nextReviewAt: studentVocab.nextReviewAt,
-      easeFactor: studentVocab.easeFactor,
-      reviewCount: studentVocab.reviewCount,
-      questionId: studentVocab.questionId,
+      vocabId: learnerLexiconTable.id,
+      word: learnerLexiconTable.word,
+      passageExcerpt: learnerLexiconTable.passageExcerpt,
+      nextReviewAt: learnerLexiconTable.nextReviewAt,
+      easeFactor: learnerLexiconTable.easeFactor,
+      reviewCount: learnerLexiconTable.reviewCount,
+      questionId: learnerLexiconTable.questionId,
     })
-    .from(studentVocab)
-    .where(and(eq(studentVocab.studentId, studentId), lte(studentVocab.nextReviewAt, now)))
-    .orderBy(studentVocab.easeFactor, studentVocab.nextReviewAt)
+    .from(learnerLexiconTable)
+    .where(and(eq(learnerLexiconTable.studentId, studentId), lte(learnerLexiconTable.nextReviewAt, now)))
+    .orderBy(learnerLexiconTable.easeFactor, learnerLexiconTable.nextReviewAt)
     .limit(REVIEW_BATCH_SIZE);
 
   const questionItems = dueVocab.length > 0 ? await attachDrills(studentId, dueVocab) : [];
@@ -87,26 +87,26 @@ export async function loadDueItems(studentId: string) {
   // LEFT JOIN so words with no progress row (never reviewed) are included.
   const teacherRows = await database
     .select({
-      vocabId: teacherVocabWords.id,
-      word: teacherVocabWords.word,
-      definition: teacherVocabWords.definition,
-      passageExcerpt: teacherVocabWords.exampleSentence,
-      nextReviewAt: studentTeacherVocabProgress.nextReviewAt,
-      easeFactor: studentTeacherVocabProgress.easeFactor,
-      reviewCount: studentTeacherVocabProgress.reviewCount,
+      vocabId: teacherLexiconTable.id,
+      word: teacherLexiconTable.word,
+      definition: teacherLexiconTable.definition,
+      passageExcerpt: teacherLexiconTable.exampleSentence,
+      nextReviewAt: learnerTeacherLexiconTable.nextReviewAt,
+      easeFactor: learnerTeacherLexiconTable.easeFactor,
+      reviewCount: learnerTeacherLexiconTable.reviewCount,
     })
-    .from(teacherVocabWords)
+    .from(teacherLexiconTable)
     .leftJoin(
-      studentTeacherVocabProgress,
+      learnerTeacherLexiconTable,
       and(
-        eq(studentTeacherVocabProgress.teacherVocabWordId, teacherVocabWords.id),
-        eq(studentTeacherVocabProgress.studentId, studentId),
+        eq(learnerTeacherLexiconTable.teacherVocabWordId, teacherLexiconTable.id),
+        eq(learnerTeacherLexiconTable.studentId, studentId),
       ),
     )
     .where(
       or(
-        isNull(studentTeacherVocabProgress.id),
-        lte(studentTeacherVocabProgress.nextReviewAt, now),
+        isNull(learnerTeacherLexiconTable.id),
+        lte(learnerTeacherLexiconTable.nextReviewAt, now),
       ),
     );
 
@@ -145,24 +145,24 @@ async function attachDrills(
 ) {
   const drills = await database
     .select({
-      id: generatedContent.id,
-      content: generatedContent.content,
-      sourceQuestionId: generatedContent.sourceQuestionId,
-      createdAt: generatedContent.createdAt,
+      id: generatedContentTable.id,
+      content: generatedContentTable.content,
+      sourceQuestionId: generatedContentTable.sourceQuestionId,
+      createdAt: generatedContentTable.createdAt,
     })
-    .from(generatedContent)
+    .from(generatedContentTable)
     .where(
       and(
         inArray(
-          generatedContent.sourceQuestionId,
+          generatedContentTable.sourceQuestionId,
           dueVocab.map((v) => v.questionId),
         ),
-        eq(generatedContent.studentId, studentId),
-        eq(generatedContent.contentType, 'vocab_quiz'),
-        sql`${generatedContent.qualityFlag} != 'rejected'`,
+        eq(generatedContentTable.studentId, studentId),
+        eq(generatedContentTable.contentType, 'vocab_quiz'),
+        sql`${generatedContentTable.qualityFlag} != 'rejected'`,
       ),
     )
-    .orderBy(desc(generatedContent.createdAt));
+    .orderBy(desc(generatedContentTable.createdAt));
 
   // Rows arrive newest-first, so the first hit per question is the latest drill.
   const latestByQuestion = new Map<string, { id: string; content: unknown }>();
@@ -189,15 +189,15 @@ async function attachDrills(
 export async function appraiseQuestionWord(studentId: string, vocabId: string, isCorrect: boolean) {
   const [vocab] = await database
     .select()
-    .from(studentVocab)
-    .where(and(eq(studentVocab.id, vocabId), eq(studentVocab.studentId, studentId)))
+    .from(learnerLexiconTable)
+    .where(and(eq(learnerLexiconTable.id, vocabId), eq(learnerLexiconTable.studentId, studentId)))
     .limit(1);
   if (!vocab) throw missing('Vocab item not found');
 
   const schedule = nextReviewPlan(parseFloat(String(vocab.easeFactor)), vocab.intervalDays, isCorrect);
 
   await database
-    .update(studentVocab)
+    .update(learnerLexiconTable)
     .set({
       intervalDays: schedule.intervalDays,
       easeFactor: String(schedule.easeFactor),
@@ -205,7 +205,7 @@ export async function appraiseQuestionWord(studentId: string, vocabId: string, i
       reviewCount: vocab.reviewCount + 1,
       lastCorrect: isCorrect,
     })
-    .where(eq(studentVocab.id, vocabId));
+    .where(eq(learnerLexiconTable.id, vocabId));
 
   return { ok: true, nextReviewAt: schedule.nextReviewAt, intervalDays: schedule.intervalDays };
 }
@@ -213,19 +213,19 @@ export async function appraiseQuestionWord(studentId: string, vocabId: string, i
 /** Teacher-bank review. Progress is created on first review, updated after. */
 export async function appraiseTeacherWord(studentId: string, wordId: string, isCorrect: boolean) {
   const [word] = await database
-    .select({ id: teacherVocabWords.id })
-    .from(teacherVocabWords)
-    .where(eq(teacherVocabWords.id, wordId))
+    .select({ id: teacherLexiconTable.id })
+    .from(teacherLexiconTable)
+    .where(eq(teacherLexiconTable.id, wordId))
     .limit(1);
   if (!word) throw missing('Word not found');
 
   const [progress] = await database
     .select()
-    .from(studentTeacherVocabProgress)
+    .from(learnerTeacherLexiconTable)
     .where(
       and(
-        eq(studentTeacherVocabProgress.studentId, studentId),
-        eq(studentTeacherVocabProgress.teacherVocabWordId, wordId),
+        eq(learnerTeacherLexiconTable.studentId, studentId),
+        eq(learnerTeacherLexiconTable.teacherVocabWordId, wordId),
       ),
     )
     .limit(1);
@@ -238,7 +238,7 @@ export async function appraiseTeacherWord(studentId: string, wordId: string, isC
 
   if (progress) {
     await database
-      .update(studentTeacherVocabProgress)
+      .update(learnerTeacherLexiconTable)
       .set({
         intervalDays: schedule.intervalDays,
         easeFactor: String(schedule.easeFactor),
@@ -246,9 +246,9 @@ export async function appraiseTeacherWord(studentId: string, wordId: string, isC
         reviewCount: progress.reviewCount + 1,
         lastCorrect: isCorrect,
       })
-      .where(eq(studentTeacherVocabProgress.id, progress.id));
+      .where(eq(learnerTeacherLexiconTable.id, progress.id));
   } else {
-    await database.insert(studentTeacherVocabProgress).values({
+    await database.insert(learnerTeacherLexiconTable).values({
       studentId,
       teacherVocabWordId: wordId,
       nextReviewAt: schedule.nextReviewAt,

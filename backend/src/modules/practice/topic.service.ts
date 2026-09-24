@@ -1,6 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { skills } from '../../core/db/schema';
+import { competenciesTable } from '../../core/db/schema';
 import { invalidRequest, missing } from '../../core/errors';
 import { buildAssessmentWithSheet } from '../exams';
 import type { TopicAssessmentPayload } from './practice.schemas';
@@ -26,9 +26,9 @@ const MIN_TOPIC_QUESTIONS = 5;
 
 export async function openTopicAssessment(studentId: string, input: TopicAssessmentPayload) {
   const [skill] = await database
-    .select({ code: skills.code, label: skills.label, subject: skills.subject })
-    .from(skills)
-    .where(eq(skills.code, input.skillCode))
+    .select({ code: competenciesTable.code, label: competenciesTable.label, subject: competenciesTable.subject })
+    .from(competenciesTable)
+    .where(eq(competenciesTable.code, input.skillCode))
     .limit(1);
   if (!skill) throw missing(`Unknown topic: ${input.skillCode}`);
 

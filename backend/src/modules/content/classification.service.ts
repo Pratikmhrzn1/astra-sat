@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { questionSets, questions } from '../../core/db/schema';
+import { questionSetsTable, questionsTable } from '../../core/db/schema';
 import { dependencyDown } from '../../core/errors';
 import { requestStructuredOutput, isModelReady } from '../ai';
 
@@ -112,21 +112,21 @@ export async function autoTagCompetencies(): Promise<TaggingTally> {
   // what kept Math permanently untagged.
   const untagged = await database
     .select({
-      id: questions.id,
-      subject: questionSets.subject,
-      questionText: questions.questionText,
-      optionA: questions.optionA,
-      optionB: questions.optionB,
-      optionC: questions.optionC,
-      optionD: questions.optionD,
-      correctAnswer: questions.correctAnswer,
-      explanation: questions.explanation,
+      id: questionsTable.id,
+      subject: questionSetsTable.subject,
+      questionText: questionsTable.questionText,
+      optionA: questionsTable.optionA,
+      optionB: questionsTable.optionB,
+      optionC: questionsTable.optionC,
+      optionD: questionsTable.optionD,
+      correctAnswer: questionsTable.correctAnswer,
+      explanation: questionsTable.explanation,
     })
-    .from(questions)
-    .innerJoin(questionSets, eq(questions.setId, questionSets.id))
+    .from(questionsTable)
+    .innerJoin(questionSetsTable, eq(questionsTable.setId, questionSetsTable.id))
     // Keyed on skill_code, not sub_skill: a Math question always had a null
     // sub_skill and would have been re-classified on every run forever.
-    .where(and(isNull(questions.skillCode), isNull(questions.retiredAt)));
+    .where(and(isNull(questionsTable.skillCode), isNull(questionsTable.retiredAt)));
 
   const run: TaggingTally = { totalFound: untagged.length, tagged: 0, unclear: 0, errors: 0 };
   console.log(`[auto-tag] ${run.totalFound} untagged questions`);
@@ -172,9 +172,9 @@ async function classifyOne(question: Classifiable): Promise<'tagged' | 'unclear'
   }
 
   await database
-    .update(questions)
+    .update(questionsTable)
     .set({ skillCode: classification, subSkillSource: 'ai_suggested' })
-    .where(eq(questions.id, question.id));
+    .where(eq(questionsTable.id, question.id));
 
   return 'tagged';
 }

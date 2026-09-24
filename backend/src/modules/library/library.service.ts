@@ -4,7 +4,7 @@ import { desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { settings } from '../../core/config/env';
 import { database } from '../../core/db';
-import { libraryItems, users } from '../../core/db/schema';
+import { resourceItemsTable, accountsTable } from '../../core/db/schema';
 import { notPermitted, missing } from '../../core/errors';
 import { toPublicFileUrl } from '../../core/lib/url';
 
@@ -43,42 +43,42 @@ export const editItemRules = z.object({
 export type UpdateItemPayload = z.infer<typeof editItemRules>;
 
 const itemColumns = {
-  id: libraryItems.id,
-  title: libraryItems.title,
-  description: libraryItems.description,
-  fileUrl: libraryItems.fileUrl,
-  fileType: libraryItems.fileType,
-  fileName: libraryItems.fileName,
-  noteContent: libraryItems.noteContent,
-  hidden: libraryItems.hidden,
-  uploadedBy: libraryItems.uploadedBy,
-  uploaderName: users.name,
-  createdAt: libraryItems.createdAt,
+  id: resourceItemsTable.id,
+  title: resourceItemsTable.title,
+  description: resourceItemsTable.description,
+  fileUrl: resourceItemsTable.fileUrl,
+  fileType: resourceItemsTable.fileType,
+  fileName: resourceItemsTable.fileName,
+  noteContent: resourceItemsTable.noteContent,
+  hidden: resourceItemsTable.hidden,
+  uploadedBy: resourceItemsTable.uploadedBy,
+  uploaderName: accountsTable.name,
+  createdAt: resourceItemsTable.createdAt,
 } as const;
 
 export async function collectItems(role: string) {
   const query = database
     .select(itemColumns)
-    .from(libraryItems)
-    .leftJoin(users, eq(libraryItems.uploadedBy, users.id));
+    .from(resourceItemsTable)
+    .leftJoin(accountsTable, eq(resourceItemsTable.uploadedBy, accountsTable.id));
 
   // Hiding is a soft delete for everyone but admins, who need to see it to undo it.
   const rows =
     role === 'admin'
-      ? await query.orderBy(desc(libraryItems.createdAt))
-      : await query.where(eq(libraryItems.hidden, false)).orderBy(desc(libraryItems.createdAt));
+      ? await query.orderBy(desc(resourceItemsTable.createdAt))
+      : await query.where(eq(resourceItemsTable.hidden, false)).orderBy(desc(resourceItemsTable.createdAt));
 
   return rows.map((row) => ({ ...row, fileUrl: toPublicFileUrl(row.fileUrl) }));
 }
 
 export async function addItem(uploadedBy: string, input: CreateItemPayload) {
-  const [row] = await database.insert(libraryItems).values({ ...input, uploadedBy }).returning();
+  const [row] = await database.insert(resourceItemsTable).values({ ...input, uploadedBy }).returning();
   return row;
 }
 
 /** Admins may edit anything; teachers only what they uploaded. */
 async function findEditableItem(itemId: string, user: { id: string; role: string }) {
-  const [item] = await database.select().from(libraryItems).where(eq(libraryItems.id, itemId)).limit(1);
+  const [item] = await database.select().from(resourceItemsTable).where(eq(resourceItemsTable.id, itemId)).limit(1);
   if (!item) throw missing('Item not found');
   if (user.role === 'teacher' && item.uploadedBy !== user.id) {
     throw notPermitted('You can only edit your own items');
@@ -93,9 +93,9 @@ export async function editItem(
 ) {
   await findEditableItem(itemId, user);
   const [updated] = await database
-    .update(libraryItems)
+    .update(resourceItemsTable)
     .set(input)
-    .where(eq(libraryItems.id, itemId))
+    .where(eq(resourceItemsTable.id, itemId))
     .returning();
   return updated;
 }
@@ -107,7 +107,7 @@ export async function removeItem(itemId: string, user: { id: string; role: strin
   }
 
   removeUploadedFile(item.fileUrl);
-  await database.delete(libraryItems).where(eq(libraryItems.id, itemId));
+  await database.delete(resourceItemsTable).where(eq(resourceItemsTable.id, itemId));
 }
 
 /**

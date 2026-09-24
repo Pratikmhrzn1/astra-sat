@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { examAnswers, exams, questionSets, questions, users } from '../../core/db/schema';
+import { assessmentAnswersTable, assessmentsTable, questionSetsTable, questionsTable, accountsTable } from '../../core/db/schema';
 import { notPermitted, missing } from '../../core/errors';
 import { fetchLearnerProfile, insightsOverview } from '../analytics';
 import { examRepository } from '../exams';
@@ -35,8 +35,8 @@ export async function ensureOwnsStudent(
 ) {
   const [student] = await database
     .select(publicAccountFields)
-    .from(users)
-    .where(and(eq(users.id, studentId), eq(users.teacherId, teacherId)))
+    .from(accountsTable)
+    .where(and(eq(accountsTable.id, studentId), eq(accountsTable.teacherId, teacherId)))
     .limit(1);
   if (!student) {
     throw onMissing === 'forbidden'
@@ -48,9 +48,9 @@ export async function ensureOwnsStudent(
 
 export async function collectStudents(teacherId: string) {
   return database
-    .select({ id: users.id, email: users.email, name: users.name, createdAt: users.createdAt })
-    .from(users)
-    .where(and(eq(users.teacherId, teacherId), eq(users.role, 'student')));
+    .select({ id: accountsTable.id, email: accountsTable.email, name: accountsTable.name, createdAt: accountsTable.createdAt })
+    .from(accountsTable)
+    .where(and(eq(accountsTable.teacherId, teacherId), eq(accountsTable.role, 'student')));
 }
 
 /**
@@ -92,33 +92,33 @@ export async function collectStudentAssessments(teacherId: string, studentId: st
 
   return database
     .select({
-      id: exams.id,
-      type: exams.type,
-      status: exams.status,
-      score: exams.score,
-      totalQuestions: exams.totalQuestions,
-      startedAt: exams.startedAt,
-      completedAt: exams.completedAt,
-      setTitle: questionSets.title,
-      label: exams.label,
+      id: assessmentsTable.id,
+      type: assessmentsTable.type,
+      status: assessmentsTable.status,
+      score: assessmentsTable.score,
+      totalQuestions: assessmentsTable.totalQuestions,
+      startedAt: assessmentsTable.startedAt,
+      completedAt: assessmentsTable.completedAt,
+      setTitle: questionSetsTable.title,
+      label: assessmentsTable.label,
       // Derived for a set-less exam the same way the student's own history does
       // it, so the two views agree. Left null, a topic exam would show no
       // subject badge here while the student saw one.
       subject: sql<'english' | 'math'>`COALESCE(
-        ${questionSets.subject},
+        ${questionSetsTable.subject},
         (SELECT qs.subject
-           FROM ${examAnswers} ea
-           JOIN ${questions} q ON q.id = ea.question_id
-           JOIN ${questionSets} qs ON qs.id = q.set_id
-          WHERE ea.exam_id = ${exams.id}
+           FROM ${assessmentAnswersTable} ea
+           JOIN ${questionsTable} q ON q.id = ea.question_id
+           JOIN ${questionSetsTable} qs ON qs.id = q.set_id
+          WHERE ea.exam_id = ${assessmentsTable.id}
           ORDER BY ea.order_index
           LIMIT 1)
       )`,
     })
-    .from(exams)
-    .leftJoin(questionSets, eq(exams.setId, questionSets.id))
-    .where(eq(exams.studentId, studentId))
-    .orderBy(desc(exams.startedAt));
+    .from(assessmentsTable)
+    .leftJoin(questionSetsTable, eq(assessmentsTable.setId, questionSetsTable.id))
+    .where(eq(assessmentsTable.studentId, studentId))
+    .orderBy(desc(assessmentsTable.startedAt));
 }
 
 export async function fetchStudentAssessmentResults(teacherId: string, studentId: string, examId: string) {
@@ -126,8 +126,8 @@ export async function fetchStudentAssessmentResults(teacherId: string, studentId
 
   const [exam] = await database
     .select()
-    .from(exams)
-    .where(and(eq(exams.id, examId), eq(exams.studentId, studentId)))
+    .from(assessmentsTable)
+    .where(and(eq(assessmentsTable.id, examId), eq(assessmentsTable.studentId, studentId)))
     .limit(1);
   if (!exam) throw missing('Exam not found');
 
@@ -142,9 +142,9 @@ export async function fetchStudentAssessmentResults(teacherId: string, studentId
     // An exam assembled across sets has no owning set to describe.
     exam.setId
       ? database
-          .select({ title: questionSets.title, subject: questionSets.subject })
-          .from(questionSets)
-          .where(eq(questionSets.id, exam.setId))
+          .select({ title: questionSetsTable.title, subject: questionSetsTable.subject })
+          .from(questionSetsTable)
+          .where(eq(questionSetsTable.id, exam.setId))
           .limit(1)
       : Promise.resolve([]),
   ]);

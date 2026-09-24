@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { examAnswers, exams, mistakes, passages, questionSets, questions } from '../../core/db/schema';
+import { assessmentAnswersTable, assessmentsTable, misstepsTable, passagesTable, questionSetsTable, questionsTable } from '../../core/db/schema';
 import { invalidRequest, stateConflict, missing } from '../../core/errors';
 import { toPublicFileUrl } from '../../core/lib/url';
 import { collectSkillCodes } from '../taxonomy';
@@ -27,9 +27,9 @@ import type {
 
 async function assertSetExists(setId: string) {
   const [set] = await database
-    .select({ id: questionSets.id })
-    .from(questionSets)
-    .where(eq(questionSets.id, setId))
+    .select({ id: questionSetsTable.id })
+    .from(questionSetsTable)
+    .where(eq(questionSetsTable.id, setId))
     .limit(1);
   if (!set) throw missing('Question set not found');
   return set;
@@ -39,15 +39,15 @@ async function assertSetExists(setId: string) {
 export async function collectSets() {
   return database
     .select()
-    .from(questionSets)
-    .where(isNull(questionSets.archivedAt))
-    .orderBy(desc(questionSets.createdAt));
+    .from(questionSetsTable)
+    .where(isNull(questionSetsTable.archivedAt))
+    .orderBy(desc(questionSetsTable.createdAt));
 }
 
 /** New sets start as drafts so half-written content is never offered to students. */
 export async function addSet(teacherId: string, input: CreateSetPayload) {
   const [set] = await database
-    .insert(questionSets)
+    .insert(questionSetsTable)
     .values({
       title: input.title,
       subject: input.subject,
@@ -64,9 +64,9 @@ export async function addSet(teacherId: string, input: CreateSetPayload) {
 export async function editSet(setId: string, input: UpdateSetPayload) {
   await assertSetExists(setId);
   const [updated] = await database
-    .update(questionSets)
+    .update(questionSetsTable)
     .set({ ...input, updatedAt: new Date() })
-    .where(eq(questionSets.id, setId))
+    .where(eq(questionSetsTable.id, setId))
     .returning();
   return updated;
 }
@@ -74,9 +74,9 @@ export async function editSet(setId: string, input: UpdateSetPayload) {
 export async function releaseSet(setId: string) {
   await assertSetExists(setId);
   const [updated] = await database
-    .update(questionSets)
+    .update(questionSetsTable)
     .set({ isDraft: false, updatedAt: new Date() })
-    .where(eq(questionSets.id, setId))
+    .where(eq(questionSetsTable.id, setId))
     .returning();
   return updated;
 }
@@ -93,31 +93,31 @@ export async function releaseSet(setId: string) {
  */
 export async function removeSet(setId: string): Promise<{ archived: boolean; title: string }> {
   await assertSetExists(setId);
-  const [{ title }] = await database.select({ title: questionSets.title }).from(questionSets).where(eq(questionSets.id, setId)).limit(1);
+  const [{ title }] = await database.select({ title: questionSetsTable.title }).from(questionSetsTable).where(eq(questionSetsTable.id, setId)).limit(1);
 
   const [attempted] = await database
-    .select({ id: exams.id })
-    .from(exams)
-    .where(eq(exams.setId, setId))
+    .select({ id: assessmentsTable.id })
+    .from(assessmentsTable)
+    .where(eq(assessmentsTable.setId, setId))
     .limit(1);
   const [answered] = attempted
     ? [attempted]
     : await database
-        .select({ id: examAnswers.id })
-        .from(examAnswers)
-        .innerJoin(questions, eq(examAnswers.questionId, questions.id))
-        .where(eq(questions.setId, setId))
+        .select({ id: assessmentAnswersTable.id })
+        .from(assessmentAnswersTable)
+        .innerJoin(questionsTable, eq(assessmentAnswersTable.questionId, questionsTable.id))
+        .where(eq(questionsTable.setId, setId))
         .limit(1);
 
   if (attempted || answered) {
     await database
-      .update(questionSets)
+      .update(questionSetsTable)
       .set({ archivedAt: new Date(), updatedAt: new Date() })
-      .where(eq(questionSets.id, setId));
+      .where(eq(questionSetsTable.id, setId));
     return { archived: true, title };
   }
 
-  await database.delete(questionSets).where(eq(questionSets.id, setId));
+  await database.delete(questionSetsTable).where(eq(questionSetsTable.id, setId));
   return { archived: false, title };
 }
 
@@ -141,7 +141,7 @@ export async function ingestSetFromJson(teacherId: string, input: ImportJsonPayl
 
   return database.transaction(async (tx) => {
     const [set] = await tx
-      .insert(questionSets)
+      .insert(questionSetsTable)
       .values({
         title: input.title,
         subject: input.subject,
@@ -155,7 +155,7 @@ export async function ingestSetFromJson(teacherId: string, input: ImportJsonPayl
     const passageIds: string[] = [];
     if (input.passages.length > 0) {
       const inserted = await tx
-        .insert(passages)
+        .insert(passagesTable)
         .values(
           input.passages.map((passage, index) => ({
             setId: set.id,
@@ -164,11 +164,11 @@ export async function ingestSetFromJson(teacherId: string, input: ImportJsonPayl
             orderIndex: passage.orderIndex ?? index,
           })),
         )
-        .returning({ id: passages.id });
+        .returning({ id: passagesTable.id });
       passageIds.push(...inserted.map((row) => row.id));
     }
 
-    await tx.insert(questions).values(
+    await tx.insert(questionsTable).values(
       input.questions.map((question, index) => ({
         setId: set.id,
         // An out-of-range passageIndex degrades to a standalone question
@@ -208,45 +208,45 @@ export async function ingestSetFromJson(teacherId: string, input: ImportJsonPayl
 
 export async function collectPassages(setId: string) {
   await assertSetExists(setId);
-  return database.select().from(passages).where(eq(passages.setId, setId)).orderBy(passages.orderIndex);
+  return database.select().from(passagesTable).where(eq(passagesTable.setId, setId)).orderBy(passagesTable.orderIndex);
 }
 
 export async function addPassage(setId: string, input: CreatePassagePayload) {
   await assertSetExists(setId);
-  const [passage] = await database.insert(passages).values({ setId, ...input }).returning();
+  const [passage] = await database.insert(passagesTable).values({ setId, ...input }).returning();
   return passage;
 }
 
 export async function editPassage(passageId: string, input: UpdatePassagePayload) {
   const [existing] = await database
-    .select({ id: passages.id })
-    .from(passages)
-    .where(eq(passages.id, passageId))
+    .select({ id: passagesTable.id })
+    .from(passagesTable)
+    .where(eq(passagesTable.id, passageId))
     .limit(1);
   if (!existing) throw missing('Passage not found');
 
-  const [updated] = await database.update(passages).set(input).where(eq(passages.id, passageId)).returning();
+  const [updated] = await database.update(passagesTable).set(input).where(eq(passagesTable.id, passageId)).returning();
   return updated;
 }
 
 export async function removePassage(passageId: string) {
   const [existing] = await database
-    .select({ id: passages.id })
-    .from(passages)
-    .where(eq(passages.id, passageId))
+    .select({ id: passagesTable.id })
+    .from(passagesTable)
+    .where(eq(passagesTable.id, passageId))
     .limit(1);
   if (!existing) throw missing('Passage not found');
   // Questions referencing it survive with passage_id set to null.
-  await database.delete(passages).where(eq(passages.id, passageId));
+  await database.delete(passagesTable).where(eq(passagesTable.id, passageId));
 }
 
 // ── Questions ─────────────────────────────────────────────────────────────────
 
 async function assertQuestionExists(questionId: string) {
   const [question] = await database
-    .select({ id: questions.id, retiredAt: questions.retiredAt })
-    .from(questions)
-    .where(eq(questions.id, questionId))
+    .select({ id: questionsTable.id, retiredAt: questionsTable.retiredAt })
+    .from(questionsTable)
+    .where(eq(questionsTable.id, questionId))
     .limit(1);
   if (!question) throw missing('Question not found');
   // A stale editor tab still holding the old id must not fork a second version.
@@ -257,9 +257,9 @@ async function assertQuestionExists(questionId: string) {
 /** Whether any exam — finished or in progress — has this question on its answer sheet. */
 async function isQuestionAttempted(questionId: string): Promise<boolean> {
   const [row] = await database
-    .select({ id: examAnswers.id })
-    .from(examAnswers)
-    .where(eq(examAnswers.questionId, questionId))
+    .select({ id: assessmentAnswersTable.id })
+    .from(assessmentAnswersTable)
+    .where(eq(assessmentAnswersTable.questionId, questionId))
     .limit(1);
   return !!row;
 }
@@ -268,11 +268,11 @@ export async function collectQuestions(setId: string) {
   await assertSetExists(setId);
   const rows = await database
     .select()
-    .from(questions)
+    .from(questionsTable)
     // Retired versions stay in the table for the exams that used them, but are
     // not content any more — the editor shows only the live version.
-    .where(and(eq(questions.setId, setId), isNull(questions.retiredAt)))
-    .orderBy(questions.orderIndex);
+    .where(and(eq(questionsTable.setId, setId), isNull(questionsTable.retiredAt)))
+    .orderBy(questionsTable.orderIndex);
   return rows.map((row) => ({ ...row, imageUrl: toPublicFileUrl(row.imageUrl) }));
 }
 
@@ -310,7 +310,7 @@ export async function addQuestion(setId: string, input: CreateQuestionPayload) {
   await assertKnownSkillCode(input.skillCode);
 
   const [question] = await database
-    .insert(questions)
+    .insert(questionsTable)
     .values({
       setId,
       ...input,
@@ -339,7 +339,7 @@ export async function editQuestion(questionId: string, input: UpdateQuestionPayl
 
   // Untouched by any exam: edit in place, as before.
   if (!(await isQuestionAttempted(questionId))) {
-    const [updated] = await database.update(questions).set(changes).where(eq(questions.id, questionId)).returning();
+    const [updated] = await database.update(questionsTable).set(changes).where(eq(questionsTable.id, questionId)).returning();
     return updated;
   }
 
@@ -349,20 +349,20 @@ export async function editQuestion(questionId: string, input: UpdateQuestionPayl
   // takes over the question's place in the set; in-progress exams finish on the
   // version they started with.
   return database.transaction(async (tx) => {
-    const [current] = await tx.select().from(questions).where(eq(questions.id, questionId)).limit(1);
+    const [current] = await tx.select().from(questionsTable).where(eq(questionsTable.id, questionId)).limit(1);
     const { id: _oldId, createdAt: _createdAt, retiredAt: _retiredAt, supersedesId: _supersedesId, ...content } = current;
 
     const [created] = await tx
-      .insert(questions)
+      .insert(questionsTable)
       .values({ ...content, ...changes, supersedesId: questionId })
       .returning();
 
-    await tx.update(questions).set({ retiredAt: new Date() }).where(eq(questions.id, questionId));
+    await tx.update(questionsTable).set({ retiredAt: new Date() }).where(eq(questionsTable.id, questionId));
 
     // A mistake is about the question, not a particular wording of it, so the
     // student's mistake bank follows the question to its current version. The
     // new row has no mistakes yet, so the (student, question) unique key holds.
-    await tx.update(mistakes).set({ questionId: created.id }).where(eq(mistakes.questionId, questionId));
+    await tx.update(misstepsTable).set({ questionId: created.id }).where(eq(misstepsTable.questionId, questionId));
 
     return created;
   });
@@ -374,9 +374,9 @@ export async function editQuestionSubSkill(questionId: string, input: UpdateSubS
   await assertKnownSkillCode(input.skillCode);
 
   const [updated] = await database
-    .update(questions)
+    .update(questionsTable)
     .set({ skillCode: input.skillCode ?? null, subSkillSource: input.subSkillSource })
-    .where(eq(questions.id, questionId))
+    .where(eq(questionsTable.id, questionId))
     .returning();
   return updated;
 }
@@ -391,9 +391,9 @@ export async function editQuestionSubSkill(questionId: string, input: UpdateSubS
 export async function removeQuestion(questionId: string): Promise<{ retired: boolean }> {
   await assertQuestionExists(questionId);
   if (await isQuestionAttempted(questionId)) {
-    await database.update(questions).set({ retiredAt: new Date() }).where(eq(questions.id, questionId));
+    await database.update(questionsTable).set({ retiredAt: new Date() }).where(eq(questionsTable.id, questionId));
     return { retired: true };
   }
-  await database.delete(questions).where(eq(questions.id, questionId));
+  await database.delete(questionsTable).where(eq(questionsTable.id, questionId));
   return { retired: false };
 }

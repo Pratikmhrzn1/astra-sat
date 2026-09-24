@@ -1,5 +1,5 @@
 import { pgTable, text, varchar, integer } from 'drizzle-orm/pg-core';
-import { subjectEnum } from './enums';
+import { subjectChoices } from './enums';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The SAT domain/skill tree.
@@ -15,16 +15,16 @@ import { subjectEnum } from './enums';
 // `ALTER TYPE ... ADD VALUE` cannot be used in the same transaction that then
 // references the new value.
 // ─────────────────────────────────────────────────────────────────────────────
-export const skills = pgTable('skills', {
+export const competenciesTable = pgTable('skills', {
   /** Stable identifier used by questions, e.g. 'algebra', 'transitions'. */
   code: varchar('code', { length: 64 }).primaryKey(),
   label: text('label').notNull(),
-  subject: subjectEnum('subject').notNull(),
+  subject: subjectChoices('subject').notNull(),
   /** Null for a domain; the owning domain's code for a skill. */
-  parentCode: varchar('parent_code', { length: 64 }).references((): any => skills.code, {
+  parentCode: varchar('parent_code', { length: 64 }).references((): any => competenciesTable.code, {
     onDelete: 'set null',
   }),
   sortOrder: integer('sort_order').notNull().default(0),
 });
 
-export type Skill = typeof skills.$inferSelect;
+export type CompetencyRow = typeof competenciesTable.$inferSelect;

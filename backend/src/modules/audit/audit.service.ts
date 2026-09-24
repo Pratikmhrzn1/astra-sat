@@ -1,6 +1,6 @@
 import { desc, eq } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { auditLog, users } from '../../core/db/schema';
+import { trailLogTable, accountsTable } from '../../core/db/schema';
 
 /**
  * Who did what, for the actions that cannot be undone.
@@ -49,13 +49,13 @@ export async function logTrail(entry: TrailEntry): Promise<void> {
   };
 
   try {
-    await database.insert(auditLog).values(row);
+    await database.insert(trailLogTable).values(row);
   } catch (err) {
     // A restore replaces `users`, so the admin who ran it may no longer exist and
     // the actor foreign key fails. Keep the entry, with the id in the payload.
     if ((err as { code?: string }).code === '23503' && entry.actorId) {
       try {
-        await database.insert(auditLog).values({
+        await database.insert(trailLogTable).values({
           ...row,
           actorId: null,
           payload: { ...(entry.payload ?? {}), actorIdNotInRestoredUsers: entry.actorId },
@@ -73,18 +73,18 @@ export async function logTrail(entry: TrailEntry): Promise<void> {
 export async function collectTrail(limit = 100) {
   return database
     .select({
-      id: auditLog.id,
-      action: auditLog.action,
-      targetType: auditLog.targetType,
-      targetId: auditLog.targetId,
-      payload: auditLog.payload,
-      createdAt: auditLog.createdAt,
-      actorId: auditLog.actorId,
-      actorName: users.name,
-      actorEmail: users.email,
+      id: trailLogTable.id,
+      action: trailLogTable.action,
+      targetType: trailLogTable.targetType,
+      targetId: trailLogTable.targetId,
+      payload: trailLogTable.payload,
+      createdAt: trailLogTable.createdAt,
+      actorId: trailLogTable.actorId,
+      actorName: accountsTable.name,
+      actorEmail: accountsTable.email,
     })
-    .from(auditLog)
-    .leftJoin(users, eq(auditLog.actorId, users.id))
-    .orderBy(desc(auditLog.createdAt))
+    .from(trailLogTable)
+    .leftJoin(accountsTable, eq(trailLogTable.actorId, accountsTable.id))
+    .orderBy(desc(trailLogTable.createdAt))
     .limit(Math.min(Math.max(limit, 1), 500));
 }

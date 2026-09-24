@@ -1,6 +1,6 @@
 import { desc, eq } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { platformFeedback, users } from '../../core/db/schema';
+import { reportsTable, accountsTable } from '../../core/db/schema';
 import { missing } from '../../core/errors';
 import type { SubmitFeedbackPayload } from './platform-feedback.schemas';
 
@@ -11,9 +11,9 @@ import type { SubmitFeedbackPayload } from './platform-feedback.schemas';
 
 export async function commitFeedback(userId: string, input: SubmitFeedbackPayload) {
   const [row] = await database
-    .insert(platformFeedback)
+    .insert(reportsTable)
     .values({ userId, category: input.category, message: input.message })
-    .returning({ id: platformFeedback.id });
+    .returning({ id: reportsTable.id });
   return row;
 }
 
@@ -21,33 +21,33 @@ export async function collectReports() {
   // LEFT JOIN so a report survives the reporter's account being deleted.
   return database
     .select({
-      id: platformFeedback.id,
-      category: platformFeedback.category,
-      message: platformFeedback.message,
-      isRead: platformFeedback.isRead,
-      createdAt: platformFeedback.createdAt,
-      userId: platformFeedback.userId,
-      userName: users.name,
-      userEmail: users.email,
+      id: reportsTable.id,
+      category: reportsTable.category,
+      message: reportsTable.message,
+      isRead: reportsTable.isRead,
+      createdAt: reportsTable.createdAt,
+      userId: reportsTable.userId,
+      userName: accountsTable.name,
+      userEmail: accountsTable.email,
     })
-    .from(platformFeedback)
-    .leftJoin(users, eq(platformFeedback.userId, users.id))
-    .orderBy(desc(platformFeedback.createdAt));
+    .from(reportsTable)
+    .leftJoin(accountsTable, eq(reportsTable.userId, accountsTable.id))
+    .orderBy(desc(reportsTable.createdAt));
 }
 
 export async function flagReportSeen(id: string): Promise<void> {
   const updated = await database
-    .update(platformFeedback)
+    .update(reportsTable)
     .set({ isRead: true })
-    .where(eq(platformFeedback.id, id))
-    .returning({ id: platformFeedback.id });
+    .where(eq(reportsTable.id, id))
+    .returning({ id: reportsTable.id });
   if (updated.length === 0) throw missing('Feedback not found');
 }
 
 export async function removeFeedback(id: string): Promise<void> {
   const deleted = await database
-    .delete(platformFeedback)
-    .where(eq(platformFeedback.id, id))
-    .returning({ id: platformFeedback.id });
+    .delete(reportsTable)
+    .where(eq(reportsTable.id, id))
+    .returning({ id: reportsTable.id });
   if (deleted.length === 0) throw missing('Feedback not found');
 }

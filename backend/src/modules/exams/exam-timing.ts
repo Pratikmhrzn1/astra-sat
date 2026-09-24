@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { exams } from '../../core/db/schema';
+import { assessmentsTable } from '../../core/db/schema';
 import { readDbTimestamp } from '../../core/lib/db-time';
 
 /**
@@ -33,7 +33,7 @@ export const MOCK_MODULE_CAP_SECONDS = { english: 32 * 60, math: 35 * 60 } as co
 /** Writes arriving this long after the deadline still count — a slow network is not cheating. */
 export const DEADLINE_LENIENCY_SECONDS = 30;
 
-type ExamRow = typeof exams.$inferSelect;
+type ExamRow = typeof assessmentsTable.$inferSelect;
 
 export function moduleCapFor(type: ExamRow['type']): number | null {
   if (type === 'mock_english') return MOCK_MODULE_CAP_SECONDS.english;
@@ -82,7 +82,7 @@ export async function settleDeadline(exam: ExamRow, { open }: { open: boolean })
 
   const live = await liveSectionDeadline(exam);
   if (live !== undefined) {
-    if (live) await database.update(exams).set({ deadlineAt: live }).where(and(eq(exams.id, exam.id), isNull(exams.deadlineAt)));
+    if (live) await database.update(assessmentsTable).set({ deadlineAt: live }).where(and(eq(assessmentsTable.id, exam.id), isNull(assessmentsTable.deadlineAt)));
     return live;
   }
 
@@ -90,15 +90,15 @@ export async function settleDeadline(exam: ExamRow, { open }: { open: boolean })
   // Mock modules created before limits were stored.
   if (limit === null && moduleCapFor(exam.type) !== null && (await isMockModule(exam.id))) {
     limit = moduleCapFor(exam.type);
-    await database.update(exams).set({ timeLimitSeconds: limit }).where(eq(exams.id, exam.id));
+    await database.update(assessmentsTable).set({ timeLimitSeconds: limit }).where(eq(assessmentsTable.id, exam.id));
   }
   if (limit === null || !open) return null;
 
   await database
-    .update(exams)
+    .update(assessmentsTable)
     .set({ deadlineAt: new Date(Date.now() + limit * 1000) })
-    .where(and(eq(exams.id, exam.id), isNull(exams.deadlineAt)));
-  const [row] = await database.select({ deadlineAt: exams.deadlineAt }).from(exams).where(eq(exams.id, exam.id)).limit(1);
+    .where(and(eq(assessmentsTable.id, exam.id), isNull(assessmentsTable.deadlineAt)));
+  const [row] = await database.select({ deadlineAt: assessmentsTable.deadlineAt }).from(assessmentsTable).where(eq(assessmentsTable.id, exam.id)).limit(1);
   return row?.deadlineAt ?? null;
 }
 

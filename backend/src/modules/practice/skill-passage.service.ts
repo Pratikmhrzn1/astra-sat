@@ -1,6 +1,6 @@
 import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { examAnswers, exams, generatedContent, questions, studentSkillTriggers } from '../../core/db/schema';
+import { assessmentAnswersTable, assessmentsTable, generatedContentTable, questionsTable, competencyTriggersTable } from '../../core/db/schema';
 import { requestStructuredOutput, isModelReady } from '../ai';
 
 /**
@@ -49,15 +49,15 @@ const TRIGGER_EVERY = 3;
 async function countWrongAnswers(studentId: string, subSkill: SubSkill): Promise<number> {
   const [{ wrongCount }] = await database
     .select({ wrongCount: sql<number>`count(*)::int` })
-    .from(examAnswers)
-    .innerJoin(exams, eq(examAnswers.examId, exams.id))
-    .innerJoin(questions, eq(examAnswers.questionId, questions.id))
+    .from(assessmentAnswersTable)
+    .innerJoin(assessmentsTable, eq(assessmentAnswersTable.examId, assessmentsTable.id))
+    .innerJoin(questionsTable, eq(assessmentAnswersTable.questionId, questionsTable.id))
     .where(
       and(
-        eq(exams.studentId, studentId),
-        eq(exams.type, 'individual'),
-        eq(questions.skillCode, subSkill),
-        eq(examAnswers.isCorrect, false),
+        eq(assessmentsTable.studentId, studentId),
+        eq(assessmentsTable.type, 'individual'),
+        eq(questionsTable.skillCode, subSkill),
+        eq(assessmentAnswersTable.isCorrect, false),
       ),
     );
   return wrongCount;
@@ -92,20 +92,20 @@ async function findRecentWrongQuestionTexts(
   excludeQuestionId: string,
 ): Promise<string[]> {
   const rows = await database
-    .select({ questionText: questions.questionText })
-    .from(examAnswers)
-    .innerJoin(exams, eq(examAnswers.examId, exams.id))
-    .innerJoin(questions, eq(examAnswers.questionId, questions.id))
+    .select({ questionText: questionsTable.questionText })
+    .from(assessmentAnswersTable)
+    .innerJoin(assessmentsTable, eq(assessmentAnswersTable.examId, assessmentsTable.id))
+    .innerJoin(questionsTable, eq(assessmentAnswersTable.questionId, questionsTable.id))
     .where(
       and(
-        eq(exams.studentId, studentId),
-        eq(exams.type, 'individual'),
-        eq(questions.skillCode, subSkill),
-        eq(examAnswers.isCorrect, false),
-        ne(questions.id, excludeQuestionId),
+        eq(assessmentsTable.studentId, studentId),
+        eq(assessmentsTable.type, 'individual'),
+        eq(questionsTable.skillCode, subSkill),
+        eq(assessmentAnswersTable.isCorrect, false),
+        ne(questionsTable.id, excludeQuestionId),
       ),
     )
-    .orderBy(desc(examAnswers.answeredAt))
+    .orderBy(desc(assessmentAnswersTable.answeredAt))
     .limit(2);
   return rows.map((row) => row.questionText);
 }
@@ -164,7 +164,7 @@ Generate a wholly original passage and exactly 2 questions testing ${label}.`;
 
     const result = await requestStructuredOutput(systemPrompt, userPrompt, 'narrative');
 
-    await database.insert(generatedContent).values({
+    await database.insert(generatedContentTable).values({
       contentType: 'skill_passage',
       sourceQuestionId,
       studentId,
@@ -216,26 +216,26 @@ export async function maybeTriggerCompetencyPassage(
  */
 export async function loadAvailableSkillPassages(studentId: string) {
   const triggers = await database
-    .select({ subSkill: studentSkillTriggers.subSkill })
-    .from(studentSkillTriggers)
-    .where(eq(studentSkillTriggers.studentId, studentId));
+    .select({ subSkill: competencyTriggersTable.subSkill })
+    .from(competencyTriggersTable)
+    .where(eq(competencyTriggersTable.studentId, studentId));
 
   if (triggers.length === 0) return [];
   const triggered = new Set(triggers.map((t) => t.subSkill));
 
   const approved = await database
     .select({
-      id: generatedContent.id,
-      content: generatedContent.content,
-      liveSetId: generatedContent.liveSetId,
+      id: generatedContentTable.id,
+      content: generatedContentTable.content,
+      liveSetId: generatedContentTable.liveSetId,
     })
-    .from(generatedContent)
+    .from(generatedContentTable)
     .where(
       and(
-        eq(generatedContent.contentType, 'skill_passage'),
-        eq(generatedContent.qualityFlag, 'approved'),
-        eq(generatedContent.studentId, studentId),
-        sql`${generatedContent.liveSetId} IS NOT NULL`,
+        eq(generatedContentTable.contentType, 'skill_passage'),
+        eq(generatedContentTable.qualityFlag, 'approved'),
+        eq(generatedContentTable.studentId, studentId),
+        sql`${generatedContentTable.liveSetId} IS NOT NULL`,
       ),
     );
 

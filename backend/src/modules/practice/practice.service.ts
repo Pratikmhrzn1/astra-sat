@@ -1,13 +1,13 @@
 import { and, eq } from 'drizzle-orm';
 import { database } from '../../core/db';
 import {
-  aiFeedback,
-  examAnswers,
-  generatedContent,
-  passages,
-  questionSets,
-  questions,
-  studentVocab,
+  tutorFeedbackTable,
+  assessmentAnswersTable,
+  generatedContentTable,
+  passagesTable,
+  questionSetsTable,
+  questionsTable,
+  learnerLexiconTable,
 } from '../../core/db/schema';
 import { invalidRequest, missing, rateLimited } from '../../core/errors';
 import {
@@ -63,37 +63,37 @@ export async function acknowledgeAnswer(
 
   const [question] = await database
     .select({
-      id: questions.id,
-      questionType: questions.questionType,
-      questionText: questions.questionText,
-      optionA: questions.optionA,
-      optionB: questions.optionB,
-      optionC: questions.optionC,
-      optionD: questions.optionD,
-      correctAnswer: questions.correctAnswer,
-      correctAnswerText: questions.correctAnswerText,
-      skillCode: questions.skillCode,
-      passageText: passages.passageText,
-      subject: questionSets.subject,
+      id: questionsTable.id,
+      questionType: questionsTable.questionType,
+      questionText: questionsTable.questionText,
+      optionA: questionsTable.optionA,
+      optionB: questionsTable.optionB,
+      optionC: questionsTable.optionC,
+      optionD: questionsTable.optionD,
+      correctAnswer: questionsTable.correctAnswer,
+      correctAnswerText: questionsTable.correctAnswerText,
+      skillCode: questionsTable.skillCode,
+      passageText: passagesTable.passageText,
+      subject: questionSetsTable.subject,
     })
-    .from(questions)
-    .leftJoin(passages, eq(questions.passageId, passages.id))
-    .innerJoin(questionSets, eq(questions.setId, questionSets.id))
+    .from(questionsTable)
+    .leftJoin(passagesTable, eq(questionsTable.passageId, passagesTable.id))
+    .innerJoin(questionSetsTable, eq(questionsTable.setId, questionSetsTable.id))
     // Scoped to this exam's answer sheet, so a question id from elsewhere is
     // rejected. Stronger than scoping by set: the sheet is per-exam, and it is
     // still correct for an exam drawn from several sets.
     .innerJoin(
-      examAnswers,
-      and(eq(examAnswers.questionId, questions.id), eq(examAnswers.examId, examId)),
+      assessmentAnswersTable,
+      and(eq(assessmentAnswersTable.questionId, questionsTable.id), eq(assessmentAnswersTable.examId, examId)),
     )
-    .where(eq(questions.id, questionId))
+    .where(eq(questionsTable.id, questionId))
     .limit(1);
   if (!question) throw missing('Question not found');
 
   const [answerRow] = await database
     .select()
-    .from(examAnswers)
-    .where(and(eq(examAnswers.examId, examId), eq(examAnswers.questionId, questionId)))
+    .from(assessmentAnswersTable)
+    .where(and(eq(assessmentAnswersTable.examId, examId), eq(assessmentAnswersTable.questionId, questionId)))
     .limit(1);
   if (!answerRow) throw missing('Answer record not found');
 
@@ -119,14 +119,14 @@ export async function acknowledgeAnswer(
     });
 
     await database
-      .update(examAnswers)
+      .update(assessmentAnswersTable)
       .set({
         selectedAnswer: input.selectedAnswer ?? null,
         selectedAnswerText: input.selectedAnswerText ?? null,
         isCorrect,
         answeredAt: isAnswered(selectedAnswer, selectedAnswerText) ? new Date() : null,
       })
-      .where(eq(examAnswers.id, answerRow.id));
+      .where(eq(assessmentAnswersTable.id, answerRow.id));
   }
 
   const context: FeedbackInput = {
@@ -166,7 +166,7 @@ export async function acknowledgeAnswer(
     const succeeded = results.filter((result) => result.aiResult !== null);
 
     if (succeeded.length > 0) {
-      await database.insert(aiFeedback).values(
+      await database.insert(tutorFeedbackTable).values(
         succeeded.map((result) => ({
           examAnswerId: answerRow.id,
           feedbackType: result.feedbackType,
@@ -216,9 +216,9 @@ export async function acknowledgeAnswer(
 /** All cached feedback for one answer, in a single query rather than per type. */
 async function loadCachedFeedback(examAnswerId: string): Promise<Map<string, unknown>> {
   const rows = await database
-    .select({ feedbackType: aiFeedback.feedbackType, content: aiFeedback.content })
-    .from(aiFeedback)
-    .where(eq(aiFeedback.examAnswerId, examAnswerId));
+    .select({ feedbackType: tutorFeedbackTable.feedbackType, content: tutorFeedbackTable.content })
+    .from(tutorFeedbackTable)
+    .where(eq(tutorFeedbackTable.examAnswerId, examAnswerId));
   return new Map<string, unknown>(rows.map((row) => [row.feedbackType as FeedbackKind, row.content]));
 }
 
@@ -238,19 +238,19 @@ async function trackVocabulary(input: {
   if (!input.drill || input.skillCode !== 'vocab_in_context') return null;
 
   const [existingContent] = await database
-    .select({ id: generatedContent.id })
-    .from(generatedContent)
+    .select({ id: generatedContentTable.id })
+    .from(generatedContentTable)
     .where(
       and(
-        eq(generatedContent.sourceQuestionId, input.questionId),
-        eq(generatedContent.studentId, input.studentId),
-        eq(generatedContent.contentType, 'vocab_quiz'),
+        eq(generatedContentTable.sourceQuestionId, input.questionId),
+        eq(generatedContentTable.studentId, input.studentId),
+        eq(generatedContentTable.contentType, 'vocab_quiz'),
       ),
     )
     .limit(1);
 
   if (!existingContent) {
-    await database.insert(generatedContent).values({
+    await database.insert(generatedContentTable).values({
       contentType: 'vocab_quiz',
       sourceQuestionId: input.questionId,
       studentId: input.studentId,
@@ -263,9 +263,9 @@ async function trackVocabulary(input: {
   if (!word) return null;
 
   const [existingVocab] = await database
-    .select({ id: studentVocab.id })
-    .from(studentVocab)
-    .where(and(eq(studentVocab.studentId, input.studentId), eq(studentVocab.word, word)))
+    .select({ id: learnerLexiconTable.id })
+    .from(learnerLexiconTable)
+    .where(and(eq(learnerLexiconTable.studentId, input.studentId), eq(learnerLexiconTable.word, word)))
     .limit(1);
   if (existingVocab) return existingVocab.id;
 
@@ -274,7 +274,7 @@ async function trackVocabulary(input: {
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   const [created] = await database
-    .insert(studentVocab)
+    .insert(learnerLexiconTable)
     .values({
       studentId: input.studentId,
       questionId: input.questionId,
@@ -282,7 +282,7 @@ async function trackVocabulary(input: {
       passageExcerpt: pickSentenceWithWord(input.passageText ?? '', word),
       nextReviewAt: tomorrow,
     })
-    .returning({ id: studentVocab.id });
+    .returning({ id: learnerLexiconTable.id });
 
   return created.id;
 }

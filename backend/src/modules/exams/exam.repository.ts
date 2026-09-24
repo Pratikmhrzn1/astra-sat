@@ -1,6 +1,6 @@
 import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { examAnswers, exams, passages, questionSets, questions } from '../../core/db/schema';
+import { assessmentAnswersTable, assessmentsTable, passagesTable, questionSetsTable, questionsTable } from '../../core/db/schema';
 import { toPublicFileUrl } from '../../core/lib/url';
 
 /**
@@ -13,18 +13,18 @@ import { toPublicFileUrl } from '../../core/lib/url';
  * cannot leak by default.
  */
 export const studentQuestionFields = {
-  id: questions.id,
-  questionType: questions.questionType,
-  questionText: questions.questionText,
-  optionA: questions.optionA,
-  optionB: questions.optionB,
-  optionC: questions.optionC,
-  optionD: questions.optionD,
-  imageUrl: questions.imageUrl,
-  passageId: questions.passageId,
-  passageText: passages.passageText,
-  passageTitle: passages.title,
-  orderIndex: questions.orderIndex,
+  id: questionsTable.id,
+  questionType: questionsTable.questionType,
+  questionText: questionsTable.questionText,
+  optionA: questionsTable.optionA,
+  optionB: questionsTable.optionB,
+  optionC: questionsTable.optionC,
+  optionD: questionsTable.optionD,
+  imageUrl: questionsTable.imageUrl,
+  passageId: questionsTable.passageId,
+  passageText: passagesTable.passageText,
+  passageTitle: passagesTable.title,
+  orderIndex: questionsTable.orderIndex,
 } as const;
 
 export type StudentQuestionView = {
@@ -48,13 +48,13 @@ export type StudentQuestionView = {
  */
 export const reviewQuestionFields = {
   ...studentQuestionFields,
-  orderIndex: examAnswers.orderIndex,
-  correctAnswer: questions.correctAnswer,
-  correctAnswerText: questions.correctAnswerText,
-  explanation: questions.explanation,
-  selectedAnswer: examAnswers.selectedAnswer,
-  selectedAnswerText: examAnswers.selectedAnswerText,
-  isCorrect: examAnswers.isCorrect,
+  orderIndex: assessmentAnswersTable.orderIndex,
+  correctAnswer: questionsTable.correctAnswer,
+  correctAnswerText: questionsTable.correctAnswerText,
+  explanation: questionsTable.explanation,
+  selectedAnswer: assessmentAnswersTable.selectedAnswer,
+  selectedAnswerText: assessmentAnswersTable.selectedAnswerText,
+  isCorrect: assessmentAnswersTable.isCorrect,
 } as const;
 
 /** Applies `toPublicFileUrl` to every question's image before it leaves the API. */
@@ -72,11 +72,11 @@ export function withPublicImageLinks<T extends { imageUrl: string | null }>(rows
 export async function loadReviewRowsForAssessment(examId: string) {
   const rows = await database
     .select(reviewQuestionFields)
-    .from(examAnswers)
-    .innerJoin(questions, eq(examAnswers.questionId, questions.id))
-    .leftJoin(passages, eq(questions.passageId, passages.id))
-    .where(eq(examAnswers.examId, examId))
-    .orderBy(examAnswers.orderIndex);
+    .from(assessmentAnswersTable)
+    .innerJoin(questionsTable, eq(assessmentAnswersTable.questionId, questionsTable.id))
+    .leftJoin(passagesTable, eq(questionsTable.passageId, passagesTable.id))
+    .where(eq(assessmentAnswersTable.examId, examId))
+    .orderBy(assessmentAnswersTable.orderIndex);
   return withPublicImageLinks(rows);
 }
 
@@ -92,20 +92,20 @@ export async function loadReviewRowsForAssessment(examId: string) {
 export async function loadQuestionsForAssessment(examId: string) {
   return database
     .select(studentQuestionFields)
-    .from(examAnswers)
-    .innerJoin(questions, eq(examAnswers.questionId, questions.id))
-    .leftJoin(passages, eq(questions.passageId, passages.id))
-    .where(eq(examAnswers.examId, examId))
-    .orderBy(examAnswers.orderIndex);
+    .from(assessmentAnswersTable)
+    .innerJoin(questionsTable, eq(assessmentAnswersTable.questionId, questionsTable.id))
+    .leftJoin(passagesTable, eq(questionsTable.passageId, passagesTable.id))
+    .where(eq(assessmentAnswersTable.examId, examId))
+    .orderBy(assessmentAnswersTable.orderIndex);
 }
 
 export async function loadQuestionsForSet(setId: string) {
   return database
     .select(studentQuestionFields)
-    .from(questions)
-    .leftJoin(passages, eq(questions.passageId, passages.id))
-    .where(and(eq(questions.setId, setId), isNull(questions.retiredAt)))
-    .orderBy(questions.orderIndex);
+    .from(questionsTable)
+    .leftJoin(passagesTable, eq(questionsTable.passageId, passagesTable.id))
+    .where(and(eq(questionsTable.setId, setId), isNull(questionsTable.retiredAt)))
+    .orderBy(questionsTable.orderIndex);
 }
 
 /**
@@ -119,31 +119,31 @@ export async function loadQuestionsForSet(setId: string) {
 export async function loadPublishedSets() {
   return database
     .select({
-      id: questionSets.id,
-      title: questionSets.title,
-      subject: questionSets.subject,
-      description: questionSets.description,
-      createdAt: questionSets.createdAt,
+      id: questionSetsTable.id,
+      title: questionSetsTable.title,
+      subject: questionSetsTable.subject,
+      description: questionSetsTable.description,
+      createdAt: questionSetsTable.createdAt,
       questionCount: sql<number>`(SELECT COUNT(*) FROM questions WHERE questions.set_id = question_sets.id AND questions.retired_at IS NULL)::int`,
     })
-    .from(questionSets)
+    .from(questionSetsTable)
     .where(
       and(
-        eq(questionSets.isDraft, false),
-        eq(questionSets.isLiveExam, false),
-        isNull(questionSets.archivedAt),
-        or(eq(questionSets.difficulty, 'medium'), isNull(questionSets.difficulty)),
+        eq(questionSetsTable.isDraft, false),
+        eq(questionSetsTable.isLiveExam, false),
+        isNull(questionSetsTable.archivedAt),
+        or(eq(questionSetsTable.difficulty, 'medium'), isNull(questionSetsTable.difficulty)),
       ),
     )
-    .orderBy(desc(questionSets.createdAt));
+    .orderBy(desc(questionSetsTable.createdAt));
 }
 
 /** A set a student can start. Archived sets are gone as far as new exams are concerned. */
 export async function loadSetById(setId: string) {
   const [set] = await database
     .select()
-    .from(questionSets)
-    .where(and(eq(questionSets.id, setId), isNull(questionSets.archivedAt)))
+    .from(questionSetsTable)
+    .where(and(eq(questionSetsTable.id, setId), isNull(questionSetsTable.archivedAt)))
     .limit(1);
   return set ?? null;
 }
@@ -158,8 +158,8 @@ export async function loadSetById(setId: string) {
 export async function loadOwnedAssessment(examId: string, studentId: string) {
   const [exam] = await database
     .select()
-    .from(exams)
-    .where(and(eq(exams.id, examId), eq(exams.studentId, studentId)))
+    .from(assessmentsTable)
+    .where(and(eq(assessmentsTable.id, examId), eq(assessmentsTable.studentId, studentId)))
     .limit(1);
   return exam ?? null;
 }
@@ -167,21 +167,21 @@ export async function loadOwnedAssessment(examId: string, studentId: string) {
 export async function loadAssessmentsForStudent(studentId: string) {
   return database
     .select({
-      id: exams.id,
-      setId: exams.setId,
-      type: exams.type,
-      status: exams.status,
-      score: exams.score,
+      id: assessmentsTable.id,
+      setId: assessmentsTable.setId,
+      type: assessmentsTable.type,
+      status: assessmentsTable.status,
+      score: assessmentsTable.score,
       // The History page's best score and both trend lines read this. Leaving it
       // out of the projection is invisible to the type-checker — the frontend
       // mirrors these shapes by hand — and shows up only as an empty page.
-      scaledScore: exams.scaledScore,
-      totalQuestions: exams.totalQuestions,
-      startedAt: exams.startedAt,
-      completedAt: exams.completedAt,
-      setTitle: questionSets.title,
+      scaledScore: assessmentsTable.scaledScore,
+      totalQuestions: assessmentsTable.totalQuestions,
+      startedAt: assessmentsTable.startedAt,
+      completedAt: assessmentsTable.completedAt,
+      setTitle: questionSetsTable.title,
       /** Set-less exams carry their own name: "Topic: Algebra", "Mistake review". */
-      label: exams.label,
+      label: assessmentsTable.label,
       // Derived rather than left null for a set-less exam, because a null subject
       // is not merely missing here — it is wrong in every consumer. The History
       // page filters both trend lines on it, so a Math topic-practice exam would
@@ -190,23 +190,23 @@ export async function loadAssessmentsForStudent(studentId: string) {
       // authoritative question list for any exam, so the first question's set
       // gives the subject; a topic exam is single-subject by construction.
       subject: sql<'english' | 'math'>`COALESCE(
-        ${questionSets.subject},
+        ${questionSetsTable.subject},
         (SELECT qs.subject
-           FROM ${examAnswers} ea
-           JOIN ${questions} q ON q.id = ea.question_id
-           JOIN ${questionSets} qs ON qs.id = q.set_id
-          WHERE ea.exam_id = ${exams.id}
+           FROM ${assessmentAnswersTable} ea
+           JOIN ${questionsTable} q ON q.id = ea.question_id
+           JOIN ${questionSetsTable} qs ON qs.id = q.set_id
+          WHERE ea.exam_id = ${assessmentsTable.id}
           ORDER BY ea.order_index
           LIMIT 1)
       )`,
     })
-    .from(exams)
+    .from(assessmentsTable)
     // leftJoin, not inner: an exam assembled across sets — topic practice, a
     // mistake review — belongs to no set and would otherwise vanish from the
     // student's own history entirely.
-    .leftJoin(questionSets, eq(exams.setId, questionSets.id))
-    .where(eq(exams.studentId, studentId))
-    .orderBy(desc(exams.startedAt));
+    .leftJoin(questionSetsTable, eq(assessmentsTable.setId, questionSetsTable.id))
+    .where(eq(assessmentsTable.studentId, studentId))
+    .orderBy(desc(assessmentsTable.startedAt));
 }
 
 // Exam provisioning lives in modules/exams so live exams create their answer

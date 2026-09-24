@@ -1,20 +1,20 @@
 import { desc, eq, isNull, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { aiFeedback, exams, questionSets, questions, users } from '../../core/db/schema';
+import { tutorFeedbackTable, assessmentsTable, questionSetsTable, questionsTable, accountsTable } from '../../core/db/schema';
 import { fetchTaggingCoverage } from '../taxonomy';
 
 /** Platform overview for admins: headline counts and AI spend. */
 
 export async function fetchStats() {
   const [students, teachers, admins, examCount, questionCount, setCount] = await Promise.all([
-    countRows(database.select({ count: sql<number>`count(*)::int` }).from(users).where(eq(users.role, 'student'))),
-    countRows(database.select({ count: sql<number>`count(*)::int` }).from(users).where(eq(users.role, 'teacher'))),
-    countRows(database.select({ count: sql<number>`count(*)::int` }).from(users).where(eq(users.role, 'admin'))),
-    countRows(database.select({ count: sql<number>`count(*)::int` }).from(exams)),
+    countRows(database.select({ count: sql<number>`count(*)::int` }).from(accountsTable).where(eq(accountsTable.role, 'student'))),
+    countRows(database.select({ count: sql<number>`count(*)::int` }).from(accountsTable).where(eq(accountsTable.role, 'teacher'))),
+    countRows(database.select({ count: sql<number>`count(*)::int` }).from(accountsTable).where(eq(accountsTable.role, 'admin'))),
+    countRows(database.select({ count: sql<number>`count(*)::int` }).from(assessmentsTable)),
     // Live content only: retired question versions and archived sets are kept for
     // history but are not part of the question bank any more.
-    countRows(database.select({ count: sql<number>`count(*)::int` }).from(questions).where(isNull(questions.retiredAt))),
-    countRows(database.select({ count: sql<number>`count(*)::int` }).from(questionSets).where(isNull(questionSets.archivedAt))),
+    countRows(database.select({ count: sql<number>`count(*)::int` }).from(questionsTable).where(isNull(questionsTable.retiredAt))),
+    countRows(database.select({ count: sql<number>`count(*)::int` }).from(questionSetsTable).where(isNull(questionSetsTable.archivedAt))),
   ]);
 
   return {
@@ -46,13 +46,13 @@ async function countRows(query: Promise<{ count: number }[]>): Promise<number> {
 export async function fetchModelStats() {
   return database
     .select({
-      modelUsed: aiFeedback.modelUsed,
+      modelUsed: tutorFeedbackTable.modelUsed,
       totalCalls: sql<number>`count(*)::int`,
-      avgLatencyMs: sql<number>`round(avg(${aiFeedback.latencyMs}))::int`,
-      avgCostUsd: sql<string>`round(avg(${aiFeedback.costUsd}::numeric), 6)::text`,
-      parseFailureRate: sql<number>`round(avg(CASE WHEN ${aiFeedback.parseFailed} THEN 1.0 ELSE 0.0 END)::numeric, 4)::float8`,
+      avgLatencyMs: sql<number>`round(avg(${tutorFeedbackTable.latencyMs}))::int`,
+      avgCostUsd: sql<string>`round(avg(${tutorFeedbackTable.costUsd}::numeric), 6)::text`,
+      parseFailureRate: sql<number>`round(avg(CASE WHEN ${tutorFeedbackTable.parseFailed} THEN 1.0 ELSE 0.0 END)::numeric, 4)::float8`,
     })
-    .from(aiFeedback)
-    .groupBy(aiFeedback.modelUsed)
+    .from(tutorFeedbackTable)
+    .groupBy(tutorFeedbackTable.modelUsed)
     .orderBy(desc(sql`count(*)`));
 }

@@ -1,6 +1,6 @@
 import { desc, eq } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { teacherVocabWords } from '../../core/db/schema';
+import { teacherLexiconTable } from '../../core/db/schema';
 import { missing } from '../../core/errors';
 import type { LexiconWordPayload } from './vocab.schemas';
 
@@ -10,12 +10,12 @@ import type { LexiconWordPayload } from './vocab.schemas';
  */
 
 export async function collectLexiconWords() {
-  return database.select().from(teacherVocabWords).orderBy(desc(teacherVocabWords.createdAt));
+  return database.select().from(teacherLexiconTable).orderBy(desc(teacherLexiconTable.createdAt));
 }
 
 export async function addLexiconWord(input: LexiconWordPayload) {
   const [word] = await database
-    .insert(teacherVocabWords)
+    .insert(teacherLexiconTable)
     .values({
       word: input.word.trim(),
       definition: input.definition.trim(),
@@ -27,11 +27,11 @@ export async function addLexiconWord(input: LexiconWordPayload) {
 
 export async function removeLexiconWord(wordId: string) {
   const [existing] = await database
-    .select({ id: teacherVocabWords.id })
-    .from(teacherVocabWords)
-    .where(eq(teacherVocabWords.id, wordId))
+    .select({ id: teacherLexiconTable.id })
+    .from(teacherLexiconTable)
+    .where(eq(teacherLexiconTable.id, wordId))
     .limit(1);
   if (!existing) throw missing('Word not found');
   // Cascades to every student's progress on this word.
-  await database.delete(teacherVocabWords).where(eq(teacherVocabWords.id, wordId));
+  await database.delete(teacherLexiconTable).where(eq(teacherLexiconTable.id, wordId));
 }

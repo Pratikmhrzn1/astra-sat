@@ -1,6 +1,6 @@
 import { asc, desc, eq, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { surveyQuestions, surveyResponses, users } from '../../core/db/schema';
+import { intakeQuestionsTable, intakeResponsesTable, accountsTable } from '../../core/db/schema';
 import { invalidRequest, missing } from '../../core/errors';
 import {
   CHOICE_KINDS,
@@ -52,29 +52,29 @@ const RESPONSE_COUNT = sql<number>`(
  * instead of refetching to discover its response count.
  */
 const adminQuestionColumns = {
-  id: surveyQuestions.id,
-  prompt: surveyQuestions.prompt,
-  type: surveyQuestions.type,
-  options: surveyQuestions.options,
-  isRequired: surveyQuestions.isRequired,
-  isActive: surveyQuestions.isActive,
-  sortOrder: surveyQuestions.sortOrder,
-  createdAt: surveyQuestions.createdAt,
+  id: intakeQuestionsTable.id,
+  prompt: intakeQuestionsTable.prompt,
+  type: intakeQuestionsTable.type,
+  options: intakeQuestionsTable.options,
+  isRequired: intakeQuestionsTable.isRequired,
+  isActive: intakeQuestionsTable.isActive,
+  sortOrder: intakeQuestionsTable.sortOrder,
+  createdAt: intakeQuestionsTable.createdAt,
 } as const;
 
 export async function collectIntakeQuestions() {
   return database
     .select({ ...adminQuestionColumns, responseCount: RESPONSE_COUNT.as('response_count') })
-    .from(surveyQuestions)
-    .orderBy(asc(surveyQuestions.sortOrder), asc(surveyQuestions.createdAt));
+    .from(intakeQuestionsTable)
+    .orderBy(asc(intakeQuestionsTable.sortOrder), asc(intakeQuestionsTable.createdAt));
 }
 
 /** Re-reads one question in the admin list's shape, after writing it. */
 async function readAdminQuestion(id: string) {
   const [row] = await database
     .select({ ...adminQuestionColumns, responseCount: RESPONSE_COUNT.as('response_count') })
-    .from(surveyQuestions)
-    .where(eq(surveyQuestions.id, id))
+    .from(intakeQuestionsTable)
+    .where(eq(intakeQuestionsTable.id, id))
     .limit(1);
   if (!row) throw missing('Survey question not found');
   return row;
@@ -83,7 +83,7 @@ async function readAdminQuestion(id: string) {
 export async function addIntakeQuestion(adminId: string, input: CreateIntakeQuestionPayload) {
   assertOptionsValid(input.type, input.options);
   const [row] = await database
-    .insert(surveyQuestions)
+    .insert(intakeQuestionsTable)
     .values({
       prompt: input.prompt,
       type: input.type,
@@ -97,12 +97,12 @@ export async function addIntakeQuestion(adminId: string, input: CreateIntakeQues
       sortOrder: sql`(SELECT COALESCE(MAX(sort_order), -1) + 1 FROM survey_questions)`,
       createdBy: adminId,
     })
-    .returning({ id: surveyQuestions.id });
+    .returning({ id: intakeQuestionsTable.id });
   return readAdminQuestion(row.id);
 }
 
 export async function editIntakeQuestion(id: string, input: UpdateIntakeQuestionPayload) {
-  const [existing] = await database.select().from(surveyQuestions).where(eq(surveyQuestions.id, id)).limit(1);
+  const [existing] = await database.select().from(intakeQuestionsTable).where(eq(intakeQuestionsTable.id, id)).limit(1);
   if (!existing) throw missing('Survey question not found');
 
   const type = input.type ?? (existing.type as IntakeQuestionType);
@@ -126,7 +126,7 @@ export async function editIntakeQuestion(id: string, input: UpdateIntakeQuestion
   }
 
   await database
-    .update(surveyQuestions)
+    .update(intakeQuestionsTable)
     .set({
       prompt: input.prompt ?? existing.prompt,
       type,
@@ -135,23 +135,23 @@ export async function editIntakeQuestion(id: string, input: UpdateIntakeQuestion
       isActive: input.isActive ?? existing.isActive,
       updatedAt: new Date(),
     })
-    .where(eq(surveyQuestions.id, id));
+    .where(eq(intakeQuestionsTable.id, id));
   return readAdminQuestion(id);
 }
 
 /** Cascades to the answers given to it — the caller warns before asking. */
 export async function removeIntakeQuestion(id: string): Promise<void> {
   const deleted = await database
-    .delete(surveyQuestions)
-    .where(eq(surveyQuestions.id, id))
-    .returning({ id: surveyQuestions.id });
+    .delete(intakeQuestionsTable)
+    .where(eq(intakeQuestionsTable.id, id))
+    .returning({ id: intakeQuestionsTable.id });
   if (deleted.length === 0) throw missing('Survey question not found');
 }
 
 export async function resequenceIntakeQuestions({ ids }: ReorderQuestionsPayload): Promise<void> {
   await database.transaction(async (tx) => {
     for (const [index, id] of ids.entries()) {
-      await tx.update(surveyQuestions).set({ sortOrder: index }).where(eq(surveyQuestions.id, id));
+      await tx.update(intakeQuestionsTable).set({ sortOrder: index }).where(eq(intakeQuestionsTable.id, id));
     }
   });
 }
@@ -162,22 +162,22 @@ export async function resequenceIntakeQuestions({ ids }: ReorderQuestionsPayload
 async function activeQuestions() {
   return database
     .select({
-      id: surveyQuestions.id,
-      prompt: surveyQuestions.prompt,
-      type: surveyQuestions.type,
-      options: surveyQuestions.options,
-      isRequired: surveyQuestions.isRequired,
+      id: intakeQuestionsTable.id,
+      prompt: intakeQuestionsTable.prompt,
+      type: intakeQuestionsTable.type,
+      options: intakeQuestionsTable.options,
+      isRequired: intakeQuestionsTable.isRequired,
     })
-    .from(surveyQuestions)
-    .where(eq(surveyQuestions.isActive, true))
-    .orderBy(asc(surveyQuestions.sortOrder), asc(surveyQuestions.createdAt));
+    .from(intakeQuestionsTable)
+    .where(eq(intakeQuestionsTable.isActive, true))
+    .orderBy(asc(intakeQuestionsTable.sortOrder), asc(intakeQuestionsTable.createdAt));
 }
 
 export async function fetchIntakeForStudent(userId: string) {
   const [user] = await database
-    .select({ surveyCompletedAt: users.surveyCompletedAt })
-    .from(users)
-    .where(eq(users.id, userId))
+    .select({ surveyCompletedAt: accountsTable.surveyCompletedAt })
+    .from(accountsTable)
+    .where(eq(accountsTable.id, userId))
     .limit(1);
   if (!user) throw missing('User not found');
   return { completed: user.surveyCompletedAt !== null, questions: await activeQuestions() };
@@ -253,14 +253,14 @@ export async function commitIntake(userId: string, input: SubmitIntakePayload) {
   await database.transaction(async (tx) => {
     for (const [questionId, answer] of answered) {
       await tx
-        .insert(surveyResponses)
+        .insert(intakeResponsesTable)
         .values({ userId, questionId, answer })
         .onConflictDoUpdate({
-          target: [surveyResponses.userId, surveyResponses.questionId],
+          target: [intakeResponsesTable.userId, intakeResponsesTable.questionId],
           set: { answer, createdAt: new Date() },
         });
     }
-    await tx.update(users).set({ surveyCompletedAt: new Date() }).where(eq(users.id, userId));
+    await tx.update(accountsTable).set({ surveyCompletedAt: new Date() }).where(eq(accountsTable.id, userId));
   });
 
   return { ok: true as const, answered: answered.size };
@@ -309,20 +309,20 @@ export interface IntakeRespondent {
 export async function collectResponses(): Promise<IntakeRespondent[]> {
   const rows = await database
     .select({
-      userId: surveyResponses.userId,
-      userName: users.name,
-      userEmail: users.email,
-      createdAt: surveyResponses.createdAt,
-      questionId: surveyResponses.questionId,
-      prompt: surveyQuestions.prompt,
-      type: surveyQuestions.type,
-      sortOrder: surveyQuestions.sortOrder,
-      answer: surveyResponses.answer,
+      userId: intakeResponsesTable.userId,
+      userName: accountsTable.name,
+      userEmail: accountsTable.email,
+      createdAt: intakeResponsesTable.createdAt,
+      questionId: intakeResponsesTable.questionId,
+      prompt: intakeQuestionsTable.prompt,
+      type: intakeQuestionsTable.type,
+      sortOrder: intakeQuestionsTable.sortOrder,
+      answer: intakeResponsesTable.answer,
     })
-    .from(surveyResponses)
-    .leftJoin(users, eq(surveyResponses.userId, users.id))
-    .leftJoin(surveyQuestions, eq(surveyResponses.questionId, surveyQuestions.id))
-    .orderBy(desc(surveyResponses.createdAt));
+    .from(intakeResponsesTable)
+    .leftJoin(accountsTable, eq(intakeResponsesTable.userId, accountsTable.id))
+    .leftJoin(intakeQuestionsTable, eq(intakeResponsesTable.questionId, intakeQuestionsTable.id))
+    .orderBy(desc(intakeResponsesTable.createdAt));
 
   // Rows come newest answer first, which puts the newest respondent first; each
   // respondent's own answers are then put back into ask order below, since the
@@ -364,7 +364,7 @@ export async function collectResponses(): Promise<IntakeRespondent[]> {
 export async function tallyResponses(questionId: string): Promise<number> {
   const [row] = await database
     .select({ count: sql<number>`COUNT(*)::int` })
-    .from(surveyResponses)
-    .where(eq(surveyResponses.questionId, questionId));
+    .from(intakeResponsesTable)
+    .where(eq(intakeResponsesTable.questionId, questionId));
   return Number(row?.count ?? 0);
 }

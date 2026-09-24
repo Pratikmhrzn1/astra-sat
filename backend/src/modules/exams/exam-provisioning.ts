@@ -1,6 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { examAnswers, exams, questions } from '../../core/db/schema';
+import { assessmentAnswersTable, assessmentsTable, questionsTable } from '../../core/db/schema';
 
 /**
  * Creating an exam, in one place.
@@ -21,11 +21,11 @@ export type AssessmentKind = 'individual' | 'mock_english' | 'mock_math';
 /** Question ids of a set in presentation order. */
 export async function loadQuestionIdsForSet(setId: string): Promise<string[]> {
   const rows = await database
-    .select({ id: questions.id })
-    .from(questions)
+    .select({ id: questionsTable.id })
+    .from(questionsTable)
     // Retired versions stay for the exams that used them; new exams get the live one.
-    .where(and(eq(questions.setId, setId), isNull(questions.retiredAt)))
-    .orderBy(questions.orderIndex);
+    .where(and(eq(questionsTable.setId, setId), isNull(questionsTable.retiredAt)))
+    .orderBy(questionsTable.orderIndex);
   return rows.map((row) => row.id);
 }
 
@@ -44,7 +44,7 @@ export async function buildAssessmentWithSheet(input: {
 }) {
   return database.transaction(async (tx) => {
     const [exam] = await tx
-      .insert(exams)
+      .insert(assessmentsTable)
       .values({
         studentId: input.studentId,
         setId: input.setId,
@@ -58,7 +58,7 @@ export async function buildAssessmentWithSheet(input: {
 
     if (input.questionIds.length > 0) {
       await tx
-        .insert(examAnswers)
+        .insert(assessmentAnswersTable)
         .values(
           input.questionIds.map((questionId, index) => ({
             examId: exam.id,

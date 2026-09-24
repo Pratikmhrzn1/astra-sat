@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, timestamp, jsonb } from 'drizzle-orm/pg-core';
-import { users } from './identity';
+import { accountsTable } from './identity';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Audit log — who did the irreversible thing.
@@ -12,9 +12,9 @@ import { users } from './identity';
 // user must not delete the record of what they did. The payload is jsonb so each
 // action can record whatever context it has without a migration per action.
 // ─────────────────────────────────────────────────────────────────────────────
-export const auditLog = pgTable('audit_log', {
+export const trailLogTable = pgTable('audit_log', {
   id: uuid('id').primaryKey().defaultRandom(),
-  actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
+  actorId: uuid('actor_id').references(() => accountsTable.id, { onDelete: 'set null' }),
   /** Verb, e.g. 'user.role_changed', 'db.restore', 'db.sql'. */
   action: text('action').notNull(),
   /** What it acted on, e.g. 'user', 'question_set'. Null for global actions. */
@@ -24,4 +24,4 @@ export const auditLog = pgTable('audit_log', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
-export type AuditLogEntry = typeof auditLog.$inferSelect;
+export type TrailEntryRow = typeof trailLogTable.$inferSelect;

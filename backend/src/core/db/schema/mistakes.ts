@@ -1,7 +1,7 @@
 import { pgTable, uuid, integer, timestamp, unique } from 'drizzle-orm/pg-core';
-import { questions } from './content';
-import { examAnswers } from './exams';
-import { users } from './identity';
+import { questionsTable } from './content';
+import { assessmentAnswersTable } from './exams';
+import { accountsTable } from './identity';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mistake bank — every question a student has got wrong, once each.
@@ -14,18 +14,18 @@ import { users } from './identity';
 // Modelled on `student_vocab`, which already does spaced repetition over words;
 // this generalises the same idea to every question type.
 // ─────────────────────────────────────────────────────────────────────────────
-export const mistakes = pgTable(
+export const misstepsTable = pgTable(
   'mistakes',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     studentId: uuid('student_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+      .references(() => accountsTable.id, { onDelete: 'cascade' }),
     questionId: uuid('question_id')
       .notNull()
-      .references(() => questions.id, { onDelete: 'cascade' }),
+      .references(() => questionsTable.id, { onDelete: 'cascade' }),
     /** The attempt that most recently got it wrong; kept for provenance. */
-    examAnswerId: uuid('exam_answer_id').references(() => examAnswers.id, { onDelete: 'set null' }),
+    examAnswerId: uuid('exam_answer_id').references(() => assessmentAnswersTable.id, { onDelete: 'set null' }),
     missCount: integer('miss_count').notNull().default(1),
     firstMissedAt: timestamp('first_missed_at').notNull().defaultNow(),
     lastMissedAt: timestamp('last_missed_at').notNull().defaultNow(),
@@ -37,4 +37,4 @@ export const mistakes = pgTable(
   }),
 );
 
-export type Mistake = typeof mistakes.$inferSelect;
+export type MisstepRow = typeof misstepsTable.$inferSelect;

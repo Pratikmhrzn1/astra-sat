@@ -1,6 +1,6 @@
 import { and, eq, lt, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { examAnswers, exams, questionSets, questions } from '../../core/db/schema';
+import { assessmentAnswersTable, assessmentsTable, questionSetsTable, questionsTable } from '../../core/db/schema';
 import { invalidRequest, stateConflict, isServiceError, missing } from '../../core/errors';
 import {
   DEADLINE_LENIENCY_SECONDS,
@@ -59,13 +59,13 @@ export async function fetchAssessment(examId: string, studentId: string, { open 
     repo.loadQuestionsForAssessment(exam.id),
     database
       .select({
-        questionId: examAnswers.questionId,
-        selectedAnswer: examAnswers.selectedAnswer,
-        selectedAnswerText: examAnswers.selectedAnswerText,
-        answeredAt: examAnswers.answeredAt,
+        questionId: assessmentAnswersTable.questionId,
+        selectedAnswer: assessmentAnswersTable.selectedAnswer,
+        selectedAnswerText: assessmentAnswersTable.selectedAnswerText,
+        answeredAt: assessmentAnswersTable.answeredAt,
       })
-      .from(examAnswers)
-      .where(eq(examAnswers.examId, exam.id)),
+      .from(assessmentAnswersTable)
+      .where(eq(assessmentAnswersTable.examId, exam.id)),
   ]);
 
   // Only the Math section start is needed here: the player chains English ->
@@ -171,7 +171,7 @@ export async function storeAnswers(
   // A timed exam's time comes from its deadline, never from the client.
   const timed = deadline !== null;
   if (timeSpentSeconds !== undefined && !timed) {
-    await database.update(exams).set({ timeSpentSeconds }).where(eq(exams.id, examId));
+    await database.update(assessmentsTable).set({ timeSpentSeconds }).where(eq(assessmentsTable.id, examId));
   }
 }
 
@@ -179,7 +179,7 @@ export interface CommitOutcome {
   score: number;
   total: number;
   percentage: number;
-  exam: typeof exams.$inferSelect;
+  exam: typeof assessmentsTable.$inferSelect;
   /** Set when a narrative was queued; the caller starts it after responding. */
   pendingNarrative: { narrativeId: string; exam: narrative.NarrativeAssessment } | null;
 }
@@ -215,16 +215,16 @@ export async function commitAssessment(
 
   const answers = await database
     .select({
-      answerId: examAnswers.id,
-      questionType: questions.questionType,
-      selectedAnswer: examAnswers.selectedAnswer,
-      selectedAnswerText: examAnswers.selectedAnswerText,
-      correctAnswer: questions.correctAnswer,
-      correctAnswerText: questions.correctAnswerText,
+      answerId: assessmentAnswersTable.id,
+      questionType: questionsTable.questionType,
+      selectedAnswer: assessmentAnswersTable.selectedAnswer,
+      selectedAnswerText: assessmentAnswersTable.selectedAnswerText,
+      correctAnswer: questionsTable.correctAnswer,
+      correctAnswerText: questionsTable.correctAnswerText,
     })
-    .from(examAnswers)
-    .innerJoin(questions, eq(examAnswers.questionId, questions.id))
-    .where(eq(examAnswers.examId, exam.id));
+    .from(assessmentAnswersTable)
+    .innerJoin(questionsTable, eq(assessmentAnswersTable.questionId, questionsTable.id))
+    .where(eq(assessmentAnswersTable.examId, exam.id));
 
   const graded = answers.map((answer) => ({
     answerId: answer.answerId,
@@ -265,7 +265,7 @@ export async function commitAssessment(
     exam.timeSpentSeconds;
 
   const [updated] = await database
-    .update(exams)
+    .update(assessmentsTable)
     .set({
       status: 'completed',
       score,
@@ -276,7 +276,7 @@ export async function commitAssessment(
     // Only an exam still in progress closes. A student's submit and an expiry
     // close racing each other would otherwise both grade it and both write
     // mistakes; the loser is refused here.
-    .where(and(eq(exams.id, exam.id), eq(exams.status, 'in_progress')))
+    .where(and(eq(assessmentsTable.id, exam.id), eq(assessmentsTable.status, 'in_progress')))
     .returning();
   if (!updated) throw invalidRequest('Exam already completed');
 
@@ -321,9 +321,9 @@ export async function fetchResults(examId: string, studentId: string) {
     // An exam assembled across sets has no owning set to describe.
     exam.setId
       ? database
-          .select({ title: questionSets.title, subject: questionSets.subject })
-          .from(questionSets)
-          .where(eq(questionSets.id, exam.setId))
+          .select({ title: questionSetsTable.title, subject: questionSetsTable.subject })
+          .from(questionSetsTable)
+          .where(eq(questionSetsTable.id, exam.setId))
           .limit(1)
       : Promise.resolve([]),
   ]);
@@ -376,13 +376,13 @@ export async function collectAssessments(studentId: string) {
   // An abandoned timed exam is closed when it next appears in a list, so history
   // never shows a section as "in progress" long after its time ran out.
   const expired = await database
-    .select({ id: exams.id })
-    .from(exams)
+    .select({ id: assessmentsTable.id })
+    .from(assessmentsTable)
     .where(
       and(
-        eq(exams.studentId, studentId),
-        eq(exams.status, 'in_progress'),
-        lt(exams.deadlineAt, new Date(Date.now() - DEADLINE_LENIENCY_SECONDS * 1000)),
+        eq(assessmentsTable.studentId, studentId),
+        eq(assessmentsTable.status, 'in_progress'),
+        lt(assessmentsTable.deadlineAt, new Date(Date.now() - DEADLINE_LENIENCY_SECONDS * 1000)),
       ),
     );
   for (const { id } of expired) await closeExpiredAssessment(id, studentId);
