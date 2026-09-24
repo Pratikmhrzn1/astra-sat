@@ -74,6 +74,10 @@ export default function TakeExam() {
   // Answers are initialised once per exam, so the refetch that follows a
   // pre-fetched section cannot overwrite what the student has already picked.
   const answersInitForRef = useRef<string | null>(null);
+  // Set only once the restore has actually put answers in state. `answersInitForRef`
+  // flips synchronously when the restore *starts*, which is too early to let the
+  // IDB write through — at that point `answers` is still `{}`.
+  const answersRestoredForRef = useRef<string | null>(null);
   const closedHandledRef = useRef<string | null>(null);
   // Always-current answers for use inside timer/IDB closures
   const answersRef = useRef<Record<string, string | null>>({});
@@ -104,6 +108,7 @@ export default function TakeExam() {
     setMockSection(locationState?.mockSection);
     deadlineRef.current = null;
     answersInitForRef.current = null;
+    answersRestoredForRef.current = null;
     setConfirmOpen(false);
     setActionError(null);
     setSectionBanner(!!(locationState?.fromMockSection1));
@@ -195,7 +200,9 @@ export default function TakeExam() {
       data.answers.forEach((a) => { init[a.questionId] = a.selectedAnswerText ?? a.selectedAnswer; });
       return init;
     };
+    const markRestored = () => { answersRestoredForRef.current = examId ?? null; };
     loadExamProgress(examId!).then((saved) => {
+      markRestored();
       if (saved) {
         // Merged, local picks first: this device's copy is the freshest for what
         // it holds, but it can be empty or partial (another device, or the empty
@@ -217,7 +224,7 @@ export default function TakeExam() {
         setAnswers(fromServer());
         savedTimeSpentRef.current = 0;
       }
-    }).catch(() => setAnswers(fromServer()));
+    }).catch(() => { markRestored(); setAnswers(fromServer()); });
   }, [data, examId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Time-spent helper — reads refs to avoid stale closure issues in callbacks
@@ -465,9 +472,17 @@ export default function TakeExam() {
     saveMutation.mutate({ time: getTimeSpent() });
   }, [examId, getTimeSpent]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Save to IDB on every answer change
+  // Save to IDB on every answer change.
+  //
+  // Gated on the restore having *completed* for this exam. This effect also runs
+  // on mount and right after the `examId` reset, when `answers` is still `{}` and
+  // the restore has only been queued — so without the gate every mount overwrote
+  // this device's saved progress with an empty record and a reset time, and only
+  // a later render put it back. A tab killed in that window (a backgrounded
+  // phone) left the empty record as the durable one.
   useEffect(() => {
-    if (examId) saveExamProgress(examId, answers, getTimeSpent(), timerEnabledRef.current, examTitle);
+    if (!examId || answersRestoredForRef.current !== examId) return;
+    saveExamProgress(examId, answers, getTimeSpent(), timerEnabledRef.current, examTitle);
   }, [answers, timerEnabled]);
 
   useEffect(() => {
