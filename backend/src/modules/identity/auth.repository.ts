@@ -1,5 +1,5 @@
 import { and, eq, gt } from 'drizzle-orm';
-import { db, type Transaction } from '../../core/db';
+import { database, type DbTransaction } from '../../core/db';
 import { accessCodes, passwordResetTokens, refreshTokens, users } from '../../core/db/schema';
 
 /**
@@ -29,17 +29,17 @@ export interface PublicUser {
 }
 
 export async function findUserByEmail(email: string) {
-  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const [user] = await database.select().from(users).where(eq(users.email, email)).limit(1);
   return user ?? null;
 }
 
 export async function findUserById(id: string) {
-  const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  const [user] = await database.select().from(users).where(eq(users.id, id)).limit(1);
   return user ?? null;
 }
 
 export async function findProfileById(id: string) {
-  const [profile] = await db
+  const [profile] = await database
     .select({
       ...publicUserColumns,
       teacherId: users.teacherId,
@@ -55,7 +55,7 @@ export async function findProfileById(id: string) {
 }
 
 export async function emailExists(email: string): Promise<boolean> {
-  const [row] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  const [row] = await database.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
   return row !== undefined;
 }
 
@@ -66,17 +66,17 @@ export async function createUser(input: {
   passwordHash: string;
   role: 'student' | 'teacher' | 'admin';
 }): Promise<PublicUser> {
-  const [user] = await db.insert(users).values(input).returning(publicUserColumns);
+  const [user] = await database.insert(users).values(input).returning(publicUserColumns);
   // A brand-new account has answered nothing, by definition.
   return { ...user, surveyCompleted: false };
 }
 
 export async function updatePasswordHash(userId: string, passwordHash: string): Promise<void> {
-  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+  await database.update(users).set({ passwordHash }).where(eq(users.id, userId));
 }
 
 export async function updateName(userId: string, name: string): Promise<PublicUser | null> {
-  const [updated] = await db
+  const [updated] = await database
     .update(users)
     .set({ name })
     .where(eq(users.id, userId))
@@ -89,7 +89,7 @@ export async function updateName(userId: string, name: string): Promise<PublicUs
 // ── Access codes ──────────────────────────────────────────────────────────────
 
 export async function findActiveAccessCode(code: string) {
-  const [row] = await db
+  const [row] = await database
     .select()
     .from(accessCodes)
     .where(and(eq(accessCodes.code, code), eq(accessCodes.isActive, true)))
@@ -98,7 +98,7 @@ export async function findActiveAccessCode(code: string) {
 }
 
 export async function incrementAccessCodeUse(id: string, currentCount: number): Promise<void> {
-  await db.update(accessCodes).set({ useCount: currentCount + 1 }).where(eq(accessCodes.id, id));
+  await database.update(accessCodes).set({ useCount: currentCount + 1 }).where(eq(accessCodes.id, id));
 }
 
 // ── Refresh tokens (stored as sha256 hashes, never raw) ───────────────────────
@@ -107,7 +107,7 @@ export async function storeRefreshToken(
   userId: string,
   tokenHash: string,
   expiresAt: Date,
-  tx: Transaction | typeof db = db,
+  tx: DbTransaction | typeof database = database,
 ): Promise<void> {
   await tx.insert(refreshTokens).values({ userId, tokenHash, expiresAt });
 }
@@ -119,7 +119,7 @@ export async function storeRefreshToken(
  */
 export async function deleteRefreshToken(
   tokenHash: string,
-  tx: Transaction | typeof db = db,
+  tx: DbTransaction | typeof database = database,
 ): Promise<boolean> {
   const deleted = await tx
     .delete(refreshTokens)
@@ -131,11 +131,11 @@ export async function deleteRefreshToken(
 // ── Password reset tokens ─────────────────────────────────────────────────────
 
 export async function createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
-  await db.insert(passwordResetTokens).values({ userId, token, expiresAt });
+  await database.insert(passwordResetTokens).values({ userId, token, expiresAt });
 }
 
 export async function findUnexpiredResetToken(token: string) {
-  const [row] = await db
+  const [row] = await database
     .select()
     .from(passwordResetTokens)
     .where(and(eq(passwordResetTokens.token, token), gt(passwordResetTokens.expiresAt, new Date())))
@@ -144,5 +144,5 @@ export async function findUnexpiredResetToken(token: string) {
 }
 
 export async function markResetTokenUsed(id: string, usedAt: Date): Promise<void> {
-  await db.update(passwordResetTokens).set({ usedAt }).where(eq(passwordResetTokens.id, id));
+  await database.update(passwordResetTokens).set({ usedAt }).where(eq(passwordResetTokens.id, id));
 }

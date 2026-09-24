@@ -1,7 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { questionSets, questions } from '../../core/db/schema';
-import { unavailable } from '../../core/errors';
+import { dependencyDown } from '../../core/errors';
 import { requestStructuredOutput, isModelReady } from '../ai';
 
 /**
@@ -105,12 +105,12 @@ export interface ClassificationRun {
 
 export async function autoTagSubSkills(): Promise<ClassificationRun> {
   if (!isModelReady('classify')) {
-    throw unavailable('Classification model not configured (needs OPENROUTER_API_KEY and AI_MODEL_CLASSIFY)');
+    throw dependencyDown('Classification model not configured (needs OPENROUTER_API_KEY and AI_MODEL_CLASSIFY)');
   }
 
   // Both subjects. The `subject = 'english'` filter that used to be here is
   // what kept Math permanently untagged.
-  const untagged = await db
+  const untagged = await database
     .select({
       id: questions.id,
       subject: questionSets.subject,
@@ -171,7 +171,7 @@ async function classifyOne(question: Classifiable): Promise<'tagged' | 'unclear'
     return 'unclear';
   }
 
-  await db
+  await database
     .update(questions)
     .set({ skillCode: classification, subSkillSource: 'ai_suggested' })
     .where(eq(questions.id, question.id));

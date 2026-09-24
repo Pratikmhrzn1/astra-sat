@@ -1,10 +1,10 @@
 import fs from 'fs';
 import type { Server } from 'http';
 import type { Router } from 'express';
-import { env } from '../config/env';
-import { pool } from '../db';
-import { runMigrations } from '../db/migrate';
-import { createApp } from './app';
+import { settings } from '../config/env';
+import { pgPool } from '../db';
+import { applySchema } from '../db/migrate';
+import { buildApp } from './app';
 
 /**
  * Boot sequence: prepare the upload directory, bring the schema up to date,
@@ -12,19 +12,19 @@ import { createApp } from './app';
  * half-migrated database, and a failure exits non-zero so the orchestrator
  * restarts (or halts) rather than serving a broken app.
  */
-export async function startServer({ apiRouter, startupJobs }: {
+export async function bootServer({ apiRouter, startupJobs }: {
   apiRouter: Router;
   /** Run once the port is open. Must not throw: a repair job must not keep the app down. */
   startupJobs?: () => Promise<void>;
 }): Promise<Server> {
-  fs.mkdirSync(env.uploads.dir, { recursive: true });
+  fs.mkdirSync(settings.uploads.dir, { recursive: true });
 
   console.log('[boot] Running database migrations…');
-  await runMigrations();
+  await applySchema();
 
-  const app = createApp(apiRouter);
-  const server = app.listen(env.port, () => {
-    console.log(`[boot] SAT Prep backend listening on http://localhost:${env.port} (${env.nodeEnv})`);
+  const app = buildApp(apiRouter);
+  const server = app.listen(settings.port, () => {
+    console.log(`[boot] SAT Prep backend listening on http://localhost:${settings.port} (${settings.nodeEnv})`);
   });
 
   // After listen, detached: startup repair work never delays or blocks serving.
@@ -55,7 +55,7 @@ function installShutdownHandlers(server: Server): void {
     server.close(async (err) => {
       if (err) console.error('[shutdown] Error closing server:', err);
       try {
-        await pool.end();
+        await pgPool.end();
         console.log('[shutdown] Database pool closed.');
       } catch (poolErr) {
         console.error('[shutdown] Error closing pool:', poolErr);

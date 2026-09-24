@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import {
   aiFeedback,
   examAnswers,
@@ -9,7 +9,7 @@ import {
   questions,
   studentVocab,
 } from '../../core/db/schema';
-import { badRequest, notFound, tooManyRequests } from '../../core/errors';
+import { invalidRequest, missing, rateLimited } from '../../core/errors';
 import {
   tutorBudget,
   pickSentenceWithWord,
@@ -56,12 +56,12 @@ export async function confirmAnswer(
   input: ConfirmAnswerInput,
 ): Promise<ConfirmResult> {
   const exam = await repo.loadOwnedAssessment(examId, studentId);
-  if (!exam) throw notFound('Exam not found');
+  if (!exam) throw missing('Exam not found');
   // Mock and live attempts are assessments — feedback there would amount to
   // telling a student mid-test which answers are wrong.
-  if (exam.type !== 'individual') throw badRequest('Confirm is only available in practice mode');
+  if (exam.type !== 'individual') throw invalidRequest('Confirm is only available in practice mode');
 
-  const [question] = await db
+  const [question] = await database
     .select({
       id: questions.id,
       questionType: questions.questionType,
@@ -88,14 +88,14 @@ export async function confirmAnswer(
     )
     .where(eq(questions.id, questionId))
     .limit(1);
-  if (!question) throw notFound('Question not found');
+  if (!question) throw missing('Question not found');
 
-  const [answerRow] = await db
+  const [answerRow] = await database
     .select()
     .from(examAnswers)
     .where(and(eq(examAnswers.examId, examId), eq(examAnswers.questionId, questionId)))
     .limit(1);
-  if (!answerRow) throw notFound('Answer record not found');
+  if (!answerRow) throw missing('Answer record not found');
 
   // Reviewing a finished exam must not rewrite what was submitted, so a
   // completed exam is read-only here and reuses its stored verdict.
@@ -118,7 +118,7 @@ export async function confirmAnswer(
       correctAnswerText: question.correctAnswerText,
     });
 
-    await db
+    await database
       .update(examAnswers)
       .set({
         selectedAnswer: input.selectedAnswer ?? null,
@@ -156,7 +156,7 @@ export async function confirmAnswer(
     // Charged per call actually dispatched — a fully cached confirm is free.
     const budget = tutorBudget.consume(studentId, uncachedTypes.length);
     if (!budget.allowed) {
-      throw tooManyRequests(
+      throw rateLimited(
         `AI request limit reached. Please wait ${minutesPhrase(budget.retryAfterSeconds)} before confirming more answers.`,
         { retryAfterSeconds: budget.retryAfterSeconds },
       );
@@ -166,7 +166,7 @@ export async function confirmAnswer(
     const succeeded = results.filter((result) => result.aiResult !== null);
 
     if (succeeded.length > 0) {
-      await db.insert(aiFeedback).values(
+      await database.insert(aiFeedback).values(
         succeeded.map((result) => ({
           examAnswerId: answerRow.id,
           feedbackType: result.feedbackType,
@@ -215,7 +215,7 @@ export async function confirmAnswer(
 
 /** All cached feedback for one answer, in a single query rather than per type. */
 async function loadCachedFeedback(examAnswerId: string): Promise<Map<string, unknown>> {
-  const rows = await db
+  const rows = await database
     .select({ feedbackType: aiFeedback.feedbackType, content: aiFeedback.content })
     .from(aiFeedback)
     .where(eq(aiFeedback.examAnswerId, examAnswerId));
@@ -237,7 +237,7 @@ async function trackVocabulary(input: {
 }): Promise<string | null> {
   if (!input.drill || input.skillCode !== 'vocab_in_context') return null;
 
-  const [existingContent] = await db
+  const [existingContent] = await database
     .select({ id: generatedContent.id })
     .from(generatedContent)
     .where(
@@ -250,7 +250,7 @@ async function trackVocabulary(input: {
     .limit(1);
 
   if (!existingContent) {
-    await db.insert(generatedContent).values({
+    await database.insert(generatedContent).values({
       contentType: 'vocab_quiz',
       sourceQuestionId: input.questionId,
       studentId: input.studentId,
@@ -262,7 +262,7 @@ async function trackVocabulary(input: {
   const word = pickVocabWord(input.questionText);
   if (!word) return null;
 
-  const [existingVocab] = await db
+  const [existingVocab] = await database
     .select({ id: studentVocab.id })
     .from(studentVocab)
     .where(and(eq(studentVocab.studentId, input.studentId), eq(studentVocab.word, word)))
@@ -273,7 +273,7 @@ async function trackVocabulary(input: {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const [created] = await db
+  const [created] = await database
     .insert(studentVocab)
     .values({
       studentId: input.studentId,

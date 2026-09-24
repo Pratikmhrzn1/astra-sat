@@ -1,6 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm';
-import { db } from '../../core/db';
-import { parseDbTimestamp } from '../../core/lib/db-time';
+import { database } from '../../core/db';
+import { readDbTimestamp } from '../../core/lib/db-time';
 import { getProfile } from './profile.service';
 
 /**
@@ -80,7 +80,7 @@ export async function skillAccuracy(
 ): Promise<SkillAccuracyRow[]> {
   if (studentIds.length === 0) return [];
 
-  const result = await db.execute(sql`
+  const result = await database.execute(sql`
     SELECT
       COALESCE(sk.parent_code, sk.code)                        AS "domainCode",
       COALESCE(parent.label, sk.label)                         AS "domainLabel",
@@ -152,7 +152,7 @@ export interface TrendPoint {
  * overstate a good afternoon.
  */
 export async function scoreTrend(studentId: string): Promise<TrendPoint[]> {
-  const result = await db.execute(sql`
+  const result = await database.execute(sql`
     SELECT mt.completed_at AS at, 'mock' AS kind, 'Full mock' AS label,
            mt.total_score AS total, mt.rw_score AS rw, mt.math_score AS math
       FROM mock_tests mt
@@ -196,7 +196,7 @@ export async function scoreTrend(studentId: string): Promise<TrendPoint[]> {
 
   return (result.rows as unknown as (Omit<TrendPoint, 'at'> & { at: Date | string })[]).map((row) => ({
     ...row,
-    at: parseDbTimestamp(row.at).toISOString(),
+    at: readDbTimestamp(row.at).toISOString(),
   }));
 }
 
@@ -241,7 +241,7 @@ export interface Readiness {
 export async function readiness(studentId: string, trend?: TrendPoint[]): Promise<Readiness> {
   const [profile, mockRows, points] = await Promise.all([
     getProfile(studentId),
-    db.execute<{ total: number }>(sql`
+    database.execute<{ total: number }>(sql`
       SELECT total_score AS total
         FROM mock_tests
        WHERE student_id = ${studentId}

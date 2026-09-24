@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { asyncHandler } from '../../core/http/async-handler';
-import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
-import { body, validateBody } from '../../core/http/middleware/validate';
-import { unavailable } from '../../core/errors';
+import { wrapAsync } from '../../core/http/async-handler';
+import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { validatedBody, checkBody } from '../../core/http/middleware/validate';
+import { dependencyDown } from '../../core/errors';
 import { narrative } from '../practice';
 import * as exams from './attempts.service';
 import * as mock from './mock.service';
@@ -29,20 +29,20 @@ export const attemptsStudentRouter = Router();
 
 // Applied once here rather than per route, so a route added below cannot
 // accidentally be reachable by a teacher or an anonymous caller.
-attemptsStudentRouter.use(requireAuth, requireRole(['student']));
+attemptsStudentRouter.use(requireSession, requireAccountRole(['student']));
 
 // ── Catalogue ────────────────────────────────────────────────────────────────
 
 attemptsStudentRouter.get(
   '/question-sets',
-  asyncHandler(async (_req, res) => {
+  wrapAsync(async (_req, res) => {
     res.json(await exams.getCatalogue());
   }),
 );
 
 attemptsStudentRouter.get(
   '/question-sets/:setId',
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     res.json(await exams.getSetWithQuestions(req.params.setId));
   }),
 );
@@ -51,35 +51,35 @@ attemptsStudentRouter.get(
 
 attemptsStudentRouter.post(
   '/exams',
-  validateBody(startExamSchema),
-  asyncHandler(async (req, res) => {
-    const result = await exams.startExam(currentUserId(req), body<StartExamInput>(req));
+  checkBody(startExamSchema),
+  wrapAsync(async (req, res) => {
+    const result = await exams.startExam(sessionUserId(req), validatedBody<StartExamInput>(req));
     res.status(201).json(result);
   }),
 );
 
 attemptsStudentRouter.get(
   '/exams',
-  asyncHandler(async (req, res) => {
-    res.json(await exams.listExams(currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await exams.listExams(sessionUserId(req)));
   }),
 );
 
 attemptsStudentRouter.get(
   '/exams/:examId',
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     // `?open=1` is the player sitting down to the exam, which starts a mock
     // module's clock. A plain read — the player pre-fetching the next section —
     // must not.
-    res.json(await exams.getExam(req.params.examId, currentUserId(req), { open: req.query.open === '1' }));
+    res.json(await exams.getExam(req.params.examId, sessionUserId(req), { open: req.query.open === '1' }));
   }),
 );
 
 attemptsStudentRouter.put(
   '/exams/:examId/answers',
-  validateBody(saveAnswersSchema),
-  asyncHandler(async (req, res) => {
-    await exams.saveAnswers(req.params.examId, currentUserId(req), body<SaveAnswersInput>(req));
+  checkBody(saveAnswersSchema),
+  wrapAsync(async (req, res) => {
+    await exams.saveAnswers(req.params.examId, sessionUserId(req), validatedBody<SaveAnswersInput>(req));
     res.json({ ok: true });
   }),
 );
@@ -87,10 +87,10 @@ attemptsStudentRouter.put(
 /** Grades the exam, responds, then generates the narrative behind the response. */
 attemptsStudentRouter.post(
   '/exams/:examId/submit',
-  validateBody(submitExamSchema),
-  asyncHandler(async (req, res) => {
-    const input = body<SubmitExamInput>(req);
-    const result = await exams.submitExam(req.params.examId, currentUserId(req), input.timeSpentSeconds, input.answers);
+  checkBody(submitExamSchema),
+  wrapAsync(async (req, res) => {
+    const input = validatedBody<SubmitExamInput>(req);
+    const result = await exams.submitExam(req.params.examId, sessionUserId(req), input.timeSpentSeconds, input.answers);
 
     res.json({
       score: result.score,
@@ -111,8 +111,8 @@ attemptsStudentRouter.post(
 
 attemptsStudentRouter.get(
   '/exams/:examId/results',
-  asyncHandler(async (req, res) => {
-    res.json(await exams.getResults(req.params.examId, currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await exams.getResults(req.params.examId, sessionUserId(req)));
   }),
 );
 
@@ -120,19 +120,19 @@ attemptsStudentRouter.get(
 
 attemptsStudentRouter.get(
   '/exams/:examId/narrative',
-  asyncHandler(async (req, res) => {
-    res.json(await exams.getNarrative(req.params.examId, currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await exams.getNarrative(req.params.examId, sessionUserId(req)));
   }),
 );
 
 attemptsStudentRouter.post(
   '/exams/:examId/narrative/retry',
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     if (!narrative.narrativesEnabled()) {
-      throw unavailable('Narrative model not configured');
+      throw dependencyDown('Narrative model not configured');
     }
 
-    const { narrativeId, exam } = await exams.retryNarrative(req.params.examId, currentUserId(req));
+    const { narrativeId, exam } = await exams.retryNarrative(req.params.examId, sessionUserId(req));
     res.json({ ok: true });
     narrative.generateNarrativeInBackground(exam.id, narrativeId, exam);
   }),
@@ -142,40 +142,40 @@ attemptsStudentRouter.post(
 
 attemptsStudentRouter.post(
   '/mock-tests',
-  asyncHandler(async (req, res) => {
-    res.status(201).json(await mock.startMockTest(currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.status(201).json(await mock.startMockTest(sessionUserId(req)));
   }),
 );
 
 attemptsStudentRouter.post(
   '/mock-tests/:mockTestId/next-module',
-  validateBody(nextModuleSchema),
-  asyncHandler(async (req, res) => {
-    const { submittedExamId } = body<NextModuleInput>(req);
+  checkBody(nextModuleSchema),
+  wrapAsync(async (req, res) => {
+    const { submittedExamId } = validatedBody<NextModuleInput>(req);
     // Module 2 is chosen from Module 1's score, so a Module 1 whose time ran out
     // unsubmitted is graded first rather than blocking the mock.
-    await exams.closeIfExpired(submittedExamId, currentUserId(req));
-    res.json(await mock.startNextModule(currentUserId(req), req.params.mockTestId, submittedExamId));
+    await exams.closeIfExpired(submittedExamId, sessionUserId(req));
+    res.json(await mock.startNextModule(sessionUserId(req), req.params.mockTestId, submittedExamId));
   }),
 );
 
 attemptsStudentRouter.get(
   '/mock-tests',
-  asyncHandler(async (req, res) => {
-    res.json(await mock.listMockTests(currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await mock.listMockTests(sessionUserId(req)));
   }),
 );
 
 attemptsStudentRouter.get(
   '/mock-tests/:mockTestId',
-  asyncHandler(async (req, res) => {
-    res.json(await mock.getMockTest(currentUserId(req), req.params.mockTestId));
+  wrapAsync(async (req, res) => {
+    res.json(await mock.getMockTest(sessionUserId(req), req.params.mockTestId));
   }),
 );
 
 export const attemptsAdminRouter = Router();
 
-attemptsAdminRouter.use(requireAuth, requireRole(['admin']));
+attemptsAdminRouter.use(requireSession, requireAccountRole(['admin']));
 
 /**
  * Scores exams and mocks that finished before scaled scoring existed.
@@ -186,9 +186,9 @@ attemptsAdminRouter.use(requireAuth, requireRole(['admin']));
  */
 attemptsAdminRouter.post(
   '/scoring/backfill',
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     const result = await scoringBackfill.backfillScores();
-    await logAudit({ actorId: currentUserId(req), action: 'scoring.backfill_run', payload: { ...result } });
+    await logAudit({ actorId: sessionUserId(req), action: 'scoring.backfill_run', payload: { ...result } });
     res.json(result);
   }),
 );

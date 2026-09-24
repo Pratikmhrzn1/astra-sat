@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { env } from '../config/env';
+import { settings } from '../config/env';
 
 /**
  * Access tokens are short-lived (15 min) and sent as a bearer header; refresh
@@ -10,7 +10,7 @@ import { env } from '../config/env';
  * fallback, since a hardcoded default silently signs production tokens with a
  * value that is public in the source tree.
  */
-export interface TokenPayload {
+export interface AccessClaims {
   /** User id. Also exposed as `sub` for compatibility with existing tokens. */
   id: string;
   sub: string;
@@ -19,29 +19,29 @@ export interface TokenPayload {
   role: string;
 }
 
-export interface RefreshTokenPayload {
+export interface RefreshClaims {
   sub: string;
   jti: string;
 }
 
-export function signAccessToken(user: { id: string; email: string; name: string; role: string }): string {
+export function mintAccessToken(user: { id: string; email: string; name: string; role: string }): string {
   return jwt.sign(
     { sub: user.id, email: user.email, name: user.name, role: user.role },
-    env.jwt.accessSecret,
-    { expiresIn: env.jwt.accessTtl },
+    settings.jwt.accessSecret,
+    { expiresIn: settings.jwt.accessTtl },
   );
 }
 
-export function signRefreshToken(payload: RefreshTokenPayload): string {
-  return jwt.sign(payload, env.jwt.refreshSecret, { expiresIn: env.jwt.refreshTtl });
+export function mintRefreshToken(payload: RefreshClaims): string {
+  return jwt.sign(payload, settings.jwt.refreshSecret, { expiresIn: settings.jwt.refreshTtl });
 }
 
-export function verifyAccessToken(token: string): TokenPayload {
-  const payload = jwt.verify(token, env.jwt.accessSecret) as Omit<TokenPayload, 'id'>;
+export function readAccessToken(token: string): AccessClaims {
+  const payload = jwt.verify(token, settings.jwt.accessSecret) as Omit<AccessClaims, 'id'>;
   // `id` is an alias so handlers never have to remember the JWT spelling.
   return { ...payload, id: payload.sub };
 }
 
-export function verifyRefreshToken(token: string): RefreshTokenPayload {
-  return jwt.verify(token, env.jwt.refreshSecret) as RefreshTokenPayload;
+export function readRefreshToken(token: string): RefreshClaims {
+  return jwt.verify(token, settings.jwt.refreshSecret) as RefreshClaims;
 }

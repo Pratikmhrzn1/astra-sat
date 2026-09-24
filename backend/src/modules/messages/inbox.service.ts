@@ -1,11 +1,11 @@
 import { and, desc, eq } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { feedback, users } from '../../core/db/schema';
-import { notFound } from '../../core/errors';
+import { missing } from '../../core/errors';
 
 /** Teacher-written feedback addressed to this student. */
 export async function listFeedback(studentId: string) {
-  return db
+  return database
     .select({
       id: feedback.id,
       content: feedback.content,
@@ -24,11 +24,11 @@ export async function listFeedback(studentId: string) {
 
 export async function markFeedbackRead(studentId: string, feedbackId: string): Promise<void> {
   // Scoped to the student so one id cannot mark another student's mail read.
-  const updated = await db
+  const updated = await database
     .update(feedback)
     .set({ isRead: true, readAt: new Date() })
     .where(and(eq(feedback.id, feedbackId), eq(feedback.studentId, studentId)))
     .returning({ id: feedback.id });
 
-  if (updated.length === 0) throw notFound('Feedback not found');
+  if (updated.length === 0) throw missing('Feedback not found');
 }

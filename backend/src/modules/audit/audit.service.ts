@@ -1,5 +1,5 @@
 import { desc, eq } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { auditLog, users } from '../../core/db/schema';
 
 /**
@@ -49,13 +49,13 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
   };
 
   try {
-    await db.insert(auditLog).values(row);
+    await database.insert(auditLog).values(row);
   } catch (err) {
     // A restore replaces `users`, so the admin who ran it may no longer exist and
     // the actor foreign key fails. Keep the entry, with the id in the payload.
     if ((err as { code?: string }).code === '23503' && entry.actorId) {
       try {
-        await db.insert(auditLog).values({
+        await database.insert(auditLog).values({
           ...row,
           actorId: null,
           payload: { ...(entry.payload ?? {}), actorIdNotInRestoredUsers: entry.actorId },
@@ -71,7 +71,7 @@ export async function logAudit(entry: AuditEntry): Promise<void> {
 
 /** Newest first, with the actor's name where the account still exists. */
 export async function listAudit(limit = 100) {
-  return db
+  return database
     .select({
       id: auditLog.id,
       action: auditLog.action,

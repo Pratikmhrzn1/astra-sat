@@ -7,7 +7,7 @@
  * running in UTC every such timestamp shifts by the local offset. Always parse
  * raw timestamps through this.
  */
-export function parseDbTimestamp(value: Date | string): Date {
+export function readDbTimestamp(value: Date | string): Date {
   if (value instanceof Date) return value;
   const hasZone = /(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(value);
   return new Date(hasZone ? value : `${value.replace(' ', 'T')}Z`);

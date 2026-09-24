@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { chatMessages, chatSessions, exams, passages, questionSets, questions } from '../../core/db/schema';
-import { badRequest, notFound, tooManyRequests } from '../../core/errors';
+import { invalidRequest, missing, rateLimited } from '../../core/errors';
 import { tutorBudget, requestChatReply } from '../ai';
 import type { ChatInput } from './practice.schemas';
 
@@ -64,7 +64,7 @@ export async function sendMessage(studentId: string, input: ChatInput): Promise<
 
   const budget = tutorBudget.consume(studentId, 1);
   if (!budget.allowed) {
-    throw tooManyRequests(
+    throw rateLimited(
       `AI request limit reached. Please wait ${minutesPhrase(budget.retryAfterSeconds)} before sending more messages.`,
       { retryAfterSeconds: budget.retryAfterSeconds },
     );
@@ -74,7 +74,7 @@ export async function sendMessage(studentId: string, input: ChatInput): Promise<
 
   const [systemPrompt, storedMessages] = await Promise.all([
     buildSystemPrompt(session.examId, session.questionId),
-    db
+    database
       .select({
         role: chatMessages.role,
         content: chatMessages.content,
@@ -90,7 +90,7 @@ export async function sendMessage(studentId: string, input: ChatInput): Promise<
     { role: 'user', content: userMessage },
   ]);
 
-  await db.insert(chatMessages).values([
+  await database.insert(chatMessages).values([
     { sessionId: session.id, role: 'user', content: userMessage, tokenCount: estimateTokens(userMessage) },
     {
       sessionId: session.id,
@@ -116,32 +116,32 @@ async function resolveSession(
   { sessionId, examId, questionId }: { sessionId?: string; examId?: string; questionId?: string },
 ) {
   if (sessionId) {
-    const [session] = await db
+    const [session] = await database
       .select()
       .from(chatSessions)
       .where(and(eq(chatSessions.id, sessionId), eq(chatSessions.studentId, studentId)))
       .limit(1);
-    if (!session) throw notFound('Session not found');
+    if (!session) throw missing('Session not found');
     return retargetQuestion(session, questionId);
   }
 
-  if (!examId) throw badRequest('examId required to start a new chat session');
+  if (!examId) throw invalidRequest('examId required to start a new chat session');
 
-  const [exam] = await db
+  const [exam] = await database
     .select({ id: exams.id })
     .from(exams)
     .where(and(eq(exams.id, examId), eq(exams.studentId, studentId), eq(exams.type, 'individual')))
     .limit(1);
-  if (!exam) throw notFound('Exam not found or not a practice session');
+  if (!exam) throw missing('Exam not found or not a practice session');
 
-  const [existing] = await db
+  const [existing] = await database
     .select()
     .from(chatSessions)
     .where(and(eq(chatSessions.examId, examId), eq(chatSessions.studentId, studentId)))
     .limit(1);
   if (existing) return retargetQuestion(existing, questionId);
 
-  const [created] = await db
+  const [created] = await database
     .insert(chatSessions)
     .values({ examId, studentId, questionId: questionId ?? null })
     .returning();
@@ -150,7 +150,7 @@ async function resolveSession(
 
 async function retargetQuestion(session: typeof chatSessions.$inferSelect, questionId?: string) {
   if (!questionId || questionId === session.questionId) return session;
-  const [updated] = await db
+  const [updated] = await database
     .update(chatSessions)
     .set({ questionId })
     .where(eq(chatSessions.id, session.id))
@@ -165,7 +165,7 @@ async function retargetQuestion(session: typeof chatSessions.$inferSelect, quest
  * let anything written into that history redefine the assistant's instructions.
  */
 async function buildSystemPrompt(examId: string, questionId: string | null): Promise<string> {
-  const [subjectRow] = await db
+  const [subjectRow] = await database
     .select({ subject: questionSets.subject })
     .from(exams)
     .innerJoin(questionSets, eq(exams.setId, questionSets.id))
@@ -178,7 +178,7 @@ async function buildSystemPrompt(examId: string, questionId: string | null): Pro
   let passageBlock = '';
 
   if (questionId) {
-    const [question] = await db
+    const [question] = await database
       .select({ questionText: questions.questionText, passageText: passages.passageText })
       .from(questions)
       .leftJoin(passages, eq(questions.passageId, passages.id))
@@ -205,14 +205,14 @@ Answer only questions related to SAT Reading and Writing — grammar, vocabulary
 }
 
 export async function listMessages(studentId: string, sessionId: string) {
-  const [session] = await db
+  const [session] = await database
     .select({ id: chatSessions.id })
     .from(chatSessions)
     .where(and(eq(chatSessions.id, sessionId), eq(chatSessions.studentId, studentId)))
     .limit(1);
-  if (!session) throw notFound('Session not found');
+  if (!session) throw missing('Session not found');
 
-  return db
+  return database
     .select({
       id: chatMessages.id,
       role: chatMessages.role,

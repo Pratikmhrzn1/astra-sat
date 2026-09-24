@@ -1,7 +1,7 @@
 import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { examAnswers, exams, passages, questionSets, questions } from '../../core/db/schema';
-import { normalizeFileUrl } from '../../core/lib/url';
+import { toPublicFileUrl } from '../../core/lib/url';
 
 /**
  * Shared reads for the student portal.
@@ -57,9 +57,9 @@ export const reviewQuestionFields = {
   isCorrect: examAnswers.isCorrect,
 } as const;
 
-/** Applies `normalizeFileUrl` to every question's image before it leaves the API. */
+/** Applies `toPublicFileUrl` to every question's image before it leaves the API. */
 export function withPublicImageLinks<T extends { imageUrl: string | null }>(rows: T[]): T[] {
-  return rows.map((row) => ({ ...row, imageUrl: normalizeFileUrl(row.imageUrl) }));
+  return rows.map((row) => ({ ...row, imageUrl: toPublicFileUrl(row.imageUrl) }));
 }
 
 /**
@@ -67,10 +67,10 @@ export function withPublicImageLinks<T extends { imageUrl: string | null }>(rows
  *
  * Normalises the image URLs itself rather than leaving that to the caller —
  * the three review paths had already each forgotten one convention, and
- * `normalizeFileUrl` is the other one they were all skipping.
+ * `toPublicFileUrl` is the other one they were all skipping.
  */
 export async function loadReviewRowsForAssessment(examId: string) {
-  const rows = await db
+  const rows = await database
     .select(reviewQuestionFields)
     .from(examAnswers)
     .innerJoin(questions, eq(examAnswers.questionId, questions.id))
@@ -90,7 +90,7 @@ export async function loadReviewRowsForAssessment(examId: string) {
  * practice) and is unaffected by later edits to a set.
  */
 export async function loadQuestionsForAssessment(examId: string) {
-  return db
+  return database
     .select(studentQuestionFields)
     .from(examAnswers)
     .innerJoin(questions, eq(examAnswers.questionId, questions.id))
@@ -100,7 +100,7 @@ export async function loadQuestionsForAssessment(examId: string) {
 }
 
 export async function loadQuestionsForSet(setId: string) {
-  return db
+  return database
     .select(studentQuestionFields)
     .from(questions)
     .leftJoin(passages, eq(questions.passageId, passages.id))
@@ -117,7 +117,7 @@ export async function loadQuestionsForSet(setId: string) {
  * remain visible.
  */
 export async function loadPublishedSets() {
-  return db
+  return database
     .select({
       id: questionSets.id,
       title: questionSets.title,
@@ -140,7 +140,7 @@ export async function loadPublishedSets() {
 
 /** A set a student can start. Archived sets are gone as far as new exams are concerned. */
 export async function loadSetById(setId: string) {
-  const [set] = await db
+  const [set] = await database
     .select()
     .from(questionSets)
     .where(and(eq(questionSets.id, setId), isNull(questionSets.archivedAt)))
@@ -156,7 +156,7 @@ export async function loadSetById(setId: string) {
  * somebody else's attempt.
  */
 export async function loadOwnedAssessment(examId: string, studentId: string) {
-  const [exam] = await db
+  const [exam] = await database
     .select()
     .from(exams)
     .where(and(eq(exams.id, examId), eq(exams.studentId, studentId)))
@@ -165,7 +165,7 @@ export async function loadOwnedAssessment(examId: string, studentId: string) {
 }
 
 export async function loadAssessmentsForStudent(studentId: string) {
-  return db
+  return database
     .select({
       id: exams.id,
       setId: exams.setId,

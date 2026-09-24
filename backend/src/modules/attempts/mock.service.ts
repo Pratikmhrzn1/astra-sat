@@ -1,7 +1,7 @@
 import { desc, eq, and, inArray, isNull, or, sql } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { exams, mockTests, questionSets } from '../../core/db/schema';
-import { badRequest, notFound } from '../../core/errors';
+import { invalidRequest, missing } from '../../core/errors';
 import {
   MOCK_MODULE_CAP_SECONDS,
   buildAssessmentWithSheet,
@@ -48,7 +48,7 @@ async function pickRandomSetId(options: {
   if (options.difficulty) conditions.push(sql`difficulty = ${options.difficulty}`);
   if (options.excludeSetId) conditions.push(sql`id != ${options.excludeSetId}`);
 
-  const result = await db.execute(
+  const result = await database.execute(
     sql`SELECT id FROM question_sets WHERE ${sql.join(conditions, sql` AND `)} ORDER BY RANDOM() LIMIT 1`,
   );
   const row = result.rows[0] as { id: string } | undefined;
@@ -63,7 +63,7 @@ async function pickModule1Set(subject: Subject): Promise<string> {
 
   if (!setId) {
     const label = subject === 'english' ? 'English' : 'Math';
-    throw badRequest(`No ${label} question sets available`);
+    throw invalidRequest(`No ${label} question sets available`);
   }
   return setId;
 }
@@ -72,7 +72,7 @@ async function createSectionExam(studentId: string, setId: string, subject: Subj
   const questionRows = await repo.loadQuestionsForSet(setId);
   if (questionRows.length === 0) {
     const label = subject === 'english' ? 'English Module 1' : 'Math Module 1';
-    throw badRequest(`${label} set has no questions`);
+    throw invalidRequest(`${label} set has no questions`);
   }
 
   const exam = await buildAssessmentWithSheet({
@@ -95,7 +95,7 @@ export async function startMockTest(studentId: string) {
   const english = await createSectionExam(studentId, englishSetId, 'english');
   const math = await createSectionExam(studentId, mathSetId, 'math');
 
-  const [mockTest] = await db
+  const [mockTest] = await database
     .insert(mockTests)
     .values({ studentId, englishExamId: english.exam.id, mathExamId: math.exam.id })
     .returning();
@@ -117,20 +117,20 @@ export async function startMockTest(studentId: string) {
  * student to a different paper. If one already exists it is returned as-is.
  */
 export async function startNextModule(studentId: string, mockTestId: string, submittedExamId: string) {
-  const [mockTest] = await db
+  const [mockTest] = await database
     .select()
     .from(mockTests)
     .where(and(eq(mockTests.id, mockTestId), eq(mockTests.studentId, studentId)))
     .limit(1);
-  if (!mockTest) throw notFound('Mock test not found');
+  if (!mockTest) throw missing('Mock test not found');
 
   const isEnglish = mockTest.englishExamId === submittedExamId;
   const isMath = mockTest.mathExamId === submittedExamId;
-  if (!isEnglish && !isMath) throw badRequest('Exam does not belong to this mock test');
+  if (!isEnglish && !isMath) throw invalidRequest('Exam does not belong to this mock test');
 
   const existingM2Id = isEnglish ? mockTest.englishM2ExamId : mockTest.mathM2ExamId;
   if (existingM2Id) {
-    const [existing] = await db.select().from(exams).where(eq(exams.id, existingM2Id)).limit(1);
+    const [existing] = await database.select().from(exams).where(eq(exams.id, existingM2Id)).limit(1);
     if (existing) {
       const questionRows = await repo.loadQuestionsForAssessment(existing.id);
       return { m2ExamId: existingM2Id, m2Questions: repo.withPublicImageLinks(questionRows) };
@@ -138,10 +138,10 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
   }
 
   const module1 = await repo.loadOwnedAssessment(submittedExamId, studentId);
-  if (!module1) throw notFound('M1 exam not found');
+  if (!module1) throw missing('M1 exam not found');
   // The score is the whole input to the adaptive decision, so Module 1 has to
   // be graded before Module 2 can be chosen.
-  if (module1.status !== 'completed') throw badRequest('M1 exam not yet submitted');
+  if (module1.status !== 'completed') throw invalidRequest('M1 exam not yet submitted');
 
   const ratio = module1.totalQuestions > 0 ? (module1.score ?? 0) / module1.totalQuestions : 0;
   const difficulty = ratio >= HARD_MODULE_THRESHOLD ? 'hard' : 'low';
@@ -154,11 +154,11 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
     (await pickRandomSetId({ subject, excludeSetId: module1.setId ?? undefined }));
 
   if (!setId) {
-    throw badRequest(`No ${subject} Module 2 question set available`);
+    throw invalidRequest(`No ${subject} Module 2 question set available`);
   }
 
   const questionRows = await repo.loadQuestionsForSet(setId);
-  if (questionRows.length === 0) throw badRequest('Module 2 set has no questions');
+  if (questionRows.length === 0) throw invalidRequest('Module 2 set has no questions');
 
   const module2 = await buildAssessmentWithSheet({
     studentId,
@@ -180,7 +180,7 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
   // writer would win — leaving the student answering a Module 2 the mock row no
   // longer points at, which then never finalises. Same guard as
   // `settleDeadline` in exams/exam-timing.ts.
-  const claimedSlot = await db
+  const claimedSlot = await database
     .update(mockTests)
     .set(isEnglish ? { englishM2ExamId: module2.id } : { mathM2ExamId: module2.id })
     .where(
@@ -197,7 +197,7 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
     // left unreferenced rather than deleted: nothing reads it, and a delete here
     // would race the winner. Difficulty is unchanged either way — both callers
     // derive it from the same graded Module 1.
-    const [current] = await db.select().from(mockTests).where(eq(mockTests.id, mockTestId)).limit(1);
+    const [current] = await database.select().from(mockTests).where(eq(mockTests.id, mockTestId)).limit(1);
     const winningM2Id = current && (isEnglish ? current.englishM2ExamId : current.mathM2ExamId);
     if (winningM2Id) {
       const winningQuestions = await repo.loadQuestionsForAssessment(winningM2Id);
@@ -219,7 +219,7 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
 }
 
 export async function listMockTests(studentId: string) {
-  return db
+  return database
     .select()
     .from(mockTests)
     .where(eq(mockTests.studentId, studentId))
@@ -227,12 +227,12 @@ export async function listMockTests(studentId: string) {
 }
 
 export async function getMockTest(studentId: string, mockTestId: string) {
-  const [mockTest] = await db
+  const [mockTest] = await database
     .select()
     .from(mockTests)
     .where(and(eq(mockTests.id, mockTestId), eq(mockTests.studentId, studentId)))
     .limit(1);
-  if (!mockTest) throw notFound('Mock test not found');
+  if (!mockTest) throw missing('Mock test not found');
 
   const [englishExam, mathExam] = await Promise.all([
     findExamOrNull(mockTest.englishExamId),
@@ -244,7 +244,7 @@ export async function getMockTest(studentId: string, mockTestId: string) {
 
 async function findExamOrNull(examId: string | null) {
   if (!examId) return null;
-  const [exam] = await db.select().from(exams).where(eq(exams.id, examId)).limit(1);
+  const [exam] = await database.select().from(exams).where(eq(exams.id, examId)).limit(1);
   return exam ?? null;
 }
 
@@ -282,7 +282,7 @@ export interface MockContext {
  * have no `mock_tests` row, so the type alone cannot tell them apart.
  */
 export async function findMockContextForExam(examId: string): Promise<MockContext | null> {
-  const [mockTest] = await db
+  const [mockTest] = await database
     .select()
     .from(mockTests)
     .where(
@@ -312,7 +312,7 @@ async function loadModules(mockTest: typeof mockTests.$inferSelect): Promise<Moc
   );
   if (ids.length === 0) return [];
 
-  const rows = await db
+  const rows = await database
     .select({
       id: exams.id,
       status: exams.status,
@@ -371,7 +371,7 @@ export async function finalizeMockIfComplete(examId: string): Promise<void> {
   const rwScore = scaleSection(modules.filter((m) => m.subject === 'english'));
   const mathScore = scaleSection(modules.filter((m) => m.subject === 'math'));
 
-  await db
+  await database
     .update(mockTests)
     .set({
       rwScore,

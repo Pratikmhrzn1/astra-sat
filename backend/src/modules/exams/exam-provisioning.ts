@@ -1,5 +1,5 @@
 import { and, eq, isNull } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { examAnswers, exams, questions } from '../../core/db/schema';
 
 /**
@@ -20,7 +20,7 @@ export type AssessmentKind = 'individual' | 'mock_english' | 'mock_math';
 
 /** Question ids of a set in presentation order. */
 export async function loadQuestionIdsForSet(setId: string): Promise<string[]> {
-  const rows = await db
+  const rows = await database
     .select({ id: questions.id })
     .from(questions)
     // Retired versions stay for the exams that used them; new exams get the live one.
@@ -42,7 +42,7 @@ export async function buildAssessmentWithSheet(input: {
   /** A live section's fixed deadline, known when the session starts. */
   deadlineAt?: Date | null;
 }) {
-  return db.transaction(async (tx) => {
+  return database.transaction(async (tx) => {
     const [exam] = await tx
       .insert(exams)
       .values({

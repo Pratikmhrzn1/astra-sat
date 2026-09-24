@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { skills } from '../../core/db/schema';
-import { badRequest, notFound } from '../../core/errors';
+import { invalidRequest, missing } from '../../core/errors';
 import { buildAssessmentWithSheet } from '../exams';
 import type { TopicExamInput } from './practice.schemas';
 
@@ -25,21 +25,21 @@ import type { TopicExamInput } from './practice.schemas';
 const MIN_TOPIC_QUESTIONS = 5;
 
 export async function startTopicExam(studentId: string, input: TopicExamInput) {
-  const [skill] = await db
+  const [skill] = await database
     .select({ code: skills.code, label: skills.label, subject: skills.subject })
     .from(skills)
     .where(eq(skills.code, input.skillCode))
     .limit(1);
-  if (!skill) throw notFound(`Unknown topic: ${input.skillCode}`);
+  if (!skill) throw missing(`Unknown topic: ${input.skillCode}`);
 
   if (skill.subject !== input.subject) {
-    throw badRequest(`${skill.label} is a ${skill.subject} topic, not ${input.subject}`);
+    throw invalidRequest(`${skill.label} is a ${skill.subject} topic, not ${input.subject}`);
   }
 
   const questionIds = await pickQuestions(studentId, input);
 
   if (questionIds.length < MIN_TOPIC_QUESTIONS) {
-    throw badRequest(
+    throw invalidRequest(
       `Not enough questions for ${skill.label} yet — ${questionIds.length} available, ` +
         `${MIN_TOPIC_QUESTIONS} needed.${input.difficulty ? ' Try removing the difficulty filter.' : ''}`,
     );
@@ -74,7 +74,7 @@ export async function startTopicExam(studentId: string, input: TopicExamInput) {
  * must not be served here either.
  */
 async function pickQuestions(studentId: string, input: TopicExamInput): Promise<string[]> {
-  const result = await db.execute<{ id: string }>(sql`
+  const result = await database.execute<{ id: string }>(sql`
     SELECT q.id
       FROM questions q
       JOIN question_sets s ON s.id = q.set_id

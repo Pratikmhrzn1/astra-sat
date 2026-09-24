@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { asyncHandler } from '../../core/http/async-handler';
-import { requireAuth } from '../../core/http/middleware/auth';
-import { query, validateQuery } from '../../core/http/middleware/validate';
+import { wrapAsync } from '../../core/http/async-handler';
+import { requireSession } from '../../core/http/middleware/auth';
+import { validatedQuery, checkQuery } from '../../core/http/middleware/validate';
 import * as service from './skills.service';
 
 export const skillsRouter = Router();
@@ -15,7 +15,7 @@ export const skillsRouter = Router();
  * nothing student-specific or teacher-specific to protect here — it is the same
  * eight domains for everyone.
  */
-skillsRouter.use(requireAuth);
+skillsRouter.use(requireSession);
 
 const listQuerySchema = z.object({
   // Query strings are text, so the flag is compared rather than coerced: a bare
@@ -26,9 +26,9 @@ type ListQuery = z.infer<typeof listQuerySchema>;
 
 skillsRouter.get(
   '/',
-  validateQuery(listQuerySchema),
-  asyncHandler(async (req, res) => {
-    const withCounts = query<ListQuery>(req).withCounts === 'true';
+  checkQuery(listQuerySchema),
+  wrapAsync(async (req, res) => {
+    const withCounts = validatedQuery<ListQuery>(req).withCounts === 'true';
     res.json(await service.getSkillTree(withCounts));
   }),
 );

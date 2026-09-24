@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { asyncHandler } from '../../core/http/async-handler';
-import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
-import { body, validateBody } from '../../core/http/middleware/validate';
+import { wrapAsync } from '../../core/http/async-handler';
+import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import * as chat from './chat.service';
 import * as practice from './practice.service';
 import * as skillPassages from './skill-passage.service';
@@ -19,7 +19,7 @@ import {
 
 export const practiceStudentRouter = Router();
 
-practiceStudentRouter.use(requireAuth, requireRole(['student']));
+practiceStudentRouter.use(requireSession, requireAccountRole(['student']));
 
 /**
  * Practice confirm. Responds as soon as feedback is ready, then checks whether
@@ -27,14 +27,14 @@ practiceStudentRouter.use(requireAuth, requireRole(['student']));
  */
 practiceStudentRouter.post(
   '/exams/:examId/questions/:questionId/confirm',
-  validateBody(confirmAnswerSchema),
-  asyncHandler(async (req, res) => {
-    const studentId = currentUserId(req);
+  checkBody(confirmAnswerSchema),
+  wrapAsync(async (req, res) => {
+    const studentId = sessionUserId(req);
     const result = await practice.confirmAnswer(
       studentId,
       req.params.examId,
       req.params.questionId,
-      body<ConfirmAnswerInput>(req),
+      validatedBody<ConfirmAnswerInput>(req),
     );
 
     res.json({
@@ -61,9 +61,9 @@ practiceStudentRouter.post(
 /** An exam drawn across every published set for one domain or skill. */
 practiceStudentRouter.post(
   '/exams/topic',
-  validateBody(topicExamSchema),
-  asyncHandler(async (req, res) => {
-    const result = await topic.startTopicExam(currentUserId(req), body<TopicExamInput>(req));
+  checkBody(topicExamSchema),
+  wrapAsync(async (req, res) => {
+    const result = await topic.startTopicExam(sessionUserId(req), validatedBody<TopicExamInput>(req));
     res.status(201).json(result);
   }),
 );
@@ -72,8 +72,8 @@ practiceStudentRouter.post(
 
 practiceStudentRouter.get(
   '/skill-passages/available',
-  asyncHandler(async (req, res) => {
-    res.json(await skillPassages.findAvailableSkillPassages(currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await skillPassages.findAvailableSkillPassages(sessionUserId(req)));
   }),
 );
 
@@ -81,15 +81,15 @@ practiceStudentRouter.get(
 
 practiceStudentRouter.post(
   '/chat',
-  validateBody(chatSchema),
-  asyncHandler(async (req, res) => {
-    res.json(await chat.sendMessage(currentUserId(req), body<ChatInput>(req)));
+  checkBody(chatSchema),
+  wrapAsync(async (req, res) => {
+    res.json(await chat.sendMessage(sessionUserId(req), validatedBody<ChatInput>(req)));
   }),
 );
 
 practiceStudentRouter.get(
   '/chat/:sessionId/messages',
-  asyncHandler(async (req, res) => {
-    res.json(await chat.listMessages(currentUserId(req), req.params.sessionId));
+  wrapAsync(async (req, res) => {
+    res.json(await chat.listMessages(sessionUserId(req), req.params.sessionId));
   }),
 );

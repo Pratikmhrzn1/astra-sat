@@ -1,5 +1,5 @@
-import { env } from '../../core/config/env';
-import { FixedWindowRateLimiter } from '../../core/lib/rate-limit';
+import { settings } from '../../core/config/env';
+import { FixedWindowBudget } from '../../core/lib/rate-limit';
 import { ModelNotConfiguredError, ModelParseError, requestStructuredOutput } from './ai.client';
 import {
   composeCommandOfEvidence,
@@ -17,7 +17,7 @@ import type { FeedbackOutcome, FeedbackInput, FeedbackKind } from './ai.types';
  * request is actually about to make, so a confirm answered entirely from cache
  * consumes nothing.
  */
-export const tutorBudget = new FixedWindowRateLimiter(env.ai.rateLimit.calls, env.ai.rateLimit.windowMs);
+export const tutorBudget = new FixedWindowBudget(settings.ai.rateLimit.calls, settings.ai.rateLimit.windowMs);
 
 const BUILDERS: Record<FeedbackKind, (ctx: FeedbackInput) => PromptSpec> = {
   reasoning_checkpoint: composeReasoningCheckpoint,

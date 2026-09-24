@@ -1,48 +1,48 @@
 import { Router } from 'express';
-import { asyncHandler } from '../../core/http/async-handler';
-import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
+import { wrapAsync } from '../../core/http/async-handler';
+import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
 import * as service from './roster.service';
 
 export const rosterTeacherRouter = Router();
 
-rosterTeacherRouter.use(requireAuth, requireRole(['teacher']));
+rosterTeacherRouter.use(requireSession, requireAccountRole(['teacher']));
 
 // ── Roster ───────────────────────────────────────────────────────────────────
 
 rosterTeacherRouter.get(
   '/students',
-  asyncHandler(async (req, res) => {
-    res.json(await service.listStudents(currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await service.listStudents(sessionUserId(req)));
   }),
 );
 
 rosterTeacherRouter.get(
   '/students/:studentId',
-  asyncHandler(async (req, res) => {
-    res.json(await service.getStudentDetail(currentUserId(req), req.params.studentId));
+  wrapAsync(async (req, res) => {
+    res.json(await service.getStudentDetail(sessionUserId(req), req.params.studentId));
   }),
 );
 
 rosterTeacherRouter.get(
   '/students/:studentId/analytics',
-  asyncHandler(async (req, res) => {
-    res.json(await service.getStudentAnalytics(currentUserId(req), req.params.studentId));
+  wrapAsync(async (req, res) => {
+    res.json(await service.getStudentAnalytics(sessionUserId(req), req.params.studentId));
   }),
 );
 
 rosterTeacherRouter.get(
   '/students/:studentId/exams',
-  asyncHandler(async (req, res) => {
-    res.json(await service.listStudentExams(currentUserId(req), req.params.studentId));
+  wrapAsync(async (req, res) => {
+    res.json(await service.listStudentExams(sessionUserId(req), req.params.studentId));
   }),
 );
 
 rosterTeacherRouter.get(
   '/students/:studentId/exams/:examId/results',
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     res.json(
       await service.getStudentExamResults(
-        currentUserId(req),
+        sessionUserId(req),
         req.params.studentId,
         req.params.examId,
       ),

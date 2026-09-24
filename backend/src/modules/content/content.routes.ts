@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { asyncHandler } from '../../core/http/async-handler';
-import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
-import { body, query, validateBody, validateQuery } from '../../core/http/middleware/validate';
+import { wrapAsync } from '../../core/http/async-handler';
+import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { validatedBody, validatedQuery, checkBody, checkQuery } from '../../core/http/middleware/validate';
 import { logAudit } from '../audit';
 import * as classification from './classification.service';
 import * as contentReview from './content-review.service';
@@ -33,22 +33,22 @@ import {
 
 export const contentTeacherRouter = Router();
 
-contentTeacherRouter.use(requireAuth, requireRole(['teacher']));
+contentTeacherRouter.use(requireSession, requireAccountRole(['teacher']));
 
 // ── Question sets ────────────────────────────────────────────────────────────
 
 contentTeacherRouter.get(
   '/question-sets',
-  asyncHandler(async (_req, res) => {
+  wrapAsync(async (_req, res) => {
     res.json(await service.listSets());
   }),
 );
 
 contentTeacherRouter.post(
   '/question-sets',
-  validateBody(createSetSchema),
-  asyncHandler(async (req, res) => {
-    res.status(201).json(await service.createSet(currentUserId(req), body<CreateSetInput>(req)));
+  checkBody(createSetSchema),
+  wrapAsync(async (req, res) => {
+    res.status(201).json(await service.createSet(sessionUserId(req), validatedBody<CreateSetInput>(req)));
   }),
 );
 
@@ -56,33 +56,33 @@ contentTeacherRouter.post(
 // swallowed by the parameterised one.
 contentTeacherRouter.post(
   '/question-sets/import-json',
-  validateBody(importJsonSchema),
-  asyncHandler(async (req, res) => {
-    res.status(201).json(await service.importSetFromJson(currentUserId(req), body<ImportJsonInput>(req)));
+  checkBody(importJsonSchema),
+  wrapAsync(async (req, res) => {
+    res.status(201).json(await service.importSetFromJson(sessionUserId(req), validatedBody<ImportJsonInput>(req)));
   }),
 );
 
 contentTeacherRouter.put(
   '/question-sets/:setId',
-  validateBody(updateSetSchema),
-  asyncHandler(async (req, res) => {
-    res.json(await service.updateSet(req.params.setId, body<UpdateSetInput>(req)));
+  checkBody(updateSetSchema),
+  wrapAsync(async (req, res) => {
+    res.json(await service.updateSet(req.params.setId, validatedBody<UpdateSetInput>(req)));
   }),
 );
 
 contentTeacherRouter.post(
   '/question-sets/:setId/publish',
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     res.json(await service.publishSet(req.params.setId));
   }),
 );
 
 contentTeacherRouter.delete(
   '/question-sets/:setId',
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     const result = await service.deleteSet(req.params.setId);
     await logAudit({
-      actorId: currentUserId(req),
+      actorId: sessionUserId(req),
       action: result.archived ? 'question_set.archived' : 'question_set.deleted',
       targetType: 'question_set', targetId: req.params.setId,
       payload: { title: result.title },
@@ -96,30 +96,30 @@ contentTeacherRouter.delete(
 
 contentTeacherRouter.get(
   '/question-sets/:setId/passages',
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     res.json(await service.listPassages(req.params.setId));
   }),
 );
 
 contentTeacherRouter.post(
   '/question-sets/:setId/passages',
-  validateBody(createPassageSchema),
-  asyncHandler(async (req, res) => {
-    res.status(201).json(await service.createPassage(req.params.setId, body<CreatePassageInput>(req)));
+  checkBody(createPassageSchema),
+  wrapAsync(async (req, res) => {
+    res.status(201).json(await service.createPassage(req.params.setId, validatedBody<CreatePassageInput>(req)));
   }),
 );
 
 contentTeacherRouter.put(
   '/passages/:passageId',
-  validateBody(updatePassageSchema),
-  asyncHandler(async (req, res) => {
-    res.json(await service.updatePassage(req.params.passageId, body<UpdatePassageInput>(req)));
+  checkBody(updatePassageSchema),
+  wrapAsync(async (req, res) => {
+    res.json(await service.updatePassage(req.params.passageId, validatedBody<UpdatePassageInput>(req)));
   }),
 );
 
 contentTeacherRouter.delete(
   '/passages/:passageId',
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     await service.deletePassage(req.params.passageId);
     res.json({ ok: true });
   }),
@@ -129,38 +129,38 @@ contentTeacherRouter.delete(
 
 contentTeacherRouter.get(
   '/question-sets/:setId/questions',
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     res.json(await service.listQuestions(req.params.setId));
   }),
 );
 
 contentTeacherRouter.post(
   '/question-sets/:setId/questions',
-  validateBody(createQuestionSchema),
-  asyncHandler(async (req, res) => {
-    res.status(201).json(await service.createQuestion(req.params.setId, body<CreateQuestionInput>(req)));
+  checkBody(createQuestionSchema),
+  wrapAsync(async (req, res) => {
+    res.status(201).json(await service.createQuestion(req.params.setId, validatedBody<CreateQuestionInput>(req)));
   }),
 );
 
 contentTeacherRouter.put(
   '/questions/:questionId',
-  validateBody(updateQuestionSchema),
-  asyncHandler(async (req, res) => {
-    res.json(await service.updateQuestion(req.params.questionId, body<UpdateQuestionInput>(req)));
+  checkBody(updateQuestionSchema),
+  wrapAsync(async (req, res) => {
+    res.json(await service.updateQuestion(req.params.questionId, validatedBody<UpdateQuestionInput>(req)));
   }),
 );
 
 contentTeacherRouter.put(
   '/questions/:questionId/subskill',
-  validateBody(updateSubSkillSchema),
-  asyncHandler(async (req, res) => {
-    res.json(await service.updateQuestionSubSkill(req.params.questionId, body<UpdateSubSkillInput>(req)));
+  checkBody(updateSubSkillSchema),
+  wrapAsync(async (req, res) => {
+    res.json(await service.updateQuestionSubSkill(req.params.questionId, validatedBody<UpdateSubSkillInput>(req)));
   }),
 );
 
 contentTeacherRouter.delete(
   '/questions/:questionId',
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     const { retired } = await service.deleteQuestion(req.params.questionId);
     res.json({ ok: true, retired });
   }),
@@ -168,12 +168,12 @@ contentTeacherRouter.delete(
 
 export const contentAdminRouter = Router();
 
-contentAdminRouter.use(requireAuth, requireRole(['admin']));
+contentAdminRouter.use(requireSession, requireAccountRole(['admin']));
 
 /** Long-running: it walks every untagged English question in batches. */
 contentAdminRouter.post(
   '/questions/auto-tag-subskill',
-  asyncHandler(async (_req, res) => {
+  wrapAsync(async (_req, res) => {
     res.json(await classification.autoTagSubSkills());
   }),
 );
@@ -182,16 +182,16 @@ contentAdminRouter.post(
 
 contentAdminRouter.get(
   '/generated-content',
-  validateQuery(listContentQuerySchema),
-  asyncHandler(async (req, res) => {
-    res.json(await contentReview.listGeneratedContent(query<ListContentQuery>(req)));
+  checkQuery(listContentQuerySchema),
+  wrapAsync(async (req, res) => {
+    res.json(await contentReview.listGeneratedContent(validatedQuery<ListContentQuery>(req)));
   }),
 );
 
 contentAdminRouter.patch(
   '/generated-content/:id/flag',
-  validateBody(flagContentSchema),
-  asyncHandler(async (req, res) => {
-    res.json(await contentReview.flagContent(req.params.id, body<FlagContentInput>(req)));
+  checkBody(flagContentSchema),
+  wrapAsync(async (req, res) => {
+    res.json(await contentReview.flagContent(req.params.id, validatedBody<FlagContentInput>(req)));
   }),
 );

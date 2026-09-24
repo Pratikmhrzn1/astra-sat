@@ -83,7 +83,7 @@ const envSchema = z.object({
   SEED_STUDENT_NAME: optionalString,
 });
 
-export type RawEnv = z.infer<typeof envSchema>;
+export type RawSettings = z.infer<typeof envSchema>;
 
 function formatIssues(error: z.ZodError): string {
   return error.issues
@@ -91,7 +91,7 @@ function formatIssues(error: z.ZodError): string {
     .join('\n');
 }
 
-function parseEnv(source: NodeJS.ProcessEnv): RawEnv {
+function parseEnv(source: NodeJS.ProcessEnv): RawSettings {
   const result = envSchema.safeParse(source);
   if (!result.success) {
     // Every problem at once — fixing .env one restart at a time is miserable.
@@ -145,7 +145,7 @@ if (!emailEnabled) {
 /**
  * Validated configuration. Import this, never `process.env`.
  */
-export const env = {
+export const settings = {
   nodeEnv: raw.NODE_ENV,
   isProduction,
   isTest: raw.NODE_ENV === 'test',
@@ -201,7 +201,7 @@ export const env = {
   },
 } as const;
 
-export interface SeedAccount {
+export interface SeedCredentials {
   email: string;
   password: string;
   name: string;
@@ -213,9 +213,9 @@ function seedAccount(
   password: string | undefined,
   name: string | undefined,
   fallbackName: string,
-): SeedAccount | null {
+): SeedCredentials | null {
   if (!email || !password) return null;
   return { email, password, name: name ?? fallbackName };
 }
 
-export type Env = typeof env;
+export type Settings = typeof settings;

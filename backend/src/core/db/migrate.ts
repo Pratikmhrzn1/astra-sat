@@ -1,4 +1,4 @@
-import { pool } from './index';
+import { pgPool } from './index';
 
 const CREATE_ENUMS = `
   DO $$ BEGIN
@@ -621,8 +621,8 @@ const SEED_DEFAULT_ADMIN_CODE = `
   WHERE NOT EXISTS (SELECT 1 FROM access_codes WHERE role = 'admin');
 `;
 
-export async function runMigrations() {
-  const client = await pool.connect();
+export async function applySchema() {
+  const client = await pgPool.connect();
   try {
     await client.query('BEGIN');
     await client.query(CREATE_ENUMS);

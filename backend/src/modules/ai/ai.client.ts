@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { env } from '../../core/config/env';
+import { settings } from '../../core/config/env';
 import type { ModelResult, ModelRole } from './ai.types';
 
 /**
@@ -32,20 +32,20 @@ export class ModelNotConfiguredError extends Error {
 let client: OpenAI | null = null;
 function getClient(): OpenAI {
   if (!client) {
-    if (!env.ai.apiKey) throw new Error('OPENROUTER_API_KEY is not set');
-    client = new OpenAI({ baseURL: env.ai.baseUrl, apiKey: env.ai.apiKey });
+    if (!settings.ai.apiKey) throw new Error('OPENROUTER_API_KEY is not set');
+    client = new OpenAI({ baseURL: settings.ai.baseUrl, apiKey: settings.ai.apiKey });
   }
   return client;
 }
 
 /** Whether a purpose can run — check before offering the feature to a client. */
 export function isModelReady(purpose: ModelRole): boolean {
-  return env.ai.enabled && Boolean(env.ai.models[purpose]);
+  return settings.ai.enabled && Boolean(settings.ai.models[purpose]);
 }
 
 function resolveModel(purpose: ModelRole): string {
-  const model = env.ai.models[purpose];
-  if (!env.ai.enabled || !model) throw new ModelNotConfiguredError(purpose);
+  const model = settings.ai.models[purpose];
+  if (!settings.ai.enabled || !model) throw new ModelNotConfiguredError(purpose);
   return model;
 }
 

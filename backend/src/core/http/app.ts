@@ -2,8 +2,8 @@ import express, { type Express, type Router } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import { env } from '../config/env';
-import { errorHandler, notFoundHandler } from './middleware/error';
+import { settings } from '../config/env';
+import { errorResponder, unmatchedRouteHandler } from './middleware/error';
 
 /**
  * Builds the Express application.
@@ -12,7 +12,7 @@ import { errorHandler, notFoundHandler } from './middleware/error';
  * construct an app without starting a server — see http/server.ts for boot.
  * The API router is passed in so core never imports a feature module.
  */
-export function createApp(apiRouter: Router): Express {
+export function buildApp(apiRouter: Router): Express {
   const app = express();
 
   // Behind nginx/Render: trust one proxy hop so req.ip and `secure` reflect the
@@ -23,15 +23,15 @@ export function createApp(apiRouter: Router): Express {
   app.use(helmet());
   app.use(
     cors({
-      origin: env.http.corsOrigins,
+      origin: settings.http.corsOrigins,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     }),
   );
   // The limit is generous because teachers paste whole question sets as JSON.
-  app.use(express.json({ limit: env.http.jsonBodyLimit }));
-  app.use(express.urlencoded({ extended: true, limit: env.http.jsonBodyLimit }));
+  app.use(express.json({ limit: settings.http.jsonBodyLimit }));
+  app.use(express.urlencoded({ extended: true, limit: settings.http.jsonBodyLimit }));
   app.use(cookieParser());
 
   app.get('/health', (_req, res) => {
@@ -39,11 +39,11 @@ export function createApp(apiRouter: Router): Express {
   });
 
   app.use('/api', apiRouter);
-  app.use('/uploads', express.static(env.uploads.dir));
+  app.use('/uploads', express.static(settings.uploads.dir));
 
   // Order matters: unmatched route first, then the single error responder.
-  app.use(notFoundHandler);
-  app.use(errorHandler);
+  app.use(unmatchedRouteHandler);
+  app.use(errorResponder);
 
   return app;
 }

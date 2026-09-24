@@ -1,4 +1,4 @@
-import { env } from '../config/env';
+import { settings } from '../config/env';
 
 /**
  * Rewrites a stored `/uploads/...` path into an absolute URL.
@@ -7,8 +7,8 @@ import { env } from '../config/env';
  * different origin need a fully-qualified URL. Apply this to every file or
  * image URL returned by the API; without PUBLIC_BASE_URL set it is a no-op.
  */
-export function normalizeFileUrl(url: string | null | undefined): string | null {
-  const base = env.http.publicBaseUrl;
+export function toPublicFileUrl(url: string | null | undefined): string | null {
+  const base = settings.http.publicBaseUrl;
   if (!url || !base) return url ?? null;
   const idx = url.indexOf('/uploads/');
   if (idx === -1) return url;

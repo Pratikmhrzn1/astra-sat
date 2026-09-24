@@ -1,7 +1,7 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { examAnswers, exams, questionSets, questions, users } from '../../core/db/schema';
-import { forbidden, notFound } from '../../core/errors';
+import { notPermitted, missing } from '../../core/errors';
 import { getProfile, overview } from '../analytics';
 import { examRepository } from '../exams';
 import { publicUserColumns } from '../identity';
@@ -33,21 +33,21 @@ export async function assertOwnsStudent(
    */
   onMissing: 'notFound' | 'forbidden' = 'notFound',
 ) {
-  const [student] = await db
+  const [student] = await database
     .select(publicUserColumns)
     .from(users)
     .where(and(eq(users.id, studentId), eq(users.teacherId, teacherId)))
     .limit(1);
   if (!student) {
     throw onMissing === 'forbidden'
-      ? forbidden('Student not assigned to you')
-      : notFound('Student not found or not assigned to you');
+      ? notPermitted('Student not assigned to you')
+      : missing('Student not found or not assigned to you');
   }
   return student;
 }
 
 export async function listStudents(teacherId: string) {
-  return db
+  return database
     .select({ id: users.id, email: users.email, name: users.name, createdAt: users.createdAt })
     .from(users)
     .where(and(eq(users.teacherId, teacherId), eq(users.role, 'student')));
@@ -90,7 +90,7 @@ export async function getStudentAnalytics(teacherId: string, studentId: string) 
 export async function listStudentExams(teacherId: string, studentId: string) {
   await assertOwnsStudent(teacherId, studentId);
 
-  return db
+  return database
     .select({
       id: exams.id,
       type: exams.type,
@@ -124,12 +124,12 @@ export async function listStudentExams(teacherId: string, studentId: string) {
 export async function getStudentExamResults(teacherId: string, studentId: string, examId: string) {
   const student = await assertOwnsStudent(teacherId, studentId);
 
-  const [exam] = await db
+  const [exam] = await database
     .select()
     .from(exams)
     .where(and(eq(exams.id, examId), eq(exams.studentId, studentId)))
     .limit(1);
-  if (!exam) throw notFound('Exam not found');
+  if (!exam) throw missing('Exam not found');
 
   const [results, set] = await Promise.all([
     // The same rows the student sees in their own report, so a teacher reading
@@ -141,7 +141,7 @@ export async function getStudentExamResults(teacherId: string, studentId: string
       .then((rows) => rows.map(({ id, ...rest }) => ({ questionId: id, ...rest }))),
     // An exam assembled across sets has no owning set to describe.
     exam.setId
-      ? db
+      ? database
           .select({ title: questionSets.title, subject: questionSets.subject })
           .from(questionSets)
           .where(eq(questionSets.id, exam.setId))

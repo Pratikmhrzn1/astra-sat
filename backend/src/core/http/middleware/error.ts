@@ -1,10 +1,10 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { ZodError } from 'zod';
-import { isAppError, type ErrorKind } from '../../errors';
-import { env } from '../../config/env';
+import { isServiceError, type FailureKind } from '../../errors';
+import { settings } from '../../config/env';
 
 /** How each domain error kind is answered over HTTP. */
-const STATUS: Record<ErrorKind, number> = {
+const STATUS: Record<FailureKind, number> = {
   bad_request: 400,
   unauthorized: 401,
   forbidden: 403,
@@ -16,23 +16,23 @@ const STATUS: Record<ErrorKind, number> = {
   internal: 500,
 };
 
-export const notFoundHandler: RequestHandler = (_req, res) => {
+export const unmatchedRouteHandler: RequestHandler = (_req, res) => {
   res.status(404).json({ error: 'Not found' });
 };
 
 /**
  * The single place an error becomes a response.
  *
- * Known failures (AppError, ZodError) keep their message; everything else is
+ * Known failures (ServiceError, ZodError) keep their message; everything else is
  * logged in full and answered with a generic 500, so internal details — SQL
  * text, file paths, driver messages — never reach a client.
  */
-export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
+export const errorResponder: ErrorRequestHandler = (err, req, res, next) => {
   // A handler that already responded and then failed (the response-first
   // background-work pattern) cannot be answered again; let Express close it.
   if (res.headersSent) return next(err);
 
-  if (isAppError(err)) {
+  if (isServiceError(err)) {
     const status = STATUS[err.kind];
     if (status >= 500) console.error(`[${req.method} ${req.originalUrl}]`, err);
     return res.status(status).json({
@@ -50,6 +50,6 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   console.error(`[${req.method} ${req.originalUrl}] Unhandled error:`, err);
   return res.status(500).json({
     error: 'Internal server error',
-    ...(env.isProduction ? {} : { details: err instanceof Error ? err.message : String(err) }),
+    ...(settings.isProduction ? {} : { details: err instanceof Error ? err.message : String(err) }),
   });
 };

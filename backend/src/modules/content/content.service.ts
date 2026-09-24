@@ -1,8 +1,8 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { examAnswers, exams, mistakes, passages, questionSets, questions } from '../../core/db/schema';
-import { badRequest, conflict, notFound } from '../../core/errors';
-import { normalizeFileUrl } from '../../core/lib/url';
+import { invalidRequest, stateConflict, missing } from '../../core/errors';
+import { toPublicFileUrl } from '../../core/lib/url';
 import { listSkillCodes } from '../taxonomy';
 import type {
   CreatePassageInput,
@@ -26,18 +26,18 @@ import type {
 // ── Question sets ─────────────────────────────────────────────────────────────
 
 async function assertSetExists(setId: string) {
-  const [set] = await db
+  const [set] = await database
     .select({ id: questionSets.id })
     .from(questionSets)
     .where(eq(questionSets.id, setId))
     .limit(1);
-  if (!set) throw notFound('Question set not found');
+  if (!set) throw missing('Question set not found');
   return set;
 }
 
 /** Archived sets are hidden everywhere, including here — see `deleteSet`. */
 export async function listSets() {
-  return db
+  return database
     .select()
     .from(questionSets)
     .where(isNull(questionSets.archivedAt))
@@ -46,7 +46,7 @@ export async function listSets() {
 
 /** New sets start as drafts so half-written content is never offered to students. */
 export async function createSet(teacherId: string, input: CreateSetInput) {
-  const [set] = await db
+  const [set] = await database
     .insert(questionSets)
     .values({
       title: input.title,
@@ -63,7 +63,7 @@ export async function createSet(teacherId: string, input: CreateSetInput) {
 
 export async function updateSet(setId: string, input: UpdateSetInput) {
   await assertSetExists(setId);
-  const [updated] = await db
+  const [updated] = await database
     .update(questionSets)
     .set({ ...input, updatedAt: new Date() })
     .where(eq(questionSets.id, setId))
@@ -73,7 +73,7 @@ export async function updateSet(setId: string, input: UpdateSetInput) {
 
 export async function publishSet(setId: string) {
   await assertSetExists(setId);
-  const [updated] = await db
+  const [updated] = await database
     .update(questionSets)
     .set({ isDraft: false, updatedAt: new Date() })
     .where(eq(questionSets.id, setId))
@@ -93,16 +93,16 @@ export async function publishSet(setId: string) {
  */
 export async function deleteSet(setId: string): Promise<{ archived: boolean; title: string }> {
   await assertSetExists(setId);
-  const [{ title }] = await db.select({ title: questionSets.title }).from(questionSets).where(eq(questionSets.id, setId)).limit(1);
+  const [{ title }] = await database.select({ title: questionSets.title }).from(questionSets).where(eq(questionSets.id, setId)).limit(1);
 
-  const [attempted] = await db
+  const [attempted] = await database
     .select({ id: exams.id })
     .from(exams)
     .where(eq(exams.setId, setId))
     .limit(1);
   const [answered] = attempted
     ? [attempted]
-    : await db
+    : await database
         .select({ id: examAnswers.id })
         .from(examAnswers)
         .innerJoin(questions, eq(examAnswers.questionId, questions.id))
@@ -110,14 +110,14 @@ export async function deleteSet(setId: string): Promise<{ archived: boolean; tit
         .limit(1);
 
   if (attempted || answered) {
-    await db
+    await database
       .update(questionSets)
       .set({ archivedAt: new Date(), updatedAt: new Date() })
       .where(eq(questionSets.id, setId));
     return { archived: true, title };
   }
 
-  await db.delete(questionSets).where(eq(questionSets.id, setId));
+  await database.delete(questionSets).where(eq(questionSets.id, setId));
   return { archived: false, title };
 }
 
@@ -135,11 +135,11 @@ export async function importSetFromJson(teacherId: string, input: ImportJsonInpu
   const known = await listSkillCodes();
   for (const [index, question] of input.questions.entries()) {
     if (question.skillCode && !known.has(question.skillCode)) {
-      throw badRequest(`Unknown skill code on question ${index + 1}: ${question.skillCode}`);
+      throw invalidRequest(`Unknown skill code on question ${index + 1}: ${question.skillCode}`);
     }
   }
 
-  return db.transaction(async (tx) => {
+  return database.transaction(async (tx) => {
     const [set] = await tx
       .insert(questionSets)
       .values({
@@ -208,55 +208,55 @@ export async function importSetFromJson(teacherId: string, input: ImportJsonInpu
 
 export async function listPassages(setId: string) {
   await assertSetExists(setId);
-  return db.select().from(passages).where(eq(passages.setId, setId)).orderBy(passages.orderIndex);
+  return database.select().from(passages).where(eq(passages.setId, setId)).orderBy(passages.orderIndex);
 }
 
 export async function createPassage(setId: string, input: CreatePassageInput) {
   await assertSetExists(setId);
-  const [passage] = await db.insert(passages).values({ setId, ...input }).returning();
+  const [passage] = await database.insert(passages).values({ setId, ...input }).returning();
   return passage;
 }
 
 export async function updatePassage(passageId: string, input: UpdatePassageInput) {
-  const [existing] = await db
+  const [existing] = await database
     .select({ id: passages.id })
     .from(passages)
     .where(eq(passages.id, passageId))
     .limit(1);
-  if (!existing) throw notFound('Passage not found');
+  if (!existing) throw missing('Passage not found');
 
-  const [updated] = await db.update(passages).set(input).where(eq(passages.id, passageId)).returning();
+  const [updated] = await database.update(passages).set(input).where(eq(passages.id, passageId)).returning();
   return updated;
 }
 
 export async function deletePassage(passageId: string) {
-  const [existing] = await db
+  const [existing] = await database
     .select({ id: passages.id })
     .from(passages)
     .where(eq(passages.id, passageId))
     .limit(1);
-  if (!existing) throw notFound('Passage not found');
+  if (!existing) throw missing('Passage not found');
   // Questions referencing it survive with passage_id set to null.
-  await db.delete(passages).where(eq(passages.id, passageId));
+  await database.delete(passages).where(eq(passages.id, passageId));
 }
 
 // ── Questions ─────────────────────────────────────────────────────────────────
 
 async function assertQuestionExists(questionId: string) {
-  const [question] = await db
+  const [question] = await database
     .select({ id: questions.id, retiredAt: questions.retiredAt })
     .from(questions)
     .where(eq(questions.id, questionId))
     .limit(1);
-  if (!question) throw notFound('Question not found');
+  if (!question) throw missing('Question not found');
   // A stale editor tab still holding the old id must not fork a second version.
-  if (question.retiredAt) throw conflict('This question has been replaced by a newer version. Reload to edit it.');
+  if (question.retiredAt) throw stateConflict('This question has been replaced by a newer version. Reload to edit it.');
   return question;
 }
 
 /** Whether any exam — finished or in progress — has this question on its answer sheet. */
 async function isQuestionAttempted(questionId: string): Promise<boolean> {
-  const [row] = await db
+  const [row] = await database
     .select({ id: examAnswers.id })
     .from(examAnswers)
     .where(eq(examAnswers.questionId, questionId))
@@ -266,14 +266,14 @@ async function isQuestionAttempted(questionId: string): Promise<boolean> {
 
 export async function listQuestions(setId: string) {
   await assertSetExists(setId);
-  const rows = await db
+  const rows = await database
     .select()
     .from(questions)
     // Retired versions stay in the table for the exams that used them, but are
     // not content any more — the editor shows only the live version.
     .where(and(eq(questions.setId, setId), isNull(questions.retiredAt)))
     .orderBy(questions.orderIndex);
-  return rows.map((row) => ({ ...row, imageUrl: normalizeFileUrl(row.imageUrl) }));
+  return rows.map((row) => ({ ...row, imageUrl: toPublicFileUrl(row.imageUrl) }));
 }
 
 /**
@@ -288,7 +288,7 @@ async function assertKnownSkillCode(skillCode: string | null | undefined): Promi
   if (!skillCode) return;
   const known = await listSkillCodes();
   if (!known.has(skillCode)) {
-    throw badRequest(`Unknown skill code: ${skillCode}`);
+    throw invalidRequest(`Unknown skill code: ${skillCode}`);
   }
 }
 
@@ -309,7 +309,7 @@ export async function createQuestion(setId: string, input: CreateQuestionInput) 
   await assertSetExists(setId);
   await assertKnownSkillCode(input.skillCode);
 
-  const [question] = await db
+  const [question] = await database
     .insert(questions)
     .values({
       setId,
@@ -339,7 +339,7 @@ export async function updateQuestion(questionId: string, input: UpdateQuestionIn
 
   // Untouched by any exam: edit in place, as before.
   if (!(await isQuestionAttempted(questionId))) {
-    const [updated] = await db.update(questions).set(changes).where(eq(questions.id, questionId)).returning();
+    const [updated] = await database.update(questions).set(changes).where(eq(questions.id, questionId)).returning();
     return updated;
   }
 
@@ -348,7 +348,7 @@ export async function updateQuestion(questionId: string, input: UpdateQuestionIn
   // silently rewrites a graded exam, its score or its AI feedback. The new row
   // takes over the question's place in the set; in-progress exams finish on the
   // version they started with.
-  return db.transaction(async (tx) => {
+  return database.transaction(async (tx) => {
     const [current] = await tx.select().from(questions).where(eq(questions.id, questionId)).limit(1);
     const { id: _oldId, createdAt: _createdAt, retiredAt: _retiredAt, supersedesId: _supersedesId, ...content } = current;
 
@@ -373,7 +373,7 @@ export async function updateQuestionSubSkill(questionId: string, input: UpdateSu
   await assertQuestionExists(questionId);
   await assertKnownSkillCode(input.skillCode);
 
-  const [updated] = await db
+  const [updated] = await database
     .update(questions)
     .set({ skillCode: input.skillCode ?? null, subSkillSource: input.subSkillSource })
     .where(eq(questions.id, questionId))
@@ -391,9 +391,9 @@ export async function updateQuestionSubSkill(questionId: string, input: UpdateSu
 export async function deleteQuestion(questionId: string): Promise<{ retired: boolean }> {
   await assertQuestionExists(questionId);
   if (await isQuestionAttempted(questionId)) {
-    await db.update(questions).set({ retiredAt: new Date() }).where(eq(questions.id, questionId));
+    await database.update(questions).set({ retiredAt: new Date() }).where(eq(questions.id, questionId));
     return { retired: true };
   }
-  await db.delete(questions).where(eq(questions.id, questionId));
+  await database.delete(questions).where(eq(questions.id, questionId));
   return { retired: false };
 }

@@ -1,5 +1,5 @@
 import { desc, eq } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { feedback, users } from '../../core/db/schema';
 import { assertOwnsStudent } from '../roster';
 import type { SendFeedbackInput } from './messages.schemas';
@@ -9,7 +9,7 @@ import type { SendFeedbackInput } from './messages.schemas';
 export async function sendFeedback(teacherId: string, input: SendFeedbackInput) {
   await assertOwnsStudent(teacherId, input.studentId, 'forbidden');
 
-  const [created] = await db
+  const [created] = await database
     .insert(feedback)
     .values({
       teacherId,
@@ -22,7 +22,7 @@ export async function sendFeedback(teacherId: string, input: SendFeedbackInput) 
 }
 
 export async function listSentFeedback(teacherId: string) {
-  return db
+  return database
     .select({
       id: feedback.id,
       content: feedback.content,

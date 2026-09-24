@@ -1,12 +1,12 @@
 import { and, desc, eq, gt, inArray, isNull, lte, or, sql } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import {
   generatedContent,
   studentTeacherVocabProgress,
   studentVocab,
   teacherVocabWords,
 } from '../../core/db/schema';
-import { notFound } from '../../core/errors';
+import { missing } from '../../core/errors';
 
 /**
  * Vocabulary spaced repetition (SM-2 style).
@@ -67,7 +67,7 @@ export function nextSchedule(
 export async function findDueItems(studentId: string) {
   const now = new Date();
 
-  const dueVocab = await db
+  const dueVocab = await database
     .select({
       vocabId: studentVocab.id,
       word: studentVocab.word,
@@ -85,7 +85,7 @@ export async function findDueItems(studentId: string) {
   const questionItems = dueVocab.length > 0 ? await attachDrills(studentId, dueVocab) : [];
 
   // LEFT JOIN so words with no progress row (never reviewed) are included.
-  const teacherRows = await db
+  const teacherRows = await database
     .select({
       vocabId: teacherVocabWords.id,
       word: teacherVocabWords.word,
@@ -143,7 +143,7 @@ async function attachDrills(
     questionId: string;
   }[],
 ) {
-  const drills = await db
+  const drills = await database
     .select({
       id: generatedContent.id,
       content: generatedContent.content,
@@ -187,16 +187,16 @@ async function attachDrills(
 }
 
 export async function reviewQuestionWord(studentId: string, vocabId: string, isCorrect: boolean) {
-  const [vocab] = await db
+  const [vocab] = await database
     .select()
     .from(studentVocab)
     .where(and(eq(studentVocab.id, vocabId), eq(studentVocab.studentId, studentId)))
     .limit(1);
-  if (!vocab) throw notFound('Vocab item not found');
+  if (!vocab) throw missing('Vocab item not found');
 
   const schedule = nextSchedule(parseFloat(String(vocab.easeFactor)), vocab.intervalDays, isCorrect);
 
-  await db
+  await database
     .update(studentVocab)
     .set({
       intervalDays: schedule.intervalDays,
@@ -212,14 +212,14 @@ export async function reviewQuestionWord(studentId: string, vocabId: string, isC
 
 /** Teacher-bank review. Progress is created on first review, updated after. */
 export async function reviewTeacherWord(studentId: string, wordId: string, isCorrect: boolean) {
-  const [word] = await db
+  const [word] = await database
     .select({ id: teacherVocabWords.id })
     .from(teacherVocabWords)
     .where(eq(teacherVocabWords.id, wordId))
     .limit(1);
-  if (!word) throw notFound('Word not found');
+  if (!word) throw missing('Word not found');
 
-  const [progress] = await db
+  const [progress] = await database
     .select()
     .from(studentTeacherVocabProgress)
     .where(
@@ -237,7 +237,7 @@ export async function reviewTeacherWord(studentId: string, wordId: string, isCor
   );
 
   if (progress) {
-    await db
+    await database
       .update(studentTeacherVocabProgress)
       .set({
         intervalDays: schedule.intervalDays,
@@ -248,7 +248,7 @@ export async function reviewTeacherWord(studentId: string, wordId: string, isCor
       })
       .where(eq(studentTeacherVocabProgress.id, progress.id));
   } else {
-    await db.insert(studentTeacherVocabProgress).values({
+    await database.insert(studentTeacherVocabProgress).values({
       studentId,
       teacherVocabWordId: wordId,
       nextReviewAt: schedule.nextReviewAt,

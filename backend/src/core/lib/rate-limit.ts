@@ -6,7 +6,7 @@
  * cost/abuse guard for a single-instance deployment, not a security control.
  * Moving to multiple instances means moving these counters to Postgres or Redis.
  */
-export interface RateLimitResult {
+export interface BudgetVerdict {
   allowed: boolean;
   /** Seconds until the current window resets. Only meaningful when blocked. */
   retryAfterSeconds: number;
@@ -18,7 +18,7 @@ interface Window {
   startedAt: number;
 }
 
-export class FixedWindowRateLimiter {
+export class FixedWindowBudget {
   private readonly windows = new Map<string, Window>();
 
   constructor(
@@ -31,7 +31,7 @@ export class FixedWindowRateLimiter {
    * operations actually about to happen, not a theoretical maximum, so a
    * request that hits cache does not consume budget it never used.
    */
-  consume(key: string, cost = 1): RateLimitResult {
+  consume(key: string, cost = 1): BudgetVerdict {
     const now = Date.now();
     let window = this.windows.get(key);
 
@@ -68,7 +68,7 @@ export class FixedWindowRateLimiter {
  * crossed. Used for login, where the useful signal is failures-in-a-row per
  * account rather than request volume per IP.
  */
-export class LockoutTracker {
+export class LockoutRegistry {
   private readonly records = new Map<string, { failures: number; lockedUntil: number }>();
 
   constructor(

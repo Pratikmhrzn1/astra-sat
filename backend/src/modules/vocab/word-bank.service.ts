@@ -1,7 +1,7 @@
 import { desc, eq } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { teacherVocabWords } from '../../core/db/schema';
-import { notFound } from '../../core/errors';
+import { missing } from '../../core/errors';
 import type { VocabWordInput } from './vocab.schemas';
 
 /**
@@ -10,11 +10,11 @@ import type { VocabWordInput } from './vocab.schemas';
  */
 
 export async function listVocabWords() {
-  return db.select().from(teacherVocabWords).orderBy(desc(teacherVocabWords.createdAt));
+  return database.select().from(teacherVocabWords).orderBy(desc(teacherVocabWords.createdAt));
 }
 
 export async function createVocabWord(input: VocabWordInput) {
-  const [word] = await db
+  const [word] = await database
     .insert(teacherVocabWords)
     .values({
       word: input.word.trim(),
@@ -26,12 +26,12 @@ export async function createVocabWord(input: VocabWordInput) {
 }
 
 export async function deleteVocabWord(wordId: string) {
-  const [existing] = await db
+  const [existing] = await database
     .select({ id: teacherVocabWords.id })
     .from(teacherVocabWords)
     .where(eq(teacherVocabWords.id, wordId))
     .limit(1);
-  if (!existing) throw notFound('Word not found');
+  if (!existing) throw missing('Word not found');
   // Cascades to every student's progress on this word.
-  await db.delete(teacherVocabWords).where(eq(teacherVocabWords.id, wordId));
+  await database.delete(teacherVocabWords).where(eq(teacherVocabWords.id, wordId));
 }

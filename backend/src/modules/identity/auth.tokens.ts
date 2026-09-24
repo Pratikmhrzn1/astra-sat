@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import type { Response } from 'express';
-import { db } from '../../core/db';
-import { env } from '../../core/config/env';
-import { signAccessToken, signRefreshToken } from '../../core/lib/jwt';
+import { database } from '../../core/db';
+import { settings } from '../../core/config/env';
+import { mintAccessToken, mintRefreshToken } from '../../core/lib/jwt';
 import * as repo from './auth.repository';
 
 /**
@@ -28,12 +28,12 @@ export function hashToken(token: string): string {
 export function setRefreshCookie(res: Response, token: string): void {
   res.cookie(REFRESH_COOKIE, token, {
     httpOnly: true,
-    secure: env.http.cookieSecure,
+    secure: settings.http.cookieSecure,
     // Cross-site in production (API and app may be different origins), lax in
     // dev where both are localhost and 'none' would require HTTPS.
-    sameSite: env.isProduction ? 'none' : 'lax',
+    sameSite: settings.isProduction ? 'none' : 'lax',
     path: '/',
-    maxAge: env.jwt.refreshTtlMs,
+    maxAge: settings.jwt.refreshTtlMs,
   });
 }
 
@@ -48,8 +48,8 @@ export function readRefreshCookie(req: { cookies?: Record<string, string> }): st
 /** Mints a refresh token and records its hash. Returns the raw token. */
 export async function issueRefreshToken(userId: string): Promise<string> {
   const jti = crypto.randomBytes(16).toString('hex');
-  const rawToken = signRefreshToken({ sub: userId, jti });
-  await repo.storeRefreshToken(userId, hashToken(rawToken), new Date(Date.now() + env.jwt.refreshTtlMs));
+  const rawToken = mintRefreshToken({ sub: userId, jti });
+  await repo.storeRefreshToken(userId, hashToken(rawToken), new Date(Date.now() + settings.jwt.refreshTtlMs));
   return rawToken;
 }
 
@@ -84,15 +84,15 @@ export async function rotateRefreshToken(
   oldHash: string,
   user: { id: string; email: string; name: string; role: string },
 ): Promise<RotationResult | null> {
-  const result = await db.transaction(async (tx): Promise<RotationResult | null> => {
+  const result = await database.transaction(async (tx): Promise<RotationResult | null> => {
     const wasDeleted = await repo.deleteRefreshToken(oldHash, tx);
     if (!wasDeleted) return null;
 
     const jti = crypto.randomBytes(16).toString('hex');
-    const rawToken = signRefreshToken({ sub: user.id, jti });
-    await repo.storeRefreshToken(user.id, hashToken(rawToken), new Date(Date.now() + env.jwt.refreshTtlMs), tx);
+    const rawToken = mintRefreshToken({ sub: user.id, jti });
+    await repo.storeRefreshToken(user.id, hashToken(rawToken), new Date(Date.now() + settings.jwt.refreshTtlMs), tx);
 
-    return { accessToken: signAccessToken(user), rawToken };
+    return { accessToken: mintAccessToken(user), rawToken };
   });
 
   if (result) publishGraceEntry(oldHash, result);

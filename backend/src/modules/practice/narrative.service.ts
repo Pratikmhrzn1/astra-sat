@@ -1,5 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { skillAccuracy } from '../analytics';
 import { examAnswers, exams, mockNarratives, questionSets, questions } from '../../core/db/schema';
 import { requestStructuredOutput, isModelReady } from '../ai';
@@ -32,24 +32,24 @@ export function narrativesEnabled(): boolean {
 
 export async function createPendingNarrative(examId: string): Promise<string | null> {
   if (!narrativesEnabled()) return null;
-  const [row] = await db.insert(mockNarratives).values({ examId }).returning({ id: mockNarratives.id });
+  const [row] = await database.insert(mockNarratives).values({ examId }).returning({ id: mockNarratives.id });
   return row.id;
 }
 
 /** Resets an existing narrative to `pending`, or creates one. Used by retry. */
 export async function resetNarrative(examId: string): Promise<string> {
-  const [existing] = await db
+  const [existing] = await database
     .select({ id: mockNarratives.id })
     .from(mockNarratives)
     .where(eq(mockNarratives.examId, examId))
     .limit(1);
 
   if (!existing) {
-    const [row] = await db.insert(mockNarratives).values({ examId }).returning({ id: mockNarratives.id });
+    const [row] = await database.insert(mockNarratives).values({ examId }).returning({ id: mockNarratives.id });
     return row.id;
   }
 
-  await db
+  await database
     .update(mockNarratives)
     .set({ status: 'pending', content: {}, modelUsed: '', latencyMs: null, costUsd: null })
     .where(eq(mockNarratives.id, existing.id));
@@ -57,7 +57,7 @@ export async function resetNarrative(examId: string): Promise<string> {
 }
 
 export async function findNarrative(examId: string) {
-  const [row] = await db.select().from(mockNarratives).where(eq(mockNarratives.examId, examId)).limit(1);
+  const [row] = await database.select().from(mockNarratives).where(eq(mockNarratives.examId, examId)).limit(1);
   return row ?? null;
 }
 
@@ -92,7 +92,7 @@ async function resolveSectionLabel(exam: NarrativeExam): Promise<string> {
   // generic label is correct for it.
   if (!exam.setId) return 'Practice';
 
-  const [set] = await db
+  const [set] = await database
     .select({ subject: questionSets.subject })
     .from(questionSets)
     .where(eq(questionSets.id, exam.setId))
@@ -140,7 +140,7 @@ ${breakdown.map((b) => `- ${b.subSkill}: ${b.wrong} wrong of ${b.total}${b.flag 
 
     const result = await requestStructuredOutput(systemPrompt, userPrompt, 'narrative');
 
-    await db
+    await database
       .update(mockNarratives)
       .set({
         content: result.parsed as Record<string, unknown>,
@@ -152,7 +152,7 @@ ${breakdown.map((b) => `- ${b.subSkill}: ${b.wrong} wrong of ${b.total}${b.flag 
       .where(eq(mockNarratives.id, narrativeId));
   } catch (err) {
     console.error(`[narrative] Generation failed for exam ${examId}:`, err);
-    await db
+    await database
       .update(mockNarratives)
       .set({ status: 'failed' })
       .where(eq(mockNarratives.id, narrativeId))
@@ -169,7 +169,7 @@ export function generateNarrativeInBackground(examId: string, narrativeId: strin
 
 /** Re-reads the exam a narrative belongs to, for the retry path. */
 export async function findExamForNarrative(examId: string): Promise<NarrativeExam | null> {
-  const [exam] = await db
+  const [exam] = await database
     .select({
       studentId: exams.studentId,
       type: exams.type,

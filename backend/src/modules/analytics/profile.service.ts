@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { studentProfiles } from '../../core/db/schema';
 import type { UpdateProfileInput } from './analytics.schemas';
 
@@ -18,7 +18,7 @@ export type StudentProfile = typeof studentProfiles.$inferSelect;
 
 /** Null when the student has not set a goal yet — the caller must prompt, not guess. */
 export async function getProfile(studentId: string): Promise<StudentProfile | null> {
-  const [profile] = await db
+  const [profile] = await database
     .select()
     .from(studentProfiles)
     .where(eq(studentProfiles.studentId, studentId))
@@ -42,7 +42,7 @@ export async function upsertProfile(
     updatedAt: new Date(),
   };
 
-  const [profile] = await db
+  const [profile] = await database
     .insert(studentProfiles)
     .values({ studentId, ...values })
     .onConflictDoUpdate({ target: studentProfiles.studentId, set: values })

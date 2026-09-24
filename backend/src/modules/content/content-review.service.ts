@@ -1,7 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { generatedContent, passages, questionSets, questions } from '../../core/db/schema';
-import { notFound, unprocessable } from '../../core/errors';
+import { missing, unprocessableInput } from '../../core/errors';
 import type { FlagContentInput, ListContentQuery } from './content.schemas';
 
 /**
@@ -31,7 +31,7 @@ export async function listGeneratedContent(query: ListContentQuery) {
   if (query.type) conditions.push(eq(generatedContent.contentType, query.type));
   if (query.flag) conditions.push(eq(generatedContent.qualityFlag, query.flag));
 
-  return db
+  return database
     .select({
       id: generatedContent.id,
       contentType: generatedContent.contentType,
@@ -55,12 +55,12 @@ export async function listGeneratedContent(query: ListContentQuery) {
 }
 
 export async function flagContent(contentId: string, input: FlagContentInput) {
-  const [row] = await db
+  const [row] = await database
     .select()
     .from(generatedContent)
     .where(eq(generatedContent.id, contentId))
     .limit(1);
-  if (!row) throw notFound('Generated content not found');
+  if (!row) throw missing('Generated content not found');
 
   // Approving twice would promote the same passage twice, so the second
   // approval is a no-op that returns the row as it stands.
@@ -69,7 +69,7 @@ export async function flagContent(contentId: string, input: FlagContentInput) {
   }
 
   if (input.qualityFlag === 'rejected') {
-    const [updated] = await db
+    const [updated] = await database
       .update(generatedContent)
       .set({
         qualityFlag: 'rejected',
@@ -85,7 +85,7 @@ export async function flagContent(contentId: string, input: FlagContentInput) {
   }
 
   // Vocabulary drills need no promotion — approval just makes them servable.
-  const [updated] = await db
+  const [updated] = await database
     .update(generatedContent)
     .set({ qualityFlag: 'approved' })
     .where(eq(generatedContent.id, contentId))
@@ -102,16 +102,16 @@ export async function flagContent(contentId: string, input: FlagContentInput) {
  */
 function assertPromotable(content: SkillPassageContent): void {
   if (!content?.passage?.text) {
-    throw unprocessable('Generated content is missing its passage text');
+    throw unprocessableInput('Generated content is missing its passage text');
   }
   if (!Array.isArray(content.questions) || content.questions.length === 0) {
-    throw unprocessable('Generated content has no questions');
+    throw unprocessableInput('Generated content has no questions');
   }
 
   const validAnswers = new Set(['a', 'b', 'c', 'd', 'A', 'B', 'C', 'D']);
   for (const question of content.questions) {
     if (!question.correctAnswer || !validAnswers.has(question.correctAnswer)) {
-      throw unprocessable(
+      throw unprocessableInput(
         `Generated content has invalid correctAnswer: ${question.correctAnswer ?? 'null'}`,
       );
     }
@@ -122,7 +122,7 @@ function assertPromotable(content: SkillPassageContent): void {
       !question.options?.C ||
       !question.options?.D
     ) {
-      throw unprocessable('Generated content is missing required question fields');
+      throw unprocessableInput('Generated content is missing required question fields');
     }
   }
 }
@@ -145,7 +145,7 @@ async function promoteSkillPassage(contentId: string, content: SkillPassageConte
   const readableSkill = subSkill.replace(/_/g, ' ');
   const setTitle = `AI Practice: ${readableSkill}`;
 
-  return db.transaction(async (tx) => {
+  return database.transaction(async (tx) => {
     const [existingSet] = await tx
       .select({ id: questionSets.id })
       .from(questionSets)

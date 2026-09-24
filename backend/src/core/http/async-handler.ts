@@ -10,7 +10,7 @@ import type { NextFunction, Request, RequestHandler, Response } from 'express';
  * forget and noisy to read. Wrapping once here replaces that convention —
  * handlers now throw (see core/errors.ts) and stay linear.
  */
-export function asyncHandler(
+export function wrapAsync(
   handler: (req: Request, res: Response, next: NextFunction) => Promise<unknown> | unknown,
 ): RequestHandler {
   return (req, res, next) => {

@@ -1,5 +1,5 @@
 import { and, desc, eq, ne, sql } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { examAnswers, exams, generatedContent, questions, studentSkillTriggers } from '../../core/db/schema';
 import { requestStructuredOutput, isModelReady } from '../ai';
 
@@ -47,7 +47,7 @@ const TRIGGER_EVERY = 3;
  * student had no chance to review.
  */
 async function countWrongAnswers(studentId: string, subSkill: SubSkill): Promise<number> {
-  const [{ wrongCount }] = await db
+  const [{ wrongCount }] = await database
     .select({ wrongCount: sql<number>`count(*)::int` })
     .from(examAnswers)
     .innerJoin(exams, eq(examAnswers.examId, exams.id))
@@ -72,7 +72,7 @@ async function countWrongAnswers(studentId: string, subSkill: SubSkill): Promise
  * by Postgres rather than by request timing.
  */
 async function claimTrigger(studentId: string, subSkill: string, triggerCount: number): Promise<boolean> {
-  const claimed = await db.execute(
+  const claimed = await database.execute(
     sql`INSERT INTO student_skill_triggers (student_id, sub_skill, trigger_count, last_triggered_at)
         VALUES (${studentId}, ${subSkill}, ${triggerCount}, now())
         ON CONFLICT (student_id, sub_skill)
@@ -91,7 +91,7 @@ async function findRecentWrongQuestionTexts(
   subSkill: SubSkill,
   excludeQuestionId: string,
 ): Promise<string[]> {
-  const rows = await db
+  const rows = await database
     .select({ questionText: questions.questionText })
     .from(examAnswers)
     .innerJoin(exams, eq(examAnswers.examId, exams.id))
@@ -164,7 +164,7 @@ Generate a wholly original passage and exactly 2 questions testing ${label}.`;
 
     const result = await requestStructuredOutput(systemPrompt, userPrompt, 'narrative');
 
-    await db.insert(generatedContent).values({
+    await database.insert(generatedContent).values({
       contentType: 'skill_passage',
       sourceQuestionId,
       studentId,
@@ -215,7 +215,7 @@ export async function checkAndTriggerSkillPassage(
  * dashboard. One entry per sub-skill — the first approved passage wins.
  */
 export async function findAvailableSkillPassages(studentId: string) {
-  const triggers = await db
+  const triggers = await database
     .select({ subSkill: studentSkillTriggers.subSkill })
     .from(studentSkillTriggers)
     .where(eq(studentSkillTriggers.studentId, studentId));
@@ -223,7 +223,7 @@ export async function findAvailableSkillPassages(studentId: string) {
   if (triggers.length === 0) return [];
   const triggered = new Set(triggers.map((t) => t.subSkill));
 
-  const approved = await db
+  const approved = await database
     .select({
       id: generatedContent.id,
       content: generatedContent.content,

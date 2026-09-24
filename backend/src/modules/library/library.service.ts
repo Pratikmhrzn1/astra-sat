@@ -2,11 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import { desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { env } from '../../core/config/env';
-import { db } from '../../core/db';
+import { settings } from '../../core/config/env';
+import { database } from '../../core/db';
 import { libraryItems, users } from '../../core/db/schema';
-import { forbidden, notFound } from '../../core/errors';
-import { normalizeFileUrl } from '../../core/lib/url';
+import { notPermitted, missing } from '../../core/errors';
+import { toPublicFileUrl } from '../../core/lib/url';
 
 /**
  * Shared library of teaching material: uploaded files and written notes.
@@ -57,7 +57,7 @@ const itemColumns = {
 } as const;
 
 export async function listItems(role: string) {
-  const query = db
+  const query = database
     .select(itemColumns)
     .from(libraryItems)
     .leftJoin(users, eq(libraryItems.uploadedBy, users.id));
@@ -68,20 +68,20 @@ export async function listItems(role: string) {
       ? await query.orderBy(desc(libraryItems.createdAt))
       : await query.where(eq(libraryItems.hidden, false)).orderBy(desc(libraryItems.createdAt));
 
-  return rows.map((row) => ({ ...row, fileUrl: normalizeFileUrl(row.fileUrl) }));
+  return rows.map((row) => ({ ...row, fileUrl: toPublicFileUrl(row.fileUrl) }));
 }
 
 export async function createItem(uploadedBy: string, input: CreateItemInput) {
-  const [row] = await db.insert(libraryItems).values({ ...input, uploadedBy }).returning();
+  const [row] = await database.insert(libraryItems).values({ ...input, uploadedBy }).returning();
   return row;
 }
 
 /** Admins may edit anything; teachers only what they uploaded. */
 async function findEditableItem(itemId: string, user: { id: string; role: string }) {
-  const [item] = await db.select().from(libraryItems).where(eq(libraryItems.id, itemId)).limit(1);
-  if (!item) throw notFound('Item not found');
+  const [item] = await database.select().from(libraryItems).where(eq(libraryItems.id, itemId)).limit(1);
+  if (!item) throw missing('Item not found');
   if (user.role === 'teacher' && item.uploadedBy !== user.id) {
-    throw forbidden('You can only edit your own items');
+    throw notPermitted('You can only edit your own items');
   }
   return item;
 }
@@ -92,7 +92,7 @@ export async function updateItem(
   input: UpdateItemInput,
 ) {
   await findEditableItem(itemId, user);
-  const [updated] = await db
+  const [updated] = await database
     .update(libraryItems)
     .set(input)
     .where(eq(libraryItems.id, itemId))
@@ -103,11 +103,11 @@ export async function updateItem(
 export async function deleteItem(itemId: string, user: { id: string; role: string }): Promise<void> {
   const item = await findEditableItem(itemId, user);
   if (user.role === 'teacher' && item.uploadedBy !== user.id) {
-    throw forbidden('You can only delete your own items');
+    throw notPermitted('You can only delete your own items');
   }
 
   removeUploadedFile(item.fileUrl);
-  await db.delete(libraryItems).where(eq(libraryItems.id, itemId));
+  await database.delete(libraryItems).where(eq(libraryItems.id, itemId));
 }
 
 /**
@@ -129,7 +129,7 @@ function removeUploadedFile(fileUrl: string | null): void {
   if (!pathname.startsWith('/uploads/')) return;
 
   try {
-    fs.unlinkSync(path.join(env.uploads.dir, path.basename(pathname)));
+    fs.unlinkSync(path.join(settings.uploads.dir, path.basename(pathname)));
   } catch {
     // Already gone, or never written to this host.
   }

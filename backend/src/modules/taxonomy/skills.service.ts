@@ -1,5 +1,5 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { questionSets, questions, skills } from '../../core/db/schema';
 
 /**
@@ -41,7 +41,7 @@ export interface SkillNode {
 export async function getSkillTree(withCounts = false): Promise<SkillNode[]> {
   // Subject first so consumers can slice the list into an English group and a
   // Math group without re-sorting; sortOrder is only unique within a subject.
-  const rows = await db
+  const rows = await database
     .select()
     .from(skills)
     .orderBy(skills.subject, skills.sortOrder, skills.code);
@@ -89,7 +89,7 @@ function node(
  * then fail to build an exam from it.
  */
 async function countPublishedBySkill(): Promise<Map<string, number>> {
-  const rows = await db
+  const rows = await database
     .select({ skillCode: questions.skillCode, count: sql<number>`count(*)::int` })
     .from(questions)
     .innerJoin(questionSets, eq(questions.setId, questionSets.id))
@@ -110,7 +110,7 @@ async function countPublishedBySkill(): Promise<Map<string, number>> {
 
 /** Every valid code, for validating a tag before it is written. */
 export async function listSkillCodes(): Promise<Set<string>> {
-  const rows = await db.select({ code: skills.code }).from(skills);
+  const rows = await database.select({ code: skills.code }).from(skills);
   return new Set(rows.map((row) => row.code));
 }
 
@@ -124,7 +124,7 @@ export async function listSkillCodes(): Promise<Set<string>> {
 export async function getTaggingCoverage(): Promise<
   { subject: 'english' | 'math'; tagged: number; total: number; percentage: number }[]
 > {
-  const rows = await db
+  const rows = await database
     .select({
       subject: questionSets.subject,
       total: sql<number>`count(*)::int`,

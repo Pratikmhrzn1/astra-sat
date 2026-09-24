@@ -1,9 +1,9 @@
 import { eq } from 'drizzle-orm';
-import { env, type SeedAccount } from '../config/env';
-import { db, pool } from './index';
+import { settings, type SeedCredentials } from '../config/env';
+import { database, pgPool } from './index';
 import { users } from './schema';
-import { hashPassword } from '../lib/password';
-import { runMigrations } from './migrate';
+import { hashSecret } from '../lib/password';
+import { applySchema } from './migrate';
 
 /**
  * Creates the bootstrap accounts described by the SEED_* variables in .env.
@@ -21,24 +21,24 @@ import { runMigrations } from './migrate';
 
 type Role = 'admin' | 'student';
 
-async function upsertAccount(account: SeedAccount, role: Role): Promise<'created' | 'updated'> {
-  const passwordHash = await hashPassword(account.password);
+async function upsertAccount(account: SeedCredentials, role: Role): Promise<'created' | 'updated'> {
+  const passwordHash = await hashSecret(account.password);
 
-  const [existing] = await db
+  const [existing] = await database
     .select({ id: users.id })
     .from(users)
     .where(eq(users.email, account.email))
     .limit(1);
 
   if (existing) {
-    await db
+    await database
       .update(users)
       .set({ name: account.name, role, passwordHash, updatedAt: new Date() })
       .where(eq(users.id, existing.id));
     return 'updated';
   }
 
-  await db.insert(users).values({
+  await database.insert(users).values({
     email: account.email,
     name: account.name,
     role,
@@ -52,11 +52,11 @@ async function upsertAccount(account: SeedAccount, role: Role): Promise<'created
 
 async function main(): Promise<void> {
   // Safe to run against an empty database — the schema is brought up first.
-  await runMigrations();
+  await applySchema();
 
-  const targets: { account: SeedAccount | null; role: Role; label: string }[] = [
-    { account: env.seed.admin, role: 'admin', label: 'admin' },
-    { account: env.seed.student, role: 'student', label: 'student' },
+  const targets: { account: SeedCredentials | null; role: Role; label: string }[] = [
+    { account: settings.seed.admin, role: 'admin', label: 'admin' },
+    { account: settings.seed.student, role: 'student', label: 'student' },
   ];
 
   let seeded = 0;
@@ -79,9 +79,9 @@ async function main(): Promise<void> {
 }
 
 main()
-  .then(() => pool.end())
+  .then(() => pgPool.end())
   .catch(async (err) => {
     console.error('[seed] Failed:', err);
-    await pool.end().catch(() => undefined);
+    await pgPool.end().catch(() => undefined);
     process.exit(1);
   });

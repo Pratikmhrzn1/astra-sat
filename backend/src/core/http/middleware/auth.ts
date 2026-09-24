@@ -1,55 +1,55 @@
 import type { RequestHandler } from 'express';
-import { verifyAccessToken, type TokenPayload } from '../../lib/jwt';
-import { forbidden, unauthorized } from '../../errors';
+import { readAccessToken, type AccessClaims } from '../../lib/jwt';
+import { notPermitted, notAuthenticated } from '../../errors';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
-      /** Set by `requireAuth`. Present on every route mounted behind it. */
-      user?: TokenPayload;
+      /** Set by `requireSession`. Present on every route mounted behind it. */
+      user?: AccessClaims;
     }
   }
 }
 
-export type Role = 'student' | 'teacher' | 'admin';
+export type AccountRole = 'student' | 'teacher' | 'admin';
 
 /** Verifies the `Authorization: Bearer <accessToken>` header. */
-export const requireAuth: RequestHandler = (req, _res, next) => {
+export const requireSession: RequestHandler = (req, _res, next) => {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
-    throw unauthorized('Missing or invalid authorization header');
+    throw notAuthenticated('Missing or invalid authorization header');
   }
   try {
-    req.user = verifyAccessToken(header.slice(7));
+    req.user = readAccessToken(header.slice(7));
   } catch {
-    throw unauthorized('Invalid or expired token');
+    throw notAuthenticated('Invalid or expired token');
   }
   next();
 };
 
 /**
- * Restricts a route to the given roles. Always mount behind `requireAuth`.
+ * Restricts a route to the given roles. Always mount behind `requireSession`.
  *
- * Prefer applying this at the router root (`router.use(requireAuth,
- * requireRole(['student']))`) so new routes inherit the gate instead of each
+ * Prefer applying this at the router root (`router.use(requireSession,
+ * requireAccountRole(['student']))`) so new routes inherit the gate instead of each
  * handler repeating a check it can forget.
  */
-export function requireRole(roles: Role[], message = 'Insufficient permissions'): RequestHandler {
+export function requireAccountRole(roles: AccountRole[], message = 'Insufficient permissions'): RequestHandler {
   return (req, _res, next) => {
-    if (!req.user) throw unauthorized();
-    if (!roles.includes(req.user.role as Role)) throw forbidden(message);
+    if (!req.user) throw notAuthenticated();
+    if (!roles.includes(req.user.role as AccountRole)) throw notPermitted(message);
     next();
   };
 }
 
-/** The authenticated user, for handlers mounted behind `requireAuth`. */
-export function currentUser(req: { user?: TokenPayload }): TokenPayload {
-  if (!req.user) throw unauthorized();
+/** The authenticated user, for handlers mounted behind `requireSession`. */
+export function sessionUser(req: { user?: AccessClaims }): AccessClaims {
+  if (!req.user) throw notAuthenticated();
   return req.user;
 }
 
 /** Shorthand for the common `req.user!.sub`. */
-export function currentUserId(req: { user?: TokenPayload }): string {
-  return currentUser(req).id;
+export function sessionUserId(req: { user?: AccessClaims }): string {
+  return sessionUser(req).id;
 }

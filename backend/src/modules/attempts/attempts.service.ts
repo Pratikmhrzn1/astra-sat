@@ -1,7 +1,7 @@
 import { and, eq, lt, sql } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { examAnswers, exams, questionSets, questions } from '../../core/db/schema';
-import { badRequest, conflict, isAppError, notFound } from '../../core/errors';
+import { invalidRequest, stateConflict, isServiceError, missing } from '../../core/errors';
 import {
   DEADLINE_LENIENCY_SECONDS,
   buildAssessmentWithSheet,
@@ -25,10 +25,10 @@ import type { SaveAnswersInput, StartExamInput } from './attempts.schemas';
 
 export async function startExam(studentId: string, { setId, type }: StartExamInput) {
   const set = await repo.loadSetById(setId);
-  if (!set) throw notFound('Question set not found');
+  if (!set) throw missing('Question set not found');
 
   const questionRows = await repo.loadQuestionsForSet(setId);
-  if (questionRows.length === 0) throw badRequest('This question set has no questions');
+  if (questionRows.length === 0) throw invalidRequest('This question set has no questions');
 
   const exam = await buildAssessmentWithSheet({
     studentId,
@@ -46,7 +46,7 @@ export async function startExam(studentId: string, { setId, type }: StartExamInp
  */
 export async function getExam(examId: string, studentId: string, { open = false }: { open?: boolean } = {}) {
   let exam = await repo.loadOwnedAssessment(examId, studentId);
-  if (!exam) throw notFound('Exam not found');
+  if (!exam) throw missing('Exam not found');
 
   // Opening starts a mock module's clock; any read closes an expired exam.
   const deadline = await settleDeadline(exam, { open });
@@ -57,7 +57,7 @@ export async function getExam(examId: string, studentId: string, { open = false 
 
   const [questionRows, answers] = await Promise.all([
     repo.loadQuestionsForAssessment(exam.id),
-    db
+    database
       .select({
         questionId: examAnswers.questionId,
         selectedAnswer: examAnswers.selectedAnswer,
@@ -137,15 +137,15 @@ export async function saveAnswers(
   { answers, timeSpentSeconds }: SaveAnswersInput,
 ): Promise<void> {
   const exam = await repo.loadOwnedAssessment(examId, studentId);
-  if (!exam) throw notFound('Exam not found');
-  if (exam.status === 'completed') throw badRequest('Exam already completed');
+  if (!exam) throw missing('Exam not found');
+  if (exam.status === 'completed') throw invalidRequest('Exam already completed');
 
   // Past the deadline (plus grace) nothing more is accepted: the exam is graded
   // on what was saved in time, and this late write is refused.
   const deadline = await settleDeadline(exam, { open: false });
   if (isBeyondLeniency(deadline)) {
     await closeExpiredExam(examId, studentId);
-    throw conflict('Time is up — this section has been submitted.');
+    throw stateConflict('Time is up — this section has been submitted.');
   }
 
   if (answers.length > 0) {
@@ -157,7 +157,7 @@ export async function saveAnswers(
         }::text, ${isAnswered(answer.selectedAnswer, answer.selectedAnswerText) ? now : null}::timestamp)`,
     );
 
-    await db.execute(sql`
+    await database.execute(sql`
       UPDATE exam_answers AS ea
       SET selected_answer = v.selected_answer,
           selected_answer_text = v.selected_answer_text,
@@ -171,7 +171,7 @@ export async function saveAnswers(
   // A timed exam's time comes from its deadline, never from the client.
   const timed = deadline !== null;
   if (timeSpentSeconds !== undefined && !timed) {
-    await db.update(exams).set({ timeSpentSeconds }).where(eq(exams.id, examId));
+    await database.update(exams).set({ timeSpentSeconds }).where(eq(exams.id, examId));
   }
 }
 
@@ -205,15 +205,15 @@ export async function submitExam(
     try {
       await saveAnswers(examId, studentId, { answers: finalAnswers });
     } catch (err) {
-      if (!(isAppError(err) && err.kind === 'conflict')) throw err;
+      if (!(isServiceError(err) && err.kind === 'conflict')) throw err;
     }
   }
 
   const exam = await repo.loadOwnedAssessment(examId, studentId);
-  if (!exam) throw notFound('Exam not found');
-  if (exam.status === 'completed') throw badRequest('Exam already completed');
+  if (!exam) throw missing('Exam not found');
+  if (exam.status === 'completed') throw invalidRequest('Exam already completed');
 
-  const answers = await db
+  const answers = await database
     .select({
       answerId: examAnswers.id,
       questionType: questions.questionType,
@@ -237,7 +237,7 @@ export async function submitExam(
     const rows = graded.map(
       (row) => sql`(${row.answerId}::uuid, ${row.isCorrect}::boolean, ${row.answeredAt}::timestamp)`,
     );
-    await db.execute(sql`
+    await database.execute(sql`
       UPDATE exam_answers AS ea
       SET is_correct = v.is_correct, answered_at = v.answered_at
       FROM (VALUES ${sql.join(rows, sql`, `)}) AS v(id, is_correct, answered_at)
@@ -264,7 +264,7 @@ export async function submitExam(
     (timeSpentSeconds !== undefined && liveCap !== null ? Math.min(timeSpentSeconds, liveCap) : timeSpentSeconds) ??
     exam.timeSpentSeconds;
 
-  const [updated] = await db
+  const [updated] = await database
     .update(exams)
     .set({
       status: 'completed',
@@ -278,7 +278,7 @@ export async function submitExam(
     // mistakes; the loser is refused here.
     .where(and(eq(exams.id, exam.id), eq(exams.status, 'in_progress')))
     .returning();
-  if (!updated) throw badRequest('Exam already completed');
+  if (!updated) throw invalidRequest('Exam already completed');
 
   // On the critical path on purpose: the student goes straight to a results page
   // that reports the mock total, so it must be written before the response
@@ -310,8 +310,8 @@ export async function submitExam(
 /** Full review of a finished exam — the only student read that reveals answers. */
 export async function getResults(examId: string, studentId: string) {
   const exam = await repo.loadOwnedAssessment(examId, studentId);
-  if (!exam) throw notFound('Exam not found');
-  if (exam.status !== 'completed') throw badRequest('Exam not yet completed');
+  if (!exam) throw missing('Exam not found');
+  if (exam.status !== 'completed') throw invalidRequest('Exam not yet completed');
 
   const [results, set] = await Promise.all([
     // Shared with the teacher's read and the live-exam marking page. This used
@@ -320,7 +320,7 @@ export async function getResults(examId: string, studentId: string) {
     repo.loadReviewRowsForAssessment(exam.id),
     // An exam assembled across sets has no owning set to describe.
     exam.setId
-      ? db
+      ? database
           .select({ title: questionSets.title, subject: questionSets.subject })
           .from(questionSets)
           .where(eq(questionSets.id, exam.setId))
@@ -356,8 +356,8 @@ export async function getResults(examId: string, studentId: string) {
 /** Narrative retry — resets the row and regenerates behind the response. */
 export async function retryNarrative(examId: string, studentId: string) {
   const exam = await repo.loadOwnedAssessment(examId, studentId);
-  if (!exam) throw notFound('Exam not found');
-  if (exam.status !== 'completed') throw badRequest('Exam not completed');
+  if (!exam) throw missing('Exam not found');
+  if (exam.status !== 'completed') throw invalidRequest('Exam not completed');
 
   const narrativeId = await narrative.resetNarrative(exam.id);
   return { narrativeId, exam };
@@ -365,17 +365,17 @@ export async function retryNarrative(examId: string, studentId: string) {
 
 export async function getNarrative(examId: string, studentId: string) {
   const exam = await repo.loadOwnedAssessment(examId, studentId);
-  if (!exam) throw notFound('Exam not found');
+  if (!exam) throw missing('Exam not found');
 
   const row = await narrative.findNarrative(examId);
-  if (!row) throw notFound('Narrative not found');
+  if (!row) throw missing('Narrative not found');
   return row;
 }
 
 export async function listExams(studentId: string) {
   // An abandoned timed exam is closed when it next appears in a list, so history
   // never shows a section as "in progress" long after its time ran out.
-  const expired = await db
+  const expired = await database
     .select({ id: exams.id })
     .from(exams)
     .where(
@@ -396,7 +396,7 @@ export async function getCatalogue() {
 
 export async function getSetWithQuestions(setId: string) {
   const set = await repo.loadSetById(setId);
-  if (!set) throw notFound('Question set not found');
+  if (!set) throw missing('Question set not found');
   const questionRows = await repo.loadQuestionsForSet(setId);
   return { ...set, questions: repo.withPublicImageLinks(questionRows) };
 }
@@ -404,6 +404,6 @@ export async function getSetWithQuestions(setId: string) {
 /** Guards a route that only makes sense when the practice exam is this student's. */
 export async function assertOwnedExam(examId: string, studentId: string) {
   const exam = await repo.loadOwnedAssessment(examId, studentId);
-  if (!exam) throw notFound('Exam not found');
+  if (!exam) throw missing('Exam not found');
   return exam;
 }

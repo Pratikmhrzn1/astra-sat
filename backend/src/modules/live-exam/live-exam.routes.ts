@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { asyncHandler } from '../../core/http/async-handler';
-import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
-import { body, validateBody } from '../../core/http/middleware/validate';
+import { wrapAsync } from '../../core/http/async-handler';
+import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import * as service from './live-exam.service';
 import {
   createSessionSchema,
@@ -22,25 +22,25 @@ import {
  */
 export const liveExamRouter = Router();
 
-const teacherOnly = [requireAuth, requireRole(['teacher'], 'Forbidden')] as const;
-const studentOnly = [requireAuth, requireRole(['student'], 'Forbidden')] as const;
+const teacherOnly = [requireSession, requireAccountRole(['teacher'], 'Forbidden')] as const;
+const studentOnly = [requireSession, requireAccountRole(['student'], 'Forbidden')] as const;
 
 // ── Teacher ──────────────────────────────────────────────────────────────────
 
 liveExamRouter.get(
   '/teacher/live-exams',
   ...teacherOnly,
-  asyncHandler(async (req, res) => {
-    res.json(await service.listSessions(currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await service.listSessions(sessionUserId(req)));
   }),
 );
 
 liveExamRouter.post(
   '/teacher/live-exams',
   ...teacherOnly,
-  validateBody(createSessionSchema),
-  asyncHandler(async (req, res) => {
-    res.status(201).json(await service.createSession(currentUserId(req), body<CreateSessionInput>(req)));
+  checkBody(createSessionSchema),
+  wrapAsync(async (req, res) => {
+    res.status(201).json(await service.createSession(sessionUserId(req), validatedBody<CreateSessionInput>(req)));
   }),
 );
 
@@ -48,7 +48,7 @@ liveExamRouter.post(
 liveExamRouter.get(
   '/teacher/live-exam-sets',
   ...teacherOnly,
-  asyncHandler(async (_req, res) => {
+  wrapAsync(async (_req, res) => {
     res.json(await service.listLiveExamSets());
   }),
 );
@@ -56,28 +56,28 @@ liveExamRouter.get(
 liveExamRouter.get(
   '/teacher/live-exams/:sessionId',
   ...teacherOnly,
-  asyncHandler(async (req, res) => {
-    res.json(await service.getSessionDetail(req.params.sessionId, currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await service.getSessionDetail(req.params.sessionId, sessionUserId(req)));
   }),
 );
 
 liveExamRouter.post(
   '/teacher/live-exams/:sessionId/start',
   ...teacherOnly,
-  asyncHandler(async (req, res) => {
-    res.json(await service.startSession(req.params.sessionId, currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await service.startSession(req.params.sessionId, sessionUserId(req)));
   }),
 );
 
 liveExamRouter.get(
   '/teacher/live-exams/:sessionId/participants/:participantId',
   ...teacherOnly,
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     res.json(
       await service.getParticipantResult(
         req.params.sessionId,
         req.params.participantId,
-        currentUserId(req),
+        sessionUserId(req),
       ),
     );
   }),
@@ -86,13 +86,13 @@ liveExamRouter.get(
 liveExamRouter.post(
   '/teacher/live-exams/:sessionId/participants/:participantId/feedback',
   ...teacherOnly,
-  validateBody(saveFeedbackSchema),
-  asyncHandler(async (req, res) => {
+  checkBody(saveFeedbackSchema),
+  wrapAsync(async (req, res) => {
     await service.saveParticipantFeedback(
       req.params.sessionId,
       req.params.participantId,
-      currentUserId(req),
-      body<SaveFeedbackInput>(req),
+      sessionUserId(req),
+      validatedBody<SaveFeedbackInput>(req),
     );
     res.json({ ok: true });
   }),
@@ -101,12 +101,12 @@ liveExamRouter.post(
 liveExamRouter.post(
   '/teacher/live-exams/:sessionId/participants/:participantId/release',
   ...teacherOnly,
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     res.json(
       await service.releaseParticipantResult(
         req.params.sessionId,
         req.params.participantId,
-        currentUserId(req),
+        sessionUserId(req),
       ),
     );
   }),
@@ -115,8 +115,8 @@ liveExamRouter.post(
 liveExamRouter.post(
   '/teacher/live-exams/:sessionId/release-all',
   ...teacherOnly,
-  asyncHandler(async (req, res) => {
-    res.json(await service.releaseAllResults(req.params.sessionId, currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await service.releaseAllResults(req.params.sessionId, sessionUserId(req)));
   }),
 );
 
@@ -128,7 +128,7 @@ liveExamRouter.post(
  */
 liveExamRouter.get(
   '/live/:joinCode/status',
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     res.json(await service.getSessionStatus(req.params.joinCode));
   }),
 );
@@ -136,16 +136,16 @@ liveExamRouter.get(
 liveExamRouter.post(
   '/live/:joinCode/join',
   ...studentOnly,
-  asyncHandler(async (req, res) => {
-    res.json(await service.joinSession(req.params.joinCode, currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await service.joinSession(req.params.joinCode, sessionUserId(req)));
   }),
 );
 
 liveExamRouter.get(
   '/live/:joinCode/poll',
   ...studentOnly,
-  asyncHandler(async (req, res) => {
-    res.json(await service.pollSession(req.params.joinCode, currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await service.pollSession(req.params.joinCode, sessionUserId(req)));
   }),
 );
 
@@ -154,24 +154,24 @@ liveExamRouter.get(
 liveExamRouter.get(
   '/student/live-exam-results',
   ...studentOnly,
-  asyncHandler(async (req, res) => {
-    res.json(await service.listStudentResults(currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await service.listStudentResults(sessionUserId(req)));
   }),
 );
 
 liveExamRouter.get(
   '/student/notifications',
   ...studentOnly,
-  asyncHandler(async (req, res) => {
-    res.json(await service.listUnreadNotifications(currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await service.listUnreadNotifications(sessionUserId(req)));
   }),
 );
 
 liveExamRouter.post(
   '/student/notifications/:id/read',
   ...studentOnly,
-  asyncHandler(async (req, res) => {
-    await service.markNotificationRead(req.params.id, currentUserId(req));
+  wrapAsync(async (req, res) => {
+    await service.markNotificationRead(req.params.id, sessionUserId(req));
     res.json({ ok: true });
   }),
 );

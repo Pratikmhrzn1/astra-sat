@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import {
   exams,
   liveExamParticipants,
@@ -10,7 +10,7 @@ import {
   questionSets,
   users,
 } from '../../core/db/schema';
-import { badRequest, notFound } from '../../core/errors';
+import { invalidRequest, missing } from '../../core/errors';
 import { buildAssessmentForSet, examRepository } from '../exams';
 import { recordMistakesOnRelease } from '../mistakes';
 
@@ -63,7 +63,7 @@ async function generateUniqueJoinCode(): Promise<string> {
   // cheaper than reasoning about it, and the unique index is the real guard.
   for (let attempt = 0; attempt < 10; attempt++) {
     const code = makeJoinCode();
-    const [existing] = await db
+    const [existing] = await database
       .select({ id: liveExamSessions.id })
       .from(liveExamSessions)
       .where(eq(liveExamSessions.joinCode, code))
@@ -75,17 +75,17 @@ async function generateUniqueJoinCode(): Promise<string> {
 
 /** Loads a session, failing unless it belongs to this teacher. */
 async function findOwnedSession(sessionId: string, teacherId: string) {
-  const [session] = await db
+  const [session] = await database
     .select()
     .from(liveExamSessions)
     .where(and(eq(liveExamSessions.id, sessionId), eq(liveExamSessions.teacherId, teacherId)))
     .limit(1);
-  if (!session) throw notFound('Session not found');
+  if (!session) throw missing('Session not found');
   return session;
 }
 
 async function findSessionByCode(joinCode: string) {
-  const [session] = await db
+  const [session] = await database
     .select()
     .from(liveExamSessions)
     .where(eq(liveExamSessions.joinCode, joinCode.toUpperCase()))
@@ -96,7 +96,7 @@ async function findSessionByCode(joinCode: string) {
 // ── Teacher ───────────────────────────────────────────────────────────────────
 
 export async function listSessions(teacherId: string) {
-  return db
+  return database
     .select()
     .from(liveExamSessions)
     .where(eq(liveExamSessions.teacherId, teacherId))
@@ -104,7 +104,7 @@ export async function listSessions(teacherId: string) {
 }
 
 export async function createSession(teacherId: string, input: CreateSessionInput) {
-  const [session] = await db
+  const [session] = await database
     .insert(liveExamSessions)
     .values({
       title: input.title,
@@ -121,7 +121,7 @@ export async function createSession(teacherId: string, input: CreateSessionInput
 export async function getSessionDetail(sessionId: string, teacherId: string) {
   const session = await findOwnedSession(sessionId, teacherId);
 
-  const participants = await db
+  const participants = await database
     .select({
       id: liveExamParticipants.id,
       studentId: liveExamParticipants.studentId,
@@ -151,12 +151,12 @@ export async function getSessionDetail(sessionId: string, teacherId: string) {
  */
 export async function startSession(sessionId: string, teacherId: string) {
   const session = await findOwnedSession(sessionId, teacherId);
-  if (session.status !== 'waiting') throw badRequest('Already started');
+  if (session.status !== 'waiting') throw invalidRequest('Already started');
   if (!session.englishSetId || !session.mathSetId) {
-    throw badRequest('Session is missing its English or Math question set');
+    throw invalidRequest('Session is missing its English or Math question set');
   }
 
-  const participants = await db
+  const participants = await database
     .select()
     .from(liveExamParticipants)
     .where(eq(liveExamParticipants.sessionId, session.id));
@@ -168,7 +168,7 @@ export async function startSession(sessionId: string, teacherId: string) {
     await provisionParticipantExams(participant, { ...session, startedAt });
   }
 
-  await db
+  await database
     .update(liveExamSessions)
     .set({ status: 'active', startedAt })
     .where(eq(liveExamSessions.id, session.id));
@@ -232,7 +232,7 @@ async function provisionParticipantExams(
   // would write and the last writer would win, leaving the student sitting the
   // paper the participant row no longer points at — the teacher would then mark
   // and release a blank result for a section the student actually completed.
-  const claimedSlots = await db
+  const claimedSlots = await database
     .update(liveExamParticipants)
     .set({ englishExamId: englishExam.id, mathExamId: mathExam.id })
     .where(and(eq(liveExamParticipants.id, participant.id), isNull(liveExamParticipants.englishExamId)))
@@ -242,7 +242,7 @@ async function provisionParticipantExams(
     // Another call provisioned first; its pair is the one of record. The exams
     // we just created are left unreferenced rather than deleted — nothing reads
     // them, and deleting here would race the winner.
-    const [current] = await db
+    const [current] = await database
       .select()
       .from(liveExamParticipants)
       .where(eq(liveExamParticipants.id, participant.id))
@@ -256,14 +256,14 @@ async function provisionParticipantExams(
 }
 
 async function findParticipantInSession(participantId: string, sessionId: string) {
-  const [participant] = await db
+  const [participant] = await database
     .select()
     .from(liveExamParticipants)
     .where(
       and(eq(liveExamParticipants.id, participantId), eq(liveExamParticipants.sessionId, sessionId)),
     )
     .limit(1);
-  if (!participant) throw notFound('Participant not found');
+  if (!participant) throw missing('Participant not found');
   return participant;
 }
 
@@ -274,7 +274,7 @@ export async function getParticipantResult(
 ) {
   const session = await findOwnedSession(sessionId, teacherId);
 
-  const [participant] = await db
+  const [participant] = await database
     .select({
       id: liveExamParticipants.id,
       studentId: liveExamParticipants.studentId,
@@ -290,10 +290,10 @@ export async function getParticipantResult(
       and(eq(liveExamParticipants.id, participantId), eq(liveExamParticipants.sessionId, session.id)),
     )
     .limit(1);
-  if (!participant) throw notFound('Participant not found');
+  if (!participant) throw missing('Participant not found');
 
   const [questionFeedbacks, english, math] = await Promise.all([
-    db
+    database
       .select()
       .from(liveExamQuestionFeedback)
       .where(eq(liveExamQuestionFeedback.participantId, participant.id)),
@@ -322,7 +322,7 @@ export async function getParticipantResult(
 async function loadSectionForMarking(examId: string | null) {
   if (!examId) return null;
 
-  const [exam] = await db.select().from(exams).where(eq(exams.id, examId)).limit(1);
+  const [exam] = await database.select().from(exams).where(eq(exams.id, examId)).limit(1);
   if (!exam) return null;
 
   // The shared review projection, which this query used to duplicate without
@@ -350,14 +350,14 @@ export async function saveParticipantFeedback(
   const participant = await findParticipantInSession(participantId, session.id);
 
   if (input.globalFeedback !== undefined) {
-    await db
+    await database
       .update(liveExamParticipants)
       .set({ globalFeedback: input.globalFeedback })
       .where(eq(liveExamParticipants.id, participant.id));
   }
 
   if (input.questionFeedbacks?.length) {
-    await db
+    await database
       .insert(liveExamQuestionFeedback)
       .values(
         input.questionFeedbacks.map((entry) => ({
@@ -375,7 +375,7 @@ export async function saveParticipantFeedback(
 }
 
 async function notifyResultsReleased(studentId: string, sessionTitle: string) {
-  await db.insert(notifications).values({
+  await database.insert(notifications).values({
     userId: studentId,
     type: 'live_exam_result',
     title: 'Your Live Exam results are ready',
@@ -400,7 +400,7 @@ export async function releaseParticipantResult(
   const participant = await findParticipantInSession(participantId, session.id);
   if (participant.resultReleased) return { ok: true, alreadyReleased: true };
 
-  await db
+  await database
     .update(liveExamParticipants)
     .set({ resultReleased: true })
     .where(eq(liveExamParticipants.id, participant.id));
@@ -424,7 +424,7 @@ export async function releaseParticipantResult(
 export async function releaseAllResults(sessionId: string, teacherId: string) {
   const session = await findOwnedSession(sessionId, teacherId);
 
-  const participants = await db
+  const participants = await database
     .select({
       id: liveExamParticipants.id,
       studentId: liveExamParticipants.studentId,
@@ -438,7 +438,7 @@ export async function releaseAllResults(sessionId: string, teacherId: string) {
   const unreleased = participants.filter((participant) => !participant.resultReleased);
 
   for (const participant of unreleased) {
-    await db
+    await database
       .update(liveExamParticipants)
       .set({ resultReleased: true })
       .where(eq(liveExamParticipants.id, participant.id));
@@ -449,7 +449,7 @@ export async function releaseAllResults(sessionId: string, teacherId: string) {
     await notifyResultsReleased(participant.studentId, session.title);
   }
 
-  await db
+  await database
     .update(liveExamSessions)
     .set({ status: 'completed' })
     .where(eq(liveExamSessions.id, session.id));
@@ -459,7 +459,7 @@ export async function releaseAllResults(sessionId: string, teacherId: string) {
 
 /** Sets flagged as live-exam material, offered when creating a session. */
 export async function listLiveExamSets() {
-  return db
+  return database
     .select({
       id: questionSets.id,
       title: questionSets.title,
@@ -475,7 +475,7 @@ export async function listLiveExamSets() {
 /** Public lobby check: enough to render the waiting room, and nothing more. */
 export async function getSessionStatus(joinCode: string) {
   const session = await findSessionByCode(joinCode);
-  if (!session) throw notFound('Session not found');
+  if (!session) throw missing('Session not found');
 
   return {
     id: session.id,
@@ -490,10 +490,10 @@ export async function getSessionStatus(joinCode: string) {
 /** Joining is idempotent — a student reloading the lobby rejoins their seat. */
 export async function joinSession(joinCode: string, studentId: string) {
   const session = await findSessionByCode(joinCode);
-  if (!session) throw notFound('Session not found');
-  if (session.status === 'completed') throw badRequest('Session already ended');
+  if (!session) throw missing('Session not found');
+  if (session.status === 'completed') throw invalidRequest('Session already ended');
 
-  const [existing] = await db
+  const [existing] = await database
     .select()
     .from(liveExamParticipants)
     .where(
@@ -507,7 +507,7 @@ export async function joinSession(joinCode: string, studentId: string) {
   const participant =
     existing ??
     (
-      await db
+      await database
         .insert(liveExamParticipants)
         .values({ sessionId: session.id, studentId })
         .returning()
@@ -539,9 +539,9 @@ export async function joinSession(joinCode: string, studentId: string) {
  */
 export async function pollSession(joinCode: string, studentId: string) {
   const session = await findSessionByCode(joinCode);
-  if (!session) throw notFound('Session not found');
+  if (!session) throw missing('Session not found');
 
-  const [participant] = await db
+  const [participant] = await database
     .select()
     .from(liveExamParticipants)
     .where(
@@ -570,7 +570,7 @@ export async function pollSession(joinCode: string, studentId: string) {
 }
 
 export async function listStudentResults(studentId: string) {
-  return db
+  return database
     .select({
       sessionId: liveExamSessions.id,
       sessionTitle: liveExamSessions.title,
@@ -595,7 +595,7 @@ export async function listStudentResults(studentId: string) {
 }
 
 export async function listUnreadNotifications(userId: string) {
-  return db
+  return database
     .select()
     .from(notifications)
     .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)))
@@ -603,7 +603,7 @@ export async function listUnreadNotifications(userId: string) {
 }
 
 export async function markNotificationRead(notificationId: string, userId: string): Promise<void> {
-  await db
+  await database
     .update(notifications)
     .set({ isRead: true })
     .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));

@@ -1,6 +1,6 @@
 import { getTableColumns, getTableName, is } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
-import { db, pool } from '../../core/db';
+import { database, pgPool } from '../../core/db';
 import * as schema from '../../core/db/schema';
 import {
   accessCodes,
@@ -28,8 +28,8 @@ import {
   teacherVocabWords,
   users,
 } from '../../core/db/schema';
-import { runMigrations } from '../../core/db/migrate';
-import { badRequest, internal } from '../../core/errors';
+import { applySchema } from '../../core/db/migrate';
+import { invalidRequest, internalFailure } from '../../core/errors';
 import type { RestoreInput } from './admin.schemas';
 
 /**
@@ -126,7 +126,7 @@ const EXCLUDED_TABLES: Record<string, string> = {
   refresh_tokens: 'session tokens, must not outlive their database',
   password_reset_tokens: 'short-lived credentials, must not be restored',
   // Reference data owned by the migration runner, which reseeds it on boot.
-  skills: 'seeded by runMigrations() before any restore runs',
+  skills: 'seeded by applySchema() before any restore runs',
   // Transient UI state; losing it costs a user nothing.
   notifications: 'transient UI state',
 };
@@ -184,7 +184,7 @@ export interface Backup {
 }
 
 export async function createBackup(): Promise<{ backup: Backup; filename: string }> {
-  const tables = await Promise.all(BACKUP_TABLES.map(({ table }) => db.select().from(table)));
+  const tables = await Promise.all(BACKUP_TABLES.map(({ table }) => database.select().from(table)));
 
   const data: Record<string, unknown[]> = {};
   BACKUP_TABLES.forEach(({ key }, index) => {
@@ -212,7 +212,7 @@ export async function createBackup(): Promise<{ backup: Backup; filename: string
  * the one self-reference. Do not rely on deferral to cover a new FK.
  */
 export async function restoreBackup(input: RestoreInput): Promise<{ ok: true; message: string }> {
-  const client = await pool.connect();
+  const client = await pgPool.connect();
 
   try {
     await client.query('BEGIN');
@@ -238,7 +238,7 @@ export async function restoreBackup(input: RestoreInput): Promise<{ ok: true; me
   } catch (err) {
     await client.query('ROLLBACK').catch(() => undefined);
     console.error('[admin] Restore failed:', err);
-    throw internal('Restore failed', { details: String(err) });
+    throw internalFailure('Restore failed', { details: String(err) });
   } finally {
     client.release();
   }
@@ -300,11 +300,11 @@ async function insertRows(
 
 export async function runMigrationsNow(): Promise<{ ok: true; message: string }> {
   try {
-    await runMigrations();
+    await applySchema();
     return { ok: true, message: 'Migrations completed successfully' };
   } catch (err) {
     console.error('[admin] Migration failed:', err);
-    throw internal('Migration failed', { details: String(err) });
+    throw internalFailure('Migration failed', { details: String(err) });
   }
 }
 
@@ -325,7 +325,7 @@ export interface SqlResult {
  * debugging their own statement.
  */
 export async function runSql(statement: string): Promise<SqlResult> {
-  const client = await pool.connect();
+  const client = await pgPool.connect();
   try {
     const result = await client.query(statement);
     const results = Array.isArray(result) ? result : [result];
@@ -338,7 +338,7 @@ export async function runSql(statement: string): Promise<SqlResult> {
     };
   } catch (err) {
     console.error('[admin] SQL runner error:', err);
-    throw badRequest(String(err));
+    throw invalidRequest(String(err));
   } finally {
     client.release();
   }

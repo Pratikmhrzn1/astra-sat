@@ -1,7 +1,7 @@
 import { asc, desc, eq, sql } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { surveyQuestions, surveyResponses, users } from '../../core/db/schema';
-import { badRequest, notFound } from '../../core/errors';
+import { invalidRequest, missing } from '../../core/errors';
 import {
   CHOICE_TYPES,
   SCALE_MAX,
@@ -27,12 +27,12 @@ import {
 /** Choice questions need options; the other two types must not carry any. */
 function assertOptionsValid(type: SurveyQuestionType, options: string[]): void {
   if (CHOICE_TYPES.includes(type)) {
-    if (options.length < 2) throw badRequest('A choice question needs at least 2 options');
+    if (options.length < 2) throw invalidRequest('A choice question needs at least 2 options');
     const unique = new Set(options.map((o) => o.toLowerCase()));
-    if (unique.size !== options.length) throw badRequest('Options must be distinct');
+    if (unique.size !== options.length) throw invalidRequest('Options must be distinct');
     return;
   }
-  if (options.length > 0) throw badRequest(`A ${type} question cannot have options`);
+  if (options.length > 0) throw invalidRequest(`A ${type} question cannot have options`);
 }
 
 /**
@@ -63,7 +63,7 @@ const adminQuestionColumns = {
 } as const;
 
 export async function listQuestions() {
-  return db
+  return database
     .select({ ...adminQuestionColumns, responseCount: RESPONSE_COUNT.as('response_count') })
     .from(surveyQuestions)
     .orderBy(asc(surveyQuestions.sortOrder), asc(surveyQuestions.createdAt));
@@ -71,18 +71,18 @@ export async function listQuestions() {
 
 /** Re-reads one question in the admin list's shape, after writing it. */
 async function readAdminQuestion(id: string) {
-  const [row] = await db
+  const [row] = await database
     .select({ ...adminQuestionColumns, responseCount: RESPONSE_COUNT.as('response_count') })
     .from(surveyQuestions)
     .where(eq(surveyQuestions.id, id))
     .limit(1);
-  if (!row) throw notFound('Survey question not found');
+  if (!row) throw missing('Survey question not found');
   return row;
 }
 
 export async function createQuestion(adminId: string, input: CreateQuestionInput) {
   assertOptionsValid(input.type, input.options);
-  const [row] = await db
+  const [row] = await database
     .insert(surveyQuestions)
     .values({
       prompt: input.prompt,
@@ -102,8 +102,8 @@ export async function createQuestion(adminId: string, input: CreateQuestionInput
 }
 
 export async function updateQuestion(id: string, input: UpdateQuestionInput) {
-  const [existing] = await db.select().from(surveyQuestions).where(eq(surveyQuestions.id, id)).limit(1);
-  if (!existing) throw notFound('Survey question not found');
+  const [existing] = await database.select().from(surveyQuestions).where(eq(surveyQuestions.id, id)).limit(1);
+  if (!existing) throw missing('Survey question not found');
 
   const type = input.type ?? (existing.type as SurveyQuestionType);
   // Switching to a type that takes no options drops them rather than failing,
@@ -118,14 +118,14 @@ export async function updateQuestion(id: string, input: UpdateQuestionInput) {
   if (type !== existing.type) {
     const answered = await countResponses(id);
     if (answered > 0) {
-      throw badRequest(
+      throw invalidRequest(
         `This question already has ${answered} answer${answered === 1 ? '' : 's'}, so its answer type cannot change. ` +
           'Make it inactive and add a replacement question instead.',
       );
     }
   }
 
-  await db
+  await database
     .update(surveyQuestions)
     .set({
       prompt: input.prompt ?? existing.prompt,
@@ -141,15 +141,15 @@ export async function updateQuestion(id: string, input: UpdateQuestionInput) {
 
 /** Cascades to the answers given to it — the caller warns before asking. */
 export async function deleteQuestion(id: string): Promise<void> {
-  const deleted = await db
+  const deleted = await database
     .delete(surveyQuestions)
     .where(eq(surveyQuestions.id, id))
     .returning({ id: surveyQuestions.id });
-  if (deleted.length === 0) throw notFound('Survey question not found');
+  if (deleted.length === 0) throw missing('Survey question not found');
 }
 
 export async function reorderQuestions({ ids }: ReorderQuestionsInput): Promise<void> {
-  await db.transaction(async (tx) => {
+  await database.transaction(async (tx) => {
     for (const [index, id] of ids.entries()) {
       await tx.update(surveyQuestions).set({ sortOrder: index }).where(eq(surveyQuestions.id, id));
     }
@@ -160,7 +160,7 @@ export async function reorderQuestions({ ids }: ReorderQuestionsInput): Promise<
 
 /** Active questions only, without the admin bookkeeping columns. */
 async function activeQuestions() {
-  return db
+  return database
     .select({
       id: surveyQuestions.id,
       prompt: surveyQuestions.prompt,
@@ -174,12 +174,12 @@ async function activeQuestions() {
 }
 
 export async function getSurveyForStudent(userId: string) {
-  const [user] = await db
+  const [user] = await database
     .select({ surveyCompletedAt: users.surveyCompletedAt })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  if (!user) throw notFound('User not found');
+  if (!user) throw missing('User not found');
   return { completed: user.surveyCompletedAt !== null, questions: await activeQuestions() };
 }
 
@@ -189,13 +189,13 @@ function normalizeAnswer(
   answer: string | string[] | number,
 ): string | string[] | number {
   if (question.type === 'short_text') {
-    if (typeof answer !== 'string') throw badRequest(`"${question.prompt}" expects a written answer`);
+    if (typeof answer !== 'string') throw invalidRequest(`"${question.prompt}" expects a written answer`);
     return answer;
   }
   if (question.type === 'scale') {
     const value = typeof answer === 'number' ? answer : Number(answer);
     if (!Number.isInteger(value) || value < SCALE_MIN || value > SCALE_MAX) {
-      throw badRequest(`"${question.prompt}" expects a rating from ${SCALE_MIN} to ${SCALE_MAX}`);
+      throw invalidRequest(`"${question.prompt}" expects a rating from ${SCALE_MIN} to ${SCALE_MAX}`);
     }
     return value;
   }
@@ -204,10 +204,10 @@ function normalizeAnswer(
   // the admin's summary.
   const picked = [...new Set(Array.isArray(answer) ? answer : [answer])];
   if (picked.some((choice) => typeof choice !== 'string' || !question.options.includes(choice))) {
-    throw badRequest(`"${question.prompt}" was answered with an option that does not exist`);
+    throw invalidRequest(`"${question.prompt}" was answered with an option that does not exist`);
   }
   if (question.type === 'single_choice') {
-    if (picked.length !== 1) throw badRequest(`"${question.prompt}" takes exactly one answer`);
+    if (picked.length !== 1) throw invalidRequest(`"${question.prompt}" takes exactly one answer`);
     return picked[0] as string;
   }
   return picked as string[];
@@ -247,10 +247,10 @@ export async function submitSurvey(userId: string, input: SubmitSurveyInput) {
 
   const missing = questions.filter((q) => q.isRequired && !answered.has(q.id));
   if (missing.length > 0) {
-    throw badRequest(`Please answer: ${missing.map((q) => q.prompt).join(', ')}`);
+    throw invalidRequest(`Please answer: ${missing.map((q) => q.prompt).join(', ')}`);
   }
 
-  await db.transaction(async (tx) => {
+  await database.transaction(async (tx) => {
     for (const [questionId, answer] of answered) {
       await tx
         .insert(surveyResponses)
@@ -307,7 +307,7 @@ export interface SurveyRespondent {
 
 /** One row per respondent, newest first, each carrying their answers in ask order. */
 export async function listResponses(): Promise<SurveyRespondent[]> {
-  const rows = await db
+  const rows = await database
     .select({
       userId: surveyResponses.userId,
       userName: users.name,
@@ -362,7 +362,7 @@ export async function listResponses(): Promise<SurveyRespondent[]> {
 
 /** Used by the delete confirmation: how many students answered this question. */
 export async function countResponses(questionId: string): Promise<number> {
-  const [row] = await db
+  const [row] = await database
     .select({ count: sql<number>`COUNT(*)::int` })
     .from(surveyResponses)
     .where(eq(surveyResponses.questionId, questionId));

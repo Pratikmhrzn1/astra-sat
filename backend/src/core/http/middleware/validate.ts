@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express';
 import type { ZodSchema, ZodTypeAny, output } from 'zod';
-import { badRequest } from '../../errors';
+import { invalidRequest } from '../../errors';
 
 /**
  * Request validation. A failure is a 422 carrying per-field messages, matching
@@ -24,29 +24,29 @@ function validate(source: 'body' | 'query' | 'params', schema: ZodSchema<unknown
   };
 }
 
-export const validateBody = <T>(schema: ZodSchema<T>): RequestHandler => validate('body', schema);
-export const validateQuery = <T>(schema: ZodSchema<T>): RequestHandler => validate('query', schema);
-export const validateParams = <T>(schema: ZodSchema<T>): RequestHandler => validate('params', schema);
+export const checkBody = <T>(schema: ZodSchema<T>): RequestHandler => validate('body', schema);
+export const checkQuery = <T>(schema: ZodSchema<T>): RequestHandler => validate('query', schema);
+export const checkParams = <T>(schema: ZodSchema<T>): RequestHandler => validate('params', schema);
 
 /** Typed accessors — `const { email } = Body<typeof schema>(req)`. */
-export const body = <T>(req: { body: unknown }): T => req.body as T;
-export const query = <T>(req: { query: unknown }): T => req.query as T;
-export const params = <T>(req: { params: unknown }): T => req.params as T;
+export const validatedBody = <T>(req: { body: unknown }): T => req.body as T;
+export const validatedQuery = <T>(req: { query: unknown }): T => req.query as T;
+export const validatedParams = <T>(req: { params: unknown }): T => req.params as T;
 
 /**
  * Parses a payload inside a service, reporting the first message as a 400.
  *
- * Most routes validate at the edge with `validateBody`, which answers 422 with
+ * Most routes validate at the edge with `checkBody`, which answers 422 with
  * per-field details. A few endpoints predate that and their clients read a
  * single message from a 400 instead; this keeps that contract intact without
  * spreading two validation styles through the routing layer.
  *
  * Returns the parsed value (defaults applied), so it is typed as the schema's output.
  */
-export function parseOrBadRequest<S extends ZodTypeAny>(schema: S, payload: unknown): output<S> {
+export function parseOrReject<S extends ZodTypeAny>(schema: S, payload: unknown): output<S> {
   const result = schema.safeParse(payload);
   if (!result.success) {
-    throw badRequest(result.error.errors[0]?.message ?? 'Invalid request body');
+    throw invalidRequest(result.error.errors[0]?.message ?? 'Invalid request body');
   }
   return result.data;
 }

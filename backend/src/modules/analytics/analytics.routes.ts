@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { asyncHandler } from '../../core/http/async-handler';
-import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
-import { body, validateBody } from '../../core/http/middleware/validate';
+import { wrapAsync } from '../../core/http/async-handler';
+import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import * as analytics from './analytics.service';
 import * as profile from './profile.service';
 import { updateProfileSchema, type UpdateProfileInput } from './analytics.schemas';
@@ -10,23 +10,23 @@ import { updateProfileSchema, type UpdateProfileInput } from './analytics.schema
 
 export const analyticsStudentRouter = Router();
 
-analyticsStudentRouter.use(requireAuth, requireRole(['student']));
+analyticsStudentRouter.use(requireSession, requireAccountRole(['student']));
 
 // ── Profile ──────────────────────────────────────────────────────────────────
 
 /** Null when no goal has been set — the dashboard prompts rather than guessing. */
 analyticsStudentRouter.get(
   '/profile',
-  asyncHandler(async (req, res) => {
-    res.json(await profile.getProfile(currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await profile.getProfile(sessionUserId(req)));
   }),
 );
 
 analyticsStudentRouter.put(
   '/profile',
-  validateBody(updateProfileSchema),
-  asyncHandler(async (req, res) => {
-    res.json(await profile.upsertProfile(currentUserId(req), body<UpdateProfileInput>(req)));
+  checkBody(updateProfileSchema),
+  wrapAsync(async (req, res) => {
+    res.json(await profile.upsertProfile(sessionUserId(req), validatedBody<UpdateProfileInput>(req)));
   }),
 );
 
@@ -35,7 +35,7 @@ analyticsStudentRouter.put(
 /** Domain accuracy, the score trend and readiness, for the progress view. */
 analyticsStudentRouter.get(
   '/analytics/overview',
-  asyncHandler(async (req, res) => {
-    res.json(await analytics.overview(currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await analytics.overview(sessionUserId(req)));
   }),
 );

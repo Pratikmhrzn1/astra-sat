@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { asyncHandler } from '../../core/http/async-handler';
-import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
-import { body, validateBody } from '../../core/http/middleware/validate';
+import { wrapAsync } from '../../core/http/async-handler';
+import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import { logAudit } from '../audit';
 import * as service from './survey.service';
 import {
@@ -23,49 +23,49 @@ import {
 
 export const surveyAdminRouter = Router();
 
-surveyAdminRouter.use(requireAuth, requireRole(['admin']));
+surveyAdminRouter.use(requireSession, requireAccountRole(['admin']));
 
 surveyAdminRouter.get(
   '/survey-questions',
-  asyncHandler(async (_req, res) => {
+  wrapAsync(async (_req, res) => {
     res.json(await service.listQuestions());
   }),
 );
 
 surveyAdminRouter.post(
   '/survey-questions',
-  validateBody(createQuestionSchema),
-  asyncHandler(async (req, res) => {
-    res.status(201).json(await service.createQuestion(currentUserId(req), body<CreateQuestionInput>(req)));
+  checkBody(createQuestionSchema),
+  wrapAsync(async (req, res) => {
+    res.status(201).json(await service.createQuestion(sessionUserId(req), validatedBody<CreateQuestionInput>(req)));
   }),
 );
 
 /** Whole-list ordering, sent as the ids in their new order. */
 surveyAdminRouter.put(
   '/survey-questions/reorder',
-  validateBody(reorderQuestionsSchema),
-  asyncHandler(async (req, res) => {
-    await service.reorderQuestions(body<ReorderQuestionsInput>(req));
+  checkBody(reorderQuestionsSchema),
+  wrapAsync(async (req, res) => {
+    await service.reorderQuestions(validatedBody<ReorderQuestionsInput>(req));
     res.json({ ok: true });
   }),
 );
 
 surveyAdminRouter.patch(
   '/survey-questions/:id',
-  validateBody(updateQuestionSchema),
-  asyncHandler(async (req, res) => {
-    res.json(await service.updateQuestion(req.params.id, body<UpdateQuestionInput>(req)));
+  checkBody(updateQuestionSchema),
+  wrapAsync(async (req, res) => {
+    res.json(await service.updateQuestion(req.params.id, validatedBody<UpdateQuestionInput>(req)));
   }),
 );
 
 /** Destructive: the answers given to the question go with it, hence the audit row. */
 surveyAdminRouter.delete(
   '/survey-questions/:id',
-  asyncHandler(async (req, res) => {
+  wrapAsync(async (req, res) => {
     const responseCount = await service.countResponses(req.params.id);
     await service.deleteQuestion(req.params.id);
     await logAudit({
-      actorId: currentUserId(req),
+      actorId: sessionUserId(req),
       action: 'survey.question_deleted',
       targetType: 'survey_question',
       targetId: req.params.id,
@@ -77,26 +77,26 @@ surveyAdminRouter.delete(
 
 surveyAdminRouter.get(
   '/survey-responses',
-  asyncHandler(async (_req, res) => {
+  wrapAsync(async (_req, res) => {
     res.json(await service.listResponses());
   }),
 );
 
 export const surveyStudentRouter = Router();
 
-surveyStudentRouter.use(requireAuth, requireRole(['student']));
+surveyStudentRouter.use(requireSession, requireAccountRole(['student']));
 
 surveyStudentRouter.get(
   '/survey',
-  asyncHandler(async (req, res) => {
-    res.json(await service.getSurveyForStudent(currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await service.getSurveyForStudent(sessionUserId(req)));
   }),
 );
 
 surveyStudentRouter.post(
   '/survey',
-  validateBody(submitSurveySchema),
-  asyncHandler(async (req, res) => {
-    res.json(await service.submitSurvey(currentUserId(req), body<SubmitSurveyInput>(req)));
+  checkBody(submitSurveySchema),
+  wrapAsync(async (req, res) => {
+    res.json(await service.submitSurvey(sessionUserId(req), validatedBody<SubmitSurveyInput>(req)));
   }),
 );

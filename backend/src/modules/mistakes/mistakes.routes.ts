@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { asyncHandler } from '../../core/http/async-handler';
-import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
-import { body, query, validateBody, validateQuery } from '../../core/http/middleware/validate';
+import { wrapAsync } from '../../core/http/async-handler';
+import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { validatedBody, validatedQuery, checkBody, checkQuery } from '../../core/http/middleware/validate';
 import * as mistakes from './mistakes.service';
 import {
   mistakePracticeSchema,
@@ -12,7 +12,7 @@ import {
 
 export const mistakesStudentRouter = Router();
 
-mistakesStudentRouter.use(requireAuth, requireRole(['student']));
+mistakesStudentRouter.use(requireSession, requireAccountRole(['student']));
 
 // ── Mistake bank ─────────────────────────────────────────────────────────────
 
@@ -25,17 +25,17 @@ mistakesStudentRouter.use(requireAuth, requireRole(['student']));
  */
 mistakesStudentRouter.get(
   '/mistakes',
-  validateQuery(mistakeQuerySchema),
-  asyncHandler(async (req, res) => {
-    res.json(await mistakes.listMistakes(currentUserId(req), query<MistakeQuery>(req)));
+  checkQuery(mistakeQuerySchema),
+  wrapAsync(async (req, res) => {
+    res.json(await mistakes.listMistakes(sessionUserId(req), validatedQuery<MistakeQuery>(req)));
   }),
 );
 
 /** Open counts per domain, for the summary strip above the list. */
 mistakesStudentRouter.get(
   '/mistakes/summary',
-  asyncHandler(async (req, res) => {
-    res.json(await mistakes.getMistakeSummary(currentUserId(req)));
+  wrapAsync(async (req, res) => {
+    res.json(await mistakes.getMistakeSummary(sessionUserId(req)));
   }),
 );
 
@@ -45,11 +45,11 @@ mistakesStudentRouter.get(
  */
 mistakesStudentRouter.post(
   '/mistakes/practice',
-  validateBody(mistakePracticeSchema),
-  asyncHandler(async (req, res) => {
+  checkBody(mistakePracticeSchema),
+  wrapAsync(async (req, res) => {
     const result = await mistakes.startMistakePractice(
-      currentUserId(req),
-      body<MistakePracticeInput>(req),
+      sessionUserId(req),
+      validatedBody<MistakePracticeInput>(req),
     );
     res.status(201).json(result);
   }),

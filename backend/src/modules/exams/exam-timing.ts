@@ -1,7 +1,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { exams } from '../../core/db/schema';
-import { parseDbTimestamp } from '../../core/lib/db-time';
+import { readDbTimestamp } from '../../core/lib/db-time';
 
 /**
  * Server-authoritative exam time.
@@ -42,7 +42,7 @@ export function moduleCapFor(type: ExamRow['type']): number | null {
 }
 
 async function liveSectionDeadline(exam: ExamRow): Promise<Date | null | undefined> {
-  const result = await db.execute<{ started_at: Date | string | null; duration: number }>(sql`
+  const result = await database.execute<{ started_at: Date | string | null; duration: number }>(sql`
     SELECT s.started_at,
            CASE WHEN p.english_exam_id = ${exam.id} THEN s.english_duration_seconds
                 ELSE s.math_duration_seconds END AS duration
@@ -54,11 +54,11 @@ async function liveSectionDeadline(exam: ExamRow): Promise<Date | null | undefin
   const row = result.rows[0] as { started_at: Date | string | null; duration: number } | undefined;
   if (!row) return undefined; // not a live exam
   if (!row.started_at) return null; // session not started
-  return new Date(parseDbTimestamp(row.started_at).getTime() + Number(row.duration) * 1000);
+  return new Date(readDbTimestamp(row.started_at).getTime() + Number(row.duration) * 1000);
 }
 
 async function isMockModule(examId: string): Promise<boolean> {
-  const result = await db.execute(sql`
+  const result = await database.execute(sql`
     SELECT 1 FROM mock_tests
      WHERE ${examId} IN (english_exam_id, english_m2_exam_id, math_exam_id, math_m2_exam_id)
      LIMIT 1
@@ -82,7 +82,7 @@ export async function settleDeadline(exam: ExamRow, { open }: { open: boolean })
 
   const live = await liveSectionDeadline(exam);
   if (live !== undefined) {
-    if (live) await db.update(exams).set({ deadlineAt: live }).where(and(eq(exams.id, exam.id), isNull(exams.deadlineAt)));
+    if (live) await database.update(exams).set({ deadlineAt: live }).where(and(eq(exams.id, exam.id), isNull(exams.deadlineAt)));
     return live;
   }
 
@@ -90,15 +90,15 @@ export async function settleDeadline(exam: ExamRow, { open }: { open: boolean })
   // Mock modules created before limits were stored.
   if (limit === null && moduleCapFor(exam.type) !== null && (await isMockModule(exam.id))) {
     limit = moduleCapFor(exam.type);
-    await db.update(exams).set({ timeLimitSeconds: limit }).where(eq(exams.id, exam.id));
+    await database.update(exams).set({ timeLimitSeconds: limit }).where(eq(exams.id, exam.id));
   }
   if (limit === null || !open) return null;
 
-  await db
+  await database
     .update(exams)
     .set({ deadlineAt: new Date(Date.now() + limit * 1000) })
     .where(and(eq(exams.id, exam.id), isNull(exams.deadlineAt)));
-  const [row] = await db.select({ deadlineAt: exams.deadlineAt }).from(exams).where(eq(exams.id, exam.id)).limit(1);
+  const [row] = await database.select({ deadlineAt: exams.deadlineAt }).from(exams).where(eq(exams.id, exam.id)).limit(1);
   return row?.deadlineAt ?? null;
 }
 

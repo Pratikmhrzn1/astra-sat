@@ -1,5 +1,5 @@
 import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import {
   examAnswers,
   mistakes,
@@ -7,7 +7,7 @@ import {
   questions,
   skills,
 } from '../../core/db/schema';
-import { badRequest } from '../../core/errors';
+import { invalidRequest } from '../../core/errors';
 import { buildAssessmentWithSheet } from '../exams';
 import type { MistakePracticeInput } from './mistakes.schemas';
 
@@ -42,7 +42,7 @@ type GradedAnswer = { answerId: string; questionId: string; isCorrect: boolean |
  * released anything. `recordMistakesOnRelease` handles those instead.
  */
 export async function recordMistakesForExam(examId: string, studentId: string): Promise<void> {
-  const graded: GradedAnswer[] = await db
+  const graded: GradedAnswer[] = await database
     .select({
       answerId: examAnswers.id,
       questionId: examAnswers.questionId,
@@ -55,7 +55,7 @@ export async function recordMistakesForExam(examId: string, studentId: string): 
   const correct = graded.filter((answer) => answer.isCorrect === true);
 
   if (missed.length > 0) {
-    await db
+    await database
       .insert(mistakes)
       .values(
         missed.map((answer) => ({
@@ -78,7 +78,7 @@ export async function recordMistakesForExam(examId: string, studentId: string): 
   }
 
   if (correct.length > 0) {
-    await db
+    await database
       .update(mistakes)
       .set({ resolvedAt: new Date() })
       .where(
@@ -132,7 +132,7 @@ export async function listMistakes(studentId: string, filters: MistakeFilters) {
   if (filters.status === 'open') conditions.push(isNull(mistakes.resolvedAt));
   if (filters.status === 'resolved') conditions.push(isNotNull(mistakes.resolvedAt));
 
-  return db
+  return database
     .select({
       questionId: questions.id,
       questionType: questions.questionType,
@@ -176,7 +176,7 @@ export async function listMistakes(studentId: string, filters: MistakeFilters) {
 
 /** Open counts per domain, for the summary strip above the list. */
 export async function getMistakeSummary(studentId: string) {
-  return db
+  return database
     .select({
       domainCode: sql<string | null>`COALESCE(${skills.parentCode}, ${skills.code})`,
       subject: questionSets.subject,
@@ -207,7 +207,7 @@ export async function startMistakePractice(studentId: string, input: MistakePrac
   if (input.subject) conditions.push(eq(questionSets.subject, input.subject));
   if (input.skillCode) conditions.push(eq(questions.skillCode, input.skillCode));
 
-  const rows = await db
+  const rows = await database
     .select({ questionId: questions.id })
     .from(mistakes)
     .innerJoin(questions, eq(mistakes.questionId, questions.id))
@@ -217,7 +217,7 @@ export async function startMistakePractice(studentId: string, input: MistakePrac
     .limit(input.limit);
 
   if (rows.length === 0) {
-    throw badRequest('No open mistakes to practise yet — take an exam first.');
+    throw invalidRequest('No open mistakes to practise yet — take an exam first.');
   }
 
   const exam = await buildAssessmentWithSheet({
@@ -239,7 +239,7 @@ export async function startMistakePractice(studentId: string, input: MistakePrac
  * is looked up rather than inferred from `exam.type`.
  */
 export async function isLiveExamAttempt(examId: string): Promise<boolean> {
-  const [row] = await db.execute<{ exists: boolean }>(sql`
+  const [row] = await database.execute<{ exists: boolean }>(sql`
     SELECT EXISTS (
       SELECT 1 FROM live_exam_participants
       WHERE english_exam_id = ${examId} OR math_exam_id = ${examId}

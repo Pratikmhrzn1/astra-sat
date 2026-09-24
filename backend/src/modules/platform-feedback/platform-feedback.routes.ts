@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { asyncHandler } from '../../core/http/async-handler';
-import { currentUserId, requireAuth, requireRole } from '../../core/http/middleware/auth';
-import { parseOrBadRequest } from '../../core/http/middleware/validate';
+import { wrapAsync } from '../../core/http/async-handler';
+import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { parseOrReject } from '../../core/http/middleware/validate';
 import * as service from './platform-feedback.service';
 import { submitFeedbackSchema } from './platform-feedback.schemas';
 
@@ -10,28 +10,28 @@ export const platformFeedbackRouter = Router();
 
 platformFeedbackRouter.post(
   '/',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const input = parseOrBadRequest(submitFeedbackSchema, req.body);
-    const row = await service.submitFeedback(currentUserId(req), input);
+  requireSession,
+  wrapAsync(async (req, res) => {
+    const input = parseOrReject(submitFeedbackSchema, req.body);
+    const row = await service.submitFeedback(sessionUserId(req), input);
     res.status(201).json({ id: row.id });
   }),
 );
 
 platformFeedbackRouter.get(
   '/',
-  requireAuth,
-  requireRole(['admin']),
-  asyncHandler(async (_req, res) => {
+  requireSession,
+  requireAccountRole(['admin']),
+  wrapAsync(async (_req, res) => {
     res.json(await service.listFeedback());
   }),
 );
 
 platformFeedbackRouter.patch(
   '/:id/read',
-  requireAuth,
-  requireRole(['admin']),
-  asyncHandler(async (req, res) => {
+  requireSession,
+  requireAccountRole(['admin']),
+  wrapAsync(async (req, res) => {
     await service.markRead(req.params.id);
     res.json({ ok: true });
   }),
@@ -39,9 +39,9 @@ platformFeedbackRouter.patch(
 
 platformFeedbackRouter.delete(
   '/:id',
-  requireAuth,
-  requireRole(['admin']),
-  asyncHandler(async (req, res) => {
+  requireSession,
+  requireAccountRole(['admin']),
+  wrapAsync(async (req, res) => {
     await service.deleteFeedback(req.params.id);
     res.status(204).send();
   }),

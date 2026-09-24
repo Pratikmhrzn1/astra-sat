@@ -1,5 +1,5 @@
 import { and, eq, isNull, or } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { exams, mockTests } from '../../core/db/schema';
 import { finalizeMockIfComplete, findMockContextForExam } from './mock.service';
 import { toSectionResult } from '../exams';
@@ -54,7 +54,7 @@ export async function backfillScores(): Promise<BackfillRun> {
     mocksIncomplete: 0,
   };
 
-  const pending = await db
+  const pending = await database
     .select({ id: exams.id, score: exams.score, totalQuestions: exams.totalQuestions })
     .from(exams)
     .where(and(eq(exams.status, 'completed'), isNull(exams.scaledScore)));
@@ -76,14 +76,14 @@ export async function backfillScores(): Promise<BackfillRun> {
       continue;
     }
 
-    await db.update(exams).set({ scaledScore }).where(eq(exams.id, exam.id));
+    await database.update(exams).set({ scaledScore }).where(eq(exams.id, exam.id));
     run.examsScored++;
   }
 
   // Includes mocks wrongly marked `completed` by the old startNextModule, which
   // closed a mock when Math Module 2 was issued rather than submitted. Those
   // only score here if all four modules really were finished.
-  const unscored = await db
+  const unscored = await database
     .select({ id: mockTests.id, englishExamId: mockTests.englishExamId, completedAt: mockTests.completedAt })
     .from(mockTests)
     .where(or(isNull(mockTests.totalScore), isNull(mockTests.rwScore), isNull(mockTests.mathScore)));
@@ -105,14 +105,14 @@ export async function backfillScores(): Promise<BackfillRun> {
     // was merely issued, and never finished, stays `in_progress` after this and
     // is counted as incomplete. That is the truth about it — it was never sat to
     // the end — and leaving it marked completed with no score would be worse.
-    await db
+    await database
       .update(mockTests)
       .set({ status: 'in_progress' })
       .where(and(eq(mockTests.id, mock.id), eq(mockTests.status, 'completed')));
 
     await finalizeMockIfComplete(mock.englishExamId);
 
-    const [after] = await db
+    const [after] = await database
       .select({ totalScore: mockTests.totalScore, status: mockTests.status })
       .from(mockTests)
       .where(eq(mockTests.id, mock.id))
@@ -122,7 +122,7 @@ export async function backfillScores(): Promise<BackfillRun> {
     // wrong — it would re-date a mock sat weeks ago to today on every run, and
     // reorder the student's history and trend lines — so keep the original date.
     if (after?.status === 'completed' && mock.completedAt) {
-      await db.update(mockTests).set({ completedAt: mock.completedAt }).where(eq(mockTests.id, mock.id));
+      await database.update(mockTests).set({ completedAt: mock.completedAt }).where(eq(mockTests.id, mock.id));
     }
 
     if (after?.status === 'completed' && after.totalScore !== null) run.mocksScored++;

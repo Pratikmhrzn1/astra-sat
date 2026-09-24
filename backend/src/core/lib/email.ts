@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 import type { CreateEmailOptions } from 'resend';
-import { env } from '../config/env';
+import { settings } from '../config/env';
 
 /**
  * Transactional email.
@@ -10,11 +10,11 @@ import { env } from '../config/env';
  * resets — the recipient simply never gets the message. Callers therefore treat
  * these as fire-and-forget and never fail a request on them.
  */
-const FROM = env.email.from;
-const BASE_URL = env.http.publicBaseUrl ?? 'https://mocktest.niec.edu.np/sat';
+const FROM = settings.email.from;
+const BASE_URL = settings.http.publicBaseUrl ?? 'https://mocktest.niec.edu.np/sat';
 
 function getResend(): Resend {
-  return new Resend(env.email.apiKey);
+  return new Resend(settings.email.apiKey);
 }
 
 /**
@@ -28,8 +28,8 @@ async function send(payload: CreateEmailOptions): Promise<void> {
   if (error) throw new Error(`Resend rejected the message: ${error.name} — ${error.message}`);
 }
 
-export async function sendWelcomeEmail(to: string, name: string, password: string): Promise<void> {
-  if (!env.email.enabled) return;
+export async function mailWelcome(to: string, name: string, password: string): Promise<void> {
+  if (!settings.email.enabled) return;
 
   await send({
     from: `SAT Prep <${FROM}>`,
@@ -97,8 +97,8 @@ export async function sendWelcomeEmail(to: string, name: string, password: strin
   });
 }
 
-export async function sendPasswordResetEmail(to: string, name: string, token: string): Promise<void> {
-  if (!env.email.enabled) return;
+export async function mailPasswordReset(to: string, name: string, token: string): Promise<void> {
+  if (!settings.email.enabled) return;
 
   const resetUrl = `${BASE_URL}/reset-password?token=${token}`;
 

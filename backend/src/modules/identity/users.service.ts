@@ -1,14 +1,14 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { db } from '../../core/db';
+import { database } from '../../core/db';
 import { accessCodes, users } from '../../core/db/schema';
-import { badRequest, conflict, notFound } from '../../core/errors';
-import { hashPassword } from '../../core/lib/password';
+import { invalidRequest, stateConflict, missing } from '../../core/errors';
+import { hashSecret } from '../../core/lib/password';
 import type { AssignStudentsInput, CreateAccessCodeInput, UpdateUserInput } from './users.schemas';
 
 /** Administering accounts: users, teacher assignment, and registration codes. */
 
 export async function listUsers() {
-  return db
+  return database
     .select({
       id: users.id,
       email: users.email,
@@ -28,15 +28,15 @@ export async function listUsers() {
  * re-authorise or re-identify an existing account.
  */
 export async function updateUser(userId: string, input: UpdateUserInput) {
-  const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
-  if (!existing) throw notFound('User not found');
+  const [existing] = await database.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!existing) throw missing('User not found');
 
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (input.name !== undefined) updates.name = input.name;
   if (input.teacherId !== undefined) updates.teacherId = input.teacherId;
-  if (input.password !== undefined) updates.passwordHash = await hashPassword(input.password);
+  if (input.password !== undefined) updates.passwordHash = await hashSecret(input.password);
 
-  const [updated] = await db
+  const [updated] = await database
     .update(users)
     .set(updates)
     .where(eq(users.id, userId))
@@ -67,24 +67,24 @@ export async function updateUser(userId: string, input: UpdateUserInput) {
  */
 export async function assignStudentsToTeacher(input: AssignStudentsInput) {
   if (input.teacherId) {
-    const [teacher] = await db
+    const [teacher] = await database
       .select({ id: users.id })
       .from(users)
       .where(and(eq(users.id, input.teacherId), eq(users.role, 'teacher')))
       .limit(1);
-    if (!teacher) throw badRequest('That teacher does not exist');
+    if (!teacher) throw invalidRequest('That teacher does not exist');
   }
 
-  const targets = await db
+  const targets = await database
     .select({ id: users.id })
     .from(users)
     .where(and(inArray(users.id, input.studentIds), eq(users.role, 'student')));
 
   if (targets.length !== input.studentIds.length) {
-    throw badRequest('Every selected user must be a student');
+    throw invalidRequest('Every selected user must be a student');
   }
 
-  const updated = await db
+  const updated = await database
     .update(users)
     .set({ teacherId: input.teacherId, updatedAt: new Date() })
     .where(inArray(users.id, input.studentIds))
@@ -100,16 +100,16 @@ export async function assignStudentsToTeacher(input: AssignStudentsInput) {
  * platform with no administrator at all.
  */
 export async function deleteUser(userId: string, actingAdminId: string): Promise<void> {
-  if (userId === actingAdminId) throw badRequest('Cannot delete your own account');
+  if (userId === actingAdminId) throw invalidRequest('Cannot delete your own account');
 
-  const deleted = await db.delete(users).where(eq(users.id, userId)).returning({ id: users.id });
-  if (deleted.length === 0) throw notFound('User not found');
+  const deleted = await database.delete(users).where(eq(users.id, userId)).returning({ id: users.id });
+  if (deleted.length === 0) throw missing('User not found');
 }
 
 // ── Access codes ──────────────────────────────────────────────────────────────
 
 export async function listAccessCodes() {
-  return db
+  return database
     .select({
       id: accessCodes.id,
       code: accessCodes.code,
@@ -130,14 +130,14 @@ export async function listAccessCodes() {
  * signup, so `maxUses` is the main control on how far one can spread.
  */
 export async function createAccessCode(createdBy: string, input: CreateAccessCodeInput) {
-  const [existing] = await db
+  const [existing] = await database
     .select({ id: accessCodes.id })
     .from(accessCodes)
     .where(eq(accessCodes.code, input.code))
     .limit(1);
-  if (existing) throw conflict('An access code with this value already exists');
+  if (existing) throw stateConflict('An access code with this value already exists');
 
-  const [created] = await db
+  const [created] = await database
     .insert(accessCodes)
     .values({
       code: input.code,
@@ -151,9 +151,9 @@ export async function createAccessCode(createdBy: string, input: CreateAccessCod
 }
 
 export async function deleteAccessCode(codeId: string): Promise<void> {
-  const deleted = await db
+  const deleted = await database
     .delete(accessCodes)
     .where(eq(accessCodes.id, codeId))
     .returning({ id: accessCodes.id });
-  if (deleted.length === 0) throw notFound('Access code not found');
+  if (deleted.length === 0) throw missing('Access code not found');
 }

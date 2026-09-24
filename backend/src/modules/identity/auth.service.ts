@@ -1,9 +1,9 @@
 import crypto from 'crypto';
-import { badRequest, conflict, notFound, tooManyRequests, unauthorized } from '../../core/errors';
-import { LockoutTracker } from '../../core/lib/rate-limit';
-import { comparePassword, hashPassword } from '../../core/lib/password';
-import { signAccessToken, verifyRefreshToken } from '../../core/lib/jwt';
-import { sendPasswordResetEmail, sendWelcomeEmail } from '../../core/lib/email';
+import { invalidRequest, stateConflict, missing, rateLimited, notAuthenticated } from '../../core/errors';
+import { LockoutRegistry } from '../../core/lib/rate-limit';
+import { secretMatches, hashSecret } from '../../core/lib/password';
+import { mintAccessToken, readRefreshToken } from '../../core/lib/jwt';
+import { mailPasswordReset, mailWelcome } from '../../core/lib/email';
 import * as repo from './auth.repository';
 import * as tokens from './auth.tokens';
 import type {
@@ -21,7 +21,7 @@ import type {
  */
 const LOGIN_MAX_FAILURES = 10;
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
-const loginLockout = new LockoutTracker(LOGIN_MAX_FAILURES, LOGIN_LOCKOUT_MS);
+const loginLockout = new LockoutRegistry(LOGIN_MAX_FAILURES, LOGIN_LOCKOUT_MS);
 
 /**
  * A valid-shaped bcrypt hash that matches nothing. Comparing against it when no
@@ -46,34 +46,34 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
 
   // The access code decides the role, so it is checked before anything else.
   const code = await repo.findActiveAccessCode(accessCode);
-  if (!code) throw badRequest('Invalid or inactive access code');
+  if (!code) throw invalidRequest('Invalid or inactive access code');
   if (code.maxUses !== null && code.useCount >= code.maxUses) {
-    throw badRequest('Access code has reached its usage limit');
+    throw invalidRequest('Access code has reached its usage limit');
   }
 
   if (await repo.emailExists(email)) {
-    throw conflict('An account with this email already exists');
+    throw stateConflict('An account with this email already exists');
   }
   if (code.role === 'student' && !phone?.trim()) {
-    throw badRequest('Phone number is required for student accounts');
+    throw invalidRequest('Phone number is required for student accounts');
   }
 
   const user = await repo.createUser({
     email,
     name,
     phone: phone?.trim() ?? null,
-    passwordHash: await hashPassword(password),
+    passwordHash: await hashSecret(password),
     role: code.role,
   });
   await repo.incrementAccessCodeUse(code.id, code.useCount);
 
   // Non-blocking: a mail outage must not fail an otherwise complete signup.
-  void sendWelcomeEmail(user.email, user.name, password).catch((err) =>
+  void mailWelcome(user.email, user.name, password).catch((err) =>
     console.error('[auth] Welcome email failed:', err),
   );
 
   return {
-    accessToken: signAccessToken(user),
+    accessToken: mintAccessToken(user),
     refreshToken: await tokens.issueRefreshToken(user.id),
     user,
   };
@@ -83,23 +83,23 @@ export async function login({ email, password }: LoginInput): Promise<AuthResult
   // Checked before bcrypt so a locked account costs no CPU to reject.
   const lockedFor = loginLockout.lockedFor(email);
   if (lockedFor > 0) {
-    throw tooManyRequests(
+    throw rateLimited(
       `Too many failed login attempts. Please try again in ${minutesPhrase(lockedFor)}.`,
       { retryAfterSeconds: lockedFor },
     );
   }
 
   const user = await repo.findUserByEmail(email);
-  const passwordValid = await comparePassword(password, user?.passwordHash ?? DUMMY_HASH);
+  const passwordValid = await secretMatches(password, user?.passwordHash ?? DUMMY_HASH);
 
   if (!user || !passwordValid) {
     const { attemptsRemaining, locked } = loginLockout.recordFailure(email);
     if (locked) {
-      throw tooManyRequests('Too many failed login attempts. Account locked for 15 minutes.', {
+      throw rateLimited('Too many failed login attempts. Account locked for 15 minutes.', {
         retryAfterSeconds: Math.ceil(LOGIN_LOCKOUT_MS / 1000),
       });
     }
-    throw unauthorized('Invalid email or password').withMeta({ attemptsRemaining });
+    throw notAuthenticated('Invalid email or password').withMeta({ attemptsRemaining });
   }
 
   loginLockout.reset(email);
@@ -113,7 +113,7 @@ export async function login({ email, password }: LoginInput): Promise<AuthResult
   };
 
   return {
-    accessToken: signAccessToken(publicUser),
+    accessToken: mintAccessToken(publicUser),
     refreshToken: await tokens.issueRefreshToken(user.id),
     user: publicUser,
   };
@@ -128,13 +128,13 @@ export async function login({ email, password }: LoginInput): Promise<AuthResult
  * second browser tab would log the user out.
  */
 export async function refresh(rawToken: string | undefined): Promise<tokens.RotationResult> {
-  if (!rawToken) throw unauthorized('No refresh token');
+  if (!rawToken) throw notAuthenticated('No refresh token');
 
   let userId: string;
   try {
-    userId = verifyRefreshToken(rawToken).sub;
+    userId = readRefreshToken(rawToken).sub;
   } catch {
-    throw unauthorized('Invalid or expired refresh token');
+    throw notAuthenticated('Invalid or expired refresh token');
   }
 
   const oldHash = tokens.hashToken(rawToken);
@@ -144,7 +144,7 @@ export async function refresh(rawToken: string | undefined): Promise<tokens.Rota
 
   // Reloaded so the new access token carries the current role/name/email.
   const user = await repo.findUserById(userId);
-  if (!user) throw unauthorized('User not found');
+  if (!user) throw notAuthenticated('User not found');
 
   const rotated = await tokens.rotateRefreshToken(oldHash, user);
   if (rotated) return rotated;
@@ -153,7 +153,7 @@ export async function refresh(rawToken: string | undefined): Promise<tokens.Rota
   const afterRace = tokens.readGraceEntry(oldHash);
   if (afterRace) return afterRace;
 
-  throw unauthorized('Invalid refresh token');
+  throw notAuthenticated('Invalid refresh token');
 }
 
 export async function logout(rawToken: string | undefined): Promise<void> {
@@ -162,23 +162,23 @@ export async function logout(rawToken: string | undefined): Promise<void> {
 
 export async function getProfile(userId: string) {
   const profile = await repo.findProfileById(userId);
-  if (!profile) throw notFound('User not found');
+  if (!profile) throw missing('User not found');
   return profile;
 }
 
 export async function changePassword(userId: string, input: ChangePasswordInput): Promise<void> {
   const user = await repo.findUserById(userId);
-  if (!user) throw notFound('User not found');
+  if (!user) throw missing('User not found');
 
-  const valid = await comparePassword(input.currentPassword, user.passwordHash);
-  if (!valid) throw badRequest('Current password is incorrect');
+  const valid = await secretMatches(input.currentPassword, user.passwordHash);
+  if (!valid) throw invalidRequest('Current password is incorrect');
 
-  await repo.updatePasswordHash(user.id, await hashPassword(input.newPassword));
+  await repo.updatePasswordHash(user.id, await hashSecret(input.newPassword));
 }
 
 export async function updateProfile(userId: string, name: string): Promise<repo.PublicUser> {
   const updated = await repo.updateName(userId, name);
-  if (!updated) throw notFound('User not found');
+  if (!updated) throw missing('User not found');
   return updated;
 }
 
@@ -194,16 +194,16 @@ export async function requestPasswordReset({ email }: ForgotPasswordInput): Prom
   const token = crypto.randomBytes(32).toString('hex');
   await repo.createPasswordResetToken(user.id, token, new Date(Date.now() + 60 * 60 * 1000));
 
-  void sendPasswordResetEmail(user.email, user.name, token).catch((err) =>
+  void mailPasswordReset(user.email, user.name, token).catch((err) =>
     console.error('[auth] Password reset email failed:', err),
   );
 }
 
 export async function resetPassword({ token, password }: ResetPasswordInput): Promise<void> {
   const row = await repo.findUnexpiredResetToken(token);
-  if (!row) throw badRequest('Reset link is invalid or has expired');
-  if (row.usedAt) throw badRequest('Reset link has already been used');
+  if (!row) throw invalidRequest('Reset link is invalid or has expired');
+  if (row.usedAt) throw invalidRequest('Reset link has already been used');
 
-  await repo.updatePasswordHash(row.userId, await hashPassword(password));
+  await repo.updatePasswordHash(row.userId, await hashSecret(password));
   await repo.markResetTokenUsed(row.id, new Date());
 }
