@@ -226,10 +226,31 @@ async function provisionParticipantExams(
     }),
   ]);
 
-  await db
+  // Claim the slots only while they are still empty. `pollSession` calls this on
+  // a timer, so two in-flight polls (or a join racing the next poll tick) can
+  // both read the participant as unprovisioned above. Without this guard both
+  // would write and the last writer would win, leaving the student sitting the
+  // paper the participant row no longer points at — the teacher would then mark
+  // and release a blank result for a section the student actually completed.
+  const claimedSlots = await db
     .update(liveExamParticipants)
     .set({ englishExamId: englishExam.id, mathExamId: mathExam.id })
-    .where(eq(liveExamParticipants.id, participant.id));
+    .where(and(eq(liveExamParticipants.id, participant.id), isNull(liveExamParticipants.englishExamId)))
+    .returning({ id: liveExamParticipants.id });
+
+  if (claimedSlots.length === 0) {
+    // Another call provisioned first; its pair is the one of record. The exams
+    // we just created are left unreferenced rather than deleted — nothing reads
+    // them, and deleting here would race the winner.
+    const [current] = await db
+      .select()
+      .from(liveExamParticipants)
+      .where(eq(liveExamParticipants.id, participant.id))
+      .limit(1);
+    if (current) {
+      return { englishExamId: current.englishExamId, mathExamId: current.mathExamId };
+    }
+  }
 
   return { englishExamId: englishExam.id, mathExamId: mathExam.id };
 }
