@@ -1,4 +1,4 @@
-import { desc, eq, and, inArray, or, sql } from 'drizzle-orm';
+import { desc, eq, and, inArray, isNull, or, sql } from 'drizzle-orm';
 import { db } from '../../core/db';
 import { exams, mockTests, questionSets } from '../../core/db/schema';
 import { badRequest, notFound } from '../../core/errors';
@@ -173,10 +173,42 @@ export async function startNextModule(studentId: string, mockTestId: string, sub
   // instant Math Module 2 was *handed out*, so a student who abandoned it still
   // counted as having sat the mock — and there was no point in the lifecycle
   // left at which a composite score could be computed.
-  await db
+  //
+  // Claim the slot only while it is still empty. Two concurrent calls (a double
+  // submit, or a retried request during the section transition) both read the
+  // slot as null above, so without this guard both would write and the last
+  // writer would win — leaving the student answering a Module 2 the mock row no
+  // longer points at, which then never finalises. Same guard as
+  // `resolveDeadline` in exams/exam-timing.ts.
+  const claimedSlot = await db
     .update(mockTests)
     .set(isEnglish ? { englishM2ExamId: module2.id } : { mathM2ExamId: module2.id })
-    .where(eq(mockTests.id, mockTestId));
+    .where(
+      and(
+        eq(mockTests.id, mockTestId),
+        isNull(isEnglish ? mockTests.englishM2ExamId : mockTests.mathM2ExamId),
+      ),
+    )
+    .returning({ id: mockTests.id });
+
+  if (claimedSlot.length === 0) {
+    // Someone else claimed it first. Their module is the one of record, so hand
+    // that back instead of the paper we just built. The module we created is
+    // left unreferenced rather than deleted: nothing reads it, and a delete here
+    // would race the winner. Difficulty is unchanged either way — both callers
+    // derive it from the same graded Module 1.
+    const [current] = await db.select().from(mockTests).where(eq(mockTests.id, mockTestId)).limit(1);
+    const winningM2Id = current && (isEnglish ? current.englishM2ExamId : current.mathM2ExamId);
+    if (winningM2Id) {
+      const winningQuestions = await repo.findQuestionsForExam(winningM2Id);
+      return {
+        m2ExamId: winningM2Id,
+        m2Questions: repo.withPublicImageUrls(winningQuestions),
+        m2Difficulty: difficulty,
+        percentage: Math.round(ratio * 100),
+      };
+    }
+  }
 
   return {
     m2ExamId: module2.id,
