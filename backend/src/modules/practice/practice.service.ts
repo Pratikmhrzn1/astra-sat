@@ -11,13 +11,13 @@ import {
 } from '../../core/db/schema';
 import { badRequest, notFound, tooManyRequests } from '../../core/errors';
 import {
-  aiRateLimiter,
-  extractSentenceWithWord,
-  extractVocabWord,
-  getApplicableFeedbackTypes,
-  orchestrateConfirmFeedback,
-  type FeedbackContext,
-  type FeedbackType,
+  tutorBudget,
+  pickSentenceWithWord,
+  pickVocabWord,
+  selectFeedbackKinds,
+  runConfirmFeedback,
+  type FeedbackInput,
+  type FeedbackKind,
 } from '../ai';
 import { examRepository as repo, markAnswer, isAnswered } from '../exams';
 import type { ConfirmAnswerInput } from './practice.schemas';
@@ -129,7 +129,7 @@ export async function confirmAnswer(
       .where(eq(examAnswers.id, answerRow.id));
   }
 
-  const context: FeedbackContext = {
+  const context: FeedbackInput = {
     questionText: question.questionText,
     questionType: question.questionType,
     skillCode: question.skillCode ?? null,
@@ -148,13 +148,13 @@ export async function confirmAnswer(
     passageText: question.passageText ?? null,
   };
 
-  const applicableTypes = getApplicableFeedbackTypes(context);
+  const applicableTypes = selectFeedbackKinds(context);
   const feedbackByType = await loadCachedFeedback(answerRow.id);
 
   const uncachedTypes = applicableTypes.filter((type) => !feedbackByType.has(type));
   if (uncachedTypes.length > 0) {
     // Charged per call actually dispatched — a fully cached confirm is free.
-    const budget = aiRateLimiter.consume(studentId, uncachedTypes.length);
+    const budget = tutorBudget.consume(studentId, uncachedTypes.length);
     if (!budget.allowed) {
       throw tooManyRequests(
         `AI request limit reached. Please wait ${minutesPhrase(budget.retryAfterSeconds)} before confirming more answers.`,
@@ -162,7 +162,7 @@ export async function confirmAnswer(
       );
     }
 
-    const results = await orchestrateConfirmFeedback(context, uncachedTypes);
+    const results = await runConfirmFeedback(context, uncachedTypes);
     const succeeded = results.filter((result) => result.aiResult !== null);
 
     if (succeeded.length > 0) {
@@ -219,7 +219,7 @@ async function loadCachedFeedback(examAnswerId: string): Promise<Map<string, unk
     .select({ feedbackType: aiFeedback.feedbackType, content: aiFeedback.content })
     .from(aiFeedback)
     .where(eq(aiFeedback.examAnswerId, examAnswerId));
-  return new Map<string, unknown>(rows.map((row) => [row.feedbackType as FeedbackType, row.content]));
+  return new Map<string, unknown>(rows.map((row) => [row.feedbackType as FeedbackKind, row.content]));
 }
 
 /**
@@ -259,7 +259,7 @@ async function trackVocabulary(input: {
     });
   }
 
-  const word = extractVocabWord(input.questionText);
+  const word = pickVocabWord(input.questionText);
   if (!word) return null;
 
   const [existingVocab] = await db
@@ -279,7 +279,7 @@ async function trackVocabulary(input: {
       studentId: input.studentId,
       questionId: input.questionId,
       word,
-      passageExcerpt: extractSentenceWithWord(input.passageText ?? '', word),
+      passageExcerpt: pickSentenceWithWord(input.passageText ?? '', word),
       nextReviewAt: tomorrow,
     })
     .returning({ id: studentVocab.id });

@@ -1,31 +1,31 @@
 import { env } from '../../core/config/env';
 import { FixedWindowRateLimiter } from '../../core/lib/rate-limit';
-import { AINotConfiguredError, AIParseError, generateStructuredOutput } from './ai.client';
+import { ModelNotConfiguredError, ModelParseError, requestStructuredOutput } from './ai.client';
 import {
-  buildCommandOfEvidence,
-  buildGrammarDiagnosis,
-  buildReasoningCheckpoint,
-  buildTransitionsCoach,
-  buildTrapExplainer,
-  buildVocabDrill,
-  type Prompt,
+  composeCommandOfEvidence,
+  composeGrammarDiagnosis,
+  composeReasoningCheckpoint,
+  composeTransitionsCoach,
+  composeTrapExplainer,
+  composeVocabDrill,
+  type PromptSpec,
 } from './ai.prompts';
-import type { FeedbackCallResult, FeedbackContext, FeedbackType } from './ai.types';
+import type { FeedbackOutcome, FeedbackInput, FeedbackKind } from './ai.types';
 
 /**
  * Per-student AI budget. The cost charged is the number of model calls a
  * request is actually about to make, so a confirm answered entirely from cache
  * consumes nothing.
  */
-export const aiRateLimiter = new FixedWindowRateLimiter(env.ai.rateLimit.calls, env.ai.rateLimit.windowMs);
+export const tutorBudget = new FixedWindowRateLimiter(env.ai.rateLimit.calls, env.ai.rateLimit.windowMs);
 
-const BUILDERS: Record<FeedbackType, (ctx: FeedbackContext) => Prompt> = {
-  reasoning_checkpoint: buildReasoningCheckpoint,
-  grammar_diagnosis: buildGrammarDiagnosis,
-  trap_explainer: buildTrapExplainer,
-  command_of_evidence: buildCommandOfEvidence,
-  transitions_coach: buildTransitionsCoach,
-  vocab_drill: buildVocabDrill,
+const BUILDERS: Record<FeedbackKind, (ctx: FeedbackInput) => PromptSpec> = {
+  reasoning_checkpoint: composeReasoningCheckpoint,
+  grammar_diagnosis: composeGrammarDiagnosis,
+  trap_explainer: composeTrapExplainer,
+  command_of_evidence: composeCommandOfEvidence,
+  transitions_coach: composeTransitionsCoach,
+  vocab_drill: composeVocabDrill,
 };
 
 /**
@@ -37,10 +37,10 @@ const BUILDERS: Record<FeedbackType, (ctx: FeedbackContext) => Prompt> = {
  * explain otherwise. Vocab drill is the exception: reinforcing a word the
  * student just met is useful either way.
  */
-export function getApplicableFeedbackTypes(
-  ctx: Pick<FeedbackContext, 'skillCode' | 'subject' | 'questionType' | 'isCorrect'>,
-): FeedbackType[] {
-  const types: FeedbackType[] = ['reasoning_checkpoint'];
+export function selectFeedbackKinds(
+  ctx: Pick<FeedbackInput, 'skillCode' | 'subject' | 'questionType' | 'isCorrect'>,
+): FeedbackKind[] {
+  const types: FeedbackKind[] = ['reasoning_checkpoint'];
   const isEnglish = ctx.subject === 'english';
   const isMultipleChoice = ctx.questionType === 'multiple_choice';
   const wrong = !ctx.isCorrect;
@@ -64,23 +64,23 @@ export function getApplicableFeedbackTypes(
  * whole request — the student still gets the other four. Cache lookups and
  * writes stay in the caller; this function only talks to the model.
  */
-export async function orchestrateConfirmFeedback(
-  ctx: FeedbackContext,
-  typesToRun: FeedbackType[],
-): Promise<FeedbackCallResult[]> {
+export async function runConfirmFeedback(
+  ctx: FeedbackInput,
+  typesToRun: FeedbackKind[],
+): Promise<FeedbackOutcome[]> {
   return Promise.all(
-    typesToRun.map(async (feedbackType): Promise<FeedbackCallResult> => {
+    typesToRun.map(async (feedbackType): Promise<FeedbackOutcome> => {
       try {
         const { system, user } = BUILDERS[feedbackType](ctx);
-        const aiResult = await generateStructuredOutput(system, user, 'feedback');
+        const aiResult = await requestStructuredOutput(system, user, 'feedback');
         return { feedbackType, aiResult, error: null };
       } catch (err) {
         console.error(`[ai] ${feedbackType} failed:`, err);
-        if (err instanceof AINotConfiguredError) return { feedbackType, aiResult: null, error: 'not_configured' };
+        if (err instanceof ModelNotConfiguredError) return { feedbackType, aiResult: null, error: 'not_configured' };
         return {
           feedbackType,
           aiResult: null,
-          error: err instanceof AIParseError ? 'parse_failed' : 'call_failed',
+          error: err instanceof ModelParseError ? 'parse_failed' : 'call_failed',
         };
       }
     }),

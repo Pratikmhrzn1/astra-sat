@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { env } from '../../core/config/env';
-import type { AIResult, ModelPurpose } from './ai.types';
+import type { ModelResult, ModelRole } from './ai.types';
 
 /**
  * The only module that talks to OpenRouter.
@@ -12,18 +12,18 @@ import type { AIResult, ModelPurpose } from './ai.types';
  */
 
 /** Raised when a model answers with something that is not JSON, twice. */
-export class AIParseError extends Error {
+export class ModelParseError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'AIParseError';
+    this.name = 'ModelParseError';
   }
 }
 
 /** Raised when the key or the model for a purpose is not configured. */
-export class AINotConfiguredError extends Error {
-  constructor(purpose: ModelPurpose) {
+export class ModelNotConfiguredError extends Error {
+  constructor(purpose: ModelRole) {
     super(`AI purpose "${purpose}" is not configured (needs OPENROUTER_API_KEY and AI_MODEL_${purpose.toUpperCase()})`);
-    this.name = 'AINotConfiguredError';
+    this.name = 'ModelNotConfiguredError';
   }
 }
 
@@ -39,13 +39,13 @@ function getClient(): OpenAI {
 }
 
 /** Whether a purpose can run — check before offering the feature to a client. */
-export function isConfigured(purpose: ModelPurpose): boolean {
+export function isModelReady(purpose: ModelRole): boolean {
   return env.ai.enabled && Boolean(env.ai.models[purpose]);
 }
 
-function resolveModel(purpose: ModelPurpose): string {
+function resolveModel(purpose: ModelRole): string {
   const model = env.ai.models[purpose];
-  if (!env.ai.enabled || !model) throw new AINotConfiguredError(purpose);
+  if (!env.ai.enabled || !model) throw new ModelNotConfiguredError(purpose);
   return model;
 }
 
@@ -86,11 +86,11 @@ async function createCompletion(body: CompletionBody): Promise<OpenAI.ChatComple
  * `parseFailed` flag records that the retry was needed, which is how prompt
  * quality gets measured after the fact.
  */
-export async function generateStructuredOutput(
+export async function requestStructuredOutput(
   systemPrompt: string,
   userPrompt: string,
-  purpose: ModelPurpose,
-): Promise<AIResult> {
+  purpose: ModelRole,
+): Promise<ModelResult> {
   const model = resolveModel(purpose);
   const messages: OpenAI.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },
@@ -104,7 +104,7 @@ export async function generateStructuredOutput(
   const usage = response.usage as (OpenAI.CompletionUsage & { cost?: number | null }) | undefined;
   const rawText = response.choices[0]?.message?.content ?? '';
 
-  const result: Omit<AIResult, 'parsed' | 'parseFailed'> = {
+  const result: Omit<ModelResult, 'parsed' | 'parseFailed'> = {
     modelUsed: response.model ?? model,
     latencyMs,
     promptTokens: usage?.prompt_tokens ?? 0,
@@ -126,7 +126,7 @@ export async function generateStructuredOutput(
 
   const retryParsed = tryParseJSON(retry.choices[0]?.message?.content ?? '');
   if (retryParsed === null) {
-    throw new AIParseError('AI response could not be parsed as JSON after retry');
+    throw new ModelParseError('AI response could not be parsed as JSON after retry');
   }
   return { ...result, parsed: retryParsed, parseFailed: true };
 }
@@ -136,10 +136,10 @@ export async function generateStructuredOutput(
  * fresh on every call so a stored history can never redefine the assistant's
  * instructions.
  */
-export async function generateChatResponse(
+export async function requestChatReply(
   systemPrompt: string,
   history: { role: 'user' | 'assistant'; content: string }[],
-  purpose: ModelPurpose = 'feedback',
+  purpose: ModelRole = 'feedback',
 ): Promise<{ content: string; modelUsed: string }> {
   const model = resolveModel(purpose);
   const response = await getClient().chat.completions.create({

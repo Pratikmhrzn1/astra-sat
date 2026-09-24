@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../../core/db';
 import { chatMessages, chatSessions, exams, passages, questionSets, questions } from '../../core/db/schema';
 import { badRequest, notFound, tooManyRequests } from '../../core/errors';
-import { aiRateLimiter, generateChatResponse } from '../ai';
+import { tutorBudget, requestChatReply } from '../ai';
 import type { ChatInput } from './practice.schemas';
 
 /**
@@ -62,7 +62,7 @@ export async function sendMessage(studentId: string, input: ChatInput): Promise<
     return { sessionId: sessionId ?? null, assistantMessage: OFF_TOPIC_REPLY };
   }
 
-  const budget = aiRateLimiter.consume(studentId, 1);
+  const budget = tutorBudget.consume(studentId, 1);
   if (!budget.allowed) {
     throw tooManyRequests(
       `AI request limit reached. Please wait ${minutesPhrase(budget.retryAfterSeconds)} before sending more messages.`,
@@ -85,7 +85,7 @@ export async function sendMessage(studentId: string, input: ChatInput): Promise<
       .orderBy(chatMessages.createdAt),
   ]);
 
-  const { content: assistantMessage } = await generateChatResponse(systemPrompt, [
+  const { content: assistantMessage } = await requestChatReply(systemPrompt, [
     ...trimHistory(storedMessages),
     { role: 'user', content: userMessage },
   ]);

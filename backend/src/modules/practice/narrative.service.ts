@@ -2,7 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import { db } from '../../core/db';
 import { skillAccuracy } from '../analytics';
 import { examAnswers, exams, mockNarratives, questionSets, questions } from '../../core/db/schema';
-import { generateStructuredOutput, isConfigured } from '../ai';
+import { requestStructuredOutput, isModelReady } from '../ai';
 
 /**
  * Post-test diagnostic narratives.
@@ -27,7 +27,7 @@ export interface NarrativeExam {
 
 /** Narratives are optional: with no model configured, none are ever created. */
 export function narrativesEnabled(): boolean {
-  return isConfigured('narrative');
+  return isModelReady('narrative');
 }
 
 export async function createPendingNarrative(examId: string): Promise<string | null> {
@@ -138,7 +138,7 @@ Score: ${correct} correct, ${wrong} wrong of ${exam.totalQuestions} total${minut
 SubSkill breakdown:
 ${breakdown.map((b) => `- ${b.subSkill}: ${b.wrong} wrong of ${b.total}${b.flag ? ' [PATTERN]' : ''}`).join('\n')}`;
 
-    const result = await generateStructuredOutput(systemPrompt, userPrompt, 'narrative');
+    const result = await requestStructuredOutput(systemPrompt, userPrompt, 'narrative');
 
     await db
       .update(mockNarratives)

@@ -2,7 +2,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '../../core/db';
 import { questionSets, questions } from '../../core/db/schema';
 import { unavailable } from '../../core/errors';
-import { generateStructuredOutput, isConfigured } from '../ai';
+import { requestStructuredOutput, isModelReady } from '../ai';
 
 /**
  * Batch tagging of untagged questions against the SAT skill tree.
@@ -104,7 +104,7 @@ export interface ClassificationRun {
 }
 
 export async function autoTagSubSkills(): Promise<ClassificationRun> {
-  if (!isConfigured('classify')) {
+  if (!isModelReady('classify')) {
     throw unavailable('Classification model not configured (needs OPENROUTER_API_KEY and AI_MODEL_CLASSIFY)');
   }
 
@@ -164,7 +164,7 @@ export async function autoTagSubSkills(): Promise<ClassificationRun> {
  */
 async function classifyOne(question: Classifiable): Promise<'tagged' | 'unclear'> {
   const prompt = question.subject === 'math' ? MATH_PROMPT : ENGLISH_PROMPT;
-  const result = await generateStructuredOutput(prompt, buildPrompt(question), 'classify');
+  const result = await requestStructuredOutput(prompt, buildPrompt(question), 'classify');
   const classification = (result.parsed as { classification?: unknown })?.classification;
 
   if (typeof classification !== 'string' || !VALID_CODES[question.subject].includes(classification)) {

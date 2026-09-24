@@ -1,4 +1,4 @@
-import type { FeedbackContext } from './ai.types';
+import type { FeedbackInput } from './ai.types';
 
 /**
  * One prompt builder per feedback type.
@@ -10,7 +10,7 @@ import type { FeedbackContext } from './ai.types';
  * asked about.
  */
 
-export interface Prompt {
+export interface PromptSpec {
   system: string;
   user: string;
 }
@@ -21,24 +21,24 @@ const CONFIDENCE_LABELS: Record<string, string> = {
   guessed: 'Guessed',
 };
 
-function optionMap(ctx: FeedbackContext): Record<string, string | null> {
+function optionMap(ctx: FeedbackInput): Record<string, string | null> {
   return { a: ctx.optionA, b: ctx.optionB, c: ctx.optionC, d: ctx.optionD };
 }
 
-function optionText(ctx: FeedbackContext, choice: string | null): string {
+function optionText(ctx: FeedbackInput, choice: string | null): string {
   return optionMap(ctx)[choice ?? ''] ?? '';
 }
 
 // ── Vocabulary helpers (also used by the confirm route) ──────────────────────
 
 /** Pulls the quoted or italicised word out of a vocab-in-context stem. */
-export function extractVocabWord(questionText: string): string {
+export function pickVocabWord(questionText: string): string {
   const match = questionText.match(/[""''"']([^""''"']{1,40})[""''"']/);
   return match?.[1] ?? '';
 }
 
 /** The one sentence of `text` containing `word`, for a tight vocab excerpt. */
-export function extractSentenceWithWord(text: string, word: string): string {
+export function pickSentenceWithWord(text: string, word: string): string {
   if (!word || !text) return text?.substring(0, 300) ?? '';
   const sentences = text.split(/(?<=[.!?])\s+/);
   const lower = word.toLowerCase();
@@ -99,7 +99,7 @@ function passageForEvidence(passageText: string, questionText: string): string {
 
 // ── Builders ──────────────────────────────────────────────────────────────────
 
-export function buildReasoningCheckpoint(ctx: FeedbackContext): Prompt {
+export function composeReasoningCheckpoint(ctx: FeedbackInput): PromptSpec {
   const system = `You are an expert SAT tutor. A student just confirmed their answer in a practice session.
 
 Classify the quality of their reasoning and explain briefly.
@@ -131,7 +131,7 @@ Reasoning: ${ctx.reasoning?.trim() || 'Not provided'}`;
   return { system, user };
 }
 
-export function buildGrammarDiagnosis(ctx: FeedbackContext): Prompt {
+export function composeGrammarDiagnosis(ctx: FeedbackInput): PromptSpec {
   const system = `You are an SAT grammar expert. A student answered a grammar question incorrectly. Identify the specific grammar rule being tested and state the correction in one sentence.
 
 Return ONLY valid JSON, no markdown:
@@ -147,7 +147,7 @@ grammarRule examples: "subject-verb agreement", "dangling modifier", "comma spli
   return { system, user: `Question: ${ctx.questionText}\n\n${answerLine}` };
 }
 
-export function buildTrapExplainer(ctx: FeedbackContext): Prompt {
+export function composeTrapExplainer(ctx: FeedbackInput): PromptSpec {
   const system = `You are an expert SAT Reading and Writing tutor. A student chose an incorrect answer on a multiple-choice question. Identify the specific type of SAT distractor trap they encountered and explain why the correct answer is better.
 
 Return ONLY valid JSON, no markdown:
@@ -174,7 +174,7 @@ Student's answer: ${ctx.selectedAnswer?.toUpperCase()} — ${optionText(ctx, ctx
   return { system, user };
 }
 
-export function buildCommandOfEvidence(ctx: FeedbackContext): Prompt {
+export function composeCommandOfEvidence(ctx: FeedbackInput): PromptSpec {
   const system = `You are an SAT Reading and Writing tutor. A student got a Command of Evidence question wrong. Find the exact line in the passage that proves the correct answer, then explain why the student's choice is unsupported.
 
 Return ONLY valid JSON, no markdown:
@@ -205,7 +205,7 @@ Student's answer: ${ctx.selectedAnswer?.toUpperCase()} — ${optionText(ctx, ctx
   return { system, user };
 }
 
-export function buildTransitionsCoach(ctx: FeedbackContext): Prompt {
+export function composeTransitionsCoach(ctx: FeedbackInput): PromptSpec {
   const system = `You are an SAT Writing tutor. A student chose the wrong transition word. Diagnose the logical relationship between the two clauses, then explain why the correct transition fits and why the student's choice breaks the logic.
 
 Return ONLY valid JSON, no markdown:
@@ -223,7 +223,7 @@ Correct answer: ${ctx.correctAnswer?.toUpperCase()} — ${optionText(ctx, ctx.co
   return { system, user };
 }
 
-export function buildVocabDrill(ctx: FeedbackContext): Prompt {
+export function composeVocabDrill(ctx: FeedbackInput): PromptSpec {
   const system = `You are an SAT vocabulary coach. Create a new multiple-choice question testing whether the student understands how this word is used in its specific context. Do NOT reuse the original question text.
 
 Return ONLY valid JSON, no markdown:
@@ -233,8 +233,8 @@ followUpQuestion: start with 'In the sentence above, "<word>" is closest in mean
 options: exactly 4 strings. One matches the in-context meaning; the others are plausible but wrong in this sentence.
 explanation: 1 sentence on why the correct option fits the sentence specifically (not just the dictionary definition).`;
 
-  const word = extractVocabWord(ctx.questionText);
-  const sentence = ctx.passageText ? extractSentenceWithWord(ctx.passageText, word) : ctx.questionText;
+  const word = pickVocabWord(ctx.questionText);
+  const sentence = ctx.passageText ? pickSentenceWithWord(ctx.passageText, word) : ctx.questionText;
 
   const user = `Word: ${word || '(from question)'}
 Sentence from passage: ${sentence}

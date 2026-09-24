@@ -1,5 +1,5 @@
 /** The six kinds of feedback the confirm step can produce. */
-export type FeedbackType =
+export type FeedbackKind =
   | 'reasoning_checkpoint'
   | 'grammar_diagnosis'
   | 'trap_explainer'
@@ -8,10 +8,10 @@ export type FeedbackType =
   | 'vocab_drill';
 
 /** Which configured model a call should use. Each is independently optional. */
-export type ModelPurpose = 'feedback' | 'narrative' | 'classify';
+export type ModelRole = 'feedback' | 'narrative' | 'classify';
 
 /** Everything a prompt builder may draw on. Assembled once per confirm. */
-export interface FeedbackContext {
+export interface FeedbackInput {
   questionText: string;
   questionType: 'multiple_choice' | 'student_produced_response';
   /**
@@ -36,7 +36,7 @@ export interface FeedbackContext {
   passageText: string | null;
 }
 
-export interface AIResult {
+export interface ModelResult {
   parsed: unknown;
   modelUsed: string;
   latencyMs: number;
@@ -47,8 +47,8 @@ export interface AIResult {
   parseFailed: boolean;
 }
 
-export interface FeedbackCallResult {
-  feedbackType: FeedbackType;
-  aiResult: AIResult | null;
+export interface FeedbackOutcome {
+  feedbackType: FeedbackKind;
+  aiResult: ModelResult | null;
   error: 'parse_failed' | 'call_failed' | 'not_configured' | null;
 }

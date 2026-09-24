@@ -1,7 +1,7 @@
 import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { db } from '../../core/db';
 import { examAnswers, exams, generatedContent, questions, studentSkillTriggers } from '../../core/db/schema';
-import { generateStructuredOutput, isConfigured } from '../ai';
+import { requestStructuredOutput, isModelReady } from '../ai';
 
 /**
  * Targeted practice for a skill a student keeps missing.
@@ -162,7 +162,7 @@ ${examples}
 
 Generate a wholly original passage and exactly 2 questions testing ${label}.`;
 
-    const result = await generateStructuredOutput(systemPrompt, userPrompt, 'narrative');
+    const result = await requestStructuredOutput(systemPrompt, userPrompt, 'narrative');
 
     await db.insert(generatedContent).values({
       contentType: 'skill_passage',
@@ -188,7 +188,7 @@ export async function checkAndTriggerSkillPassage(
   currentQuestionText: string,
   currentQuestionId: string,
 ): Promise<void> {
-  if (!isConfigured('narrative')) return;
+  if (!isModelReady('narrative')) return;
   if (!isRemediable(subSkill)) return;
 
   const wrongCount = await countWrongAnswers(studentId, subSkill);
