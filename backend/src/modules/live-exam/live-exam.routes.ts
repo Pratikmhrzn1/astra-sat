@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { wrapAsync } from '../../core/http/async-handler';
-import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { sessionUserId, requireSession, requireAccountRole, LEARNER_ROLES } from '../../core/http/middleware/auth';
 import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import * as service from './live-exam.service';
 import {
@@ -23,7 +23,7 @@ import {
 export const liveSessionRoutes = Router();
 
 const teacherOnly = [requireSession, requireAccountRole(['teacher'], 'Forbidden')] as const;
-const studentOnly = [requireSession, requireAccountRole(['student'], 'Forbidden')] as const;
+const studentOnly = [requireSession, requireAccountRole(LEARNER_ROLES, 'Forbidden')] as const;
 
 // ── Teacher ──────────────────────────────────────────────────────────────────
 

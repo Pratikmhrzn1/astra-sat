@@ -15,6 +15,7 @@ const schema = z
     phone: z.string().trim().min(3, 'Phone number is required').max(30),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
+    role: z.enum(['trial', 'student']),
   })
   .refine((d) => d.password === d.confirmPassword, { message: 'Passwords do not match', path: ['confirmPassword'] });
 
@@ -22,18 +23,27 @@ type FormData = z.infer<typeof schema>;
 
 const toggleBtn = 'px-[26px] py-2 rounded-full text-[13px] font-bold tracking-[0.05em] uppercase';
 
+const ACCOUNT_TYPES = [
+  { value: 'student', title: 'Student', blurb: 'Full access for enrolled students.' },
+  { value: 'trial', title: 'Free trial', blurb: 'Try it out, with a few tests a day.' },
+] as const;
+
 export default function SignUp() {
   const [apiError, setApiError] = useState('');
   // Signing up issues no session: the address must be verified, then an admin
   // approves the account. So success swaps the form for instructions.
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { role: 'student' },
+  });
+  const accountType = watch('role');
 
   const onSubmit = async (data: FormData) => {
     setApiError('');
     try {
-      await apiRegister(data.email, data.name, data.password, data.phone);
+      await apiRegister(data.email, data.name, data.password, data.phone, data.role);
       setRegisteredEmail(data.email);
     } catch (err) {
       setApiError(
@@ -115,6 +125,25 @@ export default function SignUp() {
           <p className="mb-7 mt-0 text-subtle text-[15px]">It takes less than a minute.</p>
 
           <form onSubmit={handleSubmit(onSubmit)}>
+            <fieldset className="mb-4 border-0 p-0 m-0">
+              <legend className={fieldCaptionStyle}>Account type</legend>
+              <div className="grid grid-cols-2 gap-3">
+                {ACCOUNT_TYPES.map((t) => (
+                  <label
+                    key={t.value}
+                    className={classes(
+                      'block rounded-xl border px-4 py-3 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-accent-text/30',
+                      accountType === t.value ? 'border-accent-text bg-accent-text/[.06]' : 'border-field bg-white',
+                    )}
+                  >
+                    <input type="radio" value={t.value} {...register('role')} className="sr-only" />
+                    <span className="block text-sm font-semibold text-ink">{t.title}</span>
+                    <span className="block mt-0.5 text-xs text-subtle leading-[1.45]">{t.blurb}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
             <div className="mb-4">
               {label('Full name')}
               <input type="text" autoComplete="name" placeholder="Aarav Sharma" {...register('name')} className={fieldStyle(!!errors.name)} />

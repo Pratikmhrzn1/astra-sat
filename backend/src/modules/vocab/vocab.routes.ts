@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { wrapAsync } from '../../core/http/async-handler';
-import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { sessionUserId, requireSession, requireAccountRole, LEARNER_ROLES } from '../../core/http/middleware/auth';
 import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import * as vocab from './vocab.service';
 import * as service from './word-bank.service';
@@ -15,7 +15,7 @@ import {
 
 export const lexiconStudentRoutes = Router();
 
-lexiconStudentRoutes.use(requireSession, requireAccountRole(['student']));
+lexiconStudentRoutes.use(requireSession, requireAccountRole(LEARNER_ROLES));
 
 // ── Vocabulary ───────────────────────────────────────────────────────────────
 

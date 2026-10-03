@@ -1,15 +1,17 @@
 import { z } from 'zod';
 
 /**
- * Public signup. Always creates a student account, which then waits on email
+ * Public signup. Creates a trial or student account, which then waits on email
  * verification and admin approval. Teachers and admins are made by an admin
- * (`POST /admin/users`), never through this form.
+ * (`POST /admin/users`), never through this form. `role` defaults to student so
+ * a client cached from before trials existed can still sign up.
  */
 export const registerRules = z.object({
   email: z.string().trim().email('Invalid email address').toLowerCase(),
   name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
   phone: z.string().trim().min(3, 'Phone number is required').max(30),
   password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+  role: z.enum(['trial', 'student']).default('student'),
 });
 export type RegisterPayload = z.infer<typeof registerRules>;
 

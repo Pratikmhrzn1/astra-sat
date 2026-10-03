@@ -3,7 +3,7 @@ import { classes } from '@/shared/lib/utils';
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'english' | 'math' | 'success' | 'warning' | 'error' | 'neutral' | 'admin' | 'teacher' | 'student';
+  variant?: 'english' | 'math' | 'success' | 'warning' | 'error' | 'neutral' | 'admin' | 'teacher' | 'student' | 'trial';
   className?: string;
 }
 
@@ -20,6 +20,7 @@ export function Tag({ children, variant = 'neutral', className }: BadgeProps) {
           'bg-sunken text-ink/60 border border-border': variant === 'neutral',
           'bg-purple-50 text-purple-700 border border-purple-200': variant === 'admin',
           'bg-teal-50 text-teal-700 border border-teal-200': variant === 'teacher',
+          'bg-orange-50 text-orange-700 border border-orange-200': variant === 'trial',
         },
         className
       )}
@@ -37,7 +38,7 @@ export function SubjectTag({ subject }: { subject: 'english' | 'math' }) {
   );
 }
 
-export function RoleTag({ role }: { role: 'student' | 'teacher' | 'admin' }) {
+export function RoleTag({ role }: { role: 'trial' | 'student' | 'teacher' | 'admin' }) {
   return (
     <Tag variant={role}>
       {role.charAt(0).toUpperCase() + role.slice(1)}

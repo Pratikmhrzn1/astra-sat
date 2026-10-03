@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type AccountRole = 'student' | 'teacher' | 'admin';
+export type AccountRole = 'trial' | 'student' | 'teacher' | 'admin';
 
 export type AccountStatus = 'pending' | 'active' | 'rejected' | 'deactivated';
 
@@ -14,6 +14,10 @@ export interface SessionAccount {
   /** Optional: sessions persisted before account gates existed don't carry these. */
   status?: AccountStatus;
   emailVerified?: boolean;
+  /** ISO timestamp; null means no expiry. Optional for sessions persisted before expiry existed. */
+  expiryDate?: string | null;
+  /** Test starts allowed per day; null means unlimited. */
+  dailyTestLimit?: number | null;
   /**
    * Whether the onboarding survey is behind them. Sent on every auth payload;
    * `ProtectedRoute` holds a student here until it is true. Optional because a

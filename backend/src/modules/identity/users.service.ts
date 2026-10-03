@@ -3,12 +3,17 @@ import { database } from '../../core/db';
 import { enrolmentCodesTable, accountsTable, type AccountRow } from '../../core/db/schema';
 import { invalidRequest, stateConflict, missing } from '../../core/errors';
 import { hashSecret } from '../../core/lib/password';
+import { LEARNER_ROLES } from '../../core/http/middleware/auth';
 import { mailAccountApproved } from '../../core/lib/email';
 import { revokeRefreshTokens } from './auth.repository';
+import { addDays, effectiveStatus, isExpired } from './account-policy';
+import { loadPlatformSettings } from './platform-settings.service';
 import type {
   AssignStudentsPayload,
   CreateAccessCodePayload,
   CreateUserPayload,
+  SetDailyLimitPayload,
+  SetExpiryPayload,
   UpdateUserPayload,
 } from './users.schemas';
 
@@ -26,6 +31,9 @@ const adminUserFields = {
   emailVerifiedAt: accountsTable.emailVerifiedAt,
   approvedAt: accountsTable.approvedAt,
   lockedUntil: accountsTable.lockedUntil,
+  expiryDate: accountsTable.expiryDate,
+  dailyTestLimit: accountsTable.dailyTestLimit,
+  convertedAt: accountsTable.convertedAt,
   createdAt: accountsTable.createdAt,
 } as const;
 
@@ -37,7 +45,25 @@ function toAdminUser({ emailVerifiedAt, lockedUntil, ...rest }: AdminUserRow) {
     ...rest,
     emailVerified: emailVerifiedAt !== null,
     locked: lockedUntil !== null && lockedUntil.getTime() > Date.now(),
+    /** `status`, except that an active account past its expiry reads as 'expired'. */
+    effectiveStatus: effectiveStatus(rest),
+    /** Hard delete is only allowed once a learner account has expired (see `removeUser`). */
+    deletable: isDeletable(rest),
   };
+}
+
+function isLearner(user: Pick<AccountRow, 'role'>): boolean {
+  return user.role === 'trial' || user.role === 'student';
+}
+
+function isDeletable(user: Pick<AccountRow, 'role' | 'expiryDate'>): boolean {
+  return isLearner(user) && isExpired(user);
+}
+
+function assertLearner(user: AccountRow, what: string): void {
+  if (!isLearner(user)) {
+    throw stateConflict(`${what} apply to trial and student accounts only`).withCode('NOT_A_LEARNER');
+  }
 }
 
 export async function collectUsers() {
@@ -138,6 +164,38 @@ export async function reactivateUser(userId: string) {
   return patchAccount(userId, { status: 'active' });
 }
 
+/** Moves or clears (null) a learner's expiry date. Takes effect at their next refresh. */
+export async function setUserExpiry(userId: string, { expiryDate }: SetExpiryPayload) {
+  assertLearner(await loadAccount(userId), 'Expiry dates');
+  return patchAccount(userId, { expiryDate: expiryDate === null ? null : new Date(expiryDate) });
+}
+
+/** Sets or clears (null) a learner's daily test limit. */
+export async function setUserDailyLimit(userId: string, { dailyTestLimit }: SetDailyLimitPayload) {
+  assertLearner(await loadAccount(userId), 'Daily test limits');
+  return patchAccount(userId, { dailyTestLimit });
+}
+
+/**
+ * Trial → student. The new expiry counts from the ORIGINAL signup date, not
+ * from today (astra's rule), so an old trial can convert straight into an
+ * already-passed date; `inPast` tells the admin to move it.
+ */
+export async function convertTrialToStudent(userId: string) {
+  const user = await loadAccount(userId);
+  if (user.role !== 'trial') throw stateConflict('Only trial accounts can be converted').withCode('NOT_TRIAL');
+
+  const { studentDurationDays } = await loadPlatformSettings();
+  const expiryDate = addDays(user.createdAt, studentDurationDays);
+  const updated = await patchAccount(userId, {
+    role: 'student',
+    expiryDate,
+    dailyTestLimit: null,
+    convertedAt: new Date(),
+  });
+  return { user: updated, inPast: expiryDate.getTime() <= Date.now() };
+}
+
 /** Lifts a failed-login lockout early. */
 export async function unlockUser(userId: string) {
   await loadAccount(userId);
@@ -201,10 +259,10 @@ export async function linkLearnersToTeacher(input: AssignStudentsPayload) {
   const targets = await database
     .select({ id: accountsTable.id })
     .from(accountsTable)
-    .where(and(inArray(accountsTable.id, input.studentIds), eq(accountsTable.role, 'student')));
+    .where(and(inArray(accountsTable.id, input.studentIds), inArray(accountsTable.role, [...LEARNER_ROLES])));
 
   if (targets.length !== input.studentIds.length) {
-    throw invalidRequest('Every selected user must be a student');
+    throw invalidRequest('Every selected user must be a student or trial account');
   }
 
   const updated = await database
@@ -219,14 +277,23 @@ export async function linkLearnersToTeacher(input: AssignStudentsPayload) {
 /**
  * Deletes a user and, by cascade, their exams, answers and feedback.
  *
- * Self-deletion is refused: an admin removing their own account could leave the
- * platform with no administrator at all.
+ * Only a trial or student account whose expiry date has passed can be deleted.
+ * Until then an admin deactivates instead, which keeps the history. Teachers
+ * and admins never expire, so they can only ever be deactivated, which also
+ * means an admin can never delete themselves.
  */
 export async function removeUser(userId: string, actingAdminId: string): Promise<void> {
-  if (userId === actingAdminId) throw invalidRequest('Cannot delete your own account');
+  refuseSelf(userId, actingAdminId, 'delete');
+  const user = await loadAccount(userId);
+  if (!isDeletable(user)) {
+    throw stateConflict(
+      isLearner(user)
+        ? 'This account can only be deleted after its expiry date has passed. Deactivate it instead.'
+        : 'Teacher and admin accounts cannot be deleted. Deactivate it instead.',
+    ).withCode('DELETE_NOT_ALLOWED');
+  }
 
-  const deleted = await database.delete(accountsTable).where(eq(accountsTable.id, userId)).returning({ id: accountsTable.id });
-  if (deleted.length === 0) throw missing('User not found');
+  await database.delete(accountsTable).where(eq(accountsTable.id, userId));
 }
 
 // ── Access codes ──────────────────────────────────────────────────────────────

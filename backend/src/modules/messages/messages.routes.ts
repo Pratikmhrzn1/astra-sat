@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { wrapAsync } from '../../core/http/async-handler';
-import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { sessionUserId, requireSession, requireAccountRole, LEARNER_ROLES } from '../../core/http/middleware/auth';
 import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import * as inbox from './inbox.service';
 import * as service from './messages.service';
@@ -10,7 +10,7 @@ import { dispatchFeedbackRules, type SendFeedbackPayload } from './messages.sche
 
 export const notesStudentRoutes = Router();
 
-notesStudentRoutes.use(requireSession, requireAccountRole(['student']));
+notesStudentRoutes.use(requireSession, requireAccountRole(LEARNER_ROLES));
 
 // ── Teacher feedback inbox ───────────────────────────────────────────────────
 

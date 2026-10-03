@@ -27,6 +27,7 @@ import {
   learnerLexiconTable,
   teacherLexiconTable,
   accountsTable,
+  platformSettingsTable,
 } from '../../core/db/schema';
 import { applySchema } from '../../core/db/migrate';
 import { invalidRequest, internalFailure } from '../../core/errors';
@@ -64,6 +65,9 @@ const BACKUP_TABLES = [
   { key: 'organizations', table: orgsTable, sqlName: 'organizations' },
   { key: 'users', table: accountsTable, sqlName: 'users' },
   { key: 'accessCodes', table: enrolmentCodesTable, sqlName: 'access_codes' },
+  // Admin-edited account defaults. A backup without it restores to an empty
+  // table, which is recreated from the env defaults on first read.
+  { key: 'platformSettings', table: platformSettingsTable, sqlName: 'platform_settings' },
   { key: 'questionSets', table: questionSetsTable, sqlName: 'question_sets' },
   // Before questions: questions.passage_id points here.
   { key: 'passages', table: passagesTable, sqlName: 'passages' },

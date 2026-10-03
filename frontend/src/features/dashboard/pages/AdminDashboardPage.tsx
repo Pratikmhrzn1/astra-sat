@@ -81,6 +81,10 @@ export default function ConsoleDashboard() {
 const ACTION_LABELS: Record<string, string> = {
   'user.updated': 'Edited a user',
   'user.deleted': 'Deleted a user',
+  'user.expiry_set': 'Changed an account expiry',
+  'user.daily_limit_set': 'Changed a daily test limit',
+  'user.converted': 'Converted a trial to student',
+  'platform_settings.updated': 'Changed platform settings',
   'users.assigned_teacher': 'Assigned students to a teacher',
   'access_code.created': 'Created an access code',
   'access_code.deleted': 'Deleted an access code',

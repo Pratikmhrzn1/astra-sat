@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { signIn, resendVerification } from '@/features/auth/api';
 import { useSessionVault } from '@/features/auth/store';
+import { HOME_ROUTES } from '@/features/auth/roles';
 import { fetchApiError, fetchApiErrorCode, fetchApiErrorMeta } from '@/shared/api/http';
 import { fieldStyle, fieldCaptionStyle, errorTextStyle, alertStyle } from '@/shared/ui';
 import { classes } from '@/shared/lib/utils';
@@ -16,7 +17,6 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-const ROLE_ROUTES = { student: '/student/dashboard', teacher: '/teacher/dashboard', admin: '/admin/dashboard' } as const;
 
 /** Copy for the reasons a correct password still can't sign in, keyed by server code. */
 const SIGN_IN_ERRORS: Record<string, string> = {
@@ -25,6 +25,7 @@ const SIGN_IN_ERRORS: Record<string, string> = {
   ACCOUNT_PENDING: 'Your account is awaiting administrator approval. We’ll email you once it’s approved.',
   ACCOUNT_REJECTED: 'This account was not approved. Contact your administrator if you think this is a mistake.',
   ACCOUNT_DEACTIVATED: 'This account has been deactivated. Contact your administrator.',
+  ACCOUNT_EXPIRED: 'Your access has expired. Contact your administrator to renew it.',
 };
 
 function describeSignInError(err: unknown): string {
@@ -49,7 +50,7 @@ export default function SignIn() {
   const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   React.useEffect(() => {
-    if (user) navigate(ROLE_ROUTES[user.role], { replace: true });
+    if (user) navigate(HOME_ROUTES[user.role], { replace: true });
   }, [user, navigate]);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
@@ -61,7 +62,7 @@ export default function SignIn() {
     try {
       const result = await signIn(data.email, data.password);
       storeLogin(result.user, result.accessToken);
-      navigate(ROLE_ROUTES[result.user.role], { replace: true });
+      navigate(HOME_ROUTES[result.user.role], { replace: true });
     } catch (err) {
       setApiError(describeSignInError(err));
       if (fetchApiErrorCode(err) === 'EMAIL_NOT_VERIFIED') setUnverifiedEmail(data.email);

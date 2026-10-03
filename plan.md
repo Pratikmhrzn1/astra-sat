@@ -19,7 +19,7 @@ Legend: `- [ ]` to do · `- [x]` done · ⏸ waiting on a decision or out of sco
 |---|---|---|---|---|
 | 0 | CI and test foundation | `stage-0-ci-tests` | [#1](https://github.com/Pratikmhrzn1/astra-sat/pull/1) | ✅ Merged (`d187ba7`) |
 | 1 | Authentication (astra model) | `rewrite/stage1-backend` | merged to `main` (`194aa73`) | ✅ Done |
-| 2 | Account lifecycle | — | — | Not started |
+| 2 | Account lifecycle | `stage-2-account-lifecycle` | [#2](https://github.com/Pratikmhrzn1/astra-sat/pull/2) | ✅ Done, CI green, waiting on merge |
 | 3 | Admin and ops | — | — | Not started |
 | 4 | Platform quality | — | — | Not started |
 
@@ -58,26 +58,40 @@ Spec: Appendix B. Committed as `194aa73` and merged to `main`.
 
 ## Stage 2 — Account lifecycle
 
-From astra's `admin.service.ts`, `platform-settings.ts` and `user-view.ts`. **Decide at the start:** D3, whether deleting a user stays or becomes deactivate-only (item 2.5).
+From astra's `admin.service.ts`, `platform-settings.ts` and `user-view.ts`.
 
-- [ ] **2.1 Trial role**
-  - [ ] Backend: `role` becomes `trial | student | teacher | admin`. A `LEARNER_ROLES` constant replaces the ~12 `requireAccountRole(['student'])` lists. Signup can choose `trial` or `student`.
-  - [ ] Backend: `daily_test_limit` covers practice and mock starts per UTC day, with mock sections exempt
-  - [ ] Frontend: role choice at signup, and trial limits shown to the student
-  - [ ] Tests: the limit is enforced, and trial accounts reach the student routes
-- [ ] **2.2 Account expiry**
-  - [ ] Backend: `users.expiry_date`, an `ACCOUNT_EXPIRED` check in `assertUsable`, a derived `effectiveStatus` that is never stored
-  - [ ] Frontend: the admin can set and clear expiry, and the login page has `ACCOUNT_EXPIRED` copy
-  - [ ] Tests: an expired account can't log in or refresh
-- [ ] **2.3 Convert trial → student**
-  - [ ] Backend: expiry is computed from the original signup date, with a warning when the result is already in the past
-  - [ ] Frontend: a convert action on the admin Users page
-  - [ ] Tests
-- [ ] **2.4 Platform settings**
-  - [ ] Backend: a single `platform_settings` row (trial days, trial daily limit, student days), seeded from env the first time it's read
-  - [ ] Frontend: an admin settings form
-  - [ ] Tests
-- [ ] **2.5 No hard delete** ⏸ only if D3 flips: `DELETE /admin/users/:id` is replaced by deactivate, so attempt history is never lost
+**Decisions (settled 2026-10-03):**
+- **D3, deleting users.** Before an account's expiry date, an admin can only *deactivate* it, which keeps its history. Once a trial or student account has expired, hard delete becomes available. Nothing is ever deleted automatically. Teachers and admins have no expiry, so they can only be deactivated.
+- **Signup role.** The student picks Trial or Student on the register form. An admin still approves, and can convert Trial → Student later.
+- **Existing accounts** get no expiry (`expiry_date` stays null), so the migration locks nobody out. Admins set dates one account at a time.
+- **Daily limit day boundary** is midnight in Nepal time (Asia/Kathmandu), not UTC.
+- Defaults (astra's): trial 14 days with 5 tests a day, student 60 days. Expiry counts from the signup date. New columns are `TIMESTAMPTZ`; Stage 0 showed why.
+
+- [x] **2.1 Trial role**
+  - [x] Backend: the `role` enum gains `trial`. A `LEARNER_ROLES` constant (`trial`, `student`) replaces the `requireAccountRole(['student'])` lists and the `role = 'student'` filters (roster, teacher assignment, stats).
+  - [x] Backend: signup takes `role: trial | student` (default `student`), and sets `expiry_date` and `daily_test_limit` from platform settings
+  - [x] Backend: daily test limit. Practice, topic, mistake-review and mock *starts* count per Nepal day; a mock counts once and live exams are exempt. `DAILY_LIMIT_REACHED` (429), plus `GET /student/daily-usage`.
+  - [x] Frontend: Trial/Student choice at signup. Trial users reach every student page. A dashboard banner shows tests left today and days until expiry.
+  - [x] Tests: trial users reach student routes, the limit is enforced and live exams don't count
+- [x] **2.2 Account expiry**
+  - [x] Backend: `users.expiry_date`; `assertUsable` → `ACCOUNT_EXPIRED` (login and refresh); a derived `effectiveStatus: 'expired'` that is never stored
+  - [x] Backend: `PUT /admin/users/:id/expiry` and `PUT /admin/users/:id/daily-limit`, for trial and student accounts only
+  - [x] Frontend: the admin can set and clear expiry and the daily limit. The Users page shows an "Expired" status. The login page has `ACCOUNT_EXPIRED` copy.
+  - [x] Tests: an expired account can't log in or refresh; clearing the expiry restores access
+- [x] **2.3 Convert trial → student**
+  - [x] Backend: `POST /admin/users/:id/convert`. Expiry = signup date + student days, the limit is removed, `converted_at` is stamped, and `inPast` warns when the new expiry has already passed.
+  - [x] Frontend: a Convert action on the admin Users page, with the in-past warning
+  - [x] Tests
+- [x] **2.4 Platform settings**
+  - [x] Backend: a single `platform_settings` row, seeded from `TRIAL_DURATION_DAYS` / `TRIAL_DAILY_TEST_LIMIT` / `STUDENT_DURATION_DAYS` the first time it's read; `GET`/`PUT /admin/platform-settings`
+  - [x] Frontend: an admin "Platform settings" page
+  - [x] Tests
+- [x] **2.5 Delete only after expiry** (D3)
+  - [x] Backend: `DELETE /admin/users/:id` returns `409 DELETE_NOT_ALLOWED` unless the account is a trial or student whose expiry has passed
+  - [x] Frontend: Delete is disabled with an explanation until the account has expired; Deactivate is the default action
+  - [x] Tests
+- [x] **Found while testing:** a trial converted to student got an expiry 5h45m late on a non-UTC database. `users.created_at` is zone-less and filled by the DB's `NOW()`. Signup now stamps `created_at` from the app, and a test catches the drift.
+- [x] **Also:** `platform_settings` is included in backups. The admin dashboard's audit feed labels the new actions. Your dev DB `sat_restore` was migrated by the running dev server, and all 29 existing accounts have no expiry.
 
 ## Stage 3 — Admin and ops
 

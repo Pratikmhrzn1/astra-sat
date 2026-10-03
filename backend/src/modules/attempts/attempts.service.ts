@@ -4,6 +4,7 @@ import { assessmentAnswersTable, assessmentsTable, questionSetsTable, questionsT
 import { invalidRequest, stateConflict, isServiceError, missing } from '../../core/errors';
 import {
   DEADLINE_LENIENCY_SECONDS,
+  assertDailyTestAllowance,
   buildAssessmentWithSheet,
   examRepository as repo,
   markAnswer,
@@ -24,6 +25,7 @@ import type { SaveAnswersPayload, StartAssessmentPayload } from './attempts.sche
  */
 
 export async function openAssessment(studentId: string, { setId, type }: StartAssessmentPayload) {
+  await assertDailyTestAllowance(studentId);
   const set = await repo.loadSetById(setId);
   if (!set) throw missing('Question set not found');
 

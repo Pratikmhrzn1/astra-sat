@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { wrapAsync } from '../../core/http/async-handler';
-import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { sessionUserId, requireSession, requireAccountRole, LEARNER_ROLES } from '../../core/http/middleware/auth';
 import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import { logTrail } from '../audit';
 import * as service from './survey.service';
@@ -84,7 +84,7 @@ intakeAdminRoutes.get(
 
 export const intakeStudentRoutes = Router();
 
-intakeStudentRoutes.use(requireSession, requireAccountRole(['student']));
+intakeStudentRoutes.use(requireSession, requireAccountRole(LEARNER_ROLES));
 
 intakeStudentRoutes.get(
   '/survey',

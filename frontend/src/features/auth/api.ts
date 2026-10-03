@@ -15,9 +15,17 @@ export interface MessageReply {
   message: string;
 }
 
+export type SignupRole = 'trial' | 'student';
+
 /** Creates a pending account. No session: the user must verify their email, then be approved. */
-export async function signUp(email: string, name: string, password: string, phone: string): Promise<MessageReply> {
-  const { data } = await apiTransport.post<MessageReply>('/auth/register', { email, name, phone, password });
+export async function signUp(
+  email: string,
+  name: string,
+  password: string,
+  phone: string,
+  role: SignupRole,
+): Promise<MessageReply> {
+  const { data } = await apiTransport.post<MessageReply>('/auth/register', { email, name, phone, password, role });
   return data;
 }
 

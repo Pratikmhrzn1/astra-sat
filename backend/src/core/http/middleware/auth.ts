@@ -12,7 +12,18 @@ declare global {
   }
 }
 
-export type AccountRole = 'student' | 'teacher' | 'admin';
+export type AccountRole = 'trial' | 'student' | 'teacher' | 'admin';
+
+/**
+ * Everyone who sits exams: trial and full students reach exactly the same
+ * routes, and differ only in their account's expiry date and daily test limit.
+ * Gate learner routes with this, never with `['student']` alone.
+ */
+export const LEARNER_ROLES: readonly AccountRole[] = ['trial', 'student'];
+
+export function isLearnerRole(role: string): boolean {
+  return (LEARNER_ROLES as readonly string[]).includes(role);
+}
 
 /** Verifies the `Authorization: Bearer <accessToken>` header. */
 export const requireSession: RequestHandler = (req, _res, next) => {
@@ -32,10 +43,10 @@ export const requireSession: RequestHandler = (req, _res, next) => {
  * Restricts a route to the given roles. Always mount behind `requireSession`.
  *
  * Prefer applying this at the router root (`router.use(requireSession,
- * requireAccountRole(['student']))`) so new routes inherit the gate instead of each
+ * requireAccountRole(LEARNER_ROLES))`) so new routes inherit the gate instead of each
  * handler repeating a check it can forget.
  */
-export function requireAccountRole(roles: AccountRole[], message = 'Insufficient permissions'): RequestHandler {
+export function requireAccountRole(roles: readonly AccountRole[], message = 'Insufficient permissions'): RequestHandler {
   return (req, _res, next) => {
     if (!req.user) throw notAuthenticated();
     if (!roles.includes(req.user.role as AccountRole)) throw notPermitted(message);

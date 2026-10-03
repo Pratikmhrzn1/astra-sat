@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { wrapAsync } from '../../core/http/async-handler';
-import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { sessionUserId, requireSession, requireAccountRole, LEARNER_ROLES } from '../../core/http/middleware/auth';
 import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import * as chat from './chat.service';
 import * as practice from './practice.service';
@@ -19,7 +19,7 @@ import {
 
 export const drillsStudentRoutes = Router();
 
-drillsStudentRoutes.use(requireSession, requireAccountRole(['student']));
+drillsStudentRoutes.use(requireSession, requireAccountRole(LEARNER_ROLES));
 
 /**
  * Practice confirm. Responds as soon as feedback is ready, then checks whether

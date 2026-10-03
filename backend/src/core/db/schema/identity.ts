@@ -31,9 +31,33 @@ export const accountsTable = pgTable('users', {
   // an attacker a fresh set of guesses.
   failedLoginAttempts: integer('failed_login_attempts').notNull().default(0),
   lockedUntil: timestamp('locked_until'),
+  // Learner access window. Null means no expiry, which is always the case for
+  // teachers and admins, and for accounts that predate expiry dates. "Expired"
+  // is derived from this at read time and never stored as a status.
+  expiryDate: timestamp('expiry_date', { withTimezone: true }),
+  // Test starts allowed per Nepal calendar day. Null means unlimited.
+  dailyTestLimit: integer('daily_test_limit'),
+  // When a trial was converted to a student account.
+  convertedAt: timestamp('converted_at', { withTimezone: true }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
+
+/**
+ * The account defaults an admin can change at runtime. Exactly one row,
+ * enforced by the unique, always-true `singleton` column. It is created from
+ * the TRIAL_* / STUDENT_* env vars the first time it is read.
+ */
+export const platformSettingsTable = pgTable('platform_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  singleton: boolean('singleton').notNull().default(true).unique(),
+  trialDurationDays: integer('trial_duration_days').notNull(),
+  trialDailyTestLimit: integer('trial_daily_test_limit').notNull(),
+  studentDurationDays: integer('student_duration_days').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type PlatformSettingsRow = typeof platformSettingsTable.$inferSelect;
 
 export const enrolmentCodesTable = pgTable('access_codes', {
   id: uuid('id').primaryKey().defaultRandom(),
