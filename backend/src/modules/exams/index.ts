@@ -8,4 +8,5 @@ export * from './scaled-score';
 export * from './exam-provisioning';
 export * from './exam-timing';
 export * from './grading';
+export * from './daily-allowance';
 export * as examRepository from './exam.repository';

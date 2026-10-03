@@ -3,6 +3,7 @@ import { database } from '../../core/db';
 import { assessmentsTable, mockRunsTable, questionSetsTable } from '../../core/db/schema';
 import { invalidRequest, missing } from '../../core/errors';
 import {
+  assertDailyTestAllowance,
   MOCK_MODULE_CAP_SECONDS,
   buildAssessmentWithSheet,
   examRepository as repo,
@@ -86,7 +87,9 @@ async function createSectionExam(studentId: string, setId: string, subject: Subj
   return { exam, questions: repo.withPublicImageLinks(questionRows) };
 }
 
+/** A whole mock counts as one test against the daily limit, whatever modules it goes on to create. */
 export async function openMockTest(studentId: string) {
+  await assertDailyTestAllowance(studentId);
   const [englishSetId, mathSetId] = await Promise.all([
     pickModule1Set('english'),
     pickModule1Set('math'),

@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { wrapAsync } from '../../core/http/async-handler';
-import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { sessionUserId, requireSession, requireAccountRole, LEARNER_ROLES } from '../../core/http/middleware/auth';
 import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import { dependencyDown } from '../../core/errors';
+import { fetchDailyUsage } from '../exams';
 import { narrative } from '../practice';
 import * as exams from './attempts.service';
 import * as mock from './mock.service';
@@ -29,7 +30,15 @@ export const sittingsStudentRoutes = Router();
 
 // Applied once here rather than per route, so a route added below cannot
 // accidentally be reachable by a teacher or an anonymous caller.
-sittingsStudentRoutes.use(requireSession, requireAccountRole(['student']));
+sittingsStudentRoutes.use(requireSession, requireAccountRole(LEARNER_ROLES));
+
+/** Today's test starts against the account's daily limit (`limit: null` means unlimited). */
+sittingsStudentRoutes.get(
+  '/daily-usage',
+  wrapAsync(async (req, res) => {
+    res.json(await fetchDailyUsage(sessionUserId(req)));
+  }),
+);
 
 // ── Catalogue ────────────────────────────────────────────────────────────────
 

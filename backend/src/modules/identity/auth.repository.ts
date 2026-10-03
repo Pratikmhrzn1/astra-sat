@@ -28,9 +28,13 @@ export interface PublicAccount {
   id: string;
   email: string;
   name: string;
-  role: 'student' | 'teacher' | 'admin';
+  role: AccountRow['role'];
   status: AccountRow['status'];
   emailVerified: boolean;
+  /** ISO timestamp; null means the account never expires. */
+  expiryDate: string | null;
+  /** Test starts allowed per Nepal day; null means unlimited. */
+  dailyTestLimit: number | null;
   /**
    * Whether the onboarding survey is behind them. Carried on every auth payload
    * so the client can gate on it without a second request at startup.
@@ -46,6 +50,8 @@ export function toPublicAccount(user: AccountRow): PublicAccount {
     role: user.role,
     status: user.status,
     emailVerified: user.emailVerifiedAt !== null,
+    expiryDate: user.expiryDate?.toISOString() ?? null,
+    dailyTestLimit: user.dailyTestLimit,
     surveyCompleted: user.surveyCompletedAt !== null,
   };
 }
@@ -69,13 +75,20 @@ export async function loadProfileById(id: string) {
       status: accountsTable.status,
       emailVerifiedAt: accountsTable.emailVerifiedAt,
       surveyCompletedAt: accountsTable.surveyCompletedAt,
+      expiryDate: accountsTable.expiryDate,
+      dailyTestLimit: accountsTable.dailyTestLimit,
     })
     .from(accountsTable)
     .where(eq(accountsTable.id, id))
     .limit(1);
   if (!profile) return null;
-  const { surveyCompletedAt, emailVerifiedAt, ...rest } = profile;
-  return { ...rest, emailVerified: emailVerifiedAt !== null, surveyCompleted: surveyCompletedAt !== null };
+  const { surveyCompletedAt, emailVerifiedAt, expiryDate, ...rest } = profile;
+  return {
+    ...rest,
+    emailVerified: emailVerifiedAt !== null,
+    surveyCompleted: surveyCompletedAt !== null,
+    expiryDate: expiryDate?.toISOString() ?? null,
+  };
 }
 
 export async function emailTaken(email: string): Promise<boolean> {
@@ -83,16 +96,19 @@ export async function emailTaken(email: string): Promise<boolean> {
   return row !== undefined;
 }
 
-/** A public signup: always a pending, unverified student. */
-export async function addPendingStudent(input: {
+/** A public signup: always a pending, unverified trial or student. */
+export async function addPendingLearner(input: {
   email: string;
   name: string;
   phone: string;
   passwordHash: string;
+  role: 'trial' | 'student';
+  expiryDate: Date;
+  dailyTestLimit: number | null;
 }): Promise<AccountRow> {
   const [user] = await database
     .insert(accountsTable)
-    .values({ ...input, role: 'student', status: 'pending' })
+    .values({ ...input, status: 'pending' })
     .returning();
   return user;
 }

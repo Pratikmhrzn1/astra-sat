@@ -88,6 +88,13 @@ const envSchema = z.object({
   LOGIN_MAX_FAILED_ATTEMPTS: z.coerce.number().int().min(1).default(10),
   LOGIN_LOCKOUT_MINUTES: z.coerce.number().int().min(1).default(15),
 
+  // ── Account defaults ────────────────────────────────────────────────────────
+  // Seed values for the admin-editable platform_settings row, read only the
+  // first time that row is created. Change them in the admin UI after that.
+  TRIAL_DURATION_DAYS: z.coerce.number().int().min(1).default(14),
+  TRIAL_DAILY_TEST_LIMIT: z.coerce.number().int().min(1).default(5),
+  STUDENT_DURATION_DAYS: z.coerce.number().int().min(1).default(60),
+
   // ── Seed accounts (used only by `npm run seed`) ─────────────────────────────
   // Bootstrap logins for a fresh database. Never read at runtime — the seed
   // script is the only consumer, so leaving these set does not affect a
@@ -228,6 +235,13 @@ export const settings = {
     passwordResetTtlMs: raw.PASSWORD_RESET_TTL,
     loginMaxFailures: raw.LOGIN_MAX_FAILED_ATTEMPTS,
     loginLockoutMs: raw.LOGIN_LOCKOUT_MINUTES * 60_000,
+  },
+
+  /** First-read defaults for platform_settings (see modules/identity/platform-settings.service.ts). */
+  accountDefaults: {
+    trialDurationDays: raw.TRIAL_DURATION_DAYS,
+    trialDailyTestLimit: raw.TRIAL_DAILY_TEST_LIMIT,
+    studentDurationDays: raw.STUDENT_DURATION_DAYS,
   },
 
   /** Consumed by `npm run seed`; null for any account left unconfigured. */

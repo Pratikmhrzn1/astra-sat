@@ -37,3 +37,25 @@ export const assignStudentsRules = z.object({
   teacherId: z.string().uuid().nullable(),
 });
 export type AssignStudentsPayload = z.infer<typeof assignStudentsRules>;
+
+/** `null` clears the expiry, so the account never expires. */
+export const setExpiryRules = z.object({
+  expiryDate: z.string().datetime({ offset: true }).nullable(),
+});
+export type SetExpiryPayload = z.infer<typeof setExpiryRules>;
+
+/** `null` removes the cap. */
+export const setDailyLimitRules = z.object({
+  dailyTestLimit: z.number().int().min(1).max(1000).nullable(),
+});
+export type SetDailyLimitPayload = z.infer<typeof setDailyLimitRules>;
+
+export const updatePlatformSettingsRules = z
+  .object({
+    trialDurationDays: z.number().int().min(1).max(3650),
+    trialDailyTestLimit: z.number().int().min(1).max(1000),
+    studentDurationDays: z.number().int().min(1).max(3650),
+  })
+  .partial()
+  .refine((patch) => Object.keys(patch).length > 0, 'Nothing to update');
+export type UpdatePlatformSettingsPayload = z.infer<typeof updatePlatformSettingsRules>;

@@ -7,6 +7,8 @@ import { mailEmailVerification, mailPasswordReset } from '../../core/lib/email';
 import type { AccountRow } from '../../core/db/schema';
 import * as repo from './auth.repository';
 import * as tokens from './auth.tokens';
+import { addDays, isExpired } from './account-policy';
+import { loadPlatformSettings } from './platform-settings.service';
 import type {
   ChangePasswordPayload,
   ForgotPasswordPayload,
@@ -49,7 +51,7 @@ function logMailFailure(kind: string) {
 }
 
 /** The gates every account must pass to get, or keep refreshing, a session. */
-export function assertUsable(user: Pick<AccountRow, 'status' | 'emailVerifiedAt'>): void {
+export function assertUsable(user: Pick<AccountRow, 'status' | 'emailVerifiedAt' | 'expiryDate'>): void {
   if (user.emailVerifiedAt === null) {
     throw notPermitted('Please verify your email address before signing in.').withCode('EMAIL_NOT_VERIFIED');
   }
@@ -61,6 +63,10 @@ export function assertUsable(user: Pick<AccountRow, 'status' | 'emailVerifiedAt'
     case 'deactivated':
       throw notPermitted('This account has been deactivated.').withCode('ACCOUNT_DEACTIVATED');
     case 'active':
+      // Expiry is checked last, so only an otherwise-usable account hears it.
+      if (isExpired(user)) {
+        throw notPermitted('Your access has expired. Contact an administrator to renew it.').withCode('ACCOUNT_EXPIRED');
+      }
       return;
   }
 }
@@ -104,18 +110,28 @@ async function issueSession(user: AccountRow): Promise<SessionGrant> {
 
 // ── Sign-up and verification ─────────────────────────────────────────────────
 
-/** Creates a pending student and emails the verification link. Issues no session. */
+/**
+ * Creates a pending trial or student and emails the verification link. Issues
+ * no session. The access window counts from signup, not from approval (astra's
+ * rule), so the expiry is fixed here; an admin can move it later.
+ */
 export async function signUp(input: RegisterPayload): Promise<void> {
   const taken = () => stateConflict('An account with this email already exists').withCode('EMAIL_TAKEN');
   if (await repo.emailTaken(input.email)) throw taken();
 
+  const defaults = await loadPlatformSettings();
+  const isTrial = input.role === 'trial';
+
   let user: AccountRow;
   try {
-    user = await repo.addPendingStudent({
+    user = await repo.addPendingLearner({
       email: input.email,
       name: input.name,
       phone: input.phone,
       passwordHash: await hashSecret(input.password),
+      role: input.role,
+      expiryDate: addDays(new Date(), isTrial ? defaults.trialDurationDays : defaults.studentDurationDays),
+      dailyTestLimit: isTrial ? defaults.trialDailyTestLimit : null,
     });
   } catch (err) {
     // Two signups for one address racing past the check above.

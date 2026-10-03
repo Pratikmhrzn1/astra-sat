@@ -2,7 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
 import { competenciesTable } from '../../core/db/schema';
 import { invalidRequest, missing } from '../../core/errors';
-import { buildAssessmentWithSheet } from '../exams';
+import { assertDailyTestAllowance, buildAssessmentWithSheet } from '../exams';
 import type { TopicAssessmentPayload } from './practice.schemas';
 
 /**
@@ -25,6 +25,7 @@ import type { TopicAssessmentPayload } from './practice.schemas';
 const MIN_TOPIC_QUESTIONS = 5;
 
 export async function openTopicAssessment(studentId: string, input: TopicAssessmentPayload) {
+  await assertDailyTestAllowance(studentId);
   const [skill] = await database
     .select({ code: competenciesTable.code, label: competenciesTable.label, subject: competenciesTable.subject })
     .from(competenciesTable)

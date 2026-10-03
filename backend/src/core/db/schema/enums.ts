@@ -1,6 +1,8 @@
 import { pgEnum } from 'drizzle-orm/pg-core';
 
-export const roleChoices = pgEnum('role', ['student', 'teacher', 'admin']);
+// `trial` and `student` are both learners; they differ only in the per-account
+// `expiry_date` and `daily_test_limit`, never in what they can reach.
+export const roleChoices = pgEnum('role', ['trial', 'student', 'teacher', 'admin']);
 
 export const accountStatusChoices = pgEnum('account_status', ['pending', 'active', 'rejected', 'deactivated']);
 

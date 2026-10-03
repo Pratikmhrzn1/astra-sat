@@ -1,7 +1,8 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { database } from '../../core/db';
 import { assessmentAnswersTable, assessmentsTable, questionSetsTable, questionsTable, accountsTable } from '../../core/db/schema';
 import { notPermitted, missing } from '../../core/errors';
+import { LEARNER_ROLES } from '../../core/http/middleware/auth';
 import { fetchLearnerProfile, insightsOverview } from '../analytics';
 import { examRepository } from '../exams';
 import { publicAccountFields } from '../identity';
@@ -50,7 +51,7 @@ export async function collectStudents(teacherId: string) {
   return database
     .select({ id: accountsTable.id, email: accountsTable.email, name: accountsTable.name, createdAt: accountsTable.createdAt })
     .from(accountsTable)
-    .where(and(eq(accountsTable.teacherId, teacherId), eq(accountsTable.role, 'student')));
+    .where(and(eq(accountsTable.teacherId, teacherId), inArray(accountsTable.role, [...LEARNER_ROLES])));
 }
 
 /**

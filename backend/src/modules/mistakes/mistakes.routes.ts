@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { wrapAsync } from '../../core/http/async-handler';
-import { sessionUserId, requireSession, requireAccountRole } from '../../core/http/middleware/auth';
+import { sessionUserId, requireSession, requireAccountRole, LEARNER_ROLES } from '../../core/http/middleware/auth';
 import { validatedBody, validatedQuery, checkBody, checkQuery } from '../../core/http/middleware/validate';
 import * as mistakes from './mistakes.service';
 import {
@@ -12,7 +12,7 @@ import {
 
 export const misstepsStudentRoutes = Router();
 
-misstepsStudentRoutes.use(requireSession, requireAccountRole(['student']));
+misstepsStudentRoutes.use(requireSession, requireAccountRole(LEARNER_ROLES));
 
 // ── Mistake bank ─────────────────────────────────────────────────────────────
 

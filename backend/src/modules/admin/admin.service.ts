@@ -6,8 +6,9 @@ import { fetchTaggingCoverage } from '../taxonomy';
 /** Platform overview for admins: headline counts and AI spend. */
 
 export async function fetchStats() {
-  const [students, teachers, admins, examCount, questionCount, setCount] = await Promise.all([
+  const [students, trials, teachers, admins, examCount, questionCount, setCount] = await Promise.all([
     countRows(database.select({ count: sql<number>`count(*)::int` }).from(accountsTable).where(eq(accountsTable.role, 'student'))),
+    countRows(database.select({ count: sql<number>`count(*)::int` }).from(accountsTable).where(eq(accountsTable.role, 'trial'))),
     countRows(database.select({ count: sql<number>`count(*)::int` }).from(accountsTable).where(eq(accountsTable.role, 'teacher'))),
     countRows(database.select({ count: sql<number>`count(*)::int` }).from(accountsTable).where(eq(accountsTable.role, 'admin'))),
     countRows(database.select({ count: sql<number>`count(*)::int` }).from(assessmentsTable)),
@@ -19,6 +20,7 @@ export async function fetchStats() {
 
   return {
     students,
+    trials,
     teachers,
     admins,
     exams: examCount,

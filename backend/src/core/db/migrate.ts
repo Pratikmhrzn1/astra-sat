@@ -679,6 +679,34 @@ const RETIRE_DEFAULT_ADMIN_CODE = `
   WHERE code = '000000' AND role = 'admin' AND is_active = TRUE;
 `;
 
+/**
+ * Trial accounts, expiry dates, daily test limits and platform settings.
+ *
+ * Existing accounts get no expiry (NULL), so nobody is locked out by this
+ * migration. Adding an enum value inside a transaction is fine on Postgres 12+,
+ * as long as nothing in the same transaction uses the new value.
+ *
+ * The new timestamp columns are TIMESTAMPTZ: they are compared with now()
+ * and with JS dates, and a zone-less column misreads both off UTC.
+ */
+const ACCOUNT_LIFECYCLE = `
+  ALTER TYPE role ADD VALUE IF NOT EXISTS 'trial' BEFORE 'student';
+
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS expiry_date TIMESTAMPTZ;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_test_limit INTEGER;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS converted_at TIMESTAMPTZ;
+  CREATE INDEX IF NOT EXISTS users_role_idx ON users (role);
+
+  CREATE TABLE IF NOT EXISTS platform_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    singleton BOOLEAN NOT NULL DEFAULT TRUE UNIQUE CHECK (singleton),
+    trial_duration_days INTEGER NOT NULL,
+    trial_daily_test_limit INTEGER NOT NULL,
+    student_duration_days INTEGER NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+`;
+
 export async function applySchema() {
   const client = await pgPool.connect();
   try {
@@ -693,6 +721,7 @@ export async function applySchema() {
     await client.query(BACKFILL_FOUNDATION);
     await client.query(ACCOUNT_GATES);
     await client.query(RETIRE_DEFAULT_ADMIN_CODE);
+    await client.query(ACCOUNT_LIFECYCLE);
     await client.query('COMMIT');
     console.log('Migrations completed successfully');
   } catch (err) {

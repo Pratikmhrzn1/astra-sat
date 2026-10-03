@@ -8,7 +8,7 @@ import {
   competenciesTable,
 } from '../../core/db/schema';
 import { invalidRequest } from '../../core/errors';
-import { buildAssessmentWithSheet } from '../exams';
+import { assertDailyTestAllowance, buildAssessmentWithSheet } from '../exams';
 import type { MisstepPracticePayload } from './mistakes.schemas';
 
 /**
@@ -203,6 +203,7 @@ export async function fetchMisstepSummary(studentId: string) {
  * than building a bespoke quiz.
  */
 export async function openMisstepPractice(studentId: string, input: MisstepPracticePayload) {
+  await assertDailyTestAllowance(studentId);
   const conditions = [eq(misstepsTable.studentId, studentId), isNull(misstepsTable.resolvedAt)];
   if (input.subject) conditions.push(eq(questionSetsTable.subject, input.subject));
   if (input.skillCode) conditions.push(eq(questionsTable.skillCode, input.skillCode));

@@ -4,15 +4,22 @@ import { sessionUserId, requireSession, requireAccountRole } from '../../core/ht
 import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import { logTrail } from '../audit';
 import * as service from './users.service';
+import * as platformSettings from './platform-settings.service';
 import { resendVerificationFor } from './auth.service';
 import {
   assignStudentsRules,
   addAccessCodeRules,
   createUserRules,
   editUserRules,
+  setDailyLimitRules,
+  setExpiryRules,
+  updatePlatformSettingsRules,
   type AssignStudentsPayload,
   type CreateAccessCodePayload,
   type CreateUserPayload,
+  type SetDailyLimitPayload,
+  type SetExpiryPayload,
+  type UpdatePlatformSettingsPayload,
   type UpdateUserPayload,
 } from './users.schemas';
 
@@ -138,12 +145,72 @@ accountsAdminRoutes.post(
   }),
 );
 
+// ── Learner access: expiry, daily limit, trial conversion ─────────────────────
+
+accountsAdminRoutes.put(
+  '/users/:userId/expiry',
+  checkBody(setExpiryRules),
+  wrapAsync(async (req, res) => {
+    const input = validatedBody<SetExpiryPayload>(req);
+    const updated = await service.setUserExpiry(req.params.userId, input);
+    await logTrail({
+      actorId: sessionUserId(req), action: 'user.expiry_set', targetType: 'user', targetId: req.params.userId,
+      payload: { expiryDate: input.expiryDate },
+    });
+    res.json(updated);
+  }),
+);
+
+accountsAdminRoutes.put(
+  '/users/:userId/daily-limit',
+  checkBody(setDailyLimitRules),
+  wrapAsync(async (req, res) => {
+    const input = validatedBody<SetDailyLimitPayload>(req);
+    const updated = await service.setUserDailyLimit(req.params.userId, input);
+    await logTrail({
+      actorId: sessionUserId(req), action: 'user.daily_limit_set', targetType: 'user', targetId: req.params.userId,
+      payload: { dailyTestLimit: input.dailyTestLimit },
+    });
+    res.json(updated);
+  }),
+);
+
+/** Trial → student. `inPast` means the computed expiry has already passed and needs moving. */
+accountsAdminRoutes.post(
+  '/users/:userId/convert',
+  wrapAsync(async (req, res) => {
+    const result = await service.convertTrialToStudent(req.params.userId);
+    await logTrail({ actorId: sessionUserId(req), action: 'user.converted', targetType: 'user', targetId: req.params.userId });
+    res.json(result);
+  }),
+);
+
 accountsAdminRoutes.delete(
   '/users/:userId',
   wrapAsync(async (req, res) => {
     await service.removeUser(req.params.userId, sessionUserId(req));
     await logTrail({ actorId: sessionUserId(req), action: 'user.deleted', targetType: 'user', targetId: req.params.userId });
     res.json({ ok: true });
+  }),
+);
+
+// ── Platform settings ────────────────────────────────────────────────────────
+
+accountsAdminRoutes.get(
+  '/platform-settings',
+  wrapAsync(async (_req, res) => {
+    res.json(await platformSettings.loadPlatformSettings());
+  }),
+);
+
+accountsAdminRoutes.put(
+  '/platform-settings',
+  checkBody(updatePlatformSettingsRules),
+  wrapAsync(async (req, res) => {
+    const input = validatedBody<UpdatePlatformSettingsPayload>(req);
+    const updated = await platformSettings.editPlatformSettings(input);
+    await logTrail({ actorId: sessionUserId(req), action: 'platform_settings.updated', targetType: 'platform_settings', payload: input });
+    res.json(updated);
   }),
 );
 

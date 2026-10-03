@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { apiRoutes } from '../src/api.router';
 import { buildApp } from '../src/core/http/app';
 import { database } from '../src/core/db';
-import { accountsTable } from '../src/core/db/schema';
+import { accountsTable, questionSetsTable, questionsTable } from '../src/core/db/schema';
 import { hashSecret } from '../src/core/lib/password';
 import { testOutbox } from '../src/core/lib/email';
 
@@ -13,10 +13,18 @@ export const api = () => request(app);
 
 export const PASSWORD = 'correct-horse-battery';
 
-type Role = 'student' | 'teacher' | 'admin';
+type Role = 'trial' | 'student' | 'teacher' | 'admin';
 
 /** Inserts an account that can sign in straight away, the way `npm run seed` does. */
-export async function createActiveUser(opts: { email: string; role?: Role; name?: string; password?: string }) {
+export async function createActiveUser(opts: {
+  email: string;
+  role?: Role;
+  name?: string;
+  password?: string;
+  expiryDate?: Date | null;
+  dailyTestLimit?: number | null;
+  createdAt?: Date;
+}) {
   const now = new Date();
   const [row] = await database
     .insert(accountsTable)
@@ -28,10 +36,33 @@ export async function createActiveUser(opts: { email: string; role?: Role; name?
       status: 'active',
       emailVerifiedAt: now,
       approvedAt: now,
+      // No onboarding survey in the way of learner routes.
+      surveyCompletedAt: now,
+      expiryDate: opts.expiryDate ?? null,
+      dailyTestLimit: opts.dailyTestLimit ?? null,
+      ...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
     })
     .returning();
   return row;
 }
+
+export const DAY_MS = 86_400_000;
+export const daysFromNow = (days: number) => new Date(Date.now() + days * DAY_MS);
+
+/** A published question set with a few multiple-choice questions, enough to start an exam on. */
+export async function createQuestionSet(subject: 'english' | 'math', questionCount = 2) {
+  const [set] = await database.insert(questionSetsTable).values({ title: `${subject} set`, subject }).returning();
+  await database.insert(questionsTable).values(
+    Array.from({ length: questionCount }, (_, i) => ({
+      setId: set.id,
+      questionText: `Question ${i + 1}?`,
+      orderIndex: i,
+    })),
+  );
+  return set;
+}
+
+export const asUser = (session: Session) => ({ Authorization: `Bearer ${session.accessToken}` });
 
 export async function loadUser(email: string) {
   const [row] = await database.select().from(accountsTable).where(eq(accountsTable.email, email));
