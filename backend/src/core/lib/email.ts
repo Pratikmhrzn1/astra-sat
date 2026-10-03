@@ -159,7 +159,17 @@ async function deliverOnce(to: string, email: RenderedEmail): Promise<void> {
   if (error) throw new Error(`Resend rejected the message: ${error.name} — ${error.message}`);
 }
 
+/**
+ * Under NODE_ENV=test every message lands here instead of being sent or
+ * printed, so tests can read the links out of it. Tests empty it between cases.
+ */
+export const testOutbox: ({ to: string } & RenderedEmail)[] = [];
+
 async function deliver(to: string, email: RenderedEmail): Promise<void> {
+  if (settings.isTest) {
+    testOutbox.push({ to, ...email });
+    return;
+  }
   if (!resend) {
     console.log(`\n[email:dev] to=${to}\n  subject: ${email.subject}\n  ${email.text.replace(/\n/g, '\n  ')}\n`);
     return;
