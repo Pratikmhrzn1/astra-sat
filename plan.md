@@ -19,7 +19,7 @@ Legend: `- [ ]` to do · `- [x]` done · ⏸ waiting on a decision or out of sco
 |---|---|---|---|---|
 | 0 | CI and test foundation | `stage-0-ci-tests` | [#1](https://github.com/Pratikmhrzn1/astra-sat/pull/1) | ✅ Merged (`d187ba7`) |
 | 1 | Authentication (astra model) | `rewrite/stage1-backend` | merged to `main` (`194aa73`) | ✅ Done |
-| 2 | Account lifecycle | `stage-2-account-lifecycle` | (opening) | ✅ Done, waiting on CI and merge |
+| 2 | Account lifecycle | `stage-2-account-lifecycle` | [#2](https://github.com/Pratikmhrzn1/astra-sat/pull/2) | ✅ Done, CI green, waiting on merge |
 | 3 | Admin and ops | — | — | Not started |
 | 4 | Platform quality | — | — | Not started |
 
