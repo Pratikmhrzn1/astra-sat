@@ -108,7 +108,10 @@ export async function addPendingLearner(input: {
 }): Promise<AccountRow> {
   const [user] = await database
     .insert(accountsTable)
-    .values({ ...input, status: 'pending' })
+    // `createdAt` is stamped here, not left to NOW(): trial → student conversion
+    // counts the new expiry from it, and NOW() writes the DB server's local
+    // wall-clock time into this zone-less column, which Drizzle reads as UTC.
+    .values({ ...input, status: 'pending', createdAt: new Date() })
     .returning();
   return user;
 }

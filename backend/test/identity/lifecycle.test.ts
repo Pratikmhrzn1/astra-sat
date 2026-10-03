@@ -168,6 +168,19 @@ describe('convert trial → student', () => {
     expect(res.body.inPast).toBe(false);
   });
 
+  it('a real signup converts to exactly signup + student days (no timezone drift)', async () => {
+    await signup('trial');
+    const signedUp = await loadUser('trial@example.test');
+    // Approve so the admin endpoints treat it like any live trial.
+    await database.update(accountsTable).set({ status: 'active' }).where(eq(accountsTable.id, signedUp.id));
+    const admin = await adminSession();
+
+    await api().post(`/api/admin/users/${signedUp.id}/convert`).set(asUser(admin));
+    const converted = await loadUser('trial@example.test');
+    // Both dates count from the same signup instant: 60 student days vs 14 trial days.
+    expect(converted.expiryDate!.getTime() - signedUp.expiryDate!.getTime()).toBeCloseTo((60 - 14) * DAY_MS, -4);
+  });
+
   it('only converts trials', async () => {
     const student = await createActiveUser({ email: 'student@example.test' });
     const admin = await adminSession();
