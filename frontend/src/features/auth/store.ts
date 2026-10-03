@@ -3,12 +3,17 @@ import { persist } from 'zustand/middleware';
 
 export type AccountRole = 'student' | 'teacher' | 'admin';
 
+export type AccountStatus = 'pending' | 'active' | 'rejected' | 'deactivated';
+
 export interface SessionAccount {
   id: string;
   name: string;
   email: string;
   role: AccountRole;
   teacherId?: string | null;
+  /** Optional: sessions persisted before account gates existed don't carry these. */
+  status?: AccountStatus;
+  emailVerified?: boolean;
   /**
    * Whether the onboarding survey is behind them. Sent on every auth payload;
    * `ProtectedRoute` holds a student here until it is true. Optional because a

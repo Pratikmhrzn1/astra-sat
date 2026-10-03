@@ -49,7 +49,7 @@ export default function EnrolmentCodes() {
         <div>
           <div className="text-[11px] font-bold tracking-[0.12em] uppercase text-accent-text mb-1.5">Registration</div>
           <h1 className="font-display font-semibold text-[32px] sm:text-[44px] mt-0 mb-1.5 tracking-[-0.02em] text-ink">Access Codes</h1>
-          <p className="text-sm text-subtle m-0">Required during registration to assign a role to new accounts.</p>
+          <p className="text-sm text-subtle m-0">Legacy — signup no longer asks for a code. New students verify their email and are approved under User Management; teachers and admins are created there too.</p>
         </div>
         <button onClick={() => { setShowCreate(true); setCreateError(''); }} className={classes(accentControlStyle, 'mt-2')}>
           <Plus size={16} /> Create Code

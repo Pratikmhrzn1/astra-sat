@@ -7,6 +7,19 @@ export const editUserRules = z.object({
 });
 export type UpdateUserPayload = z.infer<typeof editUserRules>;
 
+/**
+ * The Account Creator: an admin makes a teacher or admin directly. Those roles
+ * never come through public signup. The account is born active and verified,
+ * since the admin vouches for it.
+ */
+export const createUserRules = z.object({
+  email: z.string().trim().email('Invalid email address').toLowerCase(),
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(100),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+  role: z.enum(['teacher', 'admin']),
+});
+export type CreateUserPayload = z.infer<typeof createUserRules>;
+
 export const addAccessCodeRules = z.object({
   code: z.string().min(4).max(50),
   role: z.enum(['student', 'teacher', 'admin']),

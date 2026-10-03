@@ -1,46 +1,46 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { signUp as apiRegister } from '@/features/auth/api';
-import { useSessionVault } from '@/features/auth/store';
-import { fetchApiError } from '@/shared/api/http';
-import { fieldStyle, fieldCaptionStyle, errorTextStyle, alertStyle, hintTextStyle } from '@/shared/ui';
+import { fetchApiError, fetchApiErrorCode } from '@/shared/api/http';
+import { fieldStyle, fieldCaptionStyle, errorTextStyle, alertStyle } from '@/shared/ui';
 import { classes } from '@/shared/lib/utils';
 
 const schema = z
   .object({
     name: z.string().min(2, 'Name must be at least 2 characters'),
     email: z.string().email('Invalid email address'),
-    phone: z.string().max(30).optional(),
+    phone: z.string().trim().min(3, 'Phone number is required').max(30),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
-    accessCode: z.string().min(1, 'Access code is required'),
   })
   .refine((d) => d.password === d.confirmPassword, { message: 'Passwords do not match', path: ['confirmPassword'] });
 
 type FormData = z.infer<typeof schema>;
 
-const ROLE_ROUTES = { student: '/student/dashboard', teacher: '/teacher/dashboard', admin: '/admin/dashboard' } as const;
-
 const toggleBtn = 'px-[26px] py-2 rounded-full text-[13px] font-bold tracking-[0.05em] uppercase';
 
 export default function SignUp() {
-  const navigate = useNavigate();
-  const { login: storeLogin } = useSessionVault();
   const [apiError, setApiError] = useState('');
+  // Signing up issues no session: the address must be verified, then an admin
+  // approves the account. So success swaps the form for instructions.
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (data: FormData) => {
     setApiError('');
     try {
-      const result = await apiRegister(data.email, data.name, data.password, data.accessCode, data.phone);
-      storeLogin(result.user, result.accessToken);
-      navigate(ROLE_ROUTES[result.user.role], { replace: true });
+      await apiRegister(data.email, data.name, data.password, data.phone);
+      setRegisteredEmail(data.email);
     } catch (err) {
-      setApiError(fetchApiError(err));
+      setApiError(
+        fetchApiErrorCode(err) === 'EMAIL_TAKEN'
+          ? 'An account with this email already exists. Try signing in instead.'
+          : fetchApiError(err),
+      );
     }
   };
 
@@ -96,6 +96,21 @@ export default function SignUp() {
             </div>
           </div>
 
+          {registeredEmail ? (
+            <>
+              <h2 className="font-display font-semibold text-[34px] sm:text-[40px] mb-1.5 mt-0 tracking-[-0.02em]">Check your email</h2>
+              <p className="mb-7 mt-0 text-subtle text-[15px]">One more step before you can sign in.</p>
+              <div className="bg-green-sat/[.08] border border-green-sat/20 rounded-xl px-6 py-5">
+                <p className="mt-0 mb-1.5 text-[15px] font-semibold text-green-sat">Verification link sent</p>
+                <p className="m-0 text-sm text-subtle leading-[1.6]">
+                  We sent a link to <span className="font-semibold text-body">{registeredEmail}</span>. Open it to verify
+                  your address — after that, an administrator will review your account and we'll email you once it's
+                  approved.
+                </p>
+              </div>
+            </>
+          ) : (
+          <>
           <h2 className="font-display font-semibold text-[34px] sm:text-[40px] mb-1.5 mt-0 tracking-[-0.02em]">Create your account</h2>
           <p className="mb-7 mt-0 text-subtle text-[15px]">It takes less than a minute.</p>
 
@@ -116,7 +131,6 @@ export default function SignUp() {
               {label('Phone number')}
               <input type="tel" autoComplete="tel" placeholder="+977 98XXXXXXXX" {...register('phone')} className={fieldStyle(!!errors.phone)} />
               {err(errors.phone?.message)}
-              {!errors.phone && <p className={hintTextStyle}>Required for student accounts.</p>}
             </div>
 
             {/* Password fields — side by side on desktop, stacked on mobile */}
@@ -131,13 +145,6 @@ export default function SignUp() {
                 <input type="password" autoComplete="new-password" placeholder="••••••••" {...register('confirmPassword')} className={fieldStyle(!!errors.confirmPassword)} />
                 {err(errors.confirmPassword?.message)}
               </div>
-            </div>
-
-            <div className="mb-2.5">
-              {label('Access code')}
-              <input type="text" placeholder="Enter your access code" {...register('accessCode')} className={fieldStyle(!!errors.accessCode)} />
-              {err(errors.accessCode?.message)}
-              {!errors.accessCode && <p className={hintTextStyle}>Determines your role — student, teacher, or admin.</p>}
             </div>
 
             {apiError && (
@@ -157,6 +164,8 @@ export default function SignUp() {
               {isSubmitting ? 'Creating account…' : 'Create account'}
             </button>
           </form>
+          </>
+          )}
 
           <div className="text-center mt-6 text-sm text-subtle">
             Already registered?{' '}

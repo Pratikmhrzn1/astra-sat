@@ -615,10 +615,68 @@ const ONBOARDING_SURVEY = `
   END $$;
 `;
 
-const SEED_DEFAULT_ADMIN_CODE = `
-  INSERT INTO access_codes (code, role, description, is_active)
-  SELECT '000000', 'admin', 'Default admin access code', TRUE
-  WHERE NOT EXISTS (SELECT 1 FROM access_codes WHERE role = 'admin');
+/**
+ * Email verification + admin approval, and the persisted login lockout.
+ *
+ * The two backfills are one-shot on purpose. Each runs only in the boot that
+ * creates its column: existing accounts become active and verified so nobody
+ * already signed up is locked out. An unguarded
+ * `UPDATE ... WHERE email_verified_at IS NULL` would instead run on every boot
+ * and silently verify every new signup.
+ *
+ * `status` is added with DEFAULT 'active' (which fills the existing rows) and
+ * then switched to 'pending', the default for new signups.
+ */
+const ACCOUNT_GATES = `
+  DO $$ BEGIN
+    CREATE TYPE account_status AS ENUM ('pending', 'active', 'rejected', 'deactivated');
+  EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+  DO $$ BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'status'
+    ) THEN
+      ALTER TABLE users ADD COLUMN status account_status NOT NULL DEFAULT 'active';
+      ALTER TABLE users ALTER COLUMN status SET DEFAULT 'pending';
+    END IF;
+  END $$;
+
+  DO $$ BEGIN
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'users' AND column_name = 'email_verified_at'
+    ) THEN
+      ALTER TABLE users ADD COLUMN email_verified_at TIMESTAMP;
+      UPDATE users SET email_verified_at = created_at;
+    END IF;
+  END $$;
+
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS approved_by UUID REFERENCES users(id) ON DELETE SET NULL;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP;
+  CREATE INDEX IF NOT EXISTS users_status_idx ON users (status);
+
+  CREATE TABLE IF NOT EXISTS email_verification_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS email_verification_tokens_user_id_idx ON email_verification_tokens (user_id);
+`;
+
+/**
+ * Earlier boots seeded an active admin access code '000000', which let anyone
+ * who knew it register as an admin. Signup no longer reads access codes, but
+ * the row is deactivated anyway, in case codes are ever re-enabled.
+ */
+const RETIRE_DEFAULT_ADMIN_CODE = `
+  UPDATE access_codes SET is_active = FALSE
+  WHERE code = '000000' AND role = 'admin' AND is_active = TRUE;
 `;
 
 export async function applySchema() {
@@ -633,7 +691,8 @@ export async function applySchema() {
     await client.query(ONBOARDING_SURVEY);
     await client.query(SEED_SAT_TAXONOMY);
     await client.query(BACKFILL_FOUNDATION);
-    await client.query(SEED_DEFAULT_ADMIN_CODE);
+    await client.query(ACCOUNT_GATES);
+    await client.query(RETIRE_DEFAULT_ADMIN_CODE);
     await client.query('COMMIT');
     console.log('Migrations completed successfully');
   } catch (err) {

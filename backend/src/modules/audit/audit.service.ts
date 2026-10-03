@@ -16,8 +16,15 @@ import { trailLogTable, accountsTable } from '../../core/db/schema';
  */
 
 export type TrailAction =
+  | 'user.created'
   | 'user.updated'
   | 'user.deleted'
+  | 'user.approved'
+  | 'user.rejected'
+  | 'user.deactivated'
+  | 'user.reactivated'
+  | 'user.unlocked'
+  | 'user.verification_resent'
   | 'users.assigned_teacher'
   | 'access_code.created'
   | 'access_code.deleted'

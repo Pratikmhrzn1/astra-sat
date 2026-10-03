@@ -30,6 +30,16 @@ const optionalPassword = z
   .max(128)
   .optional();
 
+/** `30m`, `24h`, `7d` → milliseconds. */
+const duration = z
+  .string()
+  .trim()
+  .regex(/^\d+[mhd]$/, 'must be a number followed by m, h or d (e.g. 24h)')
+  .transform((v) => {
+    const unit = { m: 60_000, h: 3_600_000, d: 86_400_000 }[v.slice(-1) as 'm' | 'h' | 'd'];
+    return Number(v.slice(0, -1)) * unit;
+  });
+
 const optionalEmail = z
   .string()
   .trim()
@@ -70,6 +80,13 @@ const envSchema = z.object({
   // ── Email (Resend) ──────────────────────────────────────────────────────────
   RESEND_API_KEY: optionalString,
   RESEND_FROM: optionalString,
+
+  // ── Account security ────────────────────────────────────────────────────────
+  EMAIL_VERIFICATION_TTL: duration.default('24h'),
+  PASSWORD_RESET_TTL: duration.default('1h'),
+  // Consecutive wrong passwords before an account is locked, and for how long.
+  LOGIN_MAX_FAILED_ATTEMPTS: z.coerce.number().int().min(1).default(10),
+  LOGIN_LOCKOUT_MINUTES: z.coerce.number().int().min(1).default(15),
 
   // ── Seed accounts (used only by `npm run seed`) ─────────────────────────────
   // Bootstrap logins for a fresh database. Never read at runtime — the seed
@@ -139,8 +156,16 @@ if (!aiEnabled) {
   }
 }
 if (!emailEnabled) {
-  console.warn('[env] RESEND_API_KEY is not set — transactional emails will be skipped.');
+  console.warn(
+    isProduction
+      ? '[env] RESEND_API_KEY is not set — NO EMAILS WILL BE SENT. New signups cannot verify their address, so none of them can ever sign in.'
+      : '[env] RESEND_API_KEY is not set — emails (including verification links) are printed to this console instead.',
+  );
 }
+
+const corsOrigins = raw.FRONTEND_URL.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 /**
  * Validated configuration. Import this, never `process.env`.
@@ -166,10 +191,13 @@ export const settings = {
   },
 
   http: {
-    corsOrigins: raw.FRONTEND_URL.split(',')
-      .map((origin) => origin.trim())
-      .filter(Boolean),
+    corsOrigins,
     publicBaseUrl: raw.PUBLIC_BASE_URL,
+    /**
+     * Where links in emails point: the app's root, including the /sat base path
+     * the frontend is served under. Falls back to the first frontend origin.
+     */
+    appUrl: (raw.PUBLIC_BASE_URL ?? `${corsOrigins[0] ?? 'http://localhost:5173'}/sat`).replace(/\/+$/, ''),
     /** Explicit COOKIE_SECURE wins; otherwise secure cookies in production only. */
     cookieSecure: raw.COOKIE_SECURE ?? isProduction,
     jsonBodyLimit: '50mb',
@@ -191,7 +219,15 @@ export const settings = {
   email: {
     enabled: emailEnabled,
     apiKey: raw.RESEND_API_KEY,
+    // Either a bare address or a full `Name <address>` sender.
     from: raw.RESEND_FROM ?? 'noreply@mocktest.niec.edu.np',
+  },
+
+  auth: {
+    emailVerificationTtlMs: raw.EMAIL_VERIFICATION_TTL,
+    passwordResetTtlMs: raw.PASSWORD_RESET_TTL,
+    loginMaxFailures: raw.LOGIN_MAX_FAILED_ATTEMPTS,
+    loginLockoutMs: raw.LOGIN_LOCKOUT_MINUTES * 60_000,
   },
 
   /** Consumed by `npm run seed`; null for any account left unconfigured. */

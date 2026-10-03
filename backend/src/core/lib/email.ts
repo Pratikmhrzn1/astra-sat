@@ -1,112 +1,51 @@
 import { Resend } from 'resend';
-import type { CreateEmailOptions } from 'resend';
 import { settings } from '../config/env';
 
 /**
- * Transactional email.
+ * Transactional email, sent through Resend.
  *
- * Sending is optional: with no Resend key configured every send is a silent
- * no-op, so a deployment without mail still registers users and issues password
- * resets — the recipient simply never gets the message. Callers therefore treat
- * these as fire-and-forget and never fail a request on them.
+ * Without a Resend key, every message is printed to the server console instead
+ * of being sent. Sign-in depends on the verification link, so a dev setup with
+ * no key could otherwise never finish a signup.
+ *
+ * Sending happens after the response, with a few retries. Callers fire and
+ * forget (`void mailX(...)`), and a failed send is only ever logged. It never
+ * fails the request that triggered it.
  */
-const FROM = settings.email.from;
-const BASE_URL = settings.http.publicBaseUrl ?? 'https://mocktest.niec.edu.np/sat';
 
-function getResend(): Resend {
-  return new Resend(settings.email.apiKey);
+interface RenderedEmail {
+  subject: string;
+  html: string;
+  text: string;
+}
+
+const APP_URL = settings.http.appUrl;
+const FROM = settings.email.from.includes('<') ? settings.email.from : `SAT Prep <${settings.email.from}>`;
+const RETRY_DELAYS_MS = [5_000, 10_000, 20_000];
+
+const resend = settings.email.enabled ? new Resend(settings.email.apiKey) : null;
+
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
+  );
+}
+
+/** "24 hours", "1 hour", "30 minutes". */
+function ttlPhrase(ms: number): string {
+  const hours = ms / 3_600_000;
+  if (Number.isInteger(hours)) return `${hours} hour${hours === 1 ? '' : 's'}`;
+  const minutes = Math.round(ms / 60_000);
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
 }
 
 /**
- * The Resend SDK *resolves* with `{ data: null, error }` on an API rejection
- * rather than throwing, so a caller's `.catch()` never runs and a misconfigured
- * sender (unverified domain, revoked key) fails completely silently. Turn that
- * back into a rejection so the fire-and-forget callers at least log it.
+ * The house template: dark or orange header band, white card, NIEC footer.
+ * `bodyHtml` must already be escaped.
  */
-async function send(payload: CreateEmailOptions): Promise<void> {
-  const { error } = await getResend().emails.send(payload);
-  if (error) throw new Error(`Resend rejected the message: ${error.name} — ${error.message}`);
-}
-
-export async function mailWelcome(to: string, name: string, password: string): Promise<void> {
-  if (!settings.email.enabled) return;
-
-  await send({
-    from: `SAT Prep <${FROM}>`,
-    to,
-    subject: 'Welcome to SAT Prep — your account details',
-    html: `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f4f0;font-family:'Helvetica Neue',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f4f0;padding:40px 0;">
-    <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-        <!-- Header -->
-        <tr>
-          <td style="background:#E2562B;padding:32px 40px;">
-            <p style="margin:0;font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.75);">Mock SAT · NIEC</p>
-            <h1 style="margin:8px 0 0;font-size:28px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">Welcome, ${name}!</h1>
-          </td>
-        </tr>
-        <!-- Body -->
-        <tr>
-          <td style="padding:36px 40px 28px;">
-            <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#3a3a3a;">
-              Your SAT Prep account is ready. Use the details below to sign in and start practising.
-            </p>
-            <!-- Credentials box -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f7f4;border:1px solid #e8e4dd;border-radius:10px;margin-bottom:24px;">
-              <tr>
-                <td style="padding:20px 24px;">
-                  <p style="margin:0 0 14px;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#888;">Your login details</p>
-                  <table cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td style="font-size:13px;color:#888;padding-bottom:8px;padding-right:16px;">Email</td>
-                      <td style="font-size:13px;font-weight:600;color:#0B0B0E;padding-bottom:8px;">${to}</td>
-                    </tr>
-                    <tr>
-                      <td style="font-size:13px;color:#888;padding-right:16px;">Password</td>
-                      <td style="font-size:13px;font-weight:600;color:#0B0B0E;">${password}</td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-            <p style="margin:0 0 24px;font-size:13.5px;line-height:1.6;color:#666;">
-              Keep these credentials safe. You can change your password anytime from your profile settings.
-            </p>
-            <a href="https://mocktest.niec.edu.np/sat" style="display:inline-block;background:#E2562B;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:13px 28px;border-radius:9999px;">Go to SAT Prep →</a>
-          </td>
-        </tr>
-        <!-- Footer -->
-        <tr>
-          <td style="padding:20px 40px 32px;border-top:1px solid #f0ede7;">
-            <p style="margin:0;font-size:12px;color:#aaa;line-height:1.6;">
-              This email was sent by NIEC · mocktest.niec.edu.np<br>
-              If you did not create this account, please ignore this email.
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`,
-  });
-}
-
-export async function mailPasswordReset(to: string, name: string, token: string): Promise<void> {
-  if (!settings.email.enabled) return;
-
-  const resetUrl = `${BASE_URL}/reset-password?token=${token}`;
-
-  await send({
-    from: `SAT Prep <${FROM}>`,
-    to,
-    subject: 'Reset your SAT Prep password',
-    html: `
+function layout(opts: { heading: string; headerColor: string; bodyHtml: string; footerNote: string }): string {
+  return `
 <!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -115,27 +54,20 @@ export async function mailPasswordReset(to: string, name: string, token: string)
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
         <tr>
-          <td style="background:#0B0B0E;padding:32px 40px;">
-            <p style="margin:0;font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.45);">Mock SAT · NIEC</p>
-            <h1 style="margin:8px 0 0;font-size:26px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">Password reset</h1>
+          <td style="background:${opts.headerColor};padding:32px 40px;">
+            <p style="margin:0;font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.6);">Mock SAT · NIEC</p>
+            <h1 style="margin:8px 0 0;font-size:26px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">${opts.heading}</h1>
           </td>
         </tr>
         <tr>
           <td style="padding:36px 40px 28px;">
-            <p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#3a3a3a;">
-              Hi ${name}, we received a request to reset your password. Click the button below — the link expires in <strong>1 hour</strong>.
-            </p>
-            <a href="${resetUrl}" style="display:inline-block;background:#E2562B;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:13px 28px;border-radius:9999px;">Reset my password →</a>
-            <p style="margin:24px 0 0;font-size:12.5px;color:#999;line-height:1.6;">
-              Or copy this link into your browser:<br>
-              <span style="color:#666;word-break:break-all;">${resetUrl}</span>
-            </p>
+            ${opts.bodyHtml}
           </td>
         </tr>
         <tr>
           <td style="padding:20px 40px 32px;border-top:1px solid #f0ede7;">
             <p style="margin:0;font-size:12px;color:#aaa;line-height:1.6;">
-              If you didn't request a password reset, you can safely ignore this email — your password will not change.<br>
+              ${opts.footerNote}<br>
               This email was sent by NIEC · mocktest.niec.edu.np
             </p>
           </td>
@@ -144,6 +76,118 @@ export async function mailPasswordReset(to: string, name: string, token: string)
     </td></tr>
   </table>
 </body>
-</html>`,
-  });
+</html>`;
+}
+
+const paragraph = (html: string) =>
+  `<p style="margin:0 0 20px;font-size:15px;line-height:1.65;color:#3a3a3a;">${html}</p>`;
+
+const button = (href: string, label: string) =>
+  `<a href="${href}" style="display:inline-block;background:#E2562B;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:13px 28px;border-radius:9999px;">${label}</a>`;
+
+const linkFallback = (href: string) =>
+  `<p style="margin:24px 0 0;font-size:12.5px;color:#999;line-height:1.6;">
+              Or copy this link into your browser:<br>
+              <span style="color:#666;word-break:break-all;">${href}</span>
+            </p>`;
+
+// ── Templates ────────────────────────────────────────────────────────────────
+
+function verificationEmail(name: string, token: string): RenderedEmail {
+  const link = `${APP_URL}/verify-email?token=${token}`;
+  const ttl = ttlPhrase(settings.auth.emailVerificationTtlMs);
+  return {
+    subject: 'Verify your email address — SAT Prep',
+    text:
+      `Hi ${name},\n\nConfirm your email address to finish setting up your SAT Prep account:\n${link}\n\n` +
+      `This link expires in ${ttl}. After you verify, an administrator still needs to approve your account before you can sign in.`,
+    html: layout({
+      heading: 'Confirm your email',
+      headerColor: '#E2562B',
+      bodyHtml:
+        paragraph(`Hi ${escapeHtml(name)}, thanks for signing up. Confirm your email address to continue — the link expires in <strong>${ttl}</strong>.`) +
+        button(link, 'Verify my email →') +
+        linkFallback(link) +
+        `<p style="margin:24px 0 0;font-size:13.5px;line-height:1.6;color:#666;">After you verify, an administrator will review your account. We'll email you as soon as it's approved.</p>`,
+      footerNote: "If you didn't create a SAT Prep account, you can safely ignore this email.",
+    }),
+  };
+}
+
+function passwordResetEmail(name: string, token: string): RenderedEmail {
+  const link = `${APP_URL}/reset-password?token=${token}`;
+  const ttl = ttlPhrase(settings.auth.passwordResetTtlMs);
+  return {
+    subject: 'Reset your SAT Prep password',
+    text:
+      `Hi ${name},\n\nReset your SAT Prep password:\n${link}\n\n` +
+      `This link expires in ${ttl}. If you didn't request this, you can ignore this email.`,
+    html: layout({
+      heading: 'Password reset',
+      headerColor: '#0B0B0E',
+      bodyHtml:
+        paragraph(`Hi ${escapeHtml(name)}, we received a request to reset your password. Click the button below — the link expires in <strong>${ttl}</strong>.`) +
+        button(link, 'Reset my password →') +
+        linkFallback(link),
+      footerNote: "If you didn't request a password reset, you can safely ignore this email — your password will not change.",
+    }),
+  };
+}
+
+function accountApprovedEmail(name: string): RenderedEmail {
+  const link = `${APP_URL}/login`;
+  return {
+    subject: 'Your SAT Prep account is approved',
+    text: `Hi ${name},\n\nGood news — your SAT Prep account has been approved. You can sign in now:\n${link}`,
+    html: layout({
+      heading: "You're approved!",
+      headerColor: '#E2562B',
+      bodyHtml:
+        paragraph(`Hi ${escapeHtml(name)}, good news — an administrator has approved your SAT Prep account. You can sign in and start practising now.`) +
+        button(link, 'Sign in →'),
+      footerNote: 'You are receiving this because you signed up for SAT Prep.',
+    }),
+  };
+}
+
+// ── Delivery ─────────────────────────────────────────────────────────────────
+
+async function deliverOnce(to: string, email: RenderedEmail): Promise<void> {
+  // The Resend SDK *resolves* with `{ error }` on an API rejection instead of
+  // throwing, so an unverified domain or revoked key would otherwise fail silently.
+  const { error } = await resend!.emails.send({ from: FROM, to, subject: email.subject, html: email.html, text: email.text });
+  if (error) throw new Error(`Resend rejected the message: ${error.name} — ${error.message}`);
+}
+
+async function deliver(to: string, email: RenderedEmail): Promise<void> {
+  if (!resend) {
+    console.log(`\n[email:dev] to=${to}\n  subject: ${email.subject}\n  ${email.text.replace(/\n/g, '\n  ')}\n`);
+    return;
+  }
+
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await deliverOnce(to, email);
+      return;
+    } catch (err) {
+      if (attempt >= RETRY_DELAYS_MS.length) throw err;
+      await new Promise<void>((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]).unref?.());
+    }
+  }
+}
+
+/**
+ * The public entry points. Each one resolves once the message is sent, or
+ * rejects after the last retry. Callers `void` them, with a `.catch` that logs.
+ */
+export function mailEmailVerification(to: string, name: string, token: string): Promise<void> {
+  return deliver(to, verificationEmail(name, token));
+}
+
+export function mailPasswordReset(to: string, name: string, token: string): Promise<void> {
+  return deliver(to, passwordResetEmail(name, token));
+}
+
+export function mailAccountApproved(to: string, name: string): Promise<void> {
+  return deliver(to, accountApprovedEmail(name));
 }

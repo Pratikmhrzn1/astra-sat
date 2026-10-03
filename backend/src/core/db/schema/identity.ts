@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, varchar, boolean, integer, timestamp } from 'drizzle-orm/pg-core';
-import { roleChoices } from './enums';
+import { roleChoices, accountStatusChoices } from './enums';
 
 export const accountsTable = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -19,6 +19,18 @@ export const accountsTable = pgTable('users', {
   // taken it yet and the app gates them into it; accounts that predate the
   // survey were backfilled as complete (see core/db/migrate.ts).
   surveyCompletedAt: timestamp('survey_completed_at'),
+  // Sign-in gates. A public signup starts `pending` and unverified; it needs a
+  // confirmed email AND an admin's approval before it can hold a session.
+  // Accounts that predate these columns were backfilled as active and verified
+  // (see core/db/migrate.ts), so nobody already signed up is locked out.
+  status: accountStatusChoices('status').notNull().default('pending'),
+  emailVerifiedAt: timestamp('email_verified_at'),
+  approvedAt: timestamp('approved_at'),
+  approvedBy: uuid('approved_by').references((): any => accountsTable.id, { onDelete: 'set null' }),
+  // Account-scoped failed-login lockout. Persisted, so a restart does not hand
+  // an attacker a fresh set of guesses.
+  failedLoginAttempts: integer('failed_login_attempts').notNull().default(0),
+  lockedUntil: timestamp('locked_until'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -52,9 +64,22 @@ export type EnrolmentCodeRow = typeof enrolmentCodesTable.$inferSelect;
 export const resetTokensTable = pgTable('password_reset_tokens', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => accountsTable.id, { onDelete: 'cascade' }),
+  // Holds the sha256 of the emailed token, never the token itself. The column
+  // kept its old name so no migration was needed; raw tokens issued before the
+  // switch simply stop matching, and they expired within the hour anyway.
   token: text('token').notNull().unique(),
   expiresAt: timestamp('expires_at').notNull(),
   usedAt: timestamp('used_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+/** Single-use email confirmation links. Only the sha256 of the token is stored. */
+export const verificationTokensTable = pgTable('email_verification_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => accountsTable.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  consumedAt: timestamp('consumed_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 

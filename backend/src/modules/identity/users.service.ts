@@ -1,24 +1,147 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { database } from '../../core/db';
-import { enrolmentCodesTable, accountsTable } from '../../core/db/schema';
+import { enrolmentCodesTable, accountsTable, type AccountRow } from '../../core/db/schema';
 import { invalidRequest, stateConflict, missing } from '../../core/errors';
 import { hashSecret } from '../../core/lib/password';
-import type { AssignStudentsPayload, CreateAccessCodePayload, UpdateUserPayload } from './users.schemas';
+import { mailAccountApproved } from '../../core/lib/email';
+import { revokeRefreshTokens } from './auth.repository';
+import type {
+  AssignStudentsPayload,
+  CreateAccessCodePayload,
+  CreateUserPayload,
+  UpdateUserPayload,
+} from './users.schemas';
 
 /** Administering accounts: users, teacher assignment, and registration codes. */
 
+/** What the admin's user table shows. Never includes the password hash. */
+const adminUserFields = {
+  id: accountsTable.id,
+  email: accountsTable.email,
+  name: accountsTable.name,
+  phone: accountsTable.phone,
+  role: accountsTable.role,
+  teacherId: accountsTable.teacherId,
+  status: accountsTable.status,
+  emailVerifiedAt: accountsTable.emailVerifiedAt,
+  approvedAt: accountsTable.approvedAt,
+  lockedUntil: accountsTable.lockedUntil,
+  createdAt: accountsTable.createdAt,
+} as const;
+
+type AdminUserRow = { [K in keyof typeof adminUserFields]: AccountRow[K] };
+
+/** Derives the booleans the client needs, rather than shipping raw timestamps to compare. */
+function toAdminUser({ emailVerifiedAt, lockedUntil, ...rest }: AdminUserRow) {
+  return {
+    ...rest,
+    emailVerified: emailVerifiedAt !== null,
+    locked: lockedUntil !== null && lockedUntil.getTime() > Date.now(),
+  };
+}
+
 export async function collectUsers() {
-  return database
-    .select({
-      id: accountsTable.id,
-      email: accountsTable.email,
-      name: accountsTable.name,
-      role: accountsTable.role,
-      teacherId: accountsTable.teacherId,
-      createdAt: accountsTable.createdAt,
-    })
+  const rows = await database
+    .select(adminUserFields)
     .from(accountsTable)
     .orderBy(accountsTable.role, desc(accountsTable.createdAt));
+  return rows.map(toAdminUser);
+}
+
+/** The Account Creator. Teachers and admins are made here, born active and verified. */
+export async function createUser(input: CreateUserPayload) {
+  const [existing] = await database
+    .select({ id: accountsTable.id })
+    .from(accountsTable)
+    .where(eq(accountsTable.email, input.email))
+    .limit(1);
+  if (existing) throw stateConflict('An account with this email already exists').withCode('EMAIL_TAKEN');
+
+  const now = new Date();
+  const [created] = await database
+    .insert(accountsTable)
+    .values({
+      email: input.email,
+      name: input.name,
+      role: input.role,
+      passwordHash: await hashSecret(input.password),
+      status: 'active',
+      emailVerifiedAt: now,
+      approvedAt: now,
+      // A teacher or admin has no onboarding survey to take.
+      surveyCompletedAt: now,
+    })
+    .returning(adminUserFields);
+  return toAdminUser(created);
+}
+
+// ── Account lifecycle ─────────────────────────────────────────────────────────
+
+async function loadAccount(userId: string): Promise<AccountRow> {
+  const [user] = await database.select().from(accountsTable).where(eq(accountsTable.id, userId)).limit(1);
+  if (!user) throw missing('User not found');
+  return user;
+}
+
+async function patchAccount(userId: string, patch: Partial<AccountRow>) {
+  const [updated] = await database
+    .update(accountsTable)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(eq(accountsTable.id, userId))
+    .returning(adminUserFields);
+  return toAdminUser(updated);
+}
+
+function refuseSelf(userId: string, actingAdminId: string, verb: string): void {
+  if (userId === actingAdminId) throw invalidRequest(`You cannot ${verb} your own account`).withCode('CANNOT_TARGET_SELF');
+}
+
+/** pending → active. The user gets an email saying they can sign in. */
+export async function approveUser(userId: string, actingAdminId: string) {
+  const user = await loadAccount(userId);
+  if (user.status !== 'pending') throw stateConflict('This account is not awaiting approval').withCode('NOT_PENDING');
+
+  const updated = await patchAccount(userId, { status: 'active', approvedAt: new Date(), approvedBy: actingAdminId });
+  void mailAccountApproved(user.email, user.name).catch((err) =>
+    console.error('[users] Approval email failed:', err),
+  );
+  return updated;
+}
+
+/** pending → rejected. */
+export async function rejectUser(userId: string) {
+  const user = await loadAccount(userId);
+  if (user.status !== 'pending') throw stateConflict('This account is not awaiting approval').withCode('NOT_PENDING');
+  return patchAccount(userId, { status: 'rejected' });
+}
+
+/**
+ * → deactivated, and every session is revoked. Their access token keeps working
+ * until it expires (at most 15 minutes), and the next refresh is refused.
+ */
+export async function deactivateUser(userId: string, actingAdminId: string) {
+  refuseSelf(userId, actingAdminId, 'deactivate');
+  const user = await loadAccount(userId);
+  if (user.status === 'deactivated') throw stateConflict('This account is already deactivated');
+
+  const updated = await patchAccount(userId, { status: 'deactivated' });
+  await revokeRefreshTokens(userId);
+  return updated;
+}
+
+/** deactivated or rejected → active. */
+export async function reactivateUser(userId: string) {
+  const user = await loadAccount(userId);
+  if (user.status !== 'deactivated' && user.status !== 'rejected') {
+    throw stateConflict('Only a deactivated or rejected account can be reactivated');
+  }
+  return patchAccount(userId, { status: 'active' });
+}
+
+/** Lifts a failed-login lockout early. */
+export async function unlockUser(userId: string) {
+  await loadAccount(userId);
+  return patchAccount(userId, { failedLoginAttempts: 0, lockedUntil: null });
 }
 
 /**

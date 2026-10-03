@@ -94,11 +94,30 @@ export async function proactiveRenew(): Promise<void> {
   }
 }
 
+/**
+ * Endpoints that answer for themselves. A 401 here is the answer (wrong
+ * password, locked account), not an expired session, so refreshing and
+ * replaying would bury the real error under "No refresh token".
+ */
+const SESSIONLESS_AUTH_PATHS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/verify-email',
+  '/auth/resend-verification',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+  '/auth/refresh',
+];
+
+function isSessionlessAuthCall(url: string | undefined): boolean {
+  return !!url && SESSIONLESS_AUTH_PATHS.some((path) => url.endsWith(path));
+}
+
 apiTransport.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && !isSessionlessAuthCall(originalRequest?.url)) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -128,9 +147,12 @@ apiTransport.interceptors.response.use(
         return apiTransport(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        // Only force-logout when the refresh endpoint explicitly rejects the session
-        // (401). Network errors or 5xx should not log the user out.
-        if (axios.isAxiosError(refreshError) && refreshError.response?.status === 401) {
+        // Only force-logout when the refresh endpoint explicitly rejects the
+        // session: 401 (bad or expired token) or 403 (the account was
+        // deactivated, or otherwise can no longer sign in). Network errors and
+        // 5xx should not log the user out.
+        const status = axios.isAxiosError(refreshError) ? refreshError.response?.status : undefined;
+        if (status === 401 || status === 403) {
           session.onSessionExpired();
         }
         return Promise.reject(refreshError);
@@ -141,6 +163,27 @@ apiTransport.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+/**
+ * The machine-readable reason the server attached, e.g. `EMAIL_NOT_VERIFIED`,
+ * for pages that react to the cause rather than just display the message.
+ */
+export function fetchApiErrorCode(error: unknown): string | undefined {
+  if (axios.isAxiosError(error)) {
+    const code = error.response?.data?.code;
+    return typeof code === 'string' ? code : undefined;
+  }
+  return undefined;
+}
+
+/** A numeric field the server attached alongside an error (`minutesRemaining`, …). */
+export function fetchApiErrorMeta(error: unknown, field: string): number | undefined {
+  if (axios.isAxiosError(error)) {
+    const value = error.response?.data?.[field];
+    return typeof value === 'number' ? value : undefined;
+  }
+  return undefined;
+}
 
 export function fetchApiError(error: unknown): string {
   if (axios.isAxiosError(error)) {

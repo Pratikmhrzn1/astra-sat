@@ -7,7 +7,8 @@
  * request (startup jobs, scripts) and the transport mapping lives in one spot.
  *
  * The response body is always `{ error: string }` (plus optional `details` and
- * `meta` fields), because the frontend reads exactly `response.data.error`.
+ * `meta` fields, including `code` from `withCode`), because the frontend reads
+ * exactly `response.data.error`.
  */
 export type FailureKind =
   | 'bad_request'
@@ -45,6 +46,15 @@ export class ServiceError extends Error {
       details: this.details,
       meta: { ...this.meta, ...meta },
     });
+  }
+
+  /**
+   * Adds a machine-readable `code` to the response body (`EMAIL_NOT_VERIFIED`,
+   * `ACCOUNT_PENDING`, …) for clients that branch on the reason rather than
+   * display the message.
+   */
+  withCode(code: string): ServiceError {
+    return this.withMeta({ code });
   }
 }
 

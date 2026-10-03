@@ -4,12 +4,15 @@ import { sessionUserId, requireSession, requireAccountRole } from '../../core/ht
 import { validatedBody, checkBody } from '../../core/http/middleware/validate';
 import { logTrail } from '../audit';
 import * as service from './users.service';
+import { resendVerificationFor } from './auth.service';
 import {
   assignStudentsRules,
   addAccessCodeRules,
+  createUserRules,
   editUserRules,
   type AssignStudentsPayload,
   type CreateAccessCodePayload,
+  type CreateUserPayload,
   type UpdateUserPayload,
 } from './users.schemas';
 
@@ -25,6 +28,21 @@ accountsAdminRoutes.get(
   '/users',
   wrapAsync(async (_req, res) => {
     res.json(await service.collectUsers());
+  }),
+);
+
+/** The Account Creator: teachers and admins, made directly and active at once. */
+accountsAdminRoutes.post(
+  '/users',
+  checkBody(createUserRules),
+  wrapAsync(async (req, res) => {
+    const input = validatedBody<CreateUserPayload>(req);
+    const created = await service.createUser(input);
+    await logTrail({
+      actorId: sessionUserId(req), action: 'user.created', targetType: 'user', targetId: created.id,
+      payload: { role: input.role },
+    });
+    res.status(201).json(created);
   }),
 );
 
@@ -59,6 +77,64 @@ accountsAdminRoutes.put(
       },
     });
     res.json(updated);
+  }),
+);
+
+// ── Account lifecycle: approve, reject, deactivate, reactivate, unlock ───────
+
+accountsAdminRoutes.post(
+  '/users/:userId/approve',
+  wrapAsync(async (req, res) => {
+    const updated = await service.approveUser(req.params.userId, sessionUserId(req));
+    await logTrail({ actorId: sessionUserId(req), action: 'user.approved', targetType: 'user', targetId: req.params.userId });
+    res.json(updated);
+  }),
+);
+
+accountsAdminRoutes.post(
+  '/users/:userId/reject',
+  wrapAsync(async (req, res) => {
+    const updated = await service.rejectUser(req.params.userId);
+    await logTrail({ actorId: sessionUserId(req), action: 'user.rejected', targetType: 'user', targetId: req.params.userId });
+    res.json(updated);
+  }),
+);
+
+accountsAdminRoutes.post(
+  '/users/:userId/deactivate',
+  wrapAsync(async (req, res) => {
+    const updated = await service.deactivateUser(req.params.userId, sessionUserId(req));
+    await logTrail({ actorId: sessionUserId(req), action: 'user.deactivated', targetType: 'user', targetId: req.params.userId });
+    res.json(updated);
+  }),
+);
+
+accountsAdminRoutes.post(
+  '/users/:userId/reactivate',
+  wrapAsync(async (req, res) => {
+    const updated = await service.reactivateUser(req.params.userId);
+    await logTrail({ actorId: sessionUserId(req), action: 'user.reactivated', targetType: 'user', targetId: req.params.userId });
+    res.json(updated);
+  }),
+);
+
+accountsAdminRoutes.post(
+  '/users/:userId/unlock',
+  wrapAsync(async (req, res) => {
+    const updated = await service.unlockUser(req.params.userId);
+    await logTrail({ actorId: sessionUserId(req), action: 'user.unlocked', targetType: 'user', targetId: req.params.userId });
+    res.json(updated);
+  }),
+);
+
+accountsAdminRoutes.post(
+  '/users/:userId/resend-verification',
+  wrapAsync(async (req, res) => {
+    await resendVerificationFor(req.params.userId);
+    await logTrail({
+      actorId: sessionUserId(req), action: 'user.verification_resent', targetType: 'user', targetId: req.params.userId,
+    });
+    res.json({ ok: true });
   }),
 );
 

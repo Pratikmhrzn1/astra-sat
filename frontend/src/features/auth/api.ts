@@ -11,20 +11,24 @@ export async function signIn(email: string, password: string): Promise<SignInRep
   return data;
 }
 
-export async function signUp(
-  email: string,
-  name: string,
-  password: string,
-  accessCode: string,
-  phone?: string,
-): Promise<SignInReply> {
-  const { data } = await apiTransport.post<SignInReply>('/auth/register', {
-    email,
-    name,
-    phone: phone || undefined,
-    password,
-    accessCode,
-  });
+export interface MessageReply {
+  message: string;
+}
+
+/** Creates a pending account. No session: the user must verify their email, then be approved. */
+export async function signUp(email: string, name: string, password: string, phone: string): Promise<MessageReply> {
+  const { data } = await apiTransport.post<MessageReply>('/auth/register', { email, name, phone, password });
+  return data;
+}
+
+export async function verifyEmail(token: string): Promise<MessageReply> {
+  const { data } = await apiTransport.post<MessageReply>('/auth/verify-email', { token });
+  return data;
+}
+
+/** Always "succeeds", whatever the address, so the reply can't reveal which emails exist. */
+export async function resendVerification(email: string): Promise<MessageReply> {
+  const { data } = await apiTransport.post<MessageReply>('/auth/resend-verification', { email });
   return data;
 }
 

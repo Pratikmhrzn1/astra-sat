@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { resetPassphrase } from '@/features/auth/api';
-import { fetchApiError } from '@/shared/api/http';
+import { fetchApiError, fetchApiErrorCode } from '@/shared/api/http';
 import { fieldStyle, fieldCaptionStyle, errorTextStyle, alertStyle } from '@/shared/ui';
 import { classes } from '@/shared/lib/utils';
 
@@ -27,6 +27,8 @@ export default function RestorePassphrase() {
   const token = searchParams.get('token') ?? '';
   const [done, setDone] = useState(false);
   const [apiError, setApiError] = useState('');
+  // The link itself is unusable: offer a fresh one rather than a retry.
+  const [linkDead, setLinkDead] = useState(false);
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema) });
 
@@ -37,6 +39,7 @@ export default function RestorePassphrase() {
       setDone(true);
     } catch (err) {
       setApiError(fetchApiError(err));
+      setLinkDead(['INVALID_TOKEN', 'TOKEN_EXPIRED', 'TOKEN_USED'].includes(fetchApiErrorCode(err) ?? ''));
     }
   };
 
@@ -63,7 +66,7 @@ export default function RestorePassphrase() {
         {done ? (
           <div className="bg-green-sat/[.08] border border-green-sat/20 rounded-xl px-6 py-5 mb-6">
             <p className="mt-0 mb-1.5 text-[15px] font-semibold text-green-sat">Password updated!</p>
-            <p className="m-0 text-sm text-subtle">You can now sign in with your new password.</p>
+            <p className="m-0 text-sm text-subtle">You can now sign in with your new password. Any other devices have been signed out.</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)}>
@@ -82,7 +85,7 @@ export default function RestorePassphrase() {
             {apiError && (
               <div className={classes(alertStyle, 'mb-3')}>
                 {apiError}{' '}
-                {apiError.includes('expired') || apiError.includes('invalid') ? (
+                {linkDead ? (
                   <Link to="/forgot-password" className="text-danger font-semibold">Request a new link</Link>
                 ) : null}
               </div>

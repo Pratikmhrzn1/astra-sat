@@ -12,6 +12,7 @@ import SignIn from '@/features/auth/pages/LoginPage';
 const Register = lazy(() => import('@/features/auth/pages/RegisterPage'));
 const ForgotPassword = lazy(() => import('@/features/auth/pages/ForgotPasswordPage'));
 const ResetPassword = lazy(() => import('@/features/auth/pages/ResetPasswordPage'));
+const VerifyEmail = lazy(() => import('@/features/auth/pages/VerifyEmailPage'));
 
 const StudentDashboard = lazy(() => import('@/features/dashboard/pages/StudentDashboardPage'));
 const ExamCatalogue = lazy(() => import('@/features/practice/pages/ExamCataloguePage'));
@@ -91,6 +92,7 @@ export function RootRoutes() {
         <Route path="/register" element={page(<Register />)} />
         <Route path="/forgot-password" element={page(<ForgotPassword />)} />
         <Route path="/reset-password" element={page(<ResetPassword />)} />
+        <Route path="/verify-email" element={page(<VerifyEmail />)} />
 
         <Route
           path="/student"

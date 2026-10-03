@@ -8,8 +8,8 @@ import { applySchema } from './migrate';
 /**
  * Creates the bootstrap accounts described by the SEED_* variables in .env.
  *
- * A fresh database has no users and registration needs an access code, so
- * without this there is no way in. Run it with `npm run seed`.
+ * A fresh database has no users, and a public signup needs an existing admin
+ * to approve it, so without this there is no way in. Run it with `npm run seed`.
  *
  * Idempotent: an account that already exists has its name, role and password
  * reset to whatever .env currently says, rather than failing on the unique
@@ -23,6 +23,15 @@ type Role = 'admin' | 'student';
 
 async function upsertAccount(account: SeedCredentials, role: Role): Promise<'created' | 'updated'> {
   const passwordHash = await hashSecret(account.password);
+  // Seeded accounts skip email verification and approval: they must work at once.
+  const now = new Date();
+  const usable = {
+    status: 'active' as const,
+    emailVerifiedAt: now,
+    approvedAt: now,
+    failedLoginAttempts: 0,
+    lockedUntil: null,
+  };
 
   const [existing] = await database
     .select({ id: accountsTable.id })
@@ -33,7 +42,7 @@ async function upsertAccount(account: SeedCredentials, role: Role): Promise<'cre
   if (existing) {
     await database
       .update(accountsTable)
-      .set({ name: account.name, role, passwordHash, updatedAt: new Date() })
+      .set({ name: account.name, role, passwordHash, ...usable, updatedAt: now })
       .where(eq(accountsTable.id, existing.id));
     return 'updated';
   }
@@ -43,6 +52,7 @@ async function upsertAccount(account: SeedCredentials, role: Role): Promise<'cre
     name: account.name,
     role,
     passwordHash,
+    ...usable,
     // Registration requires a phone for students; seeded accounts skip the
     // form, and the column is nullable.
     phone: null,

@@ -62,38 +62,3 @@ export class FixedWindowBudget {
     }
   }
 }
-
-/**
- * Tracks consecutive failures per key and locks the key out once a threshold is
- * crossed. Used for login, where the useful signal is failures-in-a-row per
- * account rather than request volume per IP.
- */
-export class LockoutRegistry {
-  private readonly records = new Map<string, { failures: number; lockedUntil: number }>();
-
-  constructor(
-    private readonly maxFailures: number,
-    private readonly lockoutMs: number,
-  ) {}
-
-  /** Seconds remaining on an active lockout, or 0 when not locked. */
-  lockedFor(key: string): number {
-    const record = this.records.get(key);
-    if (!record || record.lockedUntil <= Date.now()) return 0;
-    return Math.ceil((record.lockedUntil - Date.now()) / 1000);
-  }
-
-  /** Returns how many attempts remain, and whether this failure caused a lock. */
-  recordFailure(key: string): { attemptsRemaining: number; locked: boolean } {
-    const record = this.records.get(key) ?? { failures: 0, lockedUntil: 0 };
-    record.failures += 1;
-    const locked = record.failures >= this.maxFailures;
-    if (locked) record.lockedUntil = Date.now() + this.lockoutMs;
-    this.records.set(key, record);
-    return { attemptsRemaining: Math.max(0, this.maxFailures - record.failures), locked };
-  }
-
-  reset(key: string): void {
-    this.records.delete(key);
-  }
-}

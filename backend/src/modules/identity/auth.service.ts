@@ -1,9 +1,10 @@
 import crypto from 'crypto';
-import { invalidRequest, stateConflict, missing, rateLimited, notAuthenticated } from '../../core/errors';
-import { LockoutRegistry } from '../../core/lib/rate-limit';
-import { secretMatches, hashSecret } from '../../core/lib/password';
+import { invalidRequest, stateConflict, missing, notAuthenticated, notPermitted, ServiceError } from '../../core/errors';
+import { settings } from '../../core/config/env';
+import { secretMatches, hashSecret, DUMMY_HASH } from '../../core/lib/password';
 import { mintAccessToken, readRefreshToken } from '../../core/lib/jwt';
-import { mailPasswordReset, mailWelcome } from '../../core/lib/email';
+import { mailEmailVerification, mailPasswordReset } from '../../core/lib/email';
+import type { AccountRow } from '../../core/db/schema';
 import * as repo from './auth.repository';
 import * as tokens from './auth.tokens';
 import type {
@@ -11,29 +12,26 @@ import type {
   ForgotPasswordPayload,
   LoginPayload,
   RegisterPayload,
+  ResendVerificationPayload,
   ResetPasswordPayload,
+  VerifyEmailPayload,
 } from './auth.schemas';
 
 /**
- * Locks an account after 10 consecutive failures for 15 minutes. Keyed by email
- * rather than IP: the attack this defends against is password-guessing a known
- * account, and an attacker rotating IPs would otherwise reset the counter.
+ * Sign-up, sign-in and account recovery.
+ *
+ * A public signup has to pass two gates before it can hold a session: the
+ * owner confirms their email address, then an admin approves the account.
+ * `assertUsable` enforces both at login AND at every refresh. A deactivated
+ * account therefore loses access within one access-token lifetime (15 min),
+ * without a database hit on every request.
+ *
+ * Every emailed token (verification, reset) is 32 random bytes. Only its
+ * sha256 is stored, so a database leak yields no working links.
  */
-const LOGIN_MAX_FAILURES = 10;
-const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
-const loginLockout = new LockoutRegistry(LOGIN_MAX_FAILURES, LOGIN_LOCKOUT_MS);
 
-/**
- * A valid-shaped bcrypt hash that matches nothing. Comparing against it when no
- * user exists keeps the response time of "unknown email" and "wrong password"
- * indistinguishable, so login cannot be used to enumerate accounts.
- */
-const DUMMY_HASH = '$2b$12$invalidhashplaceholderXXXXXXXXXXXXXXXXXXXXXX';
-
-function minutesPhrase(seconds: number): string {
-  const minutes = Math.ceil(seconds / 60);
-  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
-}
+/** Same-address resends inside this window are ignored, so nobody can flood an inbox. */
+const RESEND_COOLDOWN_MS = 60_000;
 
 export interface SessionGrant {
   accessToken: string;
@@ -41,82 +39,156 @@ export interface SessionGrant {
   user: repo.PublicAccount;
 }
 
-export async function signUp(input: RegisterPayload): Promise<SessionGrant> {
-  const { email, name, phone, password, accessCode } = input;
-
-  // The access code decides the role, so it is checked before anything else.
-  const code = await repo.loadActiveAccessCode(accessCode);
-  if (!code) throw invalidRequest('Invalid or inactive access code');
-  if (code.maxUses !== null && code.useCount >= code.maxUses) {
-    throw invalidRequest('Access code has reached its usage limit');
-  }
-
-  if (await repo.emailTaken(email)) {
-    throw stateConflict('An account with this email already exists');
-  }
-  if (code.role === 'student' && !phone?.trim()) {
-    throw invalidRequest('Phone number is required for student accounts');
-  }
-
-  const user = await repo.addUser({
-    email,
-    name,
-    phone: phone?.trim() ?? null,
-    passwordHash: await hashSecret(password),
-    role: code.role,
-  });
-  await repo.bumpAccessCodeUse(code.id, code.useCount);
-
-  // Non-blocking: a mail outage must not fail an otherwise complete signup.
-  void mailWelcome(user.email, user.name, password).catch((err) =>
-    console.error('[auth] Welcome email failed:', err),
-  );
-
-  return {
-    accessToken: mintAccessToken(user),
-    refreshToken: await tokens.grantRefreshToken(user.id),
-    user,
-  };
+function newEmailToken(): { raw: string; hash: string } {
+  const raw = crypto.randomBytes(32).toString('hex');
+  return { raw, hash: tokens.digestToken(raw) };
 }
 
-export async function signIn({ email, password }: LoginPayload): Promise<SessionGrant> {
-  // Checked before bcrypt so a locked account costs no CPU to reject.
-  const lockedFor = loginLockout.lockedFor(email);
-  if (lockedFor > 0) {
-    throw rateLimited(
-      `Too many failed login attempts. Please try again in ${minutesPhrase(lockedFor)}.`,
-      { retryAfterSeconds: lockedFor },
-    );
+function logMailFailure(kind: string) {
+  return (err: unknown) => console.error(`[auth] ${kind} email failed:`, err);
+}
+
+/** The gates every account must pass to get, or keep refreshing, a session. */
+export function assertUsable(user: Pick<AccountRow, 'status' | 'emailVerifiedAt'>): void {
+  if (user.emailVerifiedAt === null) {
+    throw notPermitted('Please verify your email address before signing in.').withCode('EMAIL_NOT_VERIFIED');
   }
-
-  const user = await repo.loadUserByEmail(email);
-  const passwordValid = await secretMatches(password, user?.passwordHash ?? DUMMY_HASH);
-
-  if (!user || !passwordValid) {
-    const { attemptsRemaining, locked } = loginLockout.recordFailure(email);
-    if (locked) {
-      throw rateLimited('Too many failed login attempts. Account locked for 15 minutes.', {
-        retryAfterSeconds: Math.ceil(LOGIN_LOCKOUT_MS / 1000),
-      });
-    }
-    throw notAuthenticated('Invalid email or password').withMeta({ attemptsRemaining });
+  switch (user.status) {
+    case 'pending':
+      throw notPermitted('Your account is awaiting administrator approval.').withCode('ACCOUNT_PENDING');
+    case 'rejected':
+      throw notPermitted('This account was not approved.').withCode('ACCOUNT_REJECTED');
+    case 'deactivated':
+      throw notPermitted('This account has been deactivated.').withCode('ACCOUNT_DEACTIVATED');
+    case 'active':
+      return;
   }
+}
 
-  loginLockout.reset(email);
+function lockedError(lockedUntil: Date): ServiceError {
+  const minutesRemaining = Math.max(1, Math.ceil((lockedUntil.getTime() - Date.now()) / 60_000));
+  return notAuthenticated(
+    `Too many failed attempts. Try again in ${minutesRemaining} minute${minutesRemaining === 1 ? '' : 's'}.`,
+  )
+    .withCode('ACCOUNT_LOCKED')
+    .withMeta({ minutesRemaining });
+}
 
-  const publicUser: repo.PublicAccount = {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    surveyCompleted: user.surveyCompletedAt !== null,
-  };
+/**
+ * The lockout state after one more wrong password. Once a lock window has
+ * passed, the count starts again from zero. Otherwise a stale count at the
+ * threshold would re-lock the account on its very next mistake.
+ */
+function nextFailureState(user: Pick<AccountRow, 'failedLoginAttempts' | 'lockedUntil'>) {
+  const lockExpired = user.lockedUntil !== null && user.lockedUntil.getTime() <= Date.now();
+  const failedLoginAttempts = (lockExpired ? 0 : user.failedLoginAttempts) + 1;
+  const lockedUntil =
+    failedLoginAttempts >= settings.auth.loginMaxFailures ? new Date(Date.now() + settings.auth.loginLockoutMs) : null;
+  return { failedLoginAttempts, lockedUntil };
+}
 
+async function sendVerification(user: Pick<AccountRow, 'id' | 'email' | 'name'>): Promise<void> {
+  const token = newEmailToken();
+  await repo.addVerificationToken(user.id, token.hash, new Date(Date.now() + settings.auth.emailVerificationTtlMs));
+  void mailEmailVerification(user.email, user.name, token.raw).catch(logMailFailure('Verification'));
+}
+
+async function issueSession(user: AccountRow): Promise<SessionGrant> {
+  const publicUser = repo.toPublicAccount(user);
   return {
     accessToken: mintAccessToken(publicUser),
     refreshToken: await tokens.grantRefreshToken(user.id),
     user: publicUser,
   };
+}
+
+// ── Sign-up and verification ─────────────────────────────────────────────────
+
+/** Creates a pending student and emails the verification link. Issues no session. */
+export async function signUp(input: RegisterPayload): Promise<void> {
+  const taken = () => stateConflict('An account with this email already exists').withCode('EMAIL_TAKEN');
+  if (await repo.emailTaken(input.email)) throw taken();
+
+  let user: AccountRow;
+  try {
+    user = await repo.addPendingStudent({
+      email: input.email,
+      name: input.name,
+      phone: input.phone,
+      passwordHash: await hashSecret(input.password),
+    });
+  } catch (err) {
+    // Two signups for one address racing past the check above.
+    if ((err as { code?: string }).code === '23505') throw taken();
+    throw err;
+  }
+
+  await sendVerification(user);
+}
+
+export async function confirmEmail({ token }: VerifyEmailPayload): Promise<void> {
+  const row = await repo.loadVerificationToken(tokens.digestToken(token));
+  if (!row) throw invalidRequest('This verification link is invalid.').withCode('INVALID_TOKEN');
+  if (row.consumedAt) throw invalidRequest('This verification link has already been used.').withCode('TOKEN_USED');
+  if (row.expiresAt.getTime() <= Date.now()) {
+    throw invalidRequest('This verification link has expired.').withCode('TOKEN_EXPIRED');
+  }
+  await repo.consumeVerificationToken(row.id, row.userId);
+}
+
+/**
+ * Always succeeds, whatever the address. A different answer for unknown or
+ * already-verified accounts would let anyone probe which emails are registered.
+ */
+export async function resendVerification({ email }: ResendVerificationPayload): Promise<void> {
+  const user = await repo.loadUserByEmail(email);
+  if (!user || user.emailVerifiedAt || user.status === 'rejected' || user.status === 'deactivated') return;
+
+  const last = await repo.latestVerificationToken(user.id);
+  if (last && Date.now() - last.createdAt.getTime() < RESEND_COOLDOWN_MS) return;
+
+  await sendVerification(user);
+}
+
+/** The admin-side resend. Skips the cooldown, and says why when there's nothing to send. */
+export async function resendVerificationFor(userId: string): Promise<void> {
+  const user = await repo.loadUserById(userId);
+  if (!user) throw missing('User not found');
+  if (user.emailVerifiedAt) throw stateConflict('This email address is already verified').withCode('ALREADY_VERIFIED');
+  await sendVerification(user);
+}
+
+// ── Sessions ─────────────────────────────────────────────────────────────────
+
+export async function signIn({ email, password }: LoginPayload): Promise<SessionGrant> {
+  const user = await repo.loadUserByEmail(email);
+
+  // Unknown email and locked account both still pay for a bcrypt compare, so
+  // the response time doesn't reveal which case it was.
+  if (!user) {
+    await secretMatches(password, DUMMY_HASH);
+    throw notAuthenticated('Invalid email or password').withCode('INVALID_CREDENTIALS');
+  }
+  if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+    await secretMatches(password, DUMMY_HASH);
+    throw lockedError(user.lockedUntil);
+  }
+
+  if (!(await secretMatches(password, user.passwordHash))) {
+    const next = nextFailureState(user);
+    await repo.recordLoginFailure(user.id, next);
+    if (next.lockedUntil) throw lockedError(next.lockedUntil);
+    throw notAuthenticated('Invalid email or password')
+      .withCode('INVALID_CREDENTIALS')
+      .withMeta({ attemptsRemaining: settings.auth.loginMaxFailures - next.failedLoginAttempts });
+  }
+
+  // Checked only after the password, so these messages never confirm that an
+  // address exists to someone who doesn't know its password.
+  assertUsable(user);
+
+  if (user.failedLoginAttempts !== 0 || user.lockedUntil !== null) await repo.clearLoginFailures(user.id);
+  return issueSession(user);
 }
 
 /**
@@ -142,9 +214,11 @@ export async function renewSession(rawToken: string | undefined): Promise<tokens
   const cached = tokens.lookupGraceEntry(oldHash);
   if (cached) return cached;
 
-  // Reloaded so the new access token carries the current role/name/email.
+  // Reloaded so the new access token carries the current role/name/email, and
+  // so a deactivated account stops being able to refresh.
   const user = await repo.loadUserById(userId);
   if (!user) throw notAuthenticated('User not found');
+  assertUsable(user);
 
   const rotated = await tokens.cycleRefreshToken(oldHash, user);
   if (rotated) return rotated;
@@ -160,20 +234,31 @@ export async function signOut(rawToken: string | undefined): Promise<void> {
   if (rawToken) await tokens.voidRefreshToken(rawToken);
 }
 
+// ── Profile and passwords ────────────────────────────────────────────────────
+
 export async function fetchAccountProfile(userId: string) {
   const profile = await repo.loadProfileById(userId);
   if (!profile) throw missing('User not found');
   return profile;
 }
 
-export async function replacePassword(userId: string, input: ChangePasswordPayload): Promise<void> {
+/** Changes the password and signs out every other session. The one making the change stays. */
+export async function replacePassword(
+  userId: string,
+  input: ChangePasswordPayload,
+  currentRefreshToken: string | undefined,
+): Promise<void> {
   const user = await repo.loadUserById(userId);
   if (!user) throw missing('User not found');
 
   const valid = await secretMatches(input.currentPassword, user.passwordHash);
-  if (!valid) throw invalidRequest('Current password is incorrect');
+  if (!valid) throw invalidRequest('Current password is incorrect').withCode('INVALID_CURRENT_PASSWORD');
 
-  await repo.editPasswordHash(user.id, await hashSecret(input.newPassword));
+  await repo.changePasswordKeepingSession(
+    user.id,
+    await hashSecret(input.newPassword),
+    currentRefreshToken ? tokens.digestToken(currentRefreshToken) : undefined,
+  );
 }
 
 export async function editProfile(userId: string, name: string): Promise<repo.PublicAccount> {
@@ -189,21 +274,21 @@ export async function editProfile(userId: string, name: string): Promise<repo.Pu
  */
 export async function beginPasswordReset({ email }: ForgotPasswordPayload): Promise<void> {
   const user = await repo.loadUserByEmail(email);
-  if (!user) return;
+  if (!user || user.status === 'deactivated') return;
 
-  const token = crypto.randomBytes(32).toString('hex');
-  await repo.addPasswordResetToken(user.id, token, new Date(Date.now() + 60 * 60 * 1000));
-
-  void mailPasswordReset(user.email, user.name, token).catch((err) =>
-    console.error('[auth] Password reset email failed:', err),
-  );
+  const token = newEmailToken();
+  await repo.replacePasswordResetToken(user.id, token.hash, new Date(Date.now() + settings.auth.passwordResetTtlMs));
+  void mailPasswordReset(user.email, user.name, token.raw).catch(logMailFailure('Password reset'));
 }
 
+/** Sets the new password and signs the account out everywhere. */
 export async function completePasswordReset({ token, password }: ResetPasswordPayload): Promise<void> {
-  const row = await repo.loadUnexpiredResetToken(token);
-  if (!row) throw invalidRequest('Reset link is invalid or has expired');
-  if (row.usedAt) throw invalidRequest('Reset link has already been used');
+  const row = await repo.loadResetToken(tokens.digestToken(token));
+  if (!row) throw invalidRequest('This reset link is invalid or has expired.').withCode('INVALID_TOKEN');
+  if (row.usedAt) throw invalidRequest('This reset link has already been used.').withCode('TOKEN_USED');
+  if (row.expiresAt.getTime() <= Date.now()) {
+    throw invalidRequest('This reset link has expired.').withCode('TOKEN_EXPIRED');
+  }
 
-  await repo.editPasswordHash(row.userId, await hashSecret(password));
-  await repo.consumeResetToken(row.id, new Date());
+  await repo.completeReset(row.id, row.userId, await hashSecret(password));
 }

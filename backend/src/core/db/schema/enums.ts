@@ -2,6 +2,8 @@ import { pgEnum } from 'drizzle-orm/pg-core';
 
 export const roleChoices = pgEnum('role', ['student', 'teacher', 'admin']);
 
+export const accountStatusChoices = pgEnum('account_status', ['pending', 'active', 'rejected', 'deactivated']);
+
 export const subjectChoices = pgEnum('subject', ['english', 'math']);
 
 export const assessmentTypeChoices = pgEnum('exam_type', ['individual', 'mock_english', 'mock_math']);

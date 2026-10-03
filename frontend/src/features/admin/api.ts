@@ -1,10 +1,19 @@
 import { apiTransport } from '@/shared/api/http';
-import type { SessionAccount } from '@/features/auth';
+import type { SessionAccount, AccountStatus } from '@/features/auth';
 
 export interface ConsoleAccount extends SessionAccount {
   createdAt: string;
   teacherId: string | null;
+  phone: string | null;
+  status: AccountStatus;
+  emailVerified: boolean;
+  /** A failed-login lockout is in force right now. */
+  locked: boolean;
+  approvedAt: string | null;
 }
+
+/** The admin actions that move an account through its lifecycle. */
+export type AccountAction = 'approve' | 'reject' | 'deactivate' | 'reactivate' | 'unlock' | 'resend-verification';
 
 export interface EnrolmentCode {
   id: string;
@@ -70,6 +79,21 @@ export async function assignLearnersToTeacher(payload: {
   teacherId: string | null;
 }): Promise<{ ok: boolean; assigned: number }> {
   const { data } = await apiTransport.put('/admin/users/assign-teacher', payload);
+  return data;
+}
+
+export async function applyAccountAction(userId: string, action: AccountAction): Promise<void> {
+  await apiTransport.post(`/admin/users/${userId}/${action}`);
+}
+
+/** The Account Creator: teachers and admins, active immediately. */
+export async function createAccount(payload: {
+  name: string;
+  email: string;
+  password: string;
+  role: 'teacher' | 'admin';
+}): Promise<ConsoleAccount> {
+  const { data } = await apiTransport.post<ConsoleAccount>('/admin/users', payload);
   return data;
 }
 

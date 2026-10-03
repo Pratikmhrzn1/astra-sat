@@ -27,8 +27,8 @@ the design decisions further down:
    If the process restarts mid-flight, that work is simply lost (a `mock_narratives` row stuck
    at `pending` is the visible symptom).
 2. **Rate limiting and the refresh grace window are in-memory `Map`s.** `aiRateMap` in
-   `core/lib/rate-limit.ts`, the login-lockout map in `modules/identity/auth.service.ts`, and `recentlyRotated`
-   in the refresh path all live in process memory. They reset on restart and they are
+   `core/lib/rate-limit.ts` and `recentlyRotated` in the refresh path live in process memory.
+   (The login lockout does not: it is persisted on `users.failed_login_attempts` / `locked_until`.) They reset on restart and they are
    **wrong under horizontal scaling** — two instances would each grant a full AI budget.
    This is a deliberate single-instance tradeoff, not an oversight to "fix" by adding a
    second replica.
@@ -58,6 +58,17 @@ history and is not what boot runs.
 
 ## 3. Auth: short access tokens, rotating refresh tokens, and the races that creates
 
+**Getting an account.** Public signup (`POST /auth/register`) always creates a `student` with
+`status = 'pending'` and no session. Two gates follow, the flow copied from astra_ielts: the
+user opens the emailed link (`/verify-email?token=…`, sent through Resend; with no
+`RESEND_API_KEY` the email is printed to the server console), then an admin approves the
+account under User Management. `assertUsable()` in `modules/identity/auth.service.ts` checks
+both gates — plus `rejected` / `deactivated` — at login **and at every refresh**, so a
+deactivated account drops out within one access-token lifetime. Teachers and admins never sign
+up publicly; an admin creates them (`POST /admin/users`). Verification and reset tokens are
+32 random bytes, stored only as sha256. Errors carry a machine-readable `code`
+(`EMAIL_NOT_VERIFIED`, `ACCOUNT_PENDING`, `ACCOUNT_LOCKED`, …) that the login page maps to copy.
+
 The access token is a 15-minute JWT held in the Zustand store (persisted to `localStorage`
 under `sat-prep-auth`) and attached by an axios request interceptor. The refresh token is a
 7-day JWT delivered as an httpOnly cookie `rt` on `path: '/'`, and its **sha256 hash** is
@@ -77,13 +88,15 @@ log you out.
 
 ***Client** (`shared/api/http.ts`) keeps a module-level `isRefreshing` flag and a `failedQueue`. The
 first 401 triggers the refresh; every concurrent 401 parks a promise in the queue and is
-replayed with the new token. Two further details matter:
+replayed with the new token. The unauthenticated auth endpoints (`/auth/login`, `/register`,
+`/verify-email`, …) are excluded: their 401 is the answer, not an expired session. Two further details matter:
 
 - `proactiveRefresh()` runs on `visibilitychange` (`features/auth` `useProactiveTokenRefresh`, wired in `app/App.tsx`) and refreshes when the
   token is expired or within 60s of expiring. This exists specifically because TanStack
   Query's `refetchOnWindowFocus` fires a *burst* of queries the instant a tab regains focus;
   without the pre-emptive refresh that burst becomes a 401 cascade.
-- Force-logout happens **only** when the refresh endpoint itself answers 401. A network error
+- Force-logout happens **only** when the refresh endpoint itself answers 401, or 403 (the
+  account was deactivated or otherwise can no longer sign in). A network error
   or a 5xx deliberately does not log out — a flaky connection must not evict a student
   mid-exam.
 

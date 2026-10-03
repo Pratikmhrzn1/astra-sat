@@ -19,6 +19,10 @@ import {
   type RegisterPayload,
   type ResetPasswordPayload,
   type UpdateAccountProfilePayload,
+  verifyEmailRules,
+  resendVerificationRules,
+  type VerifyEmailPayload,
+  type ResendVerificationPayload,
 } from './auth.schemas';
 
 export const accountRoutes = Router();
@@ -37,14 +41,38 @@ const authLimiter = rateLimit({
   skip: () => !settings.isProduction,
 });
 
+/** Creates a pending account and emails a verification link. No session is issued. */
 accountRoutes.post(
   '/register',
   authLimiter,
   checkBody(registerRules),
   wrapAsync(async (req, res) => {
-    const { accessToken, refreshToken, user } = await service.signUp(validatedBody<RegisterPayload>(req));
-    tokens.writeRefreshCookie(res, refreshToken);
-    res.status(201).json({ accessToken, user });
+    await service.signUp(validatedBody<RegisterPayload>(req));
+    res.status(201).json({
+      message:
+        'Account created. Verify your email address, then an administrator will review your account before you can sign in.',
+    });
+  }),
+);
+
+accountRoutes.post(
+  '/verify-email',
+  authLimiter,
+  checkBody(verifyEmailRules),
+  wrapAsync(async (req, res) => {
+    await service.confirmEmail(validatedBody<VerifyEmailPayload>(req));
+    res.json({ message: 'Email address verified.' });
+  }),
+);
+
+/** The same answer whatever the address, so it can't be used to probe for accounts. */
+accountRoutes.post(
+  '/resend-verification',
+  authLimiter,
+  checkBody(resendVerificationRules),
+  wrapAsync(async (req, res) => {
+    await service.resendVerification(validatedBody<ResendVerificationPayload>(req));
+    res.json({ message: 'If that address still needs verifying, a new link has been sent.' });
   }),
 );
 
@@ -92,7 +120,11 @@ accountRoutes.post(
   requireSession,
   checkBody(changePasswordRules),
   wrapAsync(async (req, res) => {
-    await service.replacePassword(sessionUserId(req), validatedBody<ChangePasswordPayload>(req));
+    await service.replacePassword(
+      sessionUserId(req),
+      validatedBody<ChangePasswordPayload>(req),
+      tokens.takeRefreshCookie(req),
+    );
     res.json({ ok: true });
   }),
 );
@@ -118,6 +150,7 @@ accountRoutes.post(
 
 accountRoutes.post(
   '/reset-password',
+  authLimiter,
   checkBody(resetPasswordRules),
   wrapAsync(async (req, res) => {
     await service.completePasswordReset(validatedBody<ResetPasswordPayload>(req));

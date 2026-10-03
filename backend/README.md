@@ -181,9 +181,10 @@ cache before dispatching and charges the rate limiter only for calls it actually
 makes. All model access goes through `modules/ai` — never call OpenRouter
 directly, or the cost, retry and cache accounting stops being true.
 
-**In-memory state is single-instance.** The AI budget, login lockouts and the
-refresh-token grace window live in process memory (`core/lib/rate-limit.ts`,
-`modules/identity/auth.tokens.ts`). They reset on restart, and running two instances
+**In-memory state is single-instance.** The AI budget and the refresh-token
+grace window live in process memory (`core/lib/rate-limit.ts`,
+`modules/identity/auth.tokens.ts`). The login lockout does not — it is persisted
+on `users`. They reset on restart, and running two instances
 would give each its own budget. Moving to more than one process means moving
 these to Postgres or Redis first.
 
@@ -201,4 +202,7 @@ noticed during a restore.
 
 See `.env.example`, which documents every variable. `DATABASE_URL`, `JWT_SECRET`
 and `JWT_REFRESH_SECRET` are required; the AI and Resend settings are optional
-and disable their features when absent.
+and disable their features when absent. **Except in effect for Resend**: signup
+requires clicking an emailed verification link, so in production an unset
+`RESEND_API_KEY` means no new account can ever sign in. In dev, emails are printed
+to the console instead.

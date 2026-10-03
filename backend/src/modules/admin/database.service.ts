@@ -125,6 +125,7 @@ const EXCLUDED_TABLES: Record<string, string> = {
   // tokens across databases, which is a security problem rather than a recovery.
   refresh_tokens: 'session tokens, must not outlive their database',
   password_reset_tokens: 'short-lived credentials, must not be restored',
+  email_verification_tokens: 'short-lived credentials, must not be restored',
   // Reference data owned by the migration runner, which reseeds it on boot.
   skills: 'seeded by applySchema() before any restore runs',
   // Transient UI state; losing it costs a user nothing.
@@ -254,9 +255,23 @@ export async function applyBackup(input: RestorePayload): Promise<{ ok: true; me
  */
 function orderForInsert(key: string, rows: Record<string, unknown>[]): Record<string, unknown>[] {
   if (key !== 'users') return rows;
-  return [...rows].sort(
-    (a, b) => Number(Boolean(a.teacherId)) - Number(Boolean(b.teacherId)),
-  );
+  return rows
+    .map(withAccountGates)
+    .sort((a, b) => Number(Boolean(a.teacherId)) - Number(Boolean(b.teacherId)));
+}
+
+/**
+ * Backups taken before email verification and approval existed have no
+ * `status` or `emailVerifiedAt` on their users. Left as they are, the column
+ * defaults would restore every account (the admin's included) as pending and
+ * unverified, and nobody could sign in. Those accounts were all live when the
+ * backup was taken, so they come back active and verified.
+ */
+function withAccountGates(row: Record<string, unknown>): Record<string, unknown> {
+  const patched = { ...row };
+  if (!('status' in patched)) patched.status = 'active';
+  if (!('emailVerifiedAt' in patched)) patched.emailVerifiedAt = patched.createdAt ?? new Date().toISOString();
+  return patched;
 }
 
 /**

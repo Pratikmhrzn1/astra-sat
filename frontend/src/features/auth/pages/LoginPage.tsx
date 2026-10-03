@@ -3,9 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { signIn } from '@/features/auth/api';
+import { signIn, resendVerification } from '@/features/auth/api';
 import { useSessionVault } from '@/features/auth/store';
-import { fetchApiError } from '@/shared/api/http';
+import { fetchApiError, fetchApiErrorCode, fetchApiErrorMeta } from '@/shared/api/http';
 import { fieldStyle, fieldCaptionStyle, errorTextStyle, alertStyle } from '@/shared/ui';
 import { classes } from '@/shared/lib/utils';
 
@@ -18,12 +18,35 @@ type FormData = z.infer<typeof schema>;
 
 const ROLE_ROUTES = { student: '/student/dashboard', teacher: '/teacher/dashboard', admin: '/admin/dashboard' } as const;
 
+/** Copy for the reasons a correct password still can't sign in, keyed by server code. */
+const SIGN_IN_ERRORS: Record<string, string> = {
+  INVALID_CREDENTIALS: 'Incorrect email or password.',
+  EMAIL_NOT_VERIFIED: 'Please verify your email address first — check your inbox for the link we sent.',
+  ACCOUNT_PENDING: 'Your account is awaiting administrator approval. We’ll email you once it’s approved.',
+  ACCOUNT_REJECTED: 'This account was not approved. Contact your administrator if you think this is a mistake.',
+  ACCOUNT_DEACTIVATED: 'This account has been deactivated. Contact your administrator.',
+};
+
+function describeSignInError(err: unknown): string {
+  const code = fetchApiErrorCode(err);
+  if (code === 'ACCOUNT_LOCKED') {
+    const minutes = fetchApiErrorMeta(err, 'minutesRemaining');
+    return minutes
+      ? `Too many failed attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`
+      : 'Too many failed attempts. Try again later.';
+  }
+  return (code && SIGN_IN_ERRORS[code]) || fetchApiError(err);
+}
+
 const toggleBtn = 'px-[26px] py-2 rounded-full text-[13px] font-bold tracking-[0.05em] uppercase';
 
 export default function SignIn() {
   const navigate = useNavigate();
   const { login: storeLogin, user } = useSessionVault();
   const [apiError, setApiError] = useState('');
+  // Set when sign-in failed only because the address is unverified.
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   React.useEffect(() => {
     if (user) navigate(ROLE_ROUTES[user.role], { replace: true });
@@ -33,11 +56,26 @@ export default function SignIn() {
 
   const onSubmit = async (data: FormData) => {
     setApiError('');
+    setUnverifiedEmail(null);
+    setResendState('idle');
     try {
       const result = await signIn(data.email, data.password);
       storeLogin(result.user, result.accessToken);
       navigate(ROLE_ROUTES[result.user.role], { replace: true });
     } catch (err) {
+      setApiError(describeSignInError(err));
+      if (fetchApiErrorCode(err) === 'EMAIL_NOT_VERIFIED') setUnverifiedEmail(data.email);
+    }
+  };
+
+  const onResend = async () => {
+    if (!unverifiedEmail) return;
+    setResendState('sending');
+    try {
+      await resendVerification(unverifiedEmail);
+      setResendState('sent');
+    } catch (err) {
+      setResendState('idle');
       setApiError(fetchApiError(err));
     }
   };
@@ -123,6 +161,22 @@ export default function SignIn() {
             {apiError && (
               <div className={classes(alertStyle, 'mb-4')}>
                 {apiError}
+                {unverifiedEmail && (
+                  <div className="mt-1.5">
+                    {resendState === 'sent' ? (
+                      <span className="font-semibold">A new link is on its way.</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onResend}
+                        disabled={resendState === 'sending'}
+                        className="p-0 bg-transparent border-0 text-danger font-semibold underline cursor-pointer"
+                      >
+                        {resendState === 'sending' ? 'Sending…' : 'Resend verification email'}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
