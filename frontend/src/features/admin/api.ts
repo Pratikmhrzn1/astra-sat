@@ -10,6 +10,23 @@ export interface ConsoleAccount extends SessionAccount {
   /** A failed-login lockout is in force right now. */
   locked: boolean;
   approvedAt: string | null;
+  /** ISO timestamp; null means the account never expires. */
+  expiryDate: string | null;
+  /** Test starts per day; null means unlimited. */
+  dailyTestLimit: number | null;
+  convertedAt: string | null;
+  /** `status`, except that an active account past its expiry reads as 'expired'. */
+  effectiveStatus: AccountStatus | 'expired';
+  /** Hard delete is only allowed once a learner account has expired. */
+  deletable: boolean;
+}
+
+/** The admin-editable account defaults applied to new signups. */
+export interface PlatformSettings {
+  trialDurationDays: number;
+  trialDailyTestLimit: number;
+  studentDurationDays: number;
+  updatedAt: string;
 }
 
 /** The admin actions that move an account through its lifecycle. */
@@ -36,6 +53,7 @@ export interface TaggingSpread {
 
 export interface ConsoleMetrics {
   students: number;
+  trials: number;
   teachers: number;
   admins: number;
   exams: number;
@@ -94,6 +112,39 @@ export async function createAccount(payload: {
   role: 'teacher' | 'admin';
 }): Promise<ConsoleAccount> {
   const { data } = await apiTransport.post<ConsoleAccount>('/admin/users', payload);
+  return data;
+}
+
+/** `null` clears the expiry: the account never expires. */
+export async function setAccountExpiry(userId: string, expiryDate: string | null): Promise<ConsoleAccount> {
+  const { data } = await apiTransport.put<ConsoleAccount>(`/admin/users/${userId}/expiry`, { expiryDate });
+  return data;
+}
+
+/** `null` removes the cap. */
+export async function setAccountDailyLimit(userId: string, dailyTestLimit: number | null): Promise<ConsoleAccount> {
+  const { data } = await apiTransport.put<ConsoleAccount>(`/admin/users/${userId}/daily-limit`, { dailyTestLimit });
+  return data;
+}
+
+/**
+ * Trial → student. The new expiry counts from the original signup date, so
+ * `inPast` means it has already passed and the admin should move it.
+ */
+export async function convertTrial(userId: string): Promise<{ user: ConsoleAccount; inPast: boolean }> {
+  const { data } = await apiTransport.post<{ user: ConsoleAccount; inPast: boolean }>(`/admin/users/${userId}/convert`);
+  return data;
+}
+
+export async function fetchPlatformSettings(): Promise<PlatformSettings> {
+  const { data } = await apiTransport.get<PlatformSettings>('/admin/platform-settings');
+  return data;
+}
+
+export async function savePlatformSettings(
+  patch: Partial<Omit<PlatformSettings, 'updatedAt'>>,
+): Promise<PlatformSettings> {
+  const { data } = await apiTransport.put<PlatformSettings>('/admin/platform-settings', patch);
   return data;
 }
 

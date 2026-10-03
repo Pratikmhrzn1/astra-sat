@@ -26,3 +26,17 @@ export async function fetchAvailableCompetencyPassages(): Promise<WeakAreaExtrac
   const { data } = await apiTransport.get<WeakAreaExtract[]>('/student/skill-passages/available');
   return data;
 }
+
+/** Today's test starts against the account's daily limit. `limit: null` means unlimited. */
+export interface DailyUsage {
+  limit: number | null;
+  used: number;
+  remaining: number | null;
+  /** When today's count resets (midnight, Nepal time). */
+  resetsAt: string;
+}
+
+export async function fetchDailyUsage(): Promise<DailyUsage> {
+  const { data } = await apiTransport.get<DailyUsage>('/student/daily-usage');
+  return data;
+}

@@ -7,6 +7,7 @@ import { fetchFeedback } from '@/features/messages';
 import { fetchAvailableCompetencyPassages, openTopicAssessment } from '@/features/practice';
 import { fetchAnalytics, fetchProfile, lowestDomain } from '@/features/progress';
 import { fetchMisstepSummary } from '@/features/mistakes';
+import { AccessBanner } from '@/features/dashboard/components/AccessBanner';
 import { panelStyle, screenStyle } from '@/shared/ui';
 import { classes } from '@/shared/lib/utils';
 import {
@@ -106,6 +107,8 @@ export default function LearnerHome() {
           </button>
         </div>
       </div>
+
+      {user && <AccessBanner user={user} />}
 
       {/* Hero — estimated score */}
       <div className="bg-ink rounded-3xl px-5 py-6 sm:px-9 sm:py-8 mb-4 relative overflow-hidden block sm:grid sm:grid-cols-[auto_1px_1fr_auto] gap-9 items-center">

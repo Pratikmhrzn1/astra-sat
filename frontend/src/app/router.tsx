@@ -1,7 +1,7 @@
 import { lazy, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RouteFence } from '@/app/RouteBoundary';
-import { useSessionVault } from '@/features/auth';
+import { HOME_ROUTES, useSessionVault } from '@/features/auth';
 import { GuardedRoute } from '@/app/ProtectedRoute';
 
 import LearnerLayout from '@/app/layouts/StudentLayout';
@@ -35,6 +35,7 @@ const AddContent = lazy(() => import('@/features/content/pages/AddContentPage'))
 
 const AdminDashboard = lazy(() => import('@/features/dashboard/pages/AdminDashboardPage'));
 const Users = lazy(() => import('@/features/admin/pages/UsersPage'));
+const PlatformSettings = lazy(() => import('@/features/admin/pages/PlatformSettingsPage'));
 const AccessCodes = lazy(() => import('@/features/admin/pages/AccessCodesPage'));
 const Database = lazy(() => import('@/features/admin/pages/DatabasePage'));
 const AdminSurvey = lazy(() => import('@/features/survey/pages/AdminSurveyPage'));
@@ -66,9 +67,7 @@ function page(node: ReactNode) {
 function RootRedirect() {
   const { user } = useSessionVault();
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role === 'student') return <Navigate to="/student/dashboard" replace />;
-  if (user.role === 'teacher') return <Navigate to="/teacher/dashboard" replace />;
-  return <Navigate to="/admin/dashboard" replace />;
+  return <Navigate to={HOME_ROUTES[user.role]} replace />;
 }
 
 /**
@@ -149,6 +148,7 @@ export function RootRoutes() {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={page(<AdminDashboard />)} />
           <Route path="users" element={page(<Users />)} />
+          <Route path="platform-settings" element={page(<PlatformSettings />)} />
           <Route path="access-codes" element={page(<AccessCodes />)} />
           <Route path="database" element={page(<Database />)} />
           <Route path="feedback" element={page(<AdminFeedback />)} />
