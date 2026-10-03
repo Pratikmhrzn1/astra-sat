@@ -41,3 +41,8 @@ Thumbs.db
 .claude/
 agent/
 skills-lock.json
+
+# Local-only content and config
+sat-platform-prompt.md
+content/
+frontend/.env.production
