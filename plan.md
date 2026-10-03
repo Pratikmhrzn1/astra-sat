@@ -17,7 +17,7 @@ Legend: `- [ ]` to do · `- [x]` done · ⏸ waiting on a decision or out of sco
 
 | Stage | Scope | Branch | PR | Status |
 |---|---|---|---|---|
-| 0 | CI and test foundation | `stage-0-ci-tests` | — | In progress |
+| 0 | CI and test foundation | `stage-0-ci-tests` | (opening) | ✅ Done, waiting on CI and merge |
 | 1 | Authentication (astra model) | `rewrite/stage1-backend` | merged to `main` (`194aa73`) | ✅ Done |
 | 2 | Account lifecycle | — | — | Not started |
 | 3 | Admin and ops | — | — | Not started |
@@ -29,18 +29,19 @@ Legend: `- [ ]` to do · `- [x]` done · ⏸ waiting on a decision or out of sco
 
 The repo has no CI and no test suite. This stage adds both, so every later stage can be verified automatically.
 
-- [ ] **CI workflow** `.github/workflows/ci.yml`. It runs on every push and pull request with one job per package: `npm ci`, `npx tsc --noEmit`, `npm run depcruise`, `npm run build`. The backend job gets a `postgres:16` service.
-- [ ] **Backend Vitest + supertest**. Adds an `npm test` script, `vitest.config.ts` and a test environment (`NODE_ENV=test`, a separate `DATABASE_URL`, dummy JWT secrets). Setup runs `applySchema()` and empties the tables between files. The app is built through `buildApp(apiRoutes)`, so tests never call `listen`.
-- [ ] **Email outbox for tests**. Under `NODE_ENV=test`, `core/lib/email.ts` keeps sent messages in memory instead of sending or printing them, so tests can read the verify and reset links.
-- [ ] **Identity test suite** covering the Stage 1 verification matrix (Appendix B, 1.7):
-  - [ ] Signup → verify → approve → login, including `EMAIL_NOT_VERIFIED` and `ACCOUNT_PENDING` along the way
-  - [ ] Verification and reset links: `INVALID_TOKEN`, `TOKEN_USED`, `TOKEN_EXPIRED`
-  - [ ] Lockout after 10 failures is stored in the DB, and admin unlock clears it
-  - [ ] Deactivation blocks refresh. Reject and reactivate work.
-  - [ ] Password reset revokes every session. Changing the password revokes every session except the current one.
-  - [ ] Account Creator makes active, verified teacher and admin accounts. Signup ignores access codes, including `000000`.
-- [ ] **CI runs `npm test`** in the backend job.
-- [ ] **Docs**: CLAUDE.md's "no test suite" line and Commands section, and `backend/README.md`, describe the test setup.
+- [x] **CI workflow** `.github/workflows/ci.yml`. It runs on every push and pull request with one job per package: `npm ci`, `npx tsc --noEmit`, `npm run depcruise`, `npm run build`. The backend job gets a `postgres:16` service.
+- [x] **Backend Vitest + supertest**. Adds an `npm test` script, `vitest.config.ts` and a test environment (`NODE_ENV=test`, a separate `DATABASE_URL`, dummy JWT secrets). Setup runs `applySchema()` and empties the tables between files. The app is built through `buildApp(apiRoutes)`, so tests never call `listen`.
+- [x] **Email outbox for tests**. Under `NODE_ENV=test`, `core/lib/email.ts` keeps sent messages in memory instead of sending or printing them, so tests can read the verify and reset links.
+- [x] **Identity test suite** covering the Stage 1 verification matrix (Appendix B, 1.7):
+  - [x] Signup → verify → approve → login, including `EMAIL_NOT_VERIFIED` and `ACCOUNT_PENDING` along the way
+  - [x] Verification and reset links: `INVALID_TOKEN`, `TOKEN_USED`, `TOKEN_EXPIRED`
+  - [x] Lockout after 10 failures is stored in the DB, and admin unlock clears it
+  - [x] Deactivation blocks refresh. Reject and reactivate work.
+  - [x] Password reset revokes every session. Changing the password revokes every session except the current one.
+  - [x] Account Creator makes active, verified teacher and admin accounts. Signup ignores access codes, including `000000`.
+- [x] **CI runs `npm test`** in the backend job.
+- [x] **Found and fixed by the tests:** expired password-reset links were still accepted when the DB session isn't UTC (as on the dev machines). `password_reset_tokens` is `TIMESTAMPTZ` in `migrate.ts` but was declared zone-less in Drizzle. The test DB is now pinned to `Asia/Kathmandu`, so CI catches this class of bug too.
+- [x] **Docs**: CLAUDE.md's (local only, gitignored) "no test suite" line and Commands section, and `backend/README.md`, describe the test setup.
 
 ## Stage 1 — Authentication ✅
 
