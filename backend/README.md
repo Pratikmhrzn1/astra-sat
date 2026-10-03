@@ -10,11 +10,38 @@ cp .env.example .env      # DATABASE_URL and the two JWT secrets are required
 npm install
 npm run dev               # tsx watch, port 3001
 npm run build && npm start
-npx tsc --noEmit          # the only automated gate — there is no test suite yet
+npx tsc --noEmit          # typecheck
+npm run depcruise         # module boundary rules
+npm test                  # Vitest + supertest against a real Postgres (see below)
 ```
 
 Migrations run automatically at boot, before the port opens. The frontend dev
 server (5173) proxies `/api` here.
+
+### Tests
+
+Tests live in `test/` and drive the real Express app (`buildApp(apiRoutes)`)
+through supertest, against a real Postgres database:
+
+```bash
+createdb sat_test                                   # once
+npm test                                            # uses postgres://localhost:5432/sat_test
+TEST_DATABASE_URL=postgres://user:pw@host:5432/sat_test npm test
+npm run typecheck:test                              # typecheck src + test together
+```
+
+- The database name **must end in `_test`**. Every table is truncated before
+  each test, and setup refuses to run against anything else. `vitest.config.ts`
+  sets `DATABASE_URL`, JWT secrets and `NODE_ENV=test` itself, so `backend/.env`
+  can't point a test run at real data.
+- The schema comes from `applySchema()`, the same migration the server runs on boot.
+  The test DB's timezone is pinned to `Asia/Kathmandu`, so bugs that only show
+  up off UTC also fail in CI.
+- Under `NODE_ENV=test`, email goes to `testOutbox` (`core/lib/email.ts`) and is
+  never sent. `tokenFromOutbox()` in `test/helpers.ts` pulls verify and reset tokens out of it.
+- CI (`.github/workflows/ci.yml`) runs typecheck, depcruise, tests and build for
+  the backend, and typecheck, depcruise and build for the frontend, on every PR
+  and on pushes to `main`.
 
 ## Layout
 

@@ -68,9 +68,12 @@ export const resetTokensTable = pgTable('password_reset_tokens', {
   // kept its old name so no migration was needed; raw tokens issued before the
   // switch simply stop matching, and they expired within the hour anyway.
   token: text('token').notNull().unique(),
-  expiresAt: timestamp('expires_at').notNull(),
-  usedAt: timestamp('used_at'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
+  // TIMESTAMPTZ in migrate.ts, unlike most tables. Declaring it zone-less here
+  // made Drizzle misread it whenever the DB session isn't UTC (an expired link
+  // stayed valid for hours on a Kathmandu-local Postgres).
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 /** Single-use email confirmation links. Only the sha256 of the token is stored. */

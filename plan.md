@@ -1,15 +1,104 @@
-# plan.md — Features from astra_ielts
+# plan.md — Staged roadmap (features from astra_ielts)
 
-Reference repo: `../astra_ielts` (IELTS sibling platform).
-Branch: work starts from `rewrite/stage1-backend`.
+Reference repo: `../astra_ielts` (IELTS sibling platform). Detailed specs live in the appendices at the end.
 
-> **Status (2026-10-03): Phase 1 is implemented and uncommitted**, with the defaults in 1.8. It was verified against a throwaway copy of the dev DB: migration backfill, an idempotent second boot, the full signup → verify → approve → login flow, lockout surviving a restart, deactivation, reset and change password, the Account Creator, and an old-backup restore. Additions beyond this plan: (a) `shared/api/http.ts` no longer runs the refresh-and-retry interceptor on `/auth/login` and friends (previously a wrong password surfaced as "No refresh token"); (b) a restore of a pre-Phase-1 backup brings users back active and verified instead of all pending; (c) verification-token `created_at` is stamped from JS, because the local DB runs in Asia/Kathmandu and the zone-less `NOW()` default broke the resend cooldown.
+## How stages work
 
-**Phase 1, authentication, is the committed scope.** Login and signup copy astra_ielts's model: email verification through Resend, then admin approval, a database-persisted account lockout, and tokens that are hashed at rest. **The UI stays as it is.** The existing auth pages keep their layout and styling, and only what they do changes. Phases 2–4 are a backlog of astra ideas, ordered by value. Each one needs its own go-ahead.
+1. Each stage gets its own branch `stage-N-<slug>`, cut from an up-to-date `main`. Open decisions for the stage are settled before coding starts.
+2. Each item is ticked (`- [x]`) as soon as it is done and passes its checks.
+3. When every item in a stage is ticked:
+   - Local gates pass in both packages: `npx tsc --noEmit`, `npm run depcruise` and `npm run build`, plus backend `npm test`.
+   - The app is run locally against a throwaway database and the stage's features are exercised by hand.
+   - The stage is marked done in the table below and committed.
+4. The branch is pushed and a PR is opened. GitHub Actions CI must be green.
+5. A maintainer merges to `main`. The next stage starts only after that and an explicit go-ahead.
+
+Legend: `- [ ]` to do · `- [x]` done · ⏸ waiting on a decision or out of scope for now.
+
+| Stage | Scope | Branch | PR | Status |
+|---|---|---|---|---|
+| 0 | CI and test foundation | `stage-0-ci-tests` | [#1](https://github.com/Pratikmhrzn1/astra-sat/pull/1) | ✅ Done, CI green, waiting on merge |
+| 1 | Authentication (astra model) | `rewrite/stage1-backend` | merged to `main` (`194aa73`) | ✅ Done |
+| 2 | Account lifecycle | — | — | Not started |
+| 3 | Admin and ops | — | — | Not started |
+| 4 | Platform quality | — | — | Not started |
 
 ---
 
-## 0. Where the two repos differ today
+## Stage 0 — CI and test foundation
+
+The repo has no CI and no test suite. This stage adds both, so every later stage can be verified automatically.
+
+- [x] **CI workflow** `.github/workflows/ci.yml`. It runs on every push and pull request with one job per package: `npm ci`, `npx tsc --noEmit`, `npm run depcruise`, `npm run build`. The backend job gets a `postgres:16` service.
+- [x] **Backend Vitest + supertest**. Adds an `npm test` script, `vitest.config.ts` and a test environment (`NODE_ENV=test`, a separate `DATABASE_URL`, dummy JWT secrets). Setup runs `applySchema()` and empties the tables between files. The app is built through `buildApp(apiRoutes)`, so tests never call `listen`.
+- [x] **Email outbox for tests**. Under `NODE_ENV=test`, `core/lib/email.ts` keeps sent messages in memory instead of sending or printing them, so tests can read the verify and reset links.
+- [x] **Identity test suite** covering the Stage 1 verification matrix (Appendix B, 1.7):
+  - [x] Signup → verify → approve → login, including `EMAIL_NOT_VERIFIED` and `ACCOUNT_PENDING` along the way
+  - [x] Verification and reset links: `INVALID_TOKEN`, `TOKEN_USED`, `TOKEN_EXPIRED`
+  - [x] Lockout after 10 failures is stored in the DB, and admin unlock clears it
+  - [x] Deactivation blocks refresh. Reject and reactivate work.
+  - [x] Password reset revokes every session. Changing the password revokes every session except the current one.
+  - [x] Account Creator makes active, verified teacher and admin accounts. Signup ignores access codes, including `000000`.
+- [x] **CI runs `npm test`** in the backend job.
+- [x] **Found and fixed by the tests:** expired password-reset links were still accepted when the DB session isn't UTC (as on the dev machines). `password_reset_tokens` is `TIMESTAMPTZ` in `migrate.ts` but was declared zone-less in Drizzle. The test DB is now pinned to `Asia/Kathmandu`, so CI catches this class of bug too.
+- [x] **Docs**: CLAUDE.md's (local only, gitignored) "no test suite" line and Commands section, and `backend/README.md`, describe the test setup.
+
+## Stage 1 — Authentication ✅
+
+Spec: Appendix B. Committed as `194aa73` and merged to `main`.
+
+- [x] 1.1 Database: `account_status` enum, status/verification/lockout/approval columns with backfills that run once, `email_verification_tokens`, hashed reset tokens, `000000` admin code no longer seeded
+- [x] 1.2 Config: `EMAIL_VERIFICATION_TTL`, `PASSWORD_RESET_TTL`, `LOGIN_MAX_FAILED_ATTEMPTS`, `LOGIN_LOCKOUT_MINUTES`, a production warning when `RESEND_API_KEY` is unset
+- [x] 1.3 Email: verification, reset and approved templates with HTML and text versions, escaped names, a console fallback, in-process retry. `mailWelcome` removed.
+- [x] 1.4 Error codes: `code` field added to the error body
+- [x] 1.5 Identity module: signup/verify/resend/sign-in/refresh/reset/change-password rewritten; admin approve, reject, deactivate, reactivate, unlock and resend; Account Creator
+- [x] 1.6 Frontend: register, verify-email, login error codes, reset/forgot copy, admin Users page actions
+- [x] 1.7 Manual verification on a throwaway DB copy (steps 1–7 and 9)
+- [ ] 1.7 step 8: send real emails through a real `RESEND_API_KEY` and check the `/sat/...` links (needs a key, so it can't run in CI)
+
+## Stage 2 — Account lifecycle
+
+From astra's `admin.service.ts`, `platform-settings.ts` and `user-view.ts`. **Decide at the start:** D3, whether deleting a user stays or becomes deactivate-only (item 2.5).
+
+- [ ] **2.1 Trial role**
+  - [ ] Backend: `role` becomes `trial | student | teacher | admin`. A `LEARNER_ROLES` constant replaces the ~12 `requireAccountRole(['student'])` lists. Signup can choose `trial` or `student`.
+  - [ ] Backend: `daily_test_limit` covers practice and mock starts per UTC day, with mock sections exempt
+  - [ ] Frontend: role choice at signup, and trial limits shown to the student
+  - [ ] Tests: the limit is enforced, and trial accounts reach the student routes
+- [ ] **2.2 Account expiry**
+  - [ ] Backend: `users.expiry_date`, an `ACCOUNT_EXPIRED` check in `assertUsable`, a derived `effectiveStatus` that is never stored
+  - [ ] Frontend: the admin can set and clear expiry, and the login page has `ACCOUNT_EXPIRED` copy
+  - [ ] Tests: an expired account can't log in or refresh
+- [ ] **2.3 Convert trial → student**
+  - [ ] Backend: expiry is computed from the original signup date, with a warning when the result is already in the past
+  - [ ] Frontend: a convert action on the admin Users page
+  - [ ] Tests
+- [ ] **2.4 Platform settings**
+  - [ ] Backend: a single `platform_settings` row (trial days, trial daily limit, student days), seeded from env the first time it's read
+  - [ ] Frontend: an admin settings form
+  - [ ] Tests
+- [ ] **2.5 No hard delete** ⏸ only if D3 flips: `DELETE /admin/users/:id` is replaced by deactivate, so attempt history is never lost
+
+## Stage 3 — Admin and ops
+
+- [ ] **3.1 AI cost time series**: a summary plus a 7d/30d/90d series (astra's `ai-costs.service.ts`), shown as a chart on the admin dashboard
+- [ ] **3.2 Three-part streamed backup**: users+attempts JSON, content JSON and an uploads `tar.gz`, streamed as downloads. Today uploads are left out of backups.
+- [ ] **3.3 Dev seed**: `npm run seed` already exists (`core/db/seed.ts`). It should refuse to run in production and also create a trial account (after 2.1).
+- [ ] **3.4 Teacher media library**: astra's `media` module and `MediaPicker`, for images on questions and passages
+- [ ] Tests for each item above
+
+## Stage 4 — Platform quality
+
+- [ ] **4.1 More tests**: `modules/exams` grading and scaled score, the riskiest code according to `README.md`
+- [ ] **4.2 Email/job queue**: BullMQ + Redis for email and the post-response AI work. Needs Redis in `docker-compose.yml` and `deploy.sh`.
+- [ ] **4.3 Cross-device exam resume**: drafts saved on the server (`PATCH /:id/draft`, `GET /current`). Changes `TakeExamPage` and must follow the ref-mirroring rule.
+- [ ] **4.4 History tabs** ⏸ UI work, waits until UI changes are back in scope: Practice / Mock / Live, one row per exam with a link to a section breakdown
+
+Out of scope until asked for: astra's sidebar navigation and "Test Engine v2" visual system. The UI stays as it is for now.
+
+---
+
+# Appendix A — Where the two repos differ (as of Stage 1 planning)
 
 | Concern | SAT today | astra_ielts | Phase 1 target |
 |---|---|---|---|
@@ -30,9 +119,7 @@ Branch: work starts from `rewrite/stage1-backend`.
 
 **Security issue found during this review:** `core/db/migrate.ts` (`SEED_DEFAULT_ADMIN_CODE`) seeds an active **admin** access code `000000` on every boot when there isn't one. Anyone who knows it can register as an admin. Phase 1 closes this hole because signup stops reading access codes.
 
----
-
-## Phase 1 — Authentication (astra model, Resend, unchanged UI)
+# Appendix B — Stage 1 spec: Authentication (astra model, Resend, unchanged UI)
 
 ### 1.1 Database (`core/db/schema/identity.ts`, `enums.ts`, `migrate.ts`)
 
@@ -174,31 +261,3 @@ Deploy is through `deploy.sh`, which deletes the source tree, so deploy from a c
 | **D3** | Keep hard delete of users, or follow astra ("deactivate only, never hard delete")? | Keep delete for now and add deactivate. Revisit in Phase 2. |
 | **D4** | Keep the production-only IP volume limiter on auth routes? | **Keep** |
 | **D5** | Send an "account approved" email (SAT addition)? | **Yes** |
-
----
-
-## Phase 2 — Account lifecycle (builds on Phase 1)
-
-From astra's `admin.service.ts`, `platform-settings.ts` and `user-view.ts`.
-
-1. **Trial role.** Public signup picks `trial` or `student`, as astra does. A trial account has an `expiry_date` and a `daily_test_limit` (practice and mock starts per UTC day, with mock sections exempt as in astra). This needs `role` to become `trial | student | teacher | admin`, and every `requireAccountRole(['student'])` (~12 routers) must accept `trial`. Add a `LEARNER_ROLES` constant instead of editing the lists one by one.
-2. **Account expiry.** `users.expiry_date`. `assertUsable` adds `ACCOUNT_EXPIRED`, and `effectiveStatus` is derived, never stored. The admin can set or clear it.
-3. **Convert trial → student.** Expiry is computed from the *original signup date* (astra's rule), and the admin is warned when the result is already in the past.
-4. **Platform settings.** A single `platform_settings` row (trial days, trial daily limit, student days), editable by the admin, lazily seeded from env (astra's `getSettings`).
-5. **No hard delete** (if D3 flips): replace `DELETE /admin/users/:id` with deactivate, so student attempt history is never lost.
-
-## Phase 3 — Admin and ops
-
-1. **AI cost time series.** astra's `ai-costs.service.ts` adds a summary plus a 7d/30d/90d time series. SAT's `/admin/ai-model-stats` only aggregates per model. Add the time series and a chart on the admin dashboard.
-2. **Three-part streamed backup.** astra streams users+attempts JSON, content JSON and an uploads `tar.gz` as downloads, never writing to disk. SAT's backup is one JSON with no uploaded files, so uploads are currently lost from backups.
-3. **Dev seed accounts.** A `npm run seed:dev` that refuses to run when `NODE_ENV=production`, and creates a pre-verified, pre-approved student (and trial). With Phase 1 in place, local testing otherwise means approving yourself every time.
-4. **Teacher media library.** astra's `media` module and `MediaPicker` let teachers attach uploaded images to questions and passages, instead of pasting URLs into the content editor.
-
-## Phase 4 — Platform quality
-
-1. **Test suite.** astra has Vitest with a real Postgres test DB and in-memory outboxes for email and jobs (99 tests). Start with `identity` (the whole Phase 1 matrix above), then grading and scaled score in `modules/exams`, which is the riskiest code according to `README.md`. Update CLAUDE.md's "no test suite" line.
-2. **Email/job queue.** Move email and the post-response AI work (narratives, skill passages) onto BullMQ + Redis, as astra does, for retries and visibility. This needs a Redis service in `docker-compose.yml` and `deploy.sh`. The Phase 1 send helpers already have queue-ready signatures.
-3. **Cross-device exam resume.** SAT keeps in-progress answers in best-effort IndexedDB. astra autosaves drafts server-side (`PATCH /:id/draft`) and serves `GET /current`, so a student can continue on another device. That's a `TakeExamPage` change, and it has to follow the ref-mirroring rule.
-4. **History tabs.** Practice / Mock / Live, where Mock and Live show one row per exam that links to a section breakdown (astra's History page). This is a UI change, so it waits until UI work is back in scope.
-
-Out of scope until asked for: astra's sidebar navigation and "Test Engine v2" visual system. The UI stays as it is for now.

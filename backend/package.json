@@ -9,7 +9,10 @@
     "start": "node dist/index.js",
     "migrate": "drizzle-kit push",
     "seed": "tsx src/core/db/seed.ts",
-    "depcruise": "depcruise src --config .dependency-cruiser.cjs"
+    "depcruise": "depcruise src --config .dependency-cruiser.cjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck:test": "tsc -p test --noEmit"
   },
   "dependencies": {
     "@types/cookie-parser": "^1.4.10",
@@ -37,10 +40,13 @@
     "@types/multer": "^2.2.0",
     "@types/node": "^20.12.7",
     "@types/pg": "^8.11.5",
+    "@types/supertest": "^7.2.1",
     "@types/uuid": "^9.0.8",
     "dependency-cruiser": "^18.3.0",
     "drizzle-kit": "^0.21.4",
+    "supertest": "^7.3.1",
     "tsx": "^4.7.3",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^3.2.7"
   }
 }
